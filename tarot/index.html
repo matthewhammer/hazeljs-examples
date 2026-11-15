@@ -18,11 +18,29 @@
 <div class="oracle-grid">
 <section class="oracle-left" aria-label="The reading">
   <div class="controls">
-    <label>Spread <select id="spread"><option value="One">one card</option><option value="Three" selected>past, present, future</option><option value="CelticCross">the Celtic Cross</option></select></label>
+    <label>Spread <select id="spread">
+      <option value="One" data-use="Daily reflection, or a focused question: one card gives a theme, a view, or advice.">One card</option>
+      <optgroup label="Three cards: a compact look at a situation">
+        <option value="Three:PastPresentFuture" data-use="A compact look at a situation: what has led here, where it stands, where it is heading." selected>Past, present, future</option>
+        <option value="Three:SituationChallengeAdvice" data-use="A compact look at a situation: where it stands, what is in the way, what would help.">Situation, challenge, advice</option>
+        <option value="Three:MindBodySpirit" data-use="A compact look at yourself: your thoughts, your body and days, what moves you.">Mind, body, spirit</option>
+      </optgroup>
+      <option value="CelticCross" data-use="A detailed, general reading: ten cards for the situation, what crosses it, its roots, the recent past, what may come, yourself, your surroundings, hopes and fears, and where it leads. (Readers place these ten differently; this is one common way.)">The Celtic Cross (10 cards)</option>
+      <option value="Relationship" data-use="Understanding a connection: each of you, the bond between you, its strength, its tension, and a way forward.">A relationship (6 cards)</option>
+      <optgroup label="A choice, or a crossroads: comparing paths">
+        <option value="Choice:2" data-use="Comparing two paths: the crossroads, then for each path what it opens, what it asks of you, and where it is likely to lead.">Two paths (7 cards)</option>
+        <option value="Choice:3" data-use="Comparing three paths: the crossroads, then for each path what it opens, what it asks of you, and where it is likely to lead.">Three paths (10 cards)</option>
+      </optgroup>
+      <optgroup label="The year ahead: themes over time">
+        <option value="YearAhead:theme" data-use="Themes over time: a card for the year as a whole, then one for each of the next twelve months, starting with this one.">Twelve months and the year (13 cards)</option>
+        <option value="YearAhead:months" data-use="Themes over time: one card for each of the next twelve months, starting with this one.">Twelve months (12 cards)</option>
+      </optgroup>
+    </select></label>
     <label><input type="checkbox" id="reversals" checked> reversals</label>
     <button type="button" id="deal" class="primary">Shuffle and deal</button>
     <button type="button" id="turn">Turn the next card</button>
   </div>
+  <p class="spread-use muted" id="spread-use"></p>
   <div class="status wait" id="status">⏳ Loading Hazel (hazeljs from jsDelivr); until then the page's own JS deals.</div>
   <h2 class="reading-head" id="reading-head">A new reading</h2>
   <div class="table" id="table"><p class="muted">Deal to lay out a spread.</p></div>
@@ -34,7 +52,7 @@
   <p class="muted" style="margin-top:0">The vocabulary every module sees (<code>tarot/rules/preamble.hz</code>). Each listing is Hazel's editor: Ctrl+click a name, or F12 on it, to go to its definition.</p>
   <pre class="code hazel" data-program="tarot">loading preamble.hz…</pre>
   <div class="ed"><div class="ed-head"><b>Deck</b> <span class="muted">the 78 cards and their names</span></div><pre class="code hazel" data-program="tarot" data-module="Deck">loading Deck.hz…</pre></div>
-  <div class="ed"><div class="ed-head"><b>Spreads</b> <span class="muted">each spread's places, and what a card there speaks to</span></div><pre class="code hazel" data-program="tarot" data-module="Spreads">loading Spreads.hz…</pre></div>
+  <div class="ed"><div class="ed-head"><b>Spreads</b> <span class="muted">each spread's places, and what a card there speaks to: some fixed, some built (a group of three for each path of a choice; a card for each month, from this one)</span></div><pre class="code hazel" data-program="tarot" data-module="Spreads">loading Spreads.hz…</pre></div>
   <div class="ed"><div class="ed-head"><b>Reading</b> <span class="muted">the deal. The page calls <code>(deal = Reading.deal)</code>.</span></div><pre class="code hazel" data-program="tarot" data-module="Reading">loading Reading.hz…</pre></div>
   <p><button type="button" id="reset-rules">Put the program back as it was</button></p>
 </section>

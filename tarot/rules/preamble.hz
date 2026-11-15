@@ -2,8 +2,12 @@
 type Suit = + Wands + Cups + Swords + Pentacles in
 # A card: one of the 22 major arcana (0, the Fool, to 21, the World), or a suit's card, its rank 1 (the Ace) to 10, then 11 Page, 12 Knight, 13 Queen, 14 King #
 type Card = + Major(Int) + Minor(Suit, Int) in
-# The spreads: one card; three for past, present and future; the Celtic Cross of ten #
-type Spread = + One + Three + CelticCross in
+# Three cards can be read three ways #
+type Trio = + PastPresentFuture + SituationChallengeAdvice + MindBodySpirit in
+# The year ahead: the month it starts from (0 for January to 11 for December), and whether a card speaks to the year's theme #
+type Year = (start = Int, theme = Bool) in
+# The spreads: one card; three; the Celtic Cross of ten; a relationship; a choice between some number of paths; the year ahead #
+type Spread = + One + Three(Trio) + CelticCross + Relationship + Choice(Int) + YearAhead(Year) in
 # A place in a spread: its name and what a card there speaks to #
 type Position = (name = String, about = String) in
 # A card dealt into its place, upright or reversed #

@@ -65,8 +65,8 @@ body.js .nojs { display: none; }
 .card { position: relative; width: 104px; height: 168px; padding: 0; border-radius: 10px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); cursor: pointer; font: inherit; }
 .card .back { height: 100%; display: grid; place-items: center; font-size: 2em; color: var(--accent); border-radius: 9px;
   background: repeating-linear-gradient(45deg, color-mix(in srgb, var(--accent) 14%, transparent) 0 6px, transparent 6px 12px); }
-.card .where { position: absolute; left: 0; right: 0; bottom: -1.5em; font-size: 0.72em; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.table { row-gap: 2.2em; }
+.card .where { position: absolute; left: -4px; right: -4px; top: 100%; margin-top: 3px; font-size: 0.72em; line-height: 1.15; color: var(--muted); }
+.table { row-gap: 2.8em; }
 .card.up { cursor: default; }
 .card.rev .face { transform: rotate(180deg); }
 .face { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 8px 4px; box-sizing: border-box; }
@@ -102,3 +102,14 @@ body.js .nojs { display: none; }
 .history-x:hover { color: var(--bad); }
 .history-note { font-size: 0.85em; margin: 8px 0 0; }
 .history-clear { font: inherit; font-size: 0.85em; margin-left: 6px; padding: 2px 8px; border-radius: 6px; border: 1px solid var(--line); background: none; color: var(--muted); cursor: pointer; }
+
+/* the other spreads' shapes (layoutOf in tarot/app.js: the spread's kind, and nN for its number of cards) */
+.table.Relationship { grid-template-areas: "p1 p3 p2" "p4 p6 p5"; }
+.table.Choice.n7 { grid-template-areas: ". p1 ." "p2 . p5" "p3 . p6" "p4 . p7"; column-gap: 28px; }
+.table.Choice.n10 { grid-template-areas: ". p1 ." "p2 p5 p8" "p3 p6 p9" "p4 p7 p10"; }
+/* the year ahead, a ring of months from the top left, clockwise; the year's own card, when there is one, in the middle */
+.table.YearAhead.n12 { grid-template-areas: "p1 p2 p3 p4" "p12 . . p5" "p11 . . p6" "p10 p9 p8 p7"; }
+.table.YearAhead.n13 { grid-template-areas: "p2 p3 p4 p5" "p13 p1 p1 p6" "p12 p1 p1 p7" "p11 p10 p9 p8"; }
+.table.YearAhead.n13 .card:first-child { justify-self: center; align-self: center; }
+.spread-use { margin: 8px 0 0; font-size: 0.92em; }
+.controls select { font: inherit; max-width: 100%; }

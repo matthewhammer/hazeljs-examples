@@ -1,19 +1,64 @@
-let positions = fun s : Spread ->
-  case s
-  | One => [(name = "The card", about = "the heart of the matter")]
-  | Three => [
+let three = fun t : Trio ->
+  case t
+  | PastPresentFuture => [
       (name = "Past", about = "what has led here"),
       (name = "Present", about = "where things stand"),
       (name = "Future", about = "where things are heading")]
-  | CelticCross => [
-      (name = "1. The present", about = "what covers the question"),
-      (name = "2. The challenge", about = "what crosses it"),
-      (name = "3. The root", about = "what lies beneath it"),
-      (name = "4. The recent past", about = "what is passing away"),
-      (name = "5. The crown", about = "what may come to be"),
-      (name = "6. The near future", about = "what comes next"),
-      (name = "7. Yourself", about = "how you stand in it"),
-      (name = "8. Your surroundings", about = "the people and places around it"),
-      (name = "9. Hopes and fears", about = "what you hope, or dread"),
-      (name = "10. The outcome", about = "where it leads")]
+  | SituationChallengeAdvice => [
+      (name = "Situation", about = "where things stand"),
+      (name = "Challenge", about = "what stands in the way"),
+      (name = "Advice", about = "what would help")]
+  | MindBodySpirit => [
+      (name = "Mind", about = "your thoughts"),
+      (name = "Body", about = "your body and your days"),
+      (name = "Spirit", about = "what moves you")]
+  end;
+let celtic_cross = [
+  (name = "1. The present", about = "what covers the question"),
+  (name = "2. The challenge", about = "what crosses it"),
+  (name = "3. The root", about = "what lies beneath it"),
+  (name = "4. The recent past", about = "what is passing away"),
+  (name = "5. The crown", about = "what may come to be"),
+  (name = "6. The near future", about = "what comes next"),
+  (name = "7. Yourself", about = "how you stand in it"),
+  (name = "8. Your surroundings", about = "the people and places around it"),
+  (name = "9. Hopes and fears", about = "what you hope, or dread"),
+  (name = "10. The outcome", about = "where it leads")];
+let relationship = [
+  (name = "You", about = "what you bring"),
+  (name = "The other", about = "what they bring"),
+  (name = "The bond", about = "what passes between you"),
+  (name = "Its strength", about = "what holds you together"),
+  (name = "Its tension", about = "what pulls you apart"),
+  (name = "A way forward", about = "what could come next")];
+let join = fun (xs, ys) : ([Position], [Position]) ->
+  case xs | [] => ys | x :: rest => x :: join(rest, ys) end;
+# A choice: the crossroads, then three cards for each path, A, B, C and so on: what it opens, what it asks, where it leads #
+let letters = ["A", "B", "C", "D", "E", "F"];
+let path = fun i : Int ->
+  let p = "Path " ++ Deck.nth_name(letters, i) in [
+    (name = p ++ ": opportunity", about = "what this path opens"),
+    (name = p ++ ": difficulty", about = "what this path asks of you"),
+    (name = p ++ ": direction", about = "where this path is likely to lead")];
+let paths = fun (i, n) : (Int, Int) ->
+  if i >= n then [] else join(path(i), paths(i + 1, n));
+# The year ahead: a card for each of twelve months, from the month the reading is made #
+let months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+let year = fun (m, k) : (Int, Int) ->
+  if k >= 12 then []
+  else
+    let i = if m + k >= 12 then m + k - 12 else m + k in
+    (name = Deck.nth_name(months, i), about = "what this month brings") :: year(m, k + 1);
+let positions = fun s : Spread ->
+  case s
+  | One => [(name = "The card", about = "the heart of the matter")]
+  | Three(t) => three(t)
+  | CelticCross => celtic_cross
+  | Relationship => relationship
+  | Choice(n) =>
+    (name = "The crossroads", about = "the choice before you")
+    :: paths(0, if n < 2 then 2 else if n > 6 then 6 else n)
+  | YearAhead(y) =>
+    if y.theme then (name = "The year", about = "the theme of the year ahead") :: year(y.start, 0)
+    else year(y.start, 0)
   end

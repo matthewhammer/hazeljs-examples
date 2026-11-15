@@ -11,7 +11,7 @@ It is the third example app for `hazeljs`, after [Messed Up Dress Up](https://ma
 | Oracle | Page | What Hazel does |
 |---|---|---|
 | I Ching | `i-ching/` | Casts each line, by three coins or by dividing the yarrow stalks; names the trigrams and the hexagram (King Wen order); finds the changing lines and the hexagram they turn it into. |
-| Tarot | `tarot/` | Holds the 78 cards and their names; deals a spread (one card; past, present and future; the Celtic Cross) from random numbers, upright or reversed, and says what each place speaks to. |
+| Tarot | `tarot/` | Holds the 78 cards and their names; deals a spread from random numbers, upright or reversed, and says what each place speaks to. The spreads: one card; three (past, present, future; situation, challenge, advice; mind, body, spirit); the Celtic Cross; a relationship; a choice between paths; the year ahead. |
 
 ## Run it
 
@@ -52,6 +52,7 @@ npm run i-ching
 
 - **The yarrow stalks' odds are the procedure's.** The books give 1/16, 5/16, 7/16 and 3/16 for 6, 7, 8 and 9, which holds when each heap is as likely to leave 1, 2, 3 or 4 stalks. Here each split falls anywhere along the heap, as a hand's might, and a heap leaves 4 a little less often, so 6 comes about 1 time in 20 rather than 1 in 16 (`npm run i-ching` counts them).
 - **A Tarot deal costs about 20 ms a card** in Node (0.18 s for the Celtic Cross's ten), each card taken from a list of up to 78 in one walk. Measuring the deck and walking it twice a card, as the first draft did, cost 50 ms a card.
+- **From JS, a constructor takes one value or a labeled tuple, not a plain tuple.** hazeljs 0.0.4 cannot match `{tag: "YearAhead", value: [10, true]}` against `YearAhead(m, t)`, so the year ahead takes `(start = Int, theme = Bool)`.
 - **Hazel answers in about a millisecond a cast** in Node (coins 0.35 ms, yarrow 1.1 ms on a laptop), and builds the program in about half a second.
 
 ## Licences

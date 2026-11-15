@@ -17,11 +17,18 @@ const { deal, size } = r.value;
 console.log("cards in the deck:", size);
 let seed = 7; const draw = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
 const us = n => Array.from({ length: 2 * n }, draw);
-for (const s of ["One", "Three", "CelticCross"]) {
-  const d = deal({ tag: s }, us(10), true);
-  console.log(s, d.map(c => `${c.position}: ${c.name}${c.reversed ? " (reversed)" : ""}`).join(" | "));
+// every spread, with how many cards it should have
+const SPREADS = [[{ tag: "One" }, 1],
+  [{ tag: "Three", value: { tag: "PastPresentFuture" } }, 3], [{ tag: "Three", value: { tag: "SituationChallengeAdvice" } }, 3],
+  [{ tag: "Three", value: { tag: "MindBodySpirit" } }, 3], [{ tag: "CelticCross" }, 10], [{ tag: "Relationship" }, 6],
+  [{ tag: "Choice", value: 2 }, 7], [{ tag: "Choice", value: 3 }, 10],
+  [{ tag: "YearAhead", value: { start: 10, theme: true } }, 13], [{ tag: "YearAhead", value: { start: 0, theme: false } }, 12]];
+for (const [s, n] of SPREADS) {
+  const t1 = performance.now(), d = deal(s, us(20), true), ms = performance.now() - t1;
+  console.log(`${JSON.stringify(s)}: ${d.length === n ? "ok" : "WRONG, " + d.length}, ${n} cards, ${ms.toFixed(0)} ms`);
+  console.log("   " + d.map(c => `${c.position}: ${c.name}${c.reversed ? " (reversed)" : ""}`).join(" | "));
 }
-const seen = new Set(); let repeats = 0; const t1 = performance.now(), N = 40;
+const seen = new Set(); let repeats = 0; const t1 = performance.now(), N = 20;
 for (let i = 0; i < N; i++) {
   const d = deal({ tag: "CelticCross" }, us(10), true);
   const names = d.map(c => c.name); if (new Set(names).size !== names.length) repeats++;
