@@ -4,6 +4,12 @@ Each version lists what the apps do as of that version. The newest version is fi
 
 ## Unreleased
 
+## 0.0.4 (2026-11-15)
+
+Everything in 0.0.3, plus:
+
+- **Each Tarot card links to its meaning by two modern authors:** Brigit Esselmont's on Biddy Tarot, and Tina Gong's on Labyrinthos. The links sit beside each turned card ("Its meaning, reversed, by …" when it is reversed), open in a new tab, and are said plainly to be other sites, with ads. One map per site (`tarot/meanings/*.json`), from each site's own index of its 78 card pages, every one checked.
+
 ## 0.0.3 (2026-11-15)
 
 Everything in 0.0.2, plus:

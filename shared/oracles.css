@@ -135,3 +135,8 @@ body.js .nojs { display: none; }
   .table.CelticCross { grid-template-areas: ". p5 . p10" "p4 p1 p6 p9" ". p3 . p8" ". . . p7"; column-gap: 22px; padding-left: 2px; padding-right: 2px; }
   .table.Choice.n7 { column-gap: 12px; }
 }
+
+/* each turned card's meaning on other sites (^ticket(738)) */
+.read .meanings { display: block; font-size: 0.88em; margin-top: 2px; }
+.read .meanings a { white-space: nowrap; }
+.read li.meanings-note { list-style: none; font-size: 0.82em; margin-top: 6px; }

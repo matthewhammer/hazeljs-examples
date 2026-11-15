@@ -47,6 +47,7 @@ npm run i-ching
 | `i-ching/index.html`, `i-ching/app.js` | The I Ching's page: the reading, the listings, hazeljs building the program, and the page's own JS for while it does not build. |
 | `tarot/rules/*.hz` | The Tarot: its vocabulary (`preamble.hz`), the deck (`Deck.hz`), the spreads' places (`Spreads.hz`), the deal (`Reading.hz`). |
 | `tarot/index.html`, `tarot/app.js` | The Tarot's page: the table, cards turned one at a time, simple faces drawn by the page for now. |
+| `tarot/meanings/*.json` | Where each card's meaning is on other sites, one map per site (Biddy Tarot, Brigit Esselmont; Labyrinthos, Tina Gong), keyed by our card ids. |
 | `shared/` | What the pages share: Hazel's listings as editors (`hazel-listings.js`, from hazeljs-petri-example), each oracle's 🕰 history of readings in the browser's local storage (`history.js`), and the styles. |
 | `node/i-ching.mjs`, `node/tarot.mjs` | Each oracle in Node (`npm run i-ching`, `npm run tarot`). |
 
@@ -54,6 +55,7 @@ npm run i-ching
 
 - **The yarrow stalks' odds are the procedure's.** The books give 1/16, 5/16, 7/16 and 3/16 for 6, 7, 8 and 9, which holds when each heap is as likely to leave 1, 2, 3 or 4 stalks. Here each split falls anywhere along the heap, as a hand's might, and a heap leaves 4 a little less often, so 6 comes about 1 time in 20 rather than 1 in 16 (`npm run i-ching` counts them).
 - **A Tarot deal costs about 20 ms a card** in Node (0.18 s for the Celtic Cross's ten), each card taken from a list of up to 78 in one walk. Measuring the deck and walking it twice a card, as the first draft did, cost 50 ms a card.
+- **Links, not text, for meanings.** The I Ching links to Cafe au Soul's reading of the six lines, and each Tarot card to Brigit Esselmont's and Tina Gong's meanings; the pages are theirs, with ads. We copy none of their text.
 - **From JS, a constructor takes one value or a labeled tuple, not a plain tuple.** hazeljs 0.0.4 cannot match `{tag: "YearAhead", value: [10, true]}` against `YearAhead(m, t)`, so the year ahead takes `(start = Int, theme = Bool)`.
 - **Hazel answers in about a millisecond a cast** in Node (coins 0.35 ms, yarrow 1.1 ms on a laptop), and builds the program in about half a second.
 

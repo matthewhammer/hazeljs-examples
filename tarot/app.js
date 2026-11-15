@@ -75,6 +75,29 @@
     return f;
   }
 
+  // ---- each card's meaning on other sites (^ticket(738), Matthew 2026-11-15: "links to free, externally hosted interpretations of
+  // the cards we selected, preferably using one or two modern authors' published meanings"). One map per site, meanings/*.json,
+  // from the site's own index of its card pages; we link to them and copy none of their text.
+  let MEANINGS = [];   // [{site, author, cards: {id: url}}]
+  const cardId = c => c.tag === "Major" ? "major-" + c.value : c.value[0].tag.toLowerCase() + "-" + c.value[1];
+  function meaningLinks(d) {
+    const id = cardId(d.card), have = MEANINGS.filter(m => m.cards && m.cards[id]);
+    if (!have.length) return null;
+    const span = el("span", "meanings");
+    span.append(d.reversed ? "Its meaning, reversed, by " : "Its meaning by ");
+    have.forEach((m, i) => {
+      if (i) span.append(i === have.length - 1 ? " or " : ", ");
+      const a = el("a", "", `${m.author} (${m.site}) ↗`);
+      a.href = m.cards[id]; a.target = "_blank"; a.rel = "noopener noreferrer";
+      a.title = `${d.name} on ${m.site}: ${m.author}'s meaning, upright and reversed. Another site, with ads.`;
+      span.append(a);
+    });
+    span.append(".");
+    return span;
+  }
+  Promise.all(["meanings/biddy-tarot.json", "meanings/labyrinthos.json"].map(p => fetch(p).then(r => r.ok ? r.json() : null).catch(() => null)))
+    .then(ms => { MEANINGS = ms.filter(Boolean); if (S.turned) draw(); });
+
   // ---- the state: the spread dealt, how many are turned, which engine dealt
   // (past: when a reading opened from the history was made, or null for a new one)
   const S = { dealt: [], turned: 0, eng: "", ms: 0, built: null, libFailed: false, past: null };
@@ -123,8 +146,15 @@
     });
     $("turn").disabled = !S.dealt.length || S.turned >= S.dealt.length;
     $("read").replaceChildren(...S.dealt.slice(0, S.turned).map(d => {
-      const li = el("li"); li.append(el("b", "", `${d.position}: ${d.name}${d.reversed ? ", reversed" : ""}.`), " ", el("span", "muted", d.about + ".")); return li; }));
+      const li = el("li"); li.append(el("b", "", `${d.position}: ${d.name}${d.reversed ? ", reversed" : ""}.`), " ", el("span", "muted", d.about + "."));
+      const m = meaningLinks(d); if (m) li.append(m);
+      return li; }));
     if (S.dealt.length) { const li = el("li", "dealt-by"); li.append(el("span", "eng " + S.eng, S.eng === "hazel" ? (S.past ? "dealt by Hazel" : `dealt by Hazel in ${S.ms.toFixed(0)} ms`) : "dealt by JS")); $("read").append(li); }
+    if (S.turned && MEANINGS.length) {
+      const li = el("li", "meanings-note muted");
+      li.textContent = "The ↗ links open other sites: each author's own meaning of the card, upright and reversed, on their publisher's pages, which carry ads and promotions. They learn only which card you open.";
+      $("read").append(li);
+    }
     drawStatus();
   }
   // what the chosen spread is for, under the chooser
