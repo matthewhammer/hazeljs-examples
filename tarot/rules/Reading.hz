@@ -1,6 +1,6 @@
 # Deal a spread from the deck: for each place, take a card from what is left of the deck, where the first random number falls, and turn it reversed if the second falls below 1/2 (when reversals are on). Taking each card from where a number falls is the same as shuffling and dealing from the top. #
 # (n is how many cards are left in cs, counted down rather than measured each time) #
-let deal_from = fun (cs, n, ps, us, reversals) : ([Card], Int, [Position], [Float], Bool) ->
+let deal_from : ([Card], Int, [Position], [Float], Bool) -> [Dealt] = fun (cs, n, ps, us, reversals) ->
   case ps
   | [] => []
   | p :: rest =>
@@ -14,5 +14,5 @@ let deal_from = fun (cs, n, ps, us, reversals) : ([Card], Int, [Position], [Floa
     end
   end;
 # The page passes two random numbers a card, each at least 0 and less than 1 #
-let deal = fun (s, us, reversals) : (Spread, [Float], Bool) ->
+let deal : (Spread, [Float], Bool) -> [Dealt] = fun (s, us, reversals) ->
   deal_from(Deck.deck, 78, Spreads.positions(s), us, reversals)

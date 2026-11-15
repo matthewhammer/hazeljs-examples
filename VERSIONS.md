@@ -4,6 +4,12 @@ Each version lists what the apps do as of that version. The newest version is fi
 
 ## Unreleased
 
+## 0.0.7 (2026-11-15)
+
+Everything in 0.0.6, plus:
+
+- **The Tarot deals about three and a half times faster.** Every function in its Hazel (`Deck.hz`, `Spreads.hz`, `Reading.hz`) now declares its whole type, what it returns as well as what it takes: `let take : ([Card], Int) -> (Card, [Card]) = fun (cs, k) -> ...`, where before only `(cs, k) : ([Card], Int)` was declared. Hazel leaves a result type that is not declared unknown, and checks a value against an unknown type as the program runs: at every return, and again on every walk down a list built that way (the deck, made by `cat`, `majors_from` and `suit_from`, was slow to walk for that reason). Declared, those checks go. A Celtic Cross took 173 ms in Node and takes 46 (70 in the browser); the year ahead, 296 and now 86. The deal is the same deal: every spread checked, no card twice.
+
 ## 0.0.6 (2026-11-15)
 
 Everything in 0.0.5, plus:

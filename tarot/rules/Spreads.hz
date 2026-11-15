@@ -1,4 +1,4 @@
-let three = fun t : Trio ->
+let three : Trio -> [Position] = fun t ->
   case t
   | PastPresentFuture => [
       (name = "Past", about = "what has led here"),
@@ -31,25 +31,25 @@ let relationship = [
   (name = "Its strength", about = "what holds you together"),
   (name = "Its tension", about = "what pulls you apart"),
   (name = "A way forward", about = "what could come next")];
-let join = fun (xs, ys) : ([Position], [Position]) ->
+let join : ([Position], [Position]) -> [Position] = fun (xs, ys) ->
   case xs | [] => ys | x :: rest => x :: join(rest, ys) end;
 # A choice: the crossroads, then three cards for each path, A, B, C and so on: what it opens, what it asks, where it leads #
 let letters = ["A", "B", "C", "D", "E", "F"];
-let path = fun i : Int ->
+let path : Int -> [Position] = fun i ->
   let p = "Path " ++ Deck.nth_name(letters, i) in [
     (name = p ++ ": opportunity", about = "what this path opens"),
     (name = p ++ ": difficulty", about = "what this path asks of you"),
     (name = p ++ ": direction", about = "where this path is likely to lead")];
-let paths = fun (i, n) : (Int, Int) ->
+let paths : (Int, Int) -> [Position] = fun (i, n) ->
   if i >= n then [] else join(path(i), paths(i + 1, n));
 # The year ahead: a card for each of twelve months, from the month the reading is made #
 let months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-let year = fun (m, k) : (Int, Int) ->
+let year : (Int, Int) -> [Position] = fun (m, k) ->
   if k >= 12 then []
   else
     let i = if m + k >= 12 then m + k - 12 else m + k in
     (name = Deck.nth_name(months, i), about = "what this month brings") :: year(m, k + 1);
-let positions = fun s : Spread ->
+let positions : Spread -> [Position] = fun s ->
   case s
   | One => [(name = "The card", about = "the heart of the matter")]
   | Three(t) => three(t)
