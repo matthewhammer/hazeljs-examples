@@ -48,7 +48,7 @@ npm run i-ching
 | `tarot/rules/*.hz` | The Tarot: its vocabulary (`preamble.hz`), the deck (`Deck.hz`), the spreads' places (`Spreads.hz`), the deal (`Reading.hz`). |
 | `tarot/index.html`, `tarot/app.js` | The Tarot's page: the table, cards turned one at a time, simple faces drawn by the page for now. |
 | `tarot/meanings/*.json` | Where each card's meaning is on other sites, one map per site (Biddy Tarot, Brigit Esselmont; Labyrinthos, Tina Gong), keyed by our card ids. |
-| `shared/` | What the pages share: Hazel's listings as editors (`hazel-listings.js`, from hazeljs-petri-example), each oracle's 🕰 history of readings in the browser's local storage (`history.js`), and the styles. |
+| `shared/` | What the pages share: Hazel's listings as editors (`hazel-listings.js`, from hazeljs-petri-example), each oracle's 🕰 history of readings in the browser's local storage (`history.js`), the divider between the code and the reading (`divider.js`), and the styles. |
 | `node/i-ching.mjs`, `node/tarot.mjs` | Each oracle in Node (`npm run i-ching`, `npm run tarot`). |
 
 ## Things to know

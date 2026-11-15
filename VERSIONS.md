@@ -4,6 +4,12 @@ Each version lists what the apps do as of that version. The newest version is fi
 
 ## Unreleased
 
+## 0.0.5 (2026-11-15)
+
+Everything in 0.0.4, plus:
+
+- **A divider between the code and the reading**, in two-column mode, on both oracles: drag it to give either more room, or use the arrow keys on it; a double-click puts it back. Its place is kept in this browser as a share of the width, for each oracle's page. Each column keeps room for its controls (the code at least 280 px, the reading 300). In one column there is none, and the reading comes first.
+
 ## 0.0.4 (2026-11-15)
 
 Everything in 0.0.3, plus:

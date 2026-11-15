@@ -8,11 +8,19 @@ main.oracle { max-width: 1500px; }
    for the UI to come first, then the hazel code below it.") The reading comes first in the page, so one column shows it first;
    two columns place the code on the left and the reading on the right, which stays in view (scrolling inside itself when it is
    taller than the window) while the code scrolls past. */
-.oracle-grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(300px, 1fr); grid-template-areas: "code ui"; gap: 24px; align-items: start; margin-top: 16px; }
+/* (^ticket(739)) a divider between them, dragged to share the width: --split is the code column's width, set by shared/divider.js */
+.oracle-grid { display: grid; grid-template-columns: minmax(0, var(--split, 1.25fr)) 14px minmax(300px, 1fr); grid-template-areas: "code split ui"; column-gap: 6px; row-gap: 24px; align-items: start; margin-top: 16px; }
+.oracle-divider { grid-area: split; align-self: stretch; display: flex; justify-content: center; align-items: flex-start; cursor: col-resize; touch-action: none; border-radius: 4px; }
+.oracle-divider::before { content: ""; position: sticky; top: 45vh; margin-top: 48px; width: 5px; height: 56px; border-radius: 3px; background: var(--cx); }
+.oracle-divider:hover::before, .oracle-divider:focus-visible::before, .oracle-divider.drag::before { background: var(--accent); height: 96px; }
+.oracle-divider:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+html.dragging-split, html.dragging-split * { cursor: col-resize !important; user-select: none; -webkit-user-select: none; }
+html.dragging-split iframe { pointer-events: none; }  /* (a frame under the pointer would take its moves) */
 .oracle-ui { grid-area: ui; position: sticky; top: 12px; max-height: calc(100vh - 24px); overflow-y: auto; min-width: 0; }
 .oracle-code { grid-area: code; min-width: 0; }
 @media (max-width: 900px) {
   .oracle-grid { grid-template-columns: minmax(0, 1fr); grid-template-areas: "ui" "code"; }
+  .oracle-divider { display: none; }
   .oracle-ui { position: static; max-height: none; overflow: visible; }
 }
 .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
