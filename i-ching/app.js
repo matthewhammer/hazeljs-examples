@@ -90,12 +90,22 @@
     S.casts.forEach(c => c.fresh = false);
     const cap = $("primary-cap"), v = $("verdict");
     v.replaceChildren();
+    document.querySelectorAll(".outlink").forEach(x => x.remove());
     if (n >= 6) {
       cap.textContent = `${r.primary.number}. ${r.primary.name}`;
       v.append(el("b", "", `${r.upper.name} (${r.upper.image}) over ${r.lower.name} (${r.lower.image}).`), " ");
-      v.append(r.changing.length ? `Changing ${r.changing.length === 1 ? "line" : "lines"}: ${r.changing.join(", ")}, counted from the bottom; they turn it into ${r.relating.number}, ${r.relating.name}.`
+      v.append(r.changing.length ? `Changing ${r.changing.length === 1 ? "line" : "lines"}: ${r.changing.join(", ")}, counted from the bottom; ${r.changing.length === 1 ? "it turns" : "they turn"} it into ${r.relating.number}, ${r.relating.name}.`
         : "No changing lines: the hexagram stands as it is.");
       v.append(" ", el("span", "eng " + r.eng, r.eng === "hazel" ? "read by Hazel" : "read by JS"));
+      // (Matthew, 2026-11-15: a link, once the six lines are cast, to a fuller reading on another site, said plainly to be
+      // another site's, copyrighted and with ads.) Cafe au Soul's reading takes the six values, bottom line first, as ours are:
+      // lns=687879 is 53 changing to 63 there and here.
+      const lns = S.casts.map(c => c.value).join("");
+      const out = el("p", "outlink");
+      const a = el("a", "", `Read more about ${r.primary.number}${r.changing.length ? ` changing to ${r.relating.number}` : ""} at cafeausoul.com ↗`);
+      a.href = "https://www.cafeausoul.com/reading/?lns=" + lns; a.target = "_blank"; a.rel = "noopener noreferrer";
+      out.append(a, el("span", "muted", " Another site, not part of this one: its text is the publisher's own, copyrighted, and its pages carry ads. It gets only the six numbers of your lines."));
+      v.after(out);
     } else if (n >= 3) {
       cap.textContent = `Below: ${r.lower.name}, ${r.lower.image}. ${6 - n} more to cast.`;
     } else cap.textContent = n ? `${6 - n} more lines to cast, from the bottom up.` : "Six lines, cast from the bottom up.";
