@@ -158,7 +158,7 @@
     const deck = mods[0], strs = src => [...src.matchAll(/"([^"]+)"/g)].map(x => x[1]);
     MAJORS = strs(deck.split("let majors = [")[1].split("];")[0]);
     RANKS = strs(deck.split("let ranks = [")[1].split("];")[0]);
-    await load("../shared/hazel-listings.js");
+    await load("../shared/hazel-listings.js?v=0.0.2");
     L = window.HazelListings; L.tail(PROGRAM, TAIL);
     L.onChange(PROGRAM, () => { clearTimeout(timer); timer = setTimeout(build, 350); });
   } catch (e) {

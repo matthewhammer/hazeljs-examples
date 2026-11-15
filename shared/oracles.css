@@ -47,11 +47,11 @@ body.js .nojs { display: none; }
 
 /* the series' front page */
 .series { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; margin: 20px 0; }
-.series a.card { display: block; padding: 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--paper); color: var(--ink); text-decoration: none; }
-.series a.card:hover { border-color: var(--accent); }
-.series .card h2 { margin: 6px 0; font-size: 1.25em; }
-.series .card svg { display: block; height: 92px; }
-.series .card.soon { opacity: 0.7; }
+.series a.series-card { display: block; padding: 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--paper); color: var(--ink); text-decoration: none; }
+.series a.series-card:hover { border-color: var(--accent); }
+.series .series-card h2 { margin: 6px 0; font-size: 1.25em; }
+.series .series-card svg { display: block; height: 92px; }
+.series .series-card.soon { opacity: 0.7; }
 
 /* the Tarot: a table of cards, each in its place in the spread */
 .table { display: grid; gap: 12px; margin: 16px 0; justify-content: start; overflow-x: auto; padding: 4px 4px 2.2em; }
@@ -62,13 +62,13 @@ body.js .nojs { display: none; }
 /* the second card lies across the first; turned sideways it is wider than its column, so the columns keep room for it */
 .table.CelticCross .card:nth-child(2) { grid-area: p1 !important; transform: rotate(90deg); z-index: 1; }
 .table.CelticCross .card:nth-child(2) .where { display: none; }
-.card { position: relative; width: 104px; height: 168px; padding: 0; border-radius: 10px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); cursor: pointer; font: inherit; }
-.card .back { height: 100%; display: grid; place-items: center; font-size: 2em; color: var(--accent); border-radius: 9px;
+.table .card { position: relative; width: 104px; height: 168px; padding: 0; border-radius: 10px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); cursor: pointer; font: inherit; }
+.table .card .back { height: 100%; display: grid; place-items: center; font-size: 2em; color: var(--accent); border-radius: 9px;
   background: repeating-linear-gradient(45deg, color-mix(in srgb, var(--accent) 14%, transparent) 0 6px, transparent 6px 12px); }
-.card .where { position: absolute; left: -4px; right: -4px; top: 100%; margin-top: 3px; font-size: 0.72em; line-height: 1.15; color: var(--muted); }
+.table .card .where { position: absolute; left: -4px; right: -4px; top: 100%; margin-top: 3px; font-size: 0.72em; line-height: 1.15; color: var(--muted); }
 .table { row-gap: 2.8em; }
-.card.up { cursor: default; }
-.card.rev .face { transform: rotate(180deg); }
+.table .card.up { cursor: default; }
+.table .card.rev .face { transform: rotate(180deg); }
 .face { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 8px 4px; box-sizing: border-box; }
 .face .num { font-weight: 700; font-size: 0.9em; }
 .face .big { font-size: 2.2em; color: var(--accent); }
