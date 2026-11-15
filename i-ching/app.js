@@ -42,7 +42,8 @@
   }
 
   // ---- the state: the lines cast so far, each with how it came and which engine cast it
-  const S = { casts: [], built: null, libFailed: false };
+  // (past: when a reading opened from the history was made, or null for a new one; saved: this reading is in the history)
+  const S = { casts: [], built: null, libFailed: false, past: null, saved: false };
   const method = () => document.querySelector('input[name="method"]:checked').value;
   const hazelReady = () => !!(S.built && S.built.ok);
   function castOne() {
@@ -77,14 +78,15 @@
   const NAMEOF = { 6: "old yin, changing", 7: "young yang", 8: "young yin", 9: "old yang, changing" };
   function draw() {
     const ls = S.casts.map(c => c.line), r = readingNow(), n = ls.length;
-    drawHex($("primary-lines"), ls, true);
+    drawHex($("primary-lines"), ls, !S.past);
+    drawHead();
     $("cast").textContent = n === 0 ? "Cast the first line" : n < 6 ? `Cast line ${n + 1}` : "Six lines cast";
     $("cast").disabled = $("all").disabled = n >= 6;
     const list = $("casts");
     list.replaceChildren(...S.casts.map((c, i) => {
       const li = el("li", c.fresh ? "fresh" : "");
       li.value = i + 1;
-      li.append(el("b", "", `Line ${i + 1}: ${c.value}, ${NAMEOF[c.value]}`), " ", el("span", "muted", say(c)), " ", el("span", "eng " + c.eng, c.eng === "hazel" ? `Hazel, ${c.ms.toFixed(1)} ms` : "JS"));
+      li.append(el("b", "", `Line ${i + 1}: ${c.value}, ${NAMEOF[c.value]}`), " ", el("span", "muted", say(c)), " ", el("span", "eng " + c.eng, c.eng === "hazel" ? (typeof c.ms === "number" ? `Hazel, ${c.ms.toFixed(1)} ms` : "Hazel") : "JS"));
       return li;
     }).reverse());
     S.casts.forEach(c => c.fresh = false);
@@ -114,6 +116,37 @@
     if (!rel.hidden) { drawHex($("relating-lines"), ls.map(becomes), false); $("relating-cap").textContent = `becomes ${r.relating.number}. ${r.relating.name}`; }
     drawStatus();
   }
+  // ---- the reading's heading: a new one, or one opened from the history, with the time it was made
+  function drawHead() {
+    const h = $("reading-head");
+    h.className = "reading-head" + (S.past ? " past" : "");
+    h.replaceChildren(S.past ? `Reading from ${S.past}` : "A new reading");
+    if (S.past) { const b = el("button", "", "New reading"); b.type = "button"; b.addEventListener("click", startAgain); h.append(b); }
+  }
+
+  // ---- the history (shared/history.js): a reading is kept once its six lines are cast
+  const METHOD = { Coins: "by coins", Yarrow: "by yarrow" };
+  const H = window.OracleHistory ? window.OracleHistory.panel({
+    holder: $("history"), key: "hazeljs-oracles/i-ching/history",
+    summarize: r => `${r.primary.number}. ${r.primary.name}` + (r.relating && r.relating.number ? ` → ${r.relating.number}. ${r.relating.name}` : "")
+      + ` · ${[...new Set(r.casts.map(c => METHOD[c.method]))].join(" and ")}`,
+    open: (r, when) => {
+      S.casts = r.casts.map(c => ({ ...c, line: { tag: LINE[c.value] }, fresh: false }));
+      S.past = when; S.saved = true;
+      const m = document.querySelector(`input[name="method"][value="${r.casts[r.casts.length - 1].method}"]`); if (m) m.checked = true;
+      draw();
+      $("reading-head").scrollIntoView({ block: "nearest", behavior: "smooth" });
+    },
+  }) : null;
+  function keep() {
+    if (S.saved || S.casts.length < 6 || !H) return;
+    const r = readingNow();
+    H.add({ casts: S.casts.map(({ value, counts, method, eng }) => ({ value, counts, method, eng })),
+            primary: r.primary, changing: r.changing, relating: r.relating });
+    S.saved = true;
+  }
+  function startAgain() { S.casts = []; S.past = null; S.saved = false; if (H) H.leave(); draw(); }
+
   function drawStatus() {
     const st = $("status"), b = S.built;
     if (!window.Hazel) { st.className = "status wait"; st.textContent = S.libFailed ? "Hazel did not load from jsDelivr; the page's own JS casts." : "⏳ Loading Hazel (hazeljs from jsDelivr, about 650 kB); until then the page's own JS casts."; return; }
@@ -151,9 +184,9 @@
   } catch (e) {
     $("status").textContent = "Could not start: " + (e && e.message || e) + ". Serve this folder over http (python3 -m http.server) and open it from localhost.";
   }
-  $("cast").addEventListener("click", () => { castOne(); draw(); });
-  $("all").addEventListener("click", () => { while (S.casts.length < 6) castOne(); draw(); });
-  $("again").addEventListener("click", () => { S.casts = []; draw(); });
+  $("cast").addEventListener("click", () => { castOne(); keep(); draw(); });
+  $("all").addEventListener("click", () => { while (S.casts.length < 6) castOne(); keep(); draw(); });
+  $("again").addEventListener("click", startAgain);
   $("reset-rules").addEventListener("click", () => { if (L) L.reset(PROGRAM); });
   document.body.classList.add("js");
   draw();

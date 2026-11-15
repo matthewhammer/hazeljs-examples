@@ -24,8 +24,10 @@
     <button type="button" id="turn">Turn the next card</button>
   </div>
   <div class="status wait" id="status">⏳ Loading Hazel (hazeljs from jsDelivr); until then the page's own JS deals.</div>
+  <h2 class="reading-head" id="reading-head">A new reading</h2>
   <div class="table" id="table"><p class="muted">Deal to lay out a spread.</p></div>
   <ol class="read" id="read"></ol>
+  <div id="history"></div>
   <p class="nojs muted">This app needs JavaScript, and a page served over http (python3 -m http.server, then localhost).</p>
 </section>
 <section class="oracle-right" aria-label="The program, in Hazel">
@@ -39,6 +41,7 @@
 </div>
 <p class="app-foot" id="app-foot">hazeljs-oracles · <a href="../VERSIONS.md">versions</a> · Apache 2.0 (code), CC BY 4.0 (words) · by Matthew Hammer · an example for <a href="https://github.com/hazelgrove/hazeljs">hazeljs</a></p>
 </main>
+<script src="../shared/history.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

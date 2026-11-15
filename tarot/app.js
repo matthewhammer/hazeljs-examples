@@ -37,19 +37,43 @@
   }
 
   // ---- the state: the spread dealt, how many are turned, which engine dealt
-  const S = { dealt: [], turned: 0, eng: "", ms: 0, built: null, libFailed: false };
+  // (past: when a reading opened from the history was made, or null for a new one)
+  const S = { dealt: [], turned: 0, eng: "", ms: 0, built: null, libFailed: false, past: null };
   function deal() {
     const sp = $("spread").value, rev = $("reversals").checked, us = Array.from({ length: 20 }, Math.random);
     let d = null; const t0 = performance.now(); S.eng = "js";
     if (S.built && S.built.ok) { try { d = S.built.value.deal({ tag: sp }, us, rev); S.eng = "hazel"; } catch (e) { d = null; } }
     if (!Array.isArray(d) || !d.every(x => x && x.card && typeof x.name === "string")) { d = dealJS(sp, us, rev); S.eng = "js"; }
-    S.ms = performance.now() - t0; S.dealt = d; S.turned = 0; S.spread = sp;
+    S.ms = performance.now() - t0; S.dealt = d; S.turned = 0; S.spread = sp; S.past = null;
+    // kept in the history as it is dealt: the cards are the reading's, turned or not
+    if (H) H.add({ spread: sp, reversals: rev, eng: S.eng, dealt: d.map(({ card, name, reversed, position, about }) => ({ card, name, reversed, position, about })) });
+  }
+
+  // ---- the history (shared/history.js): each deal, opened again with every card turned
+  const SPREAD = { One: "One card", Three: "Past, present, future", CelticCross: "The Celtic Cross" };
+  const H = window.OracleHistory ? window.OracleHistory.panel({
+    holder: $("history"), key: "hazeljs-oracles/tarot/history",
+    summarize: r => `${SPREAD[r.spread] || r.spread}: ` + r.dealt.map(d => d.name + (d.reversed ? " (reversed)" : "")).join(", "),
+    open: (r, when) => {
+      S.dealt = r.dealt; S.turned = r.dealt.length; S.spread = r.spread; S.eng = r.eng; S.ms = 0; S.past = when;
+      $("spread").value = r.spread; $("reversals").checked = !!r.reversals;
+      draw();
+      $("reading-head").scrollIntoView({ block: "nearest", behavior: "smooth" });
+    },
+  }) : null;
+  function drawHead() {
+    const h = $("reading-head");
+    h.className = "reading-head" + (S.past ? " past" : "");
+    h.replaceChildren(S.past ? `Reading from ${S.past}` : "A new reading");
+    if (S.past) { const b = el("button", "", "New reading"); b.type = "button";
+      b.addEventListener("click", () => { S.dealt = []; S.turned = 0; S.past = null; if (H) H.leave(); draw(); }); h.append(b); }
   }
   function draw() {
+    drawHead();
     const t = $("table"); t.replaceChildren(); t.className = "table " + (S.spread || "");
     if (!S.dealt.length) t.append(el("p", "muted", "Deal to lay out a spread."));
     S.dealt.forEach((d, i) => {
-      const c = el("button", "card" + (i < S.turned ? " up" : "") + (d.reversed ? " rev" : "") + (i === S.turned - 1 ? " fresh" : ""));
+      const c = el("button", "card" + (i < S.turned ? " up" : "") + (d.reversed ? " rev" : "") + (i === S.turned - 1 && !S.past ? " fresh" : ""));
       c.type = "button"; c.style.gridArea = "p" + (i + 1);
       c.title = i < S.turned ? `${d.position}: ${d.name}${d.reversed ? ", reversed" : ""}` : `${d.position}: face down; turn it`;
       c.append(i < S.turned ? face(d) : el("div", "back", "✧"), el("span", "where", d.position));
@@ -59,7 +83,7 @@
     $("turn").disabled = !S.dealt.length || S.turned >= S.dealt.length;
     $("read").replaceChildren(...S.dealt.slice(0, S.turned).map(d => {
       const li = el("li"); li.append(el("b", "", `${d.position}: ${d.name}${d.reversed ? ", reversed" : ""}.`), " ", el("span", "muted", d.about + ".")); return li; }));
-    if (S.dealt.length) { const li = el("li", "dealt-by"); li.append(el("span", "eng " + S.eng, S.eng === "hazel" ? `dealt by Hazel in ${S.ms.toFixed(0)} ms` : "dealt by JS")); $("read").append(li); }
+    if (S.dealt.length) { const li = el("li", "dealt-by"); li.append(el("span", "eng " + S.eng, S.eng === "hazel" ? (S.past ? "dealt by Hazel" : `dealt by Hazel in ${S.ms.toFixed(0)} ms`) : "dealt by JS")); $("read").append(li); }
     drawStatus();
   }
   function drawStatus() {

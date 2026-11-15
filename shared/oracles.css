@@ -54,11 +54,14 @@ body.js .nojs { display: none; }
 .series .card.soon { opacity: 0.7; }
 
 /* the Tarot: a table of cards, each in its place in the spread */
-.table { display: grid; gap: 12px; margin: 16px 0; justify-content: start; }
+.table { display: grid; gap: 12px; margin: 16px 0; justify-content: start; overflow-x: auto; padding: 4px 4px 2.2em; }
 .table.One { grid-template-areas: "p1"; }
 .table.Three { grid-template-areas: "p1 p2 p3"; }
 .table.CelticCross { grid-template-areas: ". p5 . . p10" "p4 p1 p6 . p9" ". p3 . . p8" ". . . . p7"; }
-.table.CelticCross .card:nth-child(2) { grid-area: p1 !important; transform: rotate(90deg) translate(18px, 0); z-index: 1; opacity: 0.95; }
+.table.CelticCross { column-gap: 44px; }
+/* the second card lies across the first; turned sideways it is wider than its column, so the columns keep room for it */
+.table.CelticCross .card:nth-child(2) { grid-area: p1 !important; transform: rotate(90deg); z-index: 1; }
+.table.CelticCross .card:nth-child(2) .where { display: none; }
 .card { position: relative; width: 104px; height: 168px; padding: 0; border-radius: 10px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); cursor: pointer; font: inherit; }
 .card .back { height: 100%; display: grid; place-items: center; font-size: 2em; color: var(--accent); border-radius: 9px;
   background: repeating-linear-gradient(45deg, color-mix(in srgb, var(--accent) 14%, transparent) 0 6px, transparent 6px 12px); }
@@ -80,3 +83,22 @@ body.js .nojs { display: none; }
 
 .outlink { margin: 6px 0 12px; padding: 8px 10px; border: 1px dashed var(--cx); border-radius: 8px; font-size: 0.92em; }
 .outlink a { font-weight: 600; margin-right: 4px; }
+
+/* the history panel (shared/history.js) */
+.reading-head { margin: 14px 0 4px; font-size: 1.1em; display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: baseline; }
+.reading-head.past { color: var(--accent); }
+.reading-head button { font: inherit; font-size: 0.8em; padding: 2px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); cursor: pointer; }
+.history { margin: 18px 0; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); }
+.history > summary { cursor: pointer; padding: 8px 12px; font-weight: 600; }
+.history-body { padding: 0 12px 10px; }
+.history-list { list-style: none; margin: 0; padding: 0; max-height: 50vh; overflow: auto; }
+.history-list li { display: flex; gap: 6px; align-items: stretch; border-top: 1px solid var(--line); }
+.history-list li.open { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.history-open { flex: 1; text-align: left; font: inherit; background: none; border: 0; color: var(--ink); padding: 6px 4px; cursor: pointer; display: flex; flex-direction: column; gap: 2px; }
+.history-open:hover .history-what { text-decoration: underline; }
+.history-when { font-size: 0.8em; color: var(--muted); }
+.history-what { font-size: 0.92em; }
+.history-x { background: none; border: 0; color: var(--muted); cursor: pointer; padding: 0 8px; }
+.history-x:hover { color: var(--bad); }
+.history-note { font-size: 0.85em; margin: 8px 0 0; }
+.history-clear { font: inherit; font-size: 0.85em; margin-left: 6px; padding: 2px 8px; border-radius: 6px; border: 1px solid var(--line); background: none; color: var(--muted); cursor: pointer; }

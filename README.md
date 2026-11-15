@@ -45,7 +45,7 @@ npm run i-ching
 | `i-ching/index.html`, `i-ching/app.js` | The I Ching's page: the reading, the listings, hazeljs building the program, and the page's own JS for while it does not build. |
 | `tarot/rules/*.hz` | The Tarot: its vocabulary (`preamble.hz`), the deck (`Deck.hz`), the spreads' places (`Spreads.hz`), the deal (`Reading.hz`). |
 | `tarot/index.html`, `tarot/app.js` | The Tarot's page: the table, cards turned one at a time, simple faces drawn by the page for now. |
-| `shared/` | What the pages share: Hazel's listings as editors (`hazel-listings.js`, from hazeljs-petri-example) and the styles. |
+| `shared/` | What the pages share: Hazel's listings as editors (`hazel-listings.js`, from hazeljs-petri-example), each oracle's 🕰 history of readings in the browser's local storage (`history.js`), and the styles. |
 | `node/i-ching.mjs`, `node/tarot.mjs` | Each oracle in Node (`npm run i-ching`, `npm run tarot`). |
 
 ## Things to know
