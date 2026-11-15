@@ -1,0 +1,27 @@
+# n mod m, for n at least 0 (Hazel has no mod of its own) #
+let modulo = fun (n, m) : (Int, Int) -> n - (n / m) * m;
+let line_of = fun v : Int ->
+  if v == 6 then OldYin
+  else if v == 7 then YoungYang
+  else if v == 8 then YoungYin
+  else OldYang;
+let value_of = fun l : Line ->
+  case l | OldYin => 6 | YoungYang => 7 | YoungYin => 8 | OldYang => 9 end;
+let is_yang = fun l : Line ->
+  case l | YoungYang => true | OldYang => true | _ => false end;
+let is_changing = fun l : Line ->
+  case l | OldYin => true | OldYang => true | _ => false end;
+# an old line turns into its opposite in the relating hexagram; a young line stays as it is #
+let becomes = fun l : Line ->
+  case l | OldYin => YoungYang | OldYang => YoungYin | _ => l end;
+let bit = fun l : Line -> if is_yang(l) then 1 else 0;
+# where the changing lines are, counting from 1 at the bottom #
+let changing_from = fun (ls, i) : ([Line], Int) ->
+  case ls
+  | [] => []
+  | l :: rest =>
+    if is_changing(l) then i :: changing_from(rest, i + 1)
+    else changing_from(rest, i + 1)
+  end;
+let length = fun ls : [Line] ->
+  case ls | [] => 0 | _ :: rest => 1 + length(rest) end

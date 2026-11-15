@@ -1,0 +1,54 @@
+/* hazeljs-oracles: what the oracles' pages share, beside style.css (the Petri example's, for Hazel's listings) */
+main.oracle { max-width: 1500px; }
+.app-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px; }
+.app-head h1 { margin: 0; }
+.app-links { color: var(--muted); font-size: 0.92em; }
+.app-foot { color: var(--muted); font-size: 0.88em; border-top: 1px solid var(--line); margin-top: 32px; padding-top: 10px; }
+.oracle-grid { display: grid; grid-template-columns: minmax(300px, 1fr) minmax(0, 1.25fr); gap: 24px; align-items: start; margin-top: 16px; }
+@media (max-width: 900px) { .oracle-grid { grid-template-columns: 1fr; } }
+.oracle-left { position: sticky; top: 12px; }
+@media (max-width: 900px) { .oracle-left { position: static; } }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.controls button { font: inherit; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); cursor: pointer; }
+.controls button.primary { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--paper)); font-weight: 600; }
+.controls button:disabled { opacity: 0.5; cursor: default; }
+.method { border: 1px solid var(--line); border-radius: 8px; padding: 2px 10px 6px; margin: 0; }
+.method legend { font-size: 0.85em; color: var(--muted); padding: 0 4px; }
+.method label { margin-right: 10px; white-space: nowrap; }
+.status { margin: 10px 0; padding: 6px 10px; border-radius: 6px; font-size: 0.92em; border-left: 3px solid var(--line); }
+.status.ok { border-color: var(--good); background: color-mix(in srgb, var(--good) 8%, transparent); }
+.status.no { border-color: var(--bad); background: color-mix(in srgb, var(--bad) 8%, transparent); }
+.status.wait { border-color: var(--warn); background: color-mix(in srgb, var(--warn) 8%, transparent); }
+.eng { font: 0.78em ui-monospace, monospace; padding: 1px 6px; border-radius: 9px; border: 1px solid var(--line); white-space: nowrap; }
+.eng.hazel { border-color: var(--accent); color: var(--accent); }
+.eng.js { border-color: var(--warn); color: var(--warn); }
+.ed { margin-top: 14px; }
+.ed-head { font-size: 0.92em; margin-bottom: 4px; }
+.nojs { display: block; }
+body.js .nojs { display: none; }
+@keyframes arrive { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.fresh { animation: arrive 0.5s ease-out; }
+
+/* the I Ching: a hexagram is six lines, the first at the bottom */
+.hexes { display: flex; gap: 28px; flex-wrap: wrap; margin: 16px 0 8px; }
+.hex { margin: 0; }
+.hex figcaption { margin-top: 8px; font-size: 0.95em; max-width: 220px; }
+.hex-lines { display: flex; flex-direction: column-reverse; gap: 10px; width: 200px; }
+.hl { position: relative; display: flex; gap: 22px; height: 18px; }
+.hl .bar { flex: 1; background: var(--ink); border-radius: 2px; }
+.hl.yang .bar + .bar { margin-left: -22px; }
+.hl.empty { border: 1px dashed var(--cx); border-radius: 2px; }
+.hl.old .bar { background: var(--accent); }
+.hl .mark { position: absolute; right: -24px; top: -4px; color: var(--accent); font-weight: 700; }
+.relating .hl .bar { background: var(--muted); }
+.casts { padding-left: 1.4em; margin: 10px 0; }
+.casts li { margin: 4px 0; }
+.verdict { font-size: 1.02em; }
+
+/* the series' front page */
+.series { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; margin: 20px 0; }
+.series a.card { display: block; padding: 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--paper); color: var(--ink); text-decoration: none; }
+.series a.card:hover { border-color: var(--accent); }
+.series .card h2 { margin: 6px 0; font-size: 1.25em; }
+.series .card svg { display: block; height: 92px; }
+.series .card.soon { opacity: 0.7; }

@@ -1,0 +1,56 @@
+# hazeljs-oracles
+
+**Ancient oracles whose core logic is written in [Hazel](https://hazel.org) and run by [hazeljs](https://www.npmjs.com/package/hazeljs).** Each oracle is its own app, on its own page: the reading on one side, revealed a step at a time, and on the other the Hazel program that makes it, in Hazel's own editor. The page passes the program random numbers and draws what it answers; edit the program and the page builds it again. While it has an error or a hole, the page's own JavaScript answers instead, and the page says which did.
+
+It is the third example app for `hazeljs`, after [Messed Up Dress Up](https://matthewhammer.org/kids-choice-games/dress-up/) and [hazeljs-petri-example](https://github.com/matthewhammer/hazeljs-petri-example).
+
+> **Experimental.** `hazeljs` is a 0.0.x prototype, and Hazel's tile editor comes from a branch build of Hazel.
+
+## The oracles
+
+| Oracle | Page | What Hazel does |
+|---|---|---|
+| I Ching | `i-ching/` | Casts each line, by three coins or by dividing the yarrow stalks; names the trigrams and the hexagram (King Wen order); finds the changing lines and the hexagram they turn it into. |
+| Tarot | `tarot/` | Coming next: shuffles the 78 cards, deals a spread, and says what each position means. |
+
+## Run it
+
+The pages need to be served over http, from `localhost` (Hazel's editor frames take messages only from a few sites, `localhost` among them):
+
+```sh
+git clone https://github.com/matthewhammer/hazeljs-oracles
+cd hazeljs-oracles
+python3 -m http.server 8000 --bind 127.0.0.1
+```
+
+Then open http://localhost:8000/. The pages load `hazeljs` from npm through jsDelivr, so nothing needs installing for them.
+
+The I Ching in Node, with the odds of each line by each method and what a cast costs:
+
+```sh
+npm install
+npm run i-ching
+```
+
+## What is where
+
+| File | What it is |
+|---|---|
+| `index.html` | The series' front page. |
+| `i-ching/rules/preamble.hz` | The I Ching's vocabulary: a method (`Coins`, `Yarrow`), a line (`OldYin`, `YoungYang`, `YoungYin`, `OldYang`), a cast, a trigram, a hexagram, a reading. |
+| `i-ching/rules/Lines.hz` | A line's value, which lines change, and what each turns into. |
+| `i-ching/rules/Casting.hz` | Three coins, or three divisions of the 49 yarrow stalks. |
+| `i-ching/rules/Book.hz` | The eight trigrams, the King Wen table, the 64 names. |
+| `i-ching/rules/Reading.hz` | The reading so far, from the lines cast. |
+| `i-ching/index.html`, `i-ching/app.js` | The I Ching's page: the reading, the listings, hazeljs building the program, and the page's own JS for while it does not build. |
+| `shared/` | What the pages share: Hazel's listings as editors (`hazel-listings.js`, from hazeljs-petri-example) and the styles. |
+| `node/i-ching.mjs` | The I Ching in Node. |
+
+## Things to know
+
+- **The yarrow stalks' odds are the procedure's.** The books give 1/16, 5/16, 7/16 and 3/16 for 6, 7, 8 and 9, which holds when each heap is as likely to leave 1, 2, 3 or 4 stalks. Here each split falls anywhere along the heap, as a hand's might, and a heap leaves 4 a little less often, so 6 comes about 1 time in 20 rather than 1 in 16 (`npm run i-ching` counts them).
+- **Hazel answers in about a millisecond a cast** in Node (coins 0.35 ms, yarrow 1.1 ms on a laptop), and builds the program in about half a second.
+
+## Licences
+
+Copyright 2026 Matthew Hammer. The code (the `.js`, `.mjs`, `.html`, `.css`, `.json` and `.hz` files) is under the [Apache License 2.0](LICENSE); everything else (the `.md` files) under [Creative Commons Attribution 4.0](LICENSE-CC-BY-4.0). See [NOTICE](NOTICE).

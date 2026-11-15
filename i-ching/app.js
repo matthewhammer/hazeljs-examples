@@ -1,0 +1,155 @@
+// hazeljs-oracles, the I Ching: the page. The casting and the reading are Hazel (rules/*.hz), shown in Hazel's own editor
+// (../shared/hazel-listings.js) and built by hazeljs from npm; the page passes random numbers in and draws what comes back.
+// While the program has an error or a hole, the page's own JS (castJS, readingJS) answers instead, and each line says which did.
+(async () => {
+  "use strict";
+  const LIB = "https://cdn.jsdelivr.net/npm/hazeljs@0.0.4/hazel-lib.js";
+  const PROGRAM = "iching", MODULES = ["Lines", "Casting", "Book", "Reading"];
+  const TAIL = "(cast = Casting.cast, reading = Reading.reading)";
+  const $ = id => document.getElementById(id);
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
+  const text = async path => { const r = await fetch(path, { cache: "no-cache" }); if (!r.ok) throw new Error(path + ": " + r.status); return (await r.text()).replace(/\s+$/, ""); };
+  const load = src => new Promise((ok, no) => { const s = document.createElement("script"); s.src = src; s.onload = ok; s.onerror = () => no(new Error(src)); document.body.append(s); });
+
+  // ---- the page's own JS, for while the Hazel program is not ready: the same casting and table as the Hazel modules
+  const LINE = { 6: "OldYin", 7: "YoungYang", 8: "YoungYin", 9: "OldYang" };
+  const coin = u => u < 0.5 ? 2 : 3;
+  const leftover = n => (n % 4) || 4;
+  const divide = (n, u) => { const left = 1 + Math.floor(u * (n - 2)); return 1 + leftover(left) + leftover(n - left - 1); };
+  function castJS(m, a, b, c) {
+    if (m.tag === "Coins") { const cs = [coin(a), coin(b), coin(c)], v = cs[0] + cs[1] + cs[2]; return { line: { tag: LINE[v] }, value: v, counts: cs }; }
+    const x = divide(49, a), y = divide(49 - x, b), z = divide(49 - x - y, c), v = (49 - x - y - z) / 4;
+    return { line: { tag: LINE[v] }, value: v, counts: [x, y, z] };
+  }
+  const TRI = [["Kun", "earth"], ["Zhen", "thunder"], ["Kan", "water"], ["Dui", "lake"], ["Gen", "mountain"], ["Li", "fire"], ["Xun", "wind"], ["Qian", "heaven"]]
+    .map(([name, image], number) => ({ number, name, image }));
+  const KW = [2,24,7,19,15,36,46,11, 16,51,40,54,62,55,32,34, 8,3,29,60,39,63,48,5, 45,17,47,58,31,49,28,43,
+              23,27,4,41,52,22,18,26, 35,21,64,38,56,30,50,14, 20,42,59,61,53,37,57,9, 12,25,6,10,33,13,44,1];
+  const yang = l => l.tag === "YoungYang" || l.tag === "OldYang";
+  const changingLine = l => l.tag === "OldYin" || l.tag === "OldYang";
+  const becomes = l => ({ tag: l.tag === "OldYin" ? "YoungYang" : l.tag === "OldYang" ? "YoungYin" : l.tag });
+  const tri = (a, b, c) => TRI[+yang(a) + 2 * yang(b) + 4 * yang(c)];
+  let NAMES = [];   // from Book.hz's names, read by the page once (the JS answer names a hexagram as Hazel's Book does)
+  const hex = (lo, up) => { const k = KW[up.number * 8 + lo.number]; return { number: k, name: NAMES[k - 1] || "" }; };
+  const NONE = { number: -1, name: "", image: "" }, UNKNOWN = { number: 0, name: "" };
+  function readingJS(ls) {
+    const changing = ls.map((l, i) => changingLine(l) ? i + 1 : 0).filter(Boolean);
+    if (ls.length >= 6) {
+      const lo = tri(ls[0], ls[1], ls[2]), up = tri(ls[3], ls[4], ls[5]), b = ls.map(becomes);
+      return { cast: 6, lower: lo, upper: up, primary: hex(lo, up), changing, relating: changing.length ? hex(tri(b[0], b[1], b[2]), tri(b[3], b[4], b[5])) : UNKNOWN };
+    }
+    return { cast: ls.length, lower: ls.length >= 3 ? tri(ls[0], ls[1], ls[2]) : NONE, upper: NONE, primary: UNKNOWN, changing, relating: UNKNOWN };
+  }
+
+  // ---- the state: the lines cast so far, each with how it came and which engine cast it
+  const S = { casts: [], built: null, libFailed: false };
+  const method = () => document.querySelector('input[name="method"]:checked').value;
+  const hazelReady = () => !!(S.built && S.built.ok);
+  function castOne() {
+    if (S.casts.length >= 6) return;
+    const m = { tag: method() }, u = [Math.random(), Math.random(), Math.random()];
+    let c = null, eng = "js", t0 = performance.now();
+    if (hazelReady()) { try { c = S.built.value.cast(m, ...u); eng = "hazel"; } catch (e) { c = null; } }
+    if (!c || !c.line || !LINE[c.value]) { c = castJS(m, ...u); eng = "js"; }
+    S.casts.push({ ...c, method: m.tag, eng, ms: performance.now() - t0, fresh: true });
+  }
+  function readingNow() {
+    const ls = S.casts.map(c => c.line);
+    if (hazelReady()) { try { const r = S.built.value.reading(ls); if (r && r.lower) return { ...r, eng: "hazel" }; } catch (e) { /* the JS answers */ } }
+    return { ...readingJS(ls), eng: "js" };
+  }
+
+  // ---- drawing: a line as a bar (yang) or a broken bar (yin), an old line marked (○ old yang, × old yin)
+  function lineEl(l, i, fresh) {
+    const d = el("div", "hl " + (yang(l) ? "yang" : "yin") + (changingLine(l) ? " old" : "") + (fresh ? " fresh" : ""));
+    d.title = `line ${i + 1}: ${l.tag.replace(/([a-z])([A-Z])/, "$1 $2").toLowerCase()}`;
+    d.append(el("span", "bar"), el("span", "bar"));
+    if (changingLine(l)) d.append(el("span", "mark", l.tag === "OldYang" ? "○" : "×"));
+    return d;
+  }
+  const slot = () => el("div", "hl empty");
+  function drawHex(holder, ls, freshLast) {
+    holder.replaceChildren(...[0, 1, 2, 3, 4, 5].map(i => ls[i] ? lineEl(ls[i], i, freshLast && i === ls.length - 1) : slot()));
+  }
+  const say = c => c.method === "Coins"
+    ? `coins ${c.counts.map(x => x === 3 ? "heads" : "tails").join(", ")} (${c.counts.join(" + ")} = ${c.value})`
+    : `stalks set aside ${c.counts.join(", ")}; ${49 - c.counts.reduce((a, b) => a + b, 0)} left, by fours ${c.value}`;
+  const NAMEOF = { 6: "old yin, changing", 7: "young yang", 8: "young yin", 9: "old yang, changing" };
+  function draw() {
+    const ls = S.casts.map(c => c.line), r = readingNow(), n = ls.length;
+    drawHex($("primary-lines"), ls, true);
+    $("cast").textContent = n === 0 ? "Cast the first line" : n < 6 ? `Cast line ${n + 1}` : "Six lines cast";
+    $("cast").disabled = $("all").disabled = n >= 6;
+    const list = $("casts");
+    list.replaceChildren(...S.casts.map((c, i) => {
+      const li = el("li", c.fresh ? "fresh" : "");
+      li.value = i + 1;
+      li.append(el("b", "", `Line ${i + 1}: ${c.value}, ${NAMEOF[c.value]}`), " ", el("span", "muted", say(c)), " ", el("span", "eng " + c.eng, c.eng === "hazel" ? `Hazel, ${c.ms.toFixed(1)} ms` : "JS"));
+      return li;
+    }).reverse());
+    S.casts.forEach(c => c.fresh = false);
+    const cap = $("primary-cap"), v = $("verdict");
+    v.replaceChildren();
+    if (n >= 6) {
+      cap.textContent = `${r.primary.number}. ${r.primary.name}`;
+      v.append(el("b", "", `${r.upper.name} (${r.upper.image}) over ${r.lower.name} (${r.lower.image}).`), " ");
+      v.append(r.changing.length ? `Changing ${r.changing.length === 1 ? "line" : "lines"}: ${r.changing.join(", ")}, counted from the bottom; they turn it into ${r.relating.number}, ${r.relating.name}.`
+        : "No changing lines: the hexagram stands as it is.");
+      v.append(" ", el("span", "eng " + r.eng, r.eng === "hazel" ? "read by Hazel" : "read by JS"));
+    } else if (n >= 3) {
+      cap.textContent = `Below: ${r.lower.name}, ${r.lower.image}. ${6 - n} more to cast.`;
+    } else cap.textContent = n ? `${6 - n} more lines to cast, from the bottom up.` : "Six lines, cast from the bottom up.";
+    const rel = $("relating");
+    rel.hidden = !(n >= 6 && r.changing.length);
+    if (!rel.hidden) { drawHex($("relating-lines"), ls.map(becomes), false); $("relating-cap").textContent = `becomes ${r.relating.number}. ${r.relating.name}`; }
+    drawStatus();
+  }
+  function drawStatus() {
+    const st = $("status"), b = S.built;
+    if (!window.Hazel) { st.className = "status wait"; st.textContent = S.libFailed ? "Hazel did not load from jsDelivr; the page's own JS casts." : "⏳ Loading Hazel (hazeljs from jsDelivr, about 650 kB); until then the page's own JS casts."; return; }
+    if (!b) { st.className = "status wait"; st.textContent = "⏳ Building the program…"; return; }
+    if (b.ok) { st.className = "status ok"; st.textContent = `✓ The program is ready: Hazel casts each line. Built by hazeljs in ${b.ms.toFixed(0)} ms.`; return; }
+    st.className = "status no";
+    st.textContent = "The program is not ready, so the page's own JS casts: " + (b.threw || (b.errors || []).map(e => (e.module ? e.module + ": " : "") + String(e.message || e).replace(/\s+/g, " ")).join("; ") || "it has a hole.");
+  }
+
+  // ---- building, once per change of text
+  let L = null, timer = 0;
+  const spec = () => L.spec(PROGRAM, TAIL);
+  function build() {
+    if (!window.Hazel || !L) return;
+    const sp = spec(), key = JSON.stringify(sp);
+    if (S.built && S.built.key === key) return;
+    const t0 = performance.now();
+    let r, threw = "";
+    try { r = window.Hazel.runProgram(sp); } catch (e) { threw = String(e && e.message || e); r = { ok: false, errors: [] }; }
+    const v = r.value && typeof r.value === "object" ? r.value : null;
+    S.built = { key, ok: !!r.ok && !!v && typeof v.cast === "function" && typeof v.reading === "function", value: v, errors: r.errors || [], threw, ms: performance.now() - t0 };
+    draw();
+  }
+
+  // ---- start: the program's text into the listings, the editors, then Hazel
+  try {
+    const [pre, ...mods] = await Promise.all([text("rules/preamble.hz"), ...MODULES.map(m => text(`rules/${m}.hz`))]);
+    document.querySelector(`pre.hazel[data-program="${PROGRAM}"]:not([data-module])`).textContent = pre;
+    MODULES.forEach((m, i) => { document.querySelector(`pre.hazel[data-module="${m}"]`).textContent = mods[i]; });
+    NAMES = [...((mods[MODULES.indexOf("Book")].split("let names = [")[1] || "").split("];")[0]).matchAll(/"([^"]+)"/g)].map(x => x[1]);
+    await load("../shared/hazel-listings.js");
+    L = window.HazelListings;
+    L.tail(PROGRAM, TAIL);
+    L.onChange(PROGRAM, () => { clearTimeout(timer); timer = setTimeout(build, 350); });
+  } catch (e) {
+    $("status").textContent = "Could not start: " + (e && e.message || e) + ". Serve this folder over http (python3 -m http.server) and open it from localhost.";
+  }
+  $("cast").addEventListener("click", () => { castOne(); draw(); });
+  $("all").addEventListener("click", () => { while (S.casts.length < 6) castOne(); draw(); });
+  $("again").addEventListener("click", () => { S.casts = []; draw(); });
+  $("reset-rules").addEventListener("click", () => { if (L) L.reset(PROGRAM); });
+  document.body.classList.add("js");
+  draw();
+  const s = document.createElement("script");
+  s.src = LIB; s.async = true;
+  s.onload = () => { build(); drawStatus(); };
+  s.onerror = () => { S.libFailed = true; drawStatus(); };
+  document.head.append(s);
+})();
