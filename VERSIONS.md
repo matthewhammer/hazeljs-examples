@@ -4,6 +4,14 @@ Each version lists what the apps do as of that version. The newest version is fi
 
 ## Unreleased
 
+## 0.0.3 (2026-11-15)
+
+Everything in 0.0.2, plus:
+
+- **The code on the left, the reading on the right**, when the window is wide enough for two columns; the reading stays in view while the code scrolls past, and scrolls within itself when it is taller than the window. In one column, the reading comes first and the code below it.
+- **On a phone,** every spread fits across the screen: the cards are smaller, and the Celtic Cross drops the empty column between the cross and the staff.
+- **A yang line is one bar,** without the hairline where its two halves met.
+
 ## 0.0.2 (2026-11-15)
 
 Everything in 0.0.1, plus the first public release, at https://matthewhammer.org/hazeljs-oracles/ :

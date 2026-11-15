@@ -6,7 +6,7 @@
 <title>I Ching, cast in Hazel</title>
 <meta name="description" content="An I Ching reading whose casting and reading are written in Hazel and run by hazeljs: cast six lines by coins or by yarrow stalks, one at a time, and read the hexagram. The first of the ancient oracles, an example app for hazeljs.">
 <link rel="stylesheet" href="../shared/style.css?v=0.0.2">
-<link rel="stylesheet" href="../shared/oracles.css?v=0.0.2">
+<link rel="stylesheet" href="../shared/oracles.css?v=0.0.5">
 </head>
 <body><main class="oracle">
 <div class="app-head">
@@ -16,7 +16,7 @@
 <p class="sub">Ask a question, then cast six lines, one at a time, from the bottom up: by three coins, or by dividing the yarrow stalks. Each line is cast by a <a href="https://hazel.org">Hazel</a> program, shown beside the reading in Hazel's own editor; the page only passes it random numbers and draws what comes back. Change the program and the page builds it again. While it has an error or a hole, the page's own JavaScript casts instead, and each line says which did.</p>
 
 <div class="oracle-grid">
-<section class="oracle-left" aria-label="The reading">
+<section class="oracle-ui" aria-label="The reading">
   <div class="controls">
     <fieldset class="method"><legend>Cast by</legend>
       <label><input type="radio" name="method" value="Coins" checked> three coins</label>
@@ -39,7 +39,7 @@
   <div id="history"></div>
   <p class="nojs muted">This app needs JavaScript, and a page served over http (python3 -m http.server, then localhost).</p>
 </section>
-<section class="oracle-right" aria-label="The program, in Hazel">
+<section class="oracle-code" aria-label="The program, in Hazel">
   <p class="muted" style="margin-top:0">The vocabulary every module sees (<code>i-ching/rules/preamble.hz</code>). Each listing is Hazel's editor: Ctrl+click a name, or F12 on it, to go to its definition.</p>
   <pre class="code hazel" data-program="iching">loading preamble.hz…</pre>
   <div class="ed"><div class="ed-head"><b>Lines</b> <span class="muted">a line's value, which lines change, and what they turn into</span></div><pre class="code hazel" data-program="iching" data-module="Lines">loading Lines.hz…</pre></div>
@@ -53,6 +53,6 @@
 <p class="app-foot" id="app-foot">hazeljs-oracles · <a href="../VERSIONS.md">versions</a> · Apache 2.0 (code), CC BY 4.0 (words) · by Matthew Hammer · an example for <a href="https://github.com/hazelgrove/hazeljs">hazeljs</a></p>
 </main>
 <script src="../shared/history.js?v=0.0.2"></script>
-<script src="app.js?v=0.0.2"></script>
+<script src="app.js?v=0.0.4"></script>
 </body>
 </html>

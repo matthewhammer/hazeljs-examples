@@ -4,10 +4,17 @@ main.oracle { max-width: 1500px; }
 .app-head h1 { margin: 0; }
 .app-links { color: var(--muted); font-size: 0.92em; }
 .app-foot { color: var(--muted); font-size: 0.88em; border-top: 1px solid var(--line); margin-top: 32px; padding-top: 10px; }
-.oracle-grid { display: grid; grid-template-columns: minmax(300px, 1fr) minmax(0, 1.25fr); gap: 24px; align-items: start; margin-top: 16px; }
-@media (max-width: 900px) { .oracle-grid { grid-template-columns: 1fr; } }
-.oracle-left { position: sticky; top: 12px; }
-@media (max-width: 900px) { .oracle-left { position: static; } }
+/* (Matthew, 2026-11-15, ^ticket(737): "I'd prefer the code on the LHS in double-column mode. In single column mode, it makes sense
+   for the UI to come first, then the hazel code below it.") The reading comes first in the page, so one column shows it first;
+   two columns place the code on the left and the reading on the right, which stays in view (scrolling inside itself when it is
+   taller than the window) while the code scrolls past. */
+.oracle-grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(300px, 1fr); grid-template-areas: "code ui"; gap: 24px; align-items: start; margin-top: 16px; }
+.oracle-ui { grid-area: ui; position: sticky; top: 12px; max-height: calc(100vh - 24px); overflow-y: auto; min-width: 0; }
+.oracle-code { grid-area: code; min-width: 0; }
+@media (max-width: 900px) {
+  .oracle-grid { grid-template-columns: minmax(0, 1fr); grid-template-areas: "ui" "code"; }
+  .oracle-ui { position: static; max-height: none; overflow: visible; }
+}
 .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .controls button { font: inherit; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); cursor: pointer; }
 .controls button.primary { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--paper)); font-weight: 600; }
@@ -36,7 +43,7 @@ body.js .nojs { display: none; }
 .hex-lines { display: flex; flex-direction: column-reverse; gap: 10px; width: 200px; }
 .hl { position: relative; display: flex; gap: 22px; height: 18px; }
 .hl .bar { flex: 1; background: var(--ink); border-radius: 2px; }
-.hl.yang .bar + .bar { margin-left: -22px; }
+.hl.yang .bar + .bar { display: none; }
 .hl.empty { border: 1px dashed var(--cx); border-radius: 2px; }
 .hl.old .bar { background: var(--accent); }
 .hl .mark { position: absolute; right: -24px; top: -4px; color: var(--accent); font-weight: 700; }
@@ -62,7 +69,7 @@ body.js .nojs { display: none; }
 /* the second card lies across the first; turned sideways it is wider than its column, so the columns keep room for it */
 .table.CelticCross .card:nth-child(2) { grid-area: p1 !important; transform: rotate(90deg); z-index: 1; }
 .table.CelticCross .card:nth-child(2) .where { display: none; }
-.table .card { position: relative; width: 104px; height: 168px; padding: 0; border-radius: 10px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); cursor: pointer; font: inherit; }
+.table .card { position: relative; width: var(--cw, 104px); height: var(--ch, 168px); padding: 0; border-radius: 10px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); cursor: pointer; font: inherit; }
 .table .card .back { height: 100%; display: grid; place-items: center; font-size: 2em; color: var(--accent); border-radius: 9px;
   background: repeating-linear-gradient(45deg, color-mix(in srgb, var(--accent) 14%, transparent) 0 6px, transparent 6px 12px); }
 .table .card .where { position: absolute; left: -4px; right: -4px; top: 100%; margin-top: 3px; font-size: 0.72em; line-height: 1.15; color: var(--muted); }
@@ -113,3 +120,18 @@ body.js .nojs { display: none; }
 .table.YearAhead.n13 .card:first-child { justify-self: center; align-self: center; }
 .spread-use { margin: 8px 0 0; font-size: 0.92em; }
 .controls select { font: inherit; max-width: 100%; }
+
+/* (^ticket(737)) on a phone: smaller cards, so the year ahead's ring and the Celtic Cross fit across a 375-wide screen; the
+   Celtic Cross loses the empty column between the cross and the staff (the turned card needs 22px either side, so the columns
+   keep that gap) */
+@media (max-width: 560px) {
+  .table { --cw: 68px; --ch: 110px; row-gap: 3.4em; }
+  .table .card .back { font-size: 1.4em; }
+  .face { padding: 5px 2px; }
+  .face .big { font-size: 1.5em; }
+  .face .num { font-size: 0.75em; }
+  .face .nm { font-size: 0.6em; }
+  .face .pips { font-size: 0.8em; gap: 1px 3px; }
+  .table.CelticCross { grid-template-areas: ". p5 . p10" "p4 p1 p6 p9" ". p3 . p8" ". . . p7"; column-gap: 22px; padding-left: 2px; padding-right: 2px; }
+  .table.Choice.n7 { column-gap: 12px; }
+}

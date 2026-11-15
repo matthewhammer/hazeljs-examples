@@ -164,7 +164,7 @@
   } catch (e) {
     $("status").textContent = "Could not start: " + (e && e.message || e) + ". Serve this folder over http (python3 -m http.server) and open it from localhost.";
   }
-  $("deal").addEventListener("click", () => { deal(); draw(); });
+  $("deal").addEventListener("click", () => { deal(); drawUse(); draw(); });
   $("spread").addEventListener("change", drawUse);
   $("turn").addEventListener("click", () => { if (S.turned < S.dealt.length) { S.turned++; draw(); } });
   $("reset-rules").addEventListener("click", () => { if (L) L.reset(PROGRAM); });
