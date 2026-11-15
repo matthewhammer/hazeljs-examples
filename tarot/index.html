@@ -4,11 +4,41 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Tarot, dealt in Hazel</title>
+<meta name="description" content="A Tarot reading whose shuffle, deal and spreads are written in Hazel and run by hazeljs: deal a spread face down and turn the cards one at a time. The second of the ancient oracles, an example app for hazeljs.">
 <link rel="stylesheet" href="../shared/style.css">
 <link rel="stylesheet" href="../shared/oracles.css">
 </head>
-<body><main>
-<div class="app-head"><h1>Tarot, dealt in Hazel</h1><span class="app-links"><a href="../">the ancient oracles</a></span></div>
-<p class="sub">Coming next: the 78 cards shuffled and dealt by a Hazel program into a spread (one card; past, present and future; the Celtic Cross), then turned over one at a time, with the faces Pamela Colman Smith drew in 1909, or a simple deck of our own.</p>
-</main></body>
+<body><main class="oracle">
+<div class="app-head">
+<h1>Tarot, dealt in Hazel</h1>
+<span class="app-links"><a href="../">the ancient oracles</a> · <a href="https://github.com/matthewhammer/hazeljs-oracles">source on GitHub</a> · <a href="https://www.npmjs.com/package/hazeljs">hazeljs on npm</a></span>
+</div>
+<p class="sub">Ask a question, choose a spread, and deal: the cards land face down, each in its place. Turn them over one at a time. The deck, the shuffle and the spreads are a <a href="https://hazel.org">Hazel</a> program, shown beside the table in Hazel's own editor; the page passes it random numbers and lays out what it deals. While the program has an error or a hole, the page's own JavaScript deals instead, and the table says which did.</p>
+
+<div class="oracle-grid">
+<section class="oracle-left" aria-label="The reading">
+  <div class="controls">
+    <label>Spread <select id="spread"><option value="One">one card</option><option value="Three" selected>past, present, future</option><option value="CelticCross">the Celtic Cross</option></select></label>
+    <label><input type="checkbox" id="reversals" checked> reversals</label>
+    <button type="button" id="deal" class="primary">Shuffle and deal</button>
+    <button type="button" id="turn">Turn the next card</button>
+  </div>
+  <div class="status wait" id="status">⏳ Loading Hazel (hazeljs from jsDelivr); until then the page's own JS deals.</div>
+  <div class="table" id="table"><p class="muted">Deal to lay out a spread.</p></div>
+  <ol class="read" id="read"></ol>
+  <p class="nojs muted">This app needs JavaScript, and a page served over http (python3 -m http.server, then localhost).</p>
+</section>
+<section class="oracle-right" aria-label="The program, in Hazel">
+  <p class="muted" style="margin-top:0">The vocabulary every module sees (<code>tarot/rules/preamble.hz</code>). Each listing is Hazel's editor: Ctrl+click a name, or F12 on it, to go to its definition.</p>
+  <pre class="code hazel" data-program="tarot">loading preamble.hz…</pre>
+  <div class="ed"><div class="ed-head"><b>Deck</b> <span class="muted">the 78 cards and their names</span></div><pre class="code hazel" data-program="tarot" data-module="Deck">loading Deck.hz…</pre></div>
+  <div class="ed"><div class="ed-head"><b>Spreads</b> <span class="muted">each spread's places, and what a card there speaks to</span></div><pre class="code hazel" data-program="tarot" data-module="Spreads">loading Spreads.hz…</pre></div>
+  <div class="ed"><div class="ed-head"><b>Reading</b> <span class="muted">the deal. The page calls <code>(deal = Reading.deal)</code>.</span></div><pre class="code hazel" data-program="tarot" data-module="Reading">loading Reading.hz…</pre></div>
+  <p><button type="button" id="reset-rules">Put the program back as it was</button></p>
+</section>
+</div>
+<p class="app-foot" id="app-foot">hazeljs-oracles · <a href="../VERSIONS.md">versions</a> · Apache 2.0 (code), CC BY 4.0 (words) · by Matthew Hammer · an example for <a href="https://github.com/hazelgrove/hazeljs">hazeljs</a></p>
+</main>
+<script src="app.js"></script>
+</body>
 </html>

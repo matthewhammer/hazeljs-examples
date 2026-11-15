@@ -1,0 +1,19 @@
+let positions = fun s : Spread ->
+  case s
+  | One => [(name = "The card", about = "the heart of the matter")]
+  | Three => [
+      (name = "Past", about = "what has led here"),
+      (name = "Present", about = "where things stand"),
+      (name = "Future", about = "where things are heading")]
+  | CelticCross => [
+      (name = "1. The present", about = "what covers the question"),
+      (name = "2. The challenge", about = "what crosses it"),
+      (name = "3. The root", about = "what lies beneath it"),
+      (name = "4. The recent past", about = "what is passing away"),
+      (name = "5. The crown", about = "what may come to be"),
+      (name = "6. The near future", about = "what comes next"),
+      (name = "7. Yourself", about = "how you stand in it"),
+      (name = "8. Your surroundings", about = "the people and places around it"),
+      (name = "9. Hopes and fears", about = "what you hope, or dread"),
+      (name = "10. The outcome", about = "where it leads")]
+  end

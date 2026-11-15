@@ -1,0 +1,36 @@
+let majors = [
+  "The Fool", "The Magician", "The High Priestess", "The Empress", "The Emperor", "The Hierophant",
+  "The Lovers", "The Chariot", "Strength", "The Hermit", "Wheel of Fortune", "Justice", "The Hanged Man",
+  "Death", "Temperance", "The Devil", "The Tower", "The Star", "The Moon", "The Sun", "Judgement", "The World"
+];
+let ranks = ["Ace", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Page", "Knight", "Queen", "King"];
+let nth_name = fun (xs, i) : ([String], Int) ->
+  case xs | [] => "" | x :: rest => if i == 0 then x else nth_name(rest, i - 1) end;
+let suit_name = fun s : Suit ->
+  case s | Wands => "Wands" | Cups => "Cups" | Swords => "Swords" | Pentacles => "Pentacles" end;
+let name = fun c : Card ->
+  case c
+  | Major(i) => nth_name(majors, i)
+  | Minor(s, r) => nth_name(ranks, r - 1) ++ " of " ++ suit_name(s)
+  end;
+let cat = fun (xs, ys) : ([Card], [Card]) ->
+  case xs | [] => ys | x :: rest => x :: cat(rest, ys) end;
+let majors_from = fun i : Int ->
+  if i > 21 then [] else Major(i) :: majors_from(i + 1);
+let suit_from = fun (s, r) : (Suit, Int) ->
+  if r > 14 then [] else Minor(s, r) :: suit_from(s, r + 1);
+# The whole deck, 78 cards: the major arcana, then each suit from Ace to King #
+let deck : [Card] =
+  cat(majors_from(0), cat(suit_from(Wands, 1), cat(suit_from(Cups, 1), cat(suit_from(Swords, 1), suit_from(Pentacles, 1)))));
+let size = fun cs : [Card] ->
+  case cs | [] => 0 | _ :: rest => 1 + size(rest) end;
+let nth_card = fun (cs, k) : ([Card], Int) ->
+  case cs | [] => Major(0) | c :: rest => if k == 0 then c else nth_card(rest, k - 1) end;
+# the k-th card, and the deck without it, in one walk #
+let take = fun (cs, k) : ([Card], Int) ->
+  case cs
+  | [] => (Major(0), [])
+  | c :: rest =>
+    if k == 0 then (c, rest)
+    else let (d, left) = take(rest, k - 1) in (d, c :: left)
+  end

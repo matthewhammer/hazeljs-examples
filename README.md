@@ -11,7 +11,7 @@ It is the third example app for `hazeljs`, after [Messed Up Dress Up](https://ma
 | Oracle | Page | What Hazel does |
 |---|---|---|
 | I Ching | `i-ching/` | Casts each line, by three coins or by dividing the yarrow stalks; names the trigrams and the hexagram (King Wen order); finds the changing lines and the hexagram they turn it into. |
-| Tarot | `tarot/` | Coming next: shuffles the 78 cards, deals a spread, and says what each position means. |
+| Tarot | `tarot/` | Holds the 78 cards and their names; deals a spread (one card; past, present and future; the Celtic Cross) from random numbers, upright or reversed, and says what each place speaks to. |
 
 ## Run it
 
@@ -43,12 +43,15 @@ npm run i-ching
 | `i-ching/rules/Book.hz` | The eight trigrams, the King Wen table, the 64 names. |
 | `i-ching/rules/Reading.hz` | The reading so far, from the lines cast. |
 | `i-ching/index.html`, `i-ching/app.js` | The I Ching's page: the reading, the listings, hazeljs building the program, and the page's own JS for while it does not build. |
+| `tarot/rules/*.hz` | The Tarot: its vocabulary (`preamble.hz`), the deck (`Deck.hz`), the spreads' places (`Spreads.hz`), the deal (`Reading.hz`). |
+| `tarot/index.html`, `tarot/app.js` | The Tarot's page: the table, cards turned one at a time, simple faces drawn by the page for now. |
 | `shared/` | What the pages share: Hazel's listings as editors (`hazel-listings.js`, from hazeljs-petri-example) and the styles. |
-| `node/i-ching.mjs` | The I Ching in Node. |
+| `node/i-ching.mjs`, `node/tarot.mjs` | Each oracle in Node (`npm run i-ching`, `npm run tarot`). |
 
 ## Things to know
 
 - **The yarrow stalks' odds are the procedure's.** The books give 1/16, 5/16, 7/16 and 3/16 for 6, 7, 8 and 9, which holds when each heap is as likely to leave 1, 2, 3 or 4 stalks. Here each split falls anywhere along the heap, as a hand's might, and a heap leaves 4 a little less often, so 6 comes about 1 time in 20 rather than 1 in 16 (`npm run i-ching` counts them).
+- **A Tarot deal costs about 20 ms a card** in Node (0.18 s for the Celtic Cross's ten), each card taken from a list of up to 78 in one walk. Measuring the deck and walking it twice a card, as the first draft did, cost 50 ms a card.
 - **Hazel answers in about a millisecond a cast** in Node (coins 0.35 ms, yarrow 1.1 ms on a laptop), and builds the program in about half a second.
 
 ## Licences
