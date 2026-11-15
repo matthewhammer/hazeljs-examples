@@ -43,7 +43,11 @@
 
   // ---- the state: the lines cast so far, each with how it came and which engine cast it
   // (past: when a reading opened from the history was made, or null for a new one; saved: this reading is in the history)
-  const S = { casts: [], built: null, libFailed: false, past: null, saved: false };
+  const S = { casts: [], built: null, libFailed: false, past: null, saved: false, pastQ: null, typed: "" };
+  // (ticket 745, Matthew 2026-11-15: "Optional statement/question for the oracle, recorded in the history. Default statement is
+  // --- 'relating to here/now'") the question asked, or the default; fixed once the reading is kept
+  const DEFAULT_Q = "relating to here/now";
+  const asked = () => $("question").value.trim().replace(/\s+/g, " ") || DEFAULT_Q;
   const method = () => document.querySelector('input[name="method"]:checked').value;
   const hazelReady = () => !!(S.built && S.built.ok);
   function castOne() {
@@ -122,17 +126,23 @@
     h.className = "reading-head" + (S.past ? " past" : "");
     h.replaceChildren(S.past ? `Reading from ${S.past}` : "A new reading");
     if (S.past) { const b = el("button", "", "New reading"); b.type = "button"; b.addEventListener("click", startAgain); h.append(b); }
+    // the question under the heading: this reading's, as it is typed, or a past one's (none, for one kept before there were questions)
+    const q = S.past ? S.pastQ : asked();
+    $("reading-q").textContent = q ? `“${q}”` : "";
+    $("question").readOnly = !!(S.saved || S.past);
   }
 
   // ---- the history (shared/history.js): a reading is kept once its six lines are cast
   const METHOD = { Coins: "by coins", Yarrow: "by yarrow" };
   const H = window.OracleHistory ? window.OracleHistory.panel({
     holder: $("history"), key: "hazeljs-oracles/i-ching/history",
-    summarize: r => `${r.primary.number}. ${r.primary.name}` + (r.relating && r.relating.number ? ` → ${r.relating.number}. ${r.relating.name}` : "")
+    summarize: r => (r.question ? `“${r.question}” · ` : "") + `${r.primary.number}. ${r.primary.name}` + (r.relating && r.relating.number ? ` → ${r.relating.number}. ${r.relating.name}` : "")
       + ` · ${[...new Set(r.casts.map(c => METHOD[c.method]))].join(" and ")}`,
     open: (r, when) => {
       S.casts = r.casts.map(c => ({ ...c, line: { tag: LINE[c.value] }, fresh: false }));
-      S.past = when; S.saved = true;
+      if (!S.past) S.typed = $("question").value;   // (what was typed for a new reading, given back by New reading)
+      S.past = when; S.saved = true; S.pastQ = r.question || null;
+      $("question").value = r.question && r.question !== DEFAULT_Q ? r.question : "";
       const m = document.querySelector(`input[name="method"][value="${r.casts[r.casts.length - 1].method}"]`); if (m) m.checked = true;
       draw();
       $("reading-head").scrollIntoView({ block: "nearest", behavior: "smooth" });
@@ -142,10 +152,13 @@
     if (S.saved || S.casts.length < 6 || !H) return;
     const r = readingNow();
     H.add({ casts: S.casts.map(({ value, counts, method, eng }) => ({ value, counts, method, eng })),
-            primary: r.primary, changing: r.changing, relating: r.relating });
+            primary: r.primary, changing: r.changing, relating: r.relating, question: asked() });
     S.saved = true;
   }
-  function startAgain() { S.casts = []; S.past = null; S.saved = false; if (H) H.leave(); draw(); }
+  function startAgain() {
+    if (S.past) $("question").value = S.typed;   // (back from a past reading: the question that was being typed)
+    S.casts = []; S.past = null; S.pastQ = null; S.saved = false; if (H) H.leave(); draw();
+  }
 
   function drawStatus() {
     const st = $("status"), b = S.built;
@@ -187,6 +200,7 @@
   $("cast").addEventListener("click", () => { castOne(); keep(); draw(); });
   $("all").addEventListener("click", () => { while (S.casts.length < 6) castOne(); keep(); draw(); });
   $("again").addEventListener("click", startAgain);
+  $("question").addEventListener("input", drawHead);
   $("reset-rules").addEventListener("click", () => { if (L) L.reset(PROGRAM); });
   document.body.classList.add("js");
   draw();

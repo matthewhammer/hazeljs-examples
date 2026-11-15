@@ -148,3 +148,10 @@ body.js .nojs { display: none; }
 .read .meanings { display: block; font-size: 0.88em; margin-top: 2px; }
 .read .meanings a { white-space: nowrap; }
 .read li.meanings-note { list-style: none; font-size: 0.82em; margin-top: 6px; }
+
+/* (ticket 745) the I Ching's question, asked before the lines are cast, shown under the reading's heading */
+.question-label { display: block; font-weight: 600; margin: 4px 0 4px; }
+.question { width: 100%; box-sizing: border-box; font: inherit; padding: 8px 10px; margin-bottom: 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--paper); color: var(--ink); }
+.question:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.question[readonly] { background: color-mix(in srgb, var(--line) 35%, var(--paper)); }
+.reading-q { margin: 0 0 6px; font-style: italic; color: var(--muted); }

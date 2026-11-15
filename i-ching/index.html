@@ -6,7 +6,7 @@
 <title>I Ching, cast in Hazel</title>
 <meta name="description" content="An I Ching reading whose casting and reading are written in Hazel and run by hazeljs: cast six lines by coins or by yarrow stalks, one at a time, and read the hexagram. The first of the ancient oracles, an example app for hazeljs.">
 <link rel="stylesheet" href="../shared/style.css?v=0.0.2">
-<link rel="stylesheet" href="../shared/oracles.css?v=0.0.7">
+<link rel="stylesheet" href="../shared/oracles.css?v=0.0.8">
 </head>
 <body><main class="oracle">
 <div class="app-head">
@@ -17,6 +17,8 @@
 
 <div class="oracle-grid">
 <section class="oracle-ui" aria-label="The reading">
+  <label class="question-label" for="question">Your question or statement <span class="muted">(optional)</span></label>
+  <input id="question" class="question" type="text" maxlength="200" autocomplete="off" placeholder="relating to here/now">
   <div class="controls">
     <fieldset class="method"><legend>Cast by</legend>
       <label><input type="radio" name="method" value="Coins" checked> three coins</label>
@@ -28,6 +30,7 @@
   </div>
   <div class="status wait" id="status">⏳ Loading Hazel (hazeljs from jsDelivr); until then the page's own JS casts.</div>
   <h2 class="reading-head" id="reading-head">A new reading</h2>
+  <p class="reading-q" id="reading-q"></p>
   <div class="reading">
     <div class="hexes">
       <figure class="hex" id="primary"><div class="hex-lines" id="primary-lines"></div><figcaption id="primary-cap">Six lines, cast from the bottom.</figcaption></figure>
@@ -54,6 +57,6 @@
 </main>
 <script src="../shared/history.js?v=0.0.2"></script>
 <script src="../shared/divider.js?v=0.0.8"></script>
-<script src="app.js?v=0.0.6"></script>
+<script src="app.js?v=0.0.8"></script>
 </body>
 </html>

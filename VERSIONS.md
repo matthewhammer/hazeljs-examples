@@ -4,6 +4,12 @@ Each version lists what the apps do as of that version. The newest version is fi
 
 ## Unreleased
 
+## 0.0.6 (2026-11-15)
+
+Everything in 0.0.5, plus:
+
+- **The I Ching asks your question first.** At the top of the reading, an optional question or statement; left blank, the reading is "relating to here/now". It shows under the reading's heading as you type, is fixed once the six lines are cast, and is kept with the reading in 🕰 History, where it leads the reading's line. A past reading opens with its own question; **New reading** gives back what you had typed.
+
 ## 0.0.5 (2026-11-15)
 
 Everything in 0.0.4, plus:
