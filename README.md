@@ -1,5 +1,7 @@
 # hazeljs-oracles
 
+**▶ Try it at https://matthewhammer.org/hazeljs-oracles/** (the [I Ching](https://matthewhammer.org/hazeljs-oracles/i-ching/), the [Tarot](https://matthewhammer.org/hazeljs-oracles/tarot/))
+
 **Ancient oracles whose core logic is written in [Hazel](https://hazel.org) and run by [hazeljs](https://www.npmjs.com/package/hazeljs).** Each oracle is its own app, on its own page: the reading on one side, revealed a step at a time, and on the other the Hazel program that makes it, in Hazel's own editor. The page passes the program random numbers and draws what it answers; edit the program and the page builds it again. While it has an error or a hole, the page's own JavaScript answers instead, and the page says which did.
 
 It is the third example app for `hazeljs`, after [Messed Up Dress Up](https://matthewhammer.org/kids-choice-games/dress-up/) and [hazeljs-petri-example](https://github.com/matthewhammer/hazeljs-petri-example).

@@ -4,15 +4,16 @@ Each version lists what the apps do as of that version. The newest version is fi
 
 ## Unreleased
 
-- **The front page's cards are whole again.** The Tarot's card styles (104 by 168) had reached the front page's links, squeezing each oracle's card into a strip with its words spilling out below; they now hold on the Tarot's table only. The shared styles and scripts are asked for by version, so a browser holding the old ones fetches these.
+## 0.0.2 (2026-11-15)
+
+Everything in 0.0.1, plus the first public release, at https://matthewhammer.org/hazeljs-oracles/ :
 
 - **Every spread on the list**, chosen from one menu, each with a line on what it is for: one card; three cards read three ways (past, present, future; situation, challenge, advice; mind, body, spirit); the Celtic Cross; a relationship (you, the other, the bond, its strength, its tension, a way forward); a choice between two or three paths (the crossroads, then each path's opportunity, difficulty and direction); the year ahead (a card for each month from this one, with or without a card for the year). Each spread is laid out in its own shape: the choice as columns, one per path; the year as a ring of months with the year's card in the middle. Hazel builds the places that vary (a group of three for each path, a month for each card from this one).
-
 - **🕰 History, on each oracle's page.** Each reading is kept in this browser (local storage), each oracle's apart: the I Ching's once its six lines are cast, the Tarot's as it is dealt. The panel lists them newest first, with when and what came (the hexagram and the one it changes to, and how it was cast; the spread and its cards). Open one and it is shown as the reading just made, under its own heading, "Reading from" its date and time, with **New reading** beside it; ✕ forgets one, and **Forget them all** forgets every one, after asking.
 - **The I Ching links to a fuller reading on another site** once six lines are cast (Cafe au Soul's, said plainly to be another site's, copyrighted and with ads; it gets only the six numbers).
 - **The Celtic Cross's crossing card** lies across the first card without covering its neighbours, and a spread wider than its column scrolls.
 
-## 0.0.1
+## 0.0.1 (2026-11-15, not published)
 
 - **The series' front page**, introducing the ancient oracles, with a card for each.
 - **The I Ching**, cast in Hazel: six lines cast one at a time, bottom up, by three coins or by the yarrow stalks (a switch), each line drawn as it comes with how it came (the coins, or the stalks set aside at each division); after three lines the lower trigram, after six the hexagram, its changing lines and the hexagram they turn it into. The program is five Hazel listings in Hazel's own editor beside the reading; edit it and the page builds it again, and while it has an error or a hole the page's own JS casts, and each line says which did.
