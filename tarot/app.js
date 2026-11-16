@@ -198,12 +198,44 @@
     $("status").textContent = "Could not start: " + (e && e.message || e) + ". Serve this folder over http (python3 -m http.server) and open it from localhost.";
   }
   $("deal").addEventListener("click", () => { deal(); drawUse(); draw(); });
+  // ---- (0.0.9) ⚙️ Advanced (../shared/advanced.js): the version and its notes, and 🧪 this device's speed: a deal of every spread through Hazel, with a
+  // fixed stream of draws so every device does the same work, and a Celtic Cross drawn with every card turned; then the
+  // table as it was
+  if (window.OracleAdvanced) window.OracleAdvanced.panel({
+    holder: $("advanced"), name: "Tarot", built: () => S.built, libAt: () => S.libAt, keysIn: null,
+    about: "a deal of each spread through Hazel, and five drawings of a Celtic Cross with every card turned",
+    work: async say => {
+      const { stats, painted } = window.OracleAdvanced;
+      if (!(S.built && S.built.ok)) return { data: { hazel: false }, text: ["Hazel was not ready, so nothing was timed in it"] };
+      say("🧪 measuring: a deal of each spread through Hazel…"); await painted();
+      let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+      const deals = {}; let cross = null;
+      for (const o of $("spread").options) {
+        const us = Array.from({ length: 40 }, rnd), t = performance.now();
+        const d = S.built.value.deal(spreadOf(o.value), us, true);
+        deals[o.value] = Math.round((performance.now() - t) * 10) / 10;
+        if (o.value === "CelticCross") cross = d;
+      }
+      const ms = Object.values(deals), all = Math.round(ms.reduce((a, b) => a + b, 0)), slow = Object.entries(deals).sort((a, b) => b[1] - a[1])[0];
+      say("🧪 measuring: drawing a Celtic Cross…"); await painted();
+      const keep = { dealt: S.dealt, turned: S.turned, spread: S.spread, eng: S.eng, ms: S.ms, past: S.past }, draws = [];
+      if (cross) {
+        Object.assign(S, { dealt: cross, turned: cross.length, spread: "CelticCross", eng: "hazel", ms: 0, past: null });
+        for (let i = 0; i < 5; i++) { const t = performance.now(); draw(); await painted(); draws.push(performance.now() - t); }
+      }
+      Object.assign(S, keep); draw();
+      const dr = stats(draws);
+      return { data: { deals, all, draw: dr },
+               text: [`through Hazel, ${ms.length} deals, one of each spread: ${all} ms in all, the slowest ${slow[1]} ms (${slow[0]})`,
+                      cross ? `drawing a Celtic Cross, every card turned, to the next frame: ${dr.median} ms` : null].filter(Boolean) };
+    },
+  });
   $("spread").addEventListener("change", drawUse);
   $("turn").addEventListener("click", () => { if (S.turned < S.dealt.length) { S.turned++; draw(); } });
   $("reset-rules").addEventListener("click", () => { if (L) L.reset(PROGRAM); });
   document.body.classList.add("js");
   draw();
   const s = document.createElement("script"); s.src = LIB; s.async = true;
-  s.onload = () => { build(); drawStatus(); }; s.onerror = () => { S.libFailed = true; drawStatus(); };
+  s.onload = () => { S.libAt = performance.now(); build(); drawStatus(); }; s.onerror = () => { S.libFailed = true; drawStatus(); };
   document.head.append(s);
 })();

@@ -4,6 +4,12 @@ Each version lists what the apps do as of that version. The newest version is fi
 
 ## Unreleased
 
+## 0.0.9 (2026-11-16)
+
+Everything in 0.0.8, plus:
+
+- **⚙️ Advanced, at the foot of each oracle,** as Messed Up Dress Up has it: the version, every version's notes (these), and **🧪 measure this device's speed**. The measurement does the same work on every device: it reads the page's own load (when Hazel's library ran, how long the program took to build), times the oracle's calls into Hazel (the I Ching: 30 casts by coins, 30 by yarrow, 20 readings; the Tarot: a deal of each of its ten spreads), drawing the reading, key presses in the I Ching's question box, and two seconds idle (frames a second, the longest pause); then it leaves the page as it was. It writes one line to copy, ending with its numbers as data, and links a shared page to paste it into (Riseup's public Etherpad, the one Dress Up's speed lines go to), so two devices can be compared: an older phone against a laptop, say.
+
 ## 0.0.8 (2026-11-16)
 
 Everything in 0.0.7, plus:

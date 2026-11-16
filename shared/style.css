@@ -226,3 +226,19 @@ html.dragging-split iframe { pointer-events: none; }  /* (a frame under the poin
 /* (0.0.3) what Hazel says of the rules, under the listing it is in (js/hazel-listings.js) */
 .hazel-listing-status { list-style: none; margin: 6px 0 0; padding: 6px 10px; border-left: 3px solid var(--warn); background: color-mix(in srgb, var(--warn) 8%, transparent); border-radius: 0 6px 6px 0; color: var(--ink); font-size: 0.9em; }
 .hazel-listing-status li { margin: 2px 0; }
+
+/* (0.0.9) ⚙️ Advanced (shared/advanced.js): the version, 🧪 this device's speed, 📰 every version's notes */
+.advanced-holder { margin: 18px 0 8px; }
+details.advanced { border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; background: var(--paper); }
+details.advanced > summary { cursor: pointer; font-weight: 600; }
+.advanced-version { margin: 8px 0; }
+.advanced-cap { font-size: 1em; margin: 14px 0 6px; }
+.speed-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 6px 0; }
+.speed-line { width: 100%; box-sizing: border-box; font: inherit; font-size: 0.85em; padding: 4px 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); }
+.speed-hint { font-size: 0.88em; }
+.news { max-height: 55vh; overflow-y: auto; overscroll-behavior: contain; border: 1px solid var(--line); border-radius: 8px; padding: 8px; }
+.news-card { padding: 6px 4px 8px; border-bottom: 1px solid var(--line); }
+.news-card:last-child { border-bottom: 0; }
+.news-card.now { background: color-mix(in srgb, var(--accent) 7%, transparent); border-radius: 6px; }
+.news-this { font-size: 0.8em; padding: 1px 6px; border-radius: 8px; background: var(--accent); color: var(--paper); }
+.news-card p, .news-card ul { margin: 4px 0; }

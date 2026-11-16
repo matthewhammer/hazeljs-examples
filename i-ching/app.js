@@ -180,7 +180,7 @@
     let r, threw = "";
     try { r = window.Hazel.runProgram(sp); } catch (e) { threw = String(e && e.message || e); r = { ok: false, errors: [] }; }
     const v = r.value && typeof r.value === "object" ? r.value : null;
-    S.built = { key, ok: !!r.ok && !!v && typeof v.cast === "function" && typeof v.reading === "function", value: v, errors: r.errors || [], threw, ms: performance.now() - t0 };
+    S.built = { key, ok: !!r.ok && !!v && typeof v.cast === "function" && typeof v.reading === "function", value: v, errors: r.errors || [], threw, ms: performance.now() - t0, at: performance.now() };
     draw();
   }
 
@@ -207,9 +207,33 @@
   $("reset-rules").addEventListener("click", () => { if (L) L.reset(PROGRAM); });
   document.body.classList.add("js");
   draw();
+  // ---- (0.0.9) ⚙️ Advanced (../shared/advanced.js): the version and its notes, and 🧪 this device's speed; Hazel's calls with a fixed stream of draws, so
+  // every device does the same work, and the reading as it was afterwards
+  if (window.OracleAdvanced) window.OracleAdvanced.panel({
+    holder: $("advanced"), name: "I Ching", built: () => S.built, libAt: () => S.libAt, keysIn: $("question"),
+    about: "30 casts by coins and 30 by yarrow and 20 readings through Hazel, ten drawings of the reading, and 20 key presses in the question",
+    work: async say => {
+      const { stats, painted } = window.OracleAdvanced;
+      const draws = [];
+      for (let i = 0; i < 10; i++) { const t = performance.now(); draw(); await painted(); draws.push(performance.now() - t); }
+      const drawn = `drawing the reading, to the next frame: ${stats(draws).median} ms`;
+      if (!hazelReady()) return { data: { hazel: false, draw: stats(draws) }, text: ["Hazel was not ready, so nothing was timed in it", drawn] };
+      say("🧪 measuring: casts and readings through Hazel…"); await painted();
+      let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+      const { cast, reading } = S.built.value, time = f => { const t = performance.now(); f(); return performance.now() - t; };
+      const coins = [], yarrow = [], readings = [];
+      for (let i = 0; i < 30; i++) coins.push(time(() => cast({ tag: "Coins" }, rnd(), rnd(), rnd())));
+      for (let i = 0; i < 30; i++) yarrow.push(time(() => cast({ tag: "Yarrow" }, rnd(), rnd(), rnd())));
+      const six = Array.from({ length: 6 }, () => cast({ tag: "Coins" }, rnd(), rnd(), rnd()).line);
+      for (let i = 0; i < 20; i++) readings.push(time(() => reading(six)));
+      const c = stats(coins), y = stats(yarrow), r = stats(readings);
+      return { data: { coins: c, yarrow: y, reading: r, draw: stats(draws) },
+               text: [`through Hazel, a cast by coins ${c.median} ms (worst ${c.worst}), by yarrow ${y.median} ms (worst ${y.worst}), a reading ${r.median} ms`, drawn] };
+    },
+  });
   const s = document.createElement("script");
   s.src = LIB; s.async = true;
-  s.onload = () => { build(); drawStatus(); };
+  s.onload = () => { S.libAt = performance.now(); build(); drawStatus(); };
   s.onerror = () => { S.libFailed = true; drawStatus(); };
   document.head.append(s);
 })();
