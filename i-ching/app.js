@@ -5,6 +5,11 @@
   "use strict";
   const LIB = "https://cdn.jsdelivr.net/npm/hazeljs@0.0.4/hazel-lib.js";
   const PROGRAM = "iching", MODULES = ["Lines", "Casting", "Book", "Reading"];
+  // (0.0.11, a prototype, ticket 765 and ^report(54)'s "Compiled ahead of time": Matthew, 2026-11-16, "only run the pre-compiled
+  // JS code for the Hazel code (running hazel jit for it during the packaging step for the HTML/JS, for a short load?)") With
+  // ?compiled in the address, the page casts and reads through compiled.js, the same rules compiled to JavaScript by hazel-jit
+  // when the site was made: Hazel's library is not loaded and the program not built, until someone edits the rules.
+  const COMPILED = new URLSearchParams(location.search).has("compiled");
   const TAIL = "(cast = Casting.cast, reading = Reading.reading)";
   const $ = id => document.getElementById(id);
   const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
@@ -54,7 +59,7 @@
     if (S.casts.length >= 6) return;
     const m = { tag: method() }, u = [Math.random(), Math.random(), Math.random()];
     let c = null, eng = "js", t0 = performance.now();
-    if (hazelReady()) { try { c = S.built.value.cast(m, ...u); eng = "hazel"; } catch (e) { c = null; } }
+    if (hazelReady()) { try { c = S.built.value.cast(m, ...u); eng = S.built.compiled ? "compiled" : "hazel"; } catch (e) { c = null; } }
     if (!c || !c.line || !LINE[c.value]) { c = castJS(m, ...u); eng = "js"; }
     S.casts.push({ ...c, method: m.tag, eng, ms: performance.now() - t0, fresh: true });
   }
@@ -66,7 +71,7 @@
     const ls = S.casts.map(c => c.line), tags = ls.map(l => l.tag).join(",");
     if (lastReading && lastReading.built === S.built && lastReading.tags === tags) return lastReading.r;
     let r = null;
-    if (hazelReady()) { try { const h = S.built.value.reading(ls); if (h && h.lower) r = { ...h, eng: "hazel" }; } catch (e) { /* the JS answers */ } }
+    if (hazelReady()) { try { const h = S.built.value.reading(ls); if (h && h.lower) r = { ...h, eng: S.built.compiled ? "compiled" : "hazel" }; } catch (e) { /* the JS answers */ } }
     if (!r) r = { ...readingJS(ls), eng: "js" };
     lastReading = { built: S.built, tags, r };
     return r;
@@ -98,7 +103,7 @@
     list.replaceChildren(...S.casts.map((c, i) => {
       const li = el("li", c.fresh ? "fresh" : "");
       li.value = i + 1;
-      li.append(el("b", "", `Line ${i + 1}: ${c.value}, ${NAMEOF[c.value]}`), " ", el("span", "muted", say(c)), " ", el("span", "eng " + c.eng, c.eng === "hazel" ? (typeof c.ms === "number" ? `Hazel, ${c.ms.toFixed(1)} ms` : "Hazel") : "JS"));
+      li.append(el("b", "", `Line ${i + 1}: ${c.value}, ${NAMEOF[c.value]}`), " ", el("span", "muted", say(c)), " ", el("span", "eng " + c.eng, c.eng === "hazel" || c.eng === "compiled" ? (c.eng === "compiled" ? "compiled Hazel" : "Hazel") + (typeof c.ms === "number" ? (c.ms < 0.1 ? ", under 0.1 ms" : `, ${c.ms.toFixed(1)} ms`) : "") : "JS"));
       return li;
     }).reverse());
     S.casts.forEach(c => c.fresh = false);
@@ -110,7 +115,7 @@
       v.append(el("b", "", `${r.upper.name} (${r.upper.image}) over ${r.lower.name} (${r.lower.image}).`), " ");
       v.append(r.changing.length ? `Changing ${r.changing.length === 1 ? "line" : "lines"}: ${r.changing.join(", ")}, counted from the bottom; ${r.changing.length === 1 ? "it turns" : "they turn"} it into ${r.relating.number}, ${r.relating.name}.`
         : "No changing lines: the hexagram stands as it is.");
-      v.append(" ", el("span", "eng " + r.eng, r.eng === "hazel" ? "read by Hazel" : "read by JS"));
+      v.append(" ", el("span", "eng " + r.eng, r.eng === "hazel" ? "read by Hazel" : r.eng === "compiled" ? "read by compiled Hazel" : "read by JS"));
       // (Matthew, 2026-11-15: a link, once the six lines are cast, to a fuller reading on another site, said plainly to be
       // another site's, copyrighted and with ads.) Cafe au Soul's reading takes the six values, bottom line first, as ours are:
       // lns=687879 is 53 changing to 63 there and here.
@@ -170,6 +175,7 @@
 
   function drawStatus() {
     const st = $("status"), b = S.built;
+    if (b && b.compiled) { st.className = "status ok"; st.textContent = `✓ Compiled ahead of time: the rules run as JavaScript (hazel-jit, ${b.made || "a prototype"}), without loading Hazel's library or building the program. Hazel loads if you edit the rules.`; return; }
     if (!window.Hazel) { st.className = "status wait"; st.textContent = S.libFailed ? "Hazel did not load from jsDelivr; the page's own JS casts." : "⏳ Loading Hazel (hazeljs from jsDelivr, about 650 kB); until then the page's own JS casts."; return; }
     if (!b) { st.className = "status wait"; st.textContent = "⏳ Building the program…"; return; }
     if (b.ok) { st.className = "status ok"; st.textContent = `✓ The program is ready: Hazel casts each line. Built by hazeljs in ${b.ms.toFixed(0)} ms.`; return; }
@@ -205,7 +211,7 @@
     await load("../shared/hazel-listings.js?v=0.0.8");
     L = window.HazelListings;
     L.tail(PROGRAM, TAIL);
-    L.onChange(PROGRAM, () => { clearTimeout(timer); timer = setTimeout(build, 350); });
+    L.onChange(PROGRAM, () => { if (!window.Hazel) loadLib(); clearTimeout(timer); timer = setTimeout(build, 350); });
   } catch (e) {
     $("status").textContent = "Could not start: " + (e && e.message || e) + ". Serve this folder over http (python3 -m http.server) and open it from localhost.";
   }
@@ -240,9 +246,33 @@
                text: [`through Hazel, a cast by coins ${c.median} ms (worst ${c.worst}), by yarrow ${y.median} ms (worst ${y.worst}), a reading ${r.median} ms`, drawn] };
     },
   });
-  const s = document.createElement("script");
-  s.src = LIB; s.async = true;
-  s.onload = () => { S.libAt = performance.now(); build(); drawStatus(); };
-  s.onerror = () => { S.libFailed = true; drawStatus(); };
-  document.head.append(s);
+  // (0.0.11) the prototype's switch, under ⚙️ Advanced: this page compiled ahead of time, or interpreted as before
+  { const box = $("advanced") && $("advanced").querySelector("details.advanced");
+    if (box) {
+      const u = new URL(location.href); if (COMPILED) u.searchParams.delete("compiled"); else u.searchParams.set("compiled", "");
+      const p = el("p", "advanced-version", COMPILED ? "⚡ This page runs its rules compiled ahead of time (a prototype). " : "⚡ A prototype: the same rules compiled ahead of time to JavaScript, without loading Hazel. ");
+      const a = el("a", "", COMPILED ? "Open it interpreted, as before" : "Open it compiled"); a.href = u.href.replace("compiled=", "compiled");
+      p.append(a); box.querySelector(".advanced-version").after(p);
+    } }
+  let libAsked = false;
+  function loadLib() {
+    if (libAsked) return; libAsked = true;
+    const s = document.createElement("script");
+    s.src = LIB; s.async = true;
+    s.onload = () => { S.libAt = performance.now(); build(); drawStatus(); };
+    s.onerror = () => { S.libFailed = true; drawStatus(); };
+    document.head.append(s);
+  }
+  if (!COMPILED) loadLib();
+  else {
+    const c = document.createElement("script");
+    c.src = "compiled.js?v=0.0.11"; c.async = true;
+    c.onload = () => {
+      const v = window.IChingCompiled;
+      if (v && !S.built) { S.libAt = performance.now(); S.built = { key: "compiled", ok: true, compiled: true, made: v.made, value: v, errors: [], threw: "", ms: 0, at: performance.now() }; draw(); }
+      else if (!v) loadLib();
+    };
+    c.onerror = () => loadLib();
+    document.head.append(c);
+  }
 })();

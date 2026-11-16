@@ -4,6 +4,12 @@ Each version lists what the apps do as of that version. The newest version is fi
 
 ## Unreleased
 
+## 0.0.11 (2026-11-16)
+
+Everything in 0.0.10, plus:
+
+- **A prototype: the I Ching compiled ahead of time.** Open it with `?compiled` in its address (https://matthewhammer.org/hazeljs-oracles/i-ching/?compiled), or by the link under ⚙️ Advanced. Its rules, the same Hazel, are compiled to JavaScript by hazel-jit, Hazel's prototype compiler, when the site is made, into `i-ching/compiled.js` (33 kB): the page casts and reads through it, without loading hazeljs (2.8 MB) or building the program, and each line says "compiled Hazel". Editing the rules loads Hazel and runs them as before. Checked against hazeljs on 8,102 answers (every set of six lines with every pattern of changing lines, the readings of fewer lines, 4,000 casts), none different; in Node a cast is about 500 times faster and a reading about 3,000 times (`node/compare-compiled.mjs`). Made by `tools/make-compiled.py` from the compiled program a test prints on hazelgrove/hazel's branch `trial/765-iching-aot`. Compiling it found a bug in hazel-jit, now fixed there: a label or a module's member named `length` (as `Lines.length` is) broke every compiled call.
+
 ## 0.0.10 (2026-11-16)
 
 Everything in 0.0.9, plus:

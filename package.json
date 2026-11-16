@@ -1,11 +1,12 @@
 {
   "name": "hazeljs-oracles",
-  "version": "0.0.10",
+  "version": "0.0.11",
   "private": true,
   "description": "Ancient oracles whose core logic is written in Hazel and run by hazeljs: the I Ching, then the Tarot. Example apps for hazeljs.",
   "type": "module",
   "scripts": {
     "i-ching": "node node/i-ching.mjs",
+    "compare-compiled": "node node/compare-compiled.mjs",
     "serve": "python3 -m http.server 8000 --bind 127.0.0.1",
     "tarot": "node node/tarot.mjs"
   },
