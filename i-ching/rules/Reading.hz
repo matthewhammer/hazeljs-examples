@@ -1,5 +1,5 @@
 # The reading so far, from the lines cast, bottom first: after three lines, the lower trigram; after six, the hexagram, its changing lines, and the relating hexagram they turn it into #
-let reading = fun ls : [Line] ->
+let reading : [Line] -> Reading = fun ls ->
   let changing = Lines.changing_from(ls, 1) in
   case ls
   | a :: b :: c :: d :: e :: f :: _ =>

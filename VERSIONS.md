@@ -4,6 +4,14 @@ Each version lists what the apps do as of that version. The newest version is fi
 
 ## Unreleased
 
+## 0.0.10 (2026-11-16)
+
+Everything in 0.0.9, plus:
+
+- **The I Ching reads faster.** Its first speed line, from an older Android phone in Firefox: Hazel ready 3.7 s after the page opened, the program built in 2.9 s, a cast 3 ms by coins and 9 ms by yarrow, a reading 113 ms, and the reading drawn 149 ms to the next frame; a key press in the question, one frame (17 ms), with the editors closed since 0.0.8. The same work on a laptop is about five times faster. Two changes:
+  - Every function in its Hazel (`Lines.hz`, `Casting.hz`, `Book.hz`, `Reading.hz`) declares its whole type, and Book's two lists theirs, as the Tarot's did in 0.0.7: a reading 20 ms in Node and 13 ms now, the build 600 ms and 480. The odds, the 64 numbers and the known hexagrams are checked as before.
+  - The page asks Hazel for the reading once for each set of lines cast, not at every redraw.
+
 ## 0.0.9 (2026-11-16)
 
 Everything in 0.0.8, plus:

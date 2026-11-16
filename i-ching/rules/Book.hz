@@ -10,7 +10,7 @@ let trigrams : [Trigram] = [
   (number = 7, name = "Qian", image = "heaven")
 ];
 # The King Wen number of each hexagram: row by its upper trigram, column by its lower, in the trigrams' order #
-let king_wen = [
+let king_wen : [Int] = [
   2, 24, 7, 19, 15, 36, 46, 11,
   16, 51, 40, 54, 62, 55, 32, 34,
   8, 3, 29, 60, 39, 63, 48, 5,
@@ -20,7 +20,7 @@ let king_wen = [
   20, 42, 59, 61, 53, 37, 57, 9,
   12, 25, 6, 10, 33, 13, 44, 1
 ];
-let names = [
+let names : [String] = [
   "Qian, the Creative", "Kun, the Receptive", "Zhun, Difficulty at the Beginning", "Meng, Youthful Folly",
   "Xu, Waiting", "Song, Conflict", "Shi, the Army", "Bi, Holding Together",
   "Xiao Chu, Small Taming", "Lu, Treading", "Tai, Peace", "Pi, Standstill",
@@ -38,18 +38,18 @@ let names = [
   "Xun, the Gentle (Wind)", "Dui, the Joyous (Lake)", "Huan, Dispersion", "Jie, Limitation",
   "Zhong Fu, Inner Truth", "Xiao Guo, Small Exceeding", "Ji Ji, After Completion", "Wei Ji, Before Completion"
 ];
-let nth_int = fun (xs, i) : ([Int], Int) ->
+let nth_int : ([Int], Int) -> Int = fun (xs, i) ->
   case xs | [] => 0 | x :: rest => if i == 0 then x else nth_int(rest, i - 1) end;
-let nth_name = fun (xs, i) : ([String], Int) ->
+let nth_name : ([String], Int) -> String = fun (xs, i) ->
   case xs | [] => "" | x :: rest => if i == 0 then x else nth_name(rest, i - 1) end;
-let nth_trigram = fun (ts, i) : ([Trigram], Int) ->
+let nth_trigram : ([Trigram], Int) -> Trigram = fun (ts, i) ->
   case ts
   | [] => (number = 0 - 1, name = "", image = "")
   | t :: rest => if i == 0 then t else nth_trigram(rest, i - 1)
   end;
-let trigram = fun (a, b, c) : (Line, Line, Line) ->
+let trigram : (Line, Line, Line) -> Trigram = fun (a, b, c) ->
   nth_trigram(trigrams, Lines.bit(a) + 2 * Lines.bit(b) + 4 * Lines.bit(c));
-let hexagram = fun (lower, upper) : (Trigram, Trigram) ->
+let hexagram : (Trigram, Trigram) -> Hexagram = fun (lower, upper) ->
   let k = nth_int(king_wen, upper.number * 8 + lower.number) in
   (number = k, name = nth_name(names, k - 1));
 # not yet cast #

@@ -58,10 +58,18 @@
     if (!c || !c.line || !LINE[c.value]) { c = castJS(m, ...u); eng = "js"; }
     S.casts.push({ ...c, method: m.tag, eng, ms: performance.now() - t0, fresh: true });
   }
+  // (0.0.10) the reading, asked of Hazel once for each set of lines cast and each build: a page redrawn with the same lines (a
+  // cast's draw, then keeping it in the history; the history opened) asks again for nothing. A reading through Hazel took 113 ms
+  // on an older Android phone, every redraw.
+  let lastReading = null;
   function readingNow() {
-    const ls = S.casts.map(c => c.line);
-    if (hazelReady()) { try { const r = S.built.value.reading(ls); if (r && r.lower) return { ...r, eng: "hazel" }; } catch (e) { /* the JS answers */ } }
-    return { ...readingJS(ls), eng: "js" };
+    const ls = S.casts.map(c => c.line), tags = ls.map(l => l.tag).join(",");
+    if (lastReading && lastReading.built === S.built && lastReading.tags === tags) return lastReading.r;
+    let r = null;
+    if (hazelReady()) { try { const h = S.built.value.reading(ls); if (h && h.lower) r = { ...h, eng: "hazel" }; } catch (e) { /* the JS answers */ } }
+    if (!r) r = { ...readingJS(ls), eng: "js" };
+    lastReading = { built: S.built, tags, r };
+    return r;
   }
 
   // ---- drawing: a line as a bar (yang) or a broken bar (yin), an old line marked (○ old yang, × old yin)
@@ -189,7 +197,8 @@
     const [pre, ...mods] = await Promise.all([text("rules/preamble.hz"), ...MODULES.map(m => text(`rules/${m}.hz`))]);
     document.querySelector(`pre.hazel[data-program="${PROGRAM}"]:not([data-module])`).textContent = pre;
     MODULES.forEach((m, i) => { document.querySelector(`pre.hazel[data-module="${m}"]`).textContent = mods[i]; });
-    NAMES = [...((mods[MODULES.indexOf("Book")].split("let names = [")[1] || "").split("];")[0]).matchAll(/"([^"]+)"/g)].map(x => x[1]);
+    // (0.0.10: Book's lists declare their types, let names : [String] = [...])
+    NAMES = [...((mods[MODULES.indexOf("Book")].split(/let names\s*(?::\s*\[String\]\s*)?=\s*\[/)[1] || "").split("];")[0]).matchAll(/"([^"]+)"/g)].map(x => x[1]);
     // (0.0.8, Matthew 2026-11-16: "only reveal the Hazel edit boxes when asked to") each listing stays text until its button opens
     // Hazel's editor there; Hazel itself (hazel-lib.js) still casts from the text
     window.HazelListingsOptions = { start: "request" };
