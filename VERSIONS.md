@@ -4,6 +4,12 @@ Each version lists what the apps do as of that version. The newest version is fi
 
 ## Unreleased
 
+## 0.0.8 (2026-11-16)
+
+Everything in 0.0.7, plus:
+
+- **Hazel's editor opens only when you ask for it.** Each listing of the rules is its text, with an **Open in Hazel's editor** button; the editor loads there when pressed (and in a listing a go to definition leads to). Hazel still casts and deals from the text as before. Until now each page opened Hazel's editor in every listing as it loaded: five on the I Ching's page, four on the Tarot's. Each one is a whole Hazel app, about 7 MB of JavaScript and some 50 MB of memory, which made both oracles painfully slow on an older Android phone in Firefox, a key press in the question included. The page now starts with none of them: on a laptop, 28 MB of memory for the I Ching's page with Hazel ready to cast.
+
 ## 0.0.7 (2026-11-15)
 
 Everything in 0.0.6, plus:

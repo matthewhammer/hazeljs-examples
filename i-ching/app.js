@@ -190,7 +190,10 @@
     document.querySelector(`pre.hazel[data-program="${PROGRAM}"]:not([data-module])`).textContent = pre;
     MODULES.forEach((m, i) => { document.querySelector(`pre.hazel[data-module="${m}"]`).textContent = mods[i]; });
     NAMES = [...((mods[MODULES.indexOf("Book")].split("let names = [")[1] || "").split("];")[0]).matchAll(/"([^"]+)"/g)].map(x => x[1]);
-    await load("../shared/hazel-listings.js?v=0.0.2");
+    // (0.0.8, Matthew 2026-11-16: "only reveal the Hazel edit boxes when asked to") each listing stays text until its button opens
+    // Hazel's editor there; Hazel itself (hazel-lib.js) still casts from the text
+    window.HazelListingsOptions = { start: "request" };
+    await load("../shared/hazel-listings.js?v=0.0.8");
     L = window.HazelListings;
     L.tail(PROGRAM, TAIL);
     L.onChange(PROGRAM, () => { clearTimeout(timer); timer = setTimeout(build, 350); });
