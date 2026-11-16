@@ -9,7 +9,10 @@
   // JS code for the Hazel code (running hazel jit for it during the packaging step for the HTML/JS, for a short load?)") With
   // ?compiled in the address, the page casts and reads through compiled.js, the same rules compiled to JavaScript by hazel-jit
   // when the site was made: Hazel's library is not loaded and the program not built, until someone edits the rules.
-  const COMPILED = new URLSearchParams(location.search).has("compiled");
+  // (0.0.13, Matthew, 2026-11-16: "Yes, both", to compiled as the default and the Tarot compiled too) compiled unless the
+  // address asks for interpreted (?interpreted=1, or ?compiled=0)
+  const Q = new URLSearchParams(location.search);
+  const COMPILED = !(Q.has("interpreted") || Q.get("compiled") === "0");
   const TAIL = "(cast = Casting.cast, reading = Reading.reading)";
   const $ = id => document.getElementById(id);
   const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
@@ -251,9 +254,9 @@
   // (0.0.11) the prototype's switch, under ⚙️ Advanced: this page compiled ahead of time, or interpreted as before
   { const box = $("advanced") && $("advanced").querySelector("details.advanced");
     if (box) {
-      const u = new URL(location.href); if (COMPILED) u.searchParams.delete("compiled"); else u.searchParams.set("compiled", "1");
-      const p = el("p", "advanced-version", COMPILED ? "⚡ This page runs its rules compiled ahead of time (a prototype). " : "⚡ A prototype: the same rules compiled ahead of time to JavaScript, without loading Hazel. ");
-      const a = el("a", "", COMPILED ? "Open it interpreted, as before" : "Open it compiled"); a.href = u.href;
+      const u = new URL(location.href); u.searchParams.delete("compiled"); if (COMPILED) u.searchParams.set("interpreted", "1"); else u.searchParams.delete("interpreted");
+      const p = el("p", "advanced-version", COMPILED ? "⚡ This page runs its rules compiled ahead of time to JavaScript, without loading Hazel (until you edit them). " : "⚡ This page interprets its rules with hazeljs, as before compiling. ");
+      const a = el("a", "", COMPILED ? "Open it interpreted" : "Open it compiled"); a.href = u.href;
       p.append(a); box.querySelector(".advanced-version").after(p);
     } }
   let libAsked = false;
@@ -271,7 +274,7 @@
     // shown in the status line and in the speed line)
     addEventListener("error", e => { if (/compiled\.js/.test(e.filename || "")) S.compiledError = String(e.message || e.error || "an error"); });
     const c = document.createElement("script");
-    c.src = "compiled.js?v=0.0.12"; c.async = true;
+    c.src = "compiled.js?v=0.0.13"; c.async = true;
     c.onload = () => {
       const v = window.IChingCompiled;
       if (v && !S.built) { S.libAt = performance.now(); S.built = { key: "compiled", ok: true, compiled: true, made: v.made, value: v, errors: [], threw: "", ms: 0, at: performance.now() }; draw(); }

@@ -4,6 +4,12 @@ Each version lists what the apps do as of that version. The newest version is fi
 
 ## Unreleased
 
+## 0.0.13 (2026-11-16)
+
+Everything in 0.0.12, plus:
+
+- **Both oracles run compiled by default.** The I Ching and now the Tarot cast, read and deal through `compiled.js`, their rules compiled ahead of time to JavaScript by hazel-jit, without loading hazeljs or building the program; hazeljs loads only when the rules are edited, and runs them as before. To interpret instead, open a page with `?interpreted=1`, or use the link under ⚙️ Advanced. On an older Android phone (Firefox), the I Ching compiled was ready to cast at 0.8 s instead of 3.7 s, and a reading took under a millisecond instead of 86 to 113 ms. The Tarot's `compiled.js` is checked against hazeljs on every spread, the year ahead from each month with and without its theme, 100 shuffles each, with reversals and without (`npm run compare-compiled`).
+
 ## 0.0.12 (2026-11-16)
 
 Everything in 0.0.11, plus:

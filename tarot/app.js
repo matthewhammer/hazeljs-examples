@@ -6,6 +6,11 @@
   "use strict";
   const LIB = "https://cdn.jsdelivr.net/npm/hazeljs@0.0.4/hazel-lib.js";
   const PROGRAM = "tarot", MODULES = ["Deck", "Spreads", "Reading"], TAIL = "(deal = Reading.deal)";
+  // (0.0.13, ticket 765; Matthew, 2026-11-16: "Yes, both", to compiled as the default and the Tarot compiled too) The page
+  // deals through compiled.js, the same rules compiled to JavaScript by hazel-jit when the site was made, without loading
+  // Hazel's library or building the program, until someone edits the rules; ?interpreted=1 (or ?compiled=0) interprets
+  const Q = new URLSearchParams(location.search);
+  const COMPILED = !(Q.has("interpreted") || Q.get("compiled") === "0");
   const $ = id => document.getElementById(id);
   const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
   const text = async path => { const r = await fetch(path, { cache: "no-cache" }); if (!r.ok) throw new Error(path + ": " + r.status); return (await r.text()).replace(/\s+$/, ""); };
@@ -104,7 +109,7 @@
   function deal() {
     const sp = $("spread").value, rev = $("reversals").checked, us = Array.from({ length: 40 }, Math.random);
     let d = null; const t0 = performance.now(); S.eng = "js";
-    if (S.built && S.built.ok) { try { d = S.built.value.deal(spreadOf(sp), us, rev); S.eng = "hazel"; } catch (e) { d = null; } }
+    if (S.built && S.built.ok) { try { d = S.built.value.deal(spreadOf(sp), us, rev); S.eng = S.built.compiled ? "compiled" : "hazel"; } catch (e) { d = null; } }
     if (!Array.isArray(d) || !d.every(x => x && x.card && typeof x.name === "string")) { d = dealJS(spreadOf(sp), us, rev); S.eng = "js"; }
     S.ms = performance.now() - t0; S.dealt = d; S.turned = 0; S.spread = sp; S.past = null;
     // kept in the history as it is dealt: the cards are the reading's, turned or not
@@ -149,7 +154,7 @@
       const li = el("li"); li.append(el("b", "", `${d.position}: ${d.name}${d.reversed ? ", reversed" : ""}.`), " ", el("span", "muted", d.about + "."));
       const m = meaningLinks(d); if (m) li.append(m);
       return li; }));
-    if (S.dealt.length) { const li = el("li", "dealt-by"); li.append(el("span", "eng " + S.eng, S.eng === "hazel" ? (S.past ? "dealt by Hazel" : `dealt by Hazel in ${S.ms.toFixed(0)} ms`) : "dealt by JS")); $("read").append(li); }
+    if (S.dealt.length) { const li = el("li", "dealt-by"); li.append(el("span", "eng " + S.eng, S.eng === "hazel" || S.eng === "compiled" ? (S.eng === "compiled" ? "dealt by compiled Hazel" : "dealt by Hazel") + (S.past ? "" : S.ms < 0.1 ? " in under 0.1 ms" : S.ms < 10 ? ` in ${S.ms.toFixed(1)} ms` : ` in ${S.ms.toFixed(0)} ms`) : "dealt by JS")); $("read").append(li); }
     if (S.turned && MEANINGS.length) {
       const li = el("li", "meanings-note muted");
       li.textContent = "The ↗ links open other sites: each author's own meaning of the card, upright and reversed, on their publisher's pages, which carry ads and promotions. They learn only which card you open.";
@@ -163,6 +168,8 @@
 
   function drawStatus() {
     const st = $("status"), b = S.built;
+    if (COMPILED && S.compiledError && !(b && b.compiled)) { st.className = "status no"; st.textContent = `Compiled mode was asked for, but compiled.js did not run (${S.compiledError}), so Hazel interprets the rules instead.` + (b && b.ok ? ` Built by hazeljs in ${b.ms.toFixed(0)} ms.` : ""); return; }
+    if (b && b.compiled) { st.className = "status ok"; st.textContent = `✓ Compiled ahead of time: the rules run as JavaScript (hazel-jit, ${b.made || "a prototype"}), without loading Hazel's library or building the program. Hazel loads if you edit the rules.`; return; }
     if (!window.Hazel) { st.className = "status wait"; st.textContent = S.libFailed ? "Hazel did not load from jsDelivr; the page's own JS deals." : "⏳ Loading Hazel (hazeljs from jsDelivr, about 650 kB); until then the page's own JS deals."; return; }
     if (!b) { st.className = "status wait"; st.textContent = "⏳ Building the program…"; return; }
     if (b.ok) { st.className = "status ok"; st.textContent = `✓ The program is ready: Hazel deals. Built by hazeljs in ${b.ms.toFixed(0)} ms.`; return; }
@@ -178,7 +185,7 @@
     const t0 = performance.now(); let r, threw = "";
     try { r = window.Hazel.runProgram(sp); } catch (e) { threw = String(e && e.message || e); r = { ok: false, errors: [] }; }
     const v = r.value && typeof r.value === "object" ? r.value : null;
-    S.built = { key, ok: !!r.ok && !!v && typeof v.deal === "function", value: v, errors: r.errors || [], threw, ms: performance.now() - t0 };
+    S.built = { key, ok: !!r.ok && !!v && typeof v.deal === "function", value: v, errors: r.errors || [], threw, ms: performance.now() - t0, at: performance.now() };
     drawStatus();
   }
   try {
@@ -193,7 +200,7 @@
     window.HazelListingsOptions = { start: "request" };
     await load("../shared/hazel-listings.js?v=0.0.8");
     L = window.HazelListings; L.tail(PROGRAM, TAIL);
-    L.onChange(PROGRAM, () => { clearTimeout(timer); timer = setTimeout(build, 350); });
+    L.onChange(PROGRAM, () => { if (!window.Hazel) loadLib(); clearTimeout(timer); timer = setTimeout(build, 350); });
   } catch (e) {
     $("status").textContent = "Could not start: " + (e && e.message || e) + ". Serve this folder over http (python3 -m http.server) and open it from localhost.";
   }
@@ -203,6 +210,7 @@
   // table as it was
   if (window.OracleAdvanced) window.OracleAdvanced.panel({
     holder: $("advanced"), name: "Tarot", built: () => S.built, libAt: () => S.libAt, keysIn: null,
+    mode: () => ({ asked: COMPILED ? "compiled" : "interpreted", error: S.compiledError || null }),
     about: "a deal of each spread through Hazel, and five drawings of a Celtic Cross with every card turned",
     work: async say => {
       const { stats, painted } = window.OracleAdvanced;
@@ -235,7 +243,32 @@
   $("reset-rules").addEventListener("click", () => { if (L) L.reset(PROGRAM); });
   document.body.classList.add("js");
   draw();
-  const s = document.createElement("script"); s.src = LIB; s.async = true;
-  s.onload = () => { S.libAt = performance.now(); build(); drawStatus(); }; s.onerror = () => { S.libFailed = true; drawStatus(); };
-  document.head.append(s);
+  // (0.0.13) the switch, under ⚙️ Advanced: compiled ahead of time, or interpreted as before
+  { const box = $("advanced") && $("advanced").querySelector("details.advanced");
+    if (box) {
+      const u = new URL(location.href); u.searchParams.delete("compiled"); if (COMPILED) u.searchParams.set("interpreted", "1"); else u.searchParams.delete("interpreted");
+      const p = el("p", "advanced-version", COMPILED ? "⚡ This page runs its rules compiled ahead of time to JavaScript, without loading Hazel (until you edit them). " : "⚡ This page interprets its rules with hazeljs, as before compiling. ");
+      const a = el("a", "", COMPILED ? "Open it interpreted" : "Open it compiled"); a.href = u.href;
+      p.append(a); box.querySelector(".advanced-version").after(p);
+    } }
+  let libAsked = false;
+  function loadLib() {
+    if (libAsked) return; libAsked = true;
+    const s = document.createElement("script"); s.src = LIB; s.async = true;
+    s.onload = () => { S.libAt = performance.now(); build(); drawStatus(); }; s.onerror = () => { S.libFailed = true; drawStatus(); };
+    document.head.append(s);
+  }
+  if (!COMPILED) loadLib();
+  else {
+    addEventListener("error", e => { if (/compiled\.js/.test(e.filename || "")) S.compiledError = String(e.message || e.error || "an error"); });
+    const c = document.createElement("script");
+    c.src = "compiled.js?v=0.0.13"; c.async = true;
+    c.onload = () => {
+      const v = window.TarotCompiled;
+      if (v && !S.built) { S.libAt = performance.now(); S.built = { key: "compiled", ok: true, compiled: true, made: v.made, value: v, errors: [], threw: "", ms: 0, at: performance.now() }; drawStatus(); }
+      else if (!v) { S.compiledError = S.compiledError || "it ran, but gave no Tarot"; drawStatus(); loadLib(); }
+    };
+    c.onerror = () => { S.compiledError = "it did not load"; drawStatus(); loadLib(); };
+    document.head.append(c);
+  }
 })();
