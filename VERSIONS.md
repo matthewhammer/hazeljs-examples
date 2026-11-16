@@ -4,6 +4,12 @@ Each version lists what the apps do as of that version. The newest version is fi
 
 ## Unreleased
 
+## 0.0.12 (2026-11-16)
+
+Everything in 0.0.11, plus:
+
+- **The compiled I Ching says when it could not run compiled.** An older Android phone's lines asked for compiled came back interpreted, with nothing to say why. Now, when `?compiled` is asked for and `compiled.js` does not load, or throws, or gives nothing, the status line says so with the error, and so does the speed line (and its data, under `mode`). The link under ⚙️ Advanced opens `?compiled=1`.
+
 ## 0.0.11 (2026-11-16)
 
 Everything in 0.0.10, plus:

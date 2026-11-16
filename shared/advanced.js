@@ -120,10 +120,12 @@
         say("🧪 measuring: two seconds idle…");
         const id = await idle(2000);
         const dv = device();
-        const data = { app: app.name, v: VERSION, at: new Date().toISOString(), device: dv, load: ld, work: w.data, keys: k, idle: id };
+        const md = app.mode ? app.mode() : null;
+        const data = { app: app.name, v: VERSION, mode: md, at: new Date().toISOString(), device: dv, load: ld, work: w.data, keys: k, idle: id };
         const s = x => x === null || x === undefined ? "?" : (x / 1000).toFixed(1);
         const parts = [
           `🧪 ${app.name} ${VERSION} on ${dv.browser}, ${dv.platform} (${dv.cores || "?"} cores${dv.memoryGB ? ", " + dv.memoryGB + " GB" : ""}, ${dv.dpr}×)`,
+          md && md.asked === "compiled" && !(ld.built && ld.built.compiled) ? `asked for compiled, but compiled.js did not run (${md.error || "no reason kept"})` : null,
           ld.built ? (ld.built.compiled ? `compiled Hazel ready at ${s(ld.built.at)} s (no library, no build)` : `Hazel loaded at ${s(ld.libRan)} s, the program built in ${ld.built.ms} ms${ld.built.ok ? "" : " (not ready)"}`) : "Hazel not loaded",
           ...w.text,
           k ? `a key press in the question, to the next frame: ${k.median} ms (worst ${k.worst})` : null,

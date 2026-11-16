@@ -175,6 +175,7 @@
 
   function drawStatus() {
     const st = $("status"), b = S.built;
+    if (COMPILED && S.compiledError && !(b && b.compiled)) { st.className = "status no"; st.textContent = `Compiled mode was asked for, but compiled.js did not run (${S.compiledError}), so Hazel interprets the rules instead.` + (b && b.ok ? ` Built by hazeljs in ${b.ms.toFixed(0)} ms.` : ""); return; }
     if (b && b.compiled) { st.className = "status ok"; st.textContent = `✓ Compiled ahead of time: the rules run as JavaScript (hazel-jit, ${b.made || "a prototype"}), without loading Hazel's library or building the program. Hazel loads if you edit the rules.`; return; }
     if (!window.Hazel) { st.className = "status wait"; st.textContent = S.libFailed ? "Hazel did not load from jsDelivr; the page's own JS casts." : "⏳ Loading Hazel (hazeljs from jsDelivr, about 650 kB); until then the page's own JS casts."; return; }
     if (!b) { st.className = "status wait"; st.textContent = "⏳ Building the program…"; return; }
@@ -226,6 +227,7 @@
   // every device does the same work, and the reading as it was afterwards
   if (window.OracleAdvanced) window.OracleAdvanced.panel({
     holder: $("advanced"), name: "I Ching", built: () => S.built, libAt: () => S.libAt, keysIn: $("question"),
+    mode: () => ({ asked: COMPILED ? "compiled" : "interpreted", error: S.compiledError || null }),
     about: "30 casts by coins and 30 by yarrow and 20 readings through Hazel, ten drawings of the reading, and 20 key presses in the question",
     work: async say => {
       const { stats, painted } = window.OracleAdvanced;
@@ -249,9 +251,9 @@
   // (0.0.11) the prototype's switch, under ⚙️ Advanced: this page compiled ahead of time, or interpreted as before
   { const box = $("advanced") && $("advanced").querySelector("details.advanced");
     if (box) {
-      const u = new URL(location.href); if (COMPILED) u.searchParams.delete("compiled"); else u.searchParams.set("compiled", "");
+      const u = new URL(location.href); if (COMPILED) u.searchParams.delete("compiled"); else u.searchParams.set("compiled", "1");
       const p = el("p", "advanced-version", COMPILED ? "⚡ This page runs its rules compiled ahead of time (a prototype). " : "⚡ A prototype: the same rules compiled ahead of time to JavaScript, without loading Hazel. ");
-      const a = el("a", "", COMPILED ? "Open it interpreted, as before" : "Open it compiled"); a.href = u.href.replace("compiled=", "compiled");
+      const a = el("a", "", COMPILED ? "Open it interpreted, as before" : "Open it compiled"); a.href = u.href;
       p.append(a); box.querySelector(".advanced-version").after(p);
     } }
   let libAsked = false;
@@ -265,14 +267,17 @@
   }
   if (!COMPILED) loadLib();
   else {
+    // (0.0.12: the phone's first lines asked for compiled came back interpreted, and nothing said why: now a failure is kept,
+    // shown in the status line and in the speed line)
+    addEventListener("error", e => { if (/compiled\.js/.test(e.filename || "")) S.compiledError = String(e.message || e.error || "an error"); });
     const c = document.createElement("script");
-    c.src = "compiled.js?v=0.0.11"; c.async = true;
+    c.src = "compiled.js?v=0.0.12"; c.async = true;
     c.onload = () => {
       const v = window.IChingCompiled;
       if (v && !S.built) { S.libAt = performance.now(); S.built = { key: "compiled", ok: true, compiled: true, made: v.made, value: v, errors: [], threw: "", ms: 0, at: performance.now() }; draw(); }
-      else if (!v) loadLib();
+      else if (!v) { S.compiledError = S.compiledError || "it ran, but gave no I Ching"; drawStatus(); loadLib(); }
     };
-    c.onerror = () => loadLib();
+    c.onerror = () => { S.compiledError = "it did not load"; drawStatus(); loadLib(); };
     document.head.append(c);
   }
 })();
