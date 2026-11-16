@@ -67,7 +67,7 @@
     return { pageReady: nav ? Math.round(nav.domContentLoadedEventEnd) : null,
              libFetched: lib ? Math.round(lib.responseEnd) : null, libKB: lib ? Math.round((lib.transferSize || lib.encodedBodySize || 0) / 1024) : null,
              libRan: app.libAt ? Math.round(app.libAt()) || null : null,
-             built: b ? { ok: b.ok, ms: Math.round(b.ms), at: b.at ? Math.round(b.at) : null } : null,
+             built: b ? { ok: b.ok, ms: Math.round(b.ms), at: b.at ? Math.round(b.at) : null, compiled: !!b.compiled } : null,
              editorsOpen: document.querySelectorAll("iframe.hazel-listing-frame").length };
   }
   // two seconds idle: frames a second, the longest pause between frames, the share of frames later than 25 ms
@@ -124,7 +124,7 @@
         const s = x => x === null || x === undefined ? "?" : (x / 1000).toFixed(1);
         const parts = [
           `🧪 ${app.name} ${VERSION} on ${dv.browser}, ${dv.platform} (${dv.cores || "?"} cores${dv.memoryGB ? ", " + dv.memoryGB + " GB" : ""}, ${dv.dpr}×)`,
-          ld.built ? `Hazel loaded at ${s(ld.libRan)} s, the program built in ${ld.built.ms} ms${ld.built.ok ? "" : " (not ready)"}` : "Hazel not loaded",
+          ld.built ? (ld.built.compiled ? `compiled Hazel ready at ${s(ld.built.at)} s (no library, no build)` : `Hazel loaded at ${s(ld.libRan)} s, the program built in ${ld.built.ms} ms${ld.built.ok ? "" : " (not ready)"}`) : "Hazel not loaded",
           ...w.text,
           k ? `a key press in the question, to the next frame: ${k.median} ms (worst ${k.worst})` : null,
           `idle: ${id.fps} frames a second, the longest pause ${id.longest} ms`,

@@ -35,7 +35,8 @@ html.dragging-split iframe { pointer-events: none; }  /* (a frame under the poin
 .status.no { border-color: var(--bad); background: color-mix(in srgb, var(--bad) 8%, transparent); }
 .status.wait { border-color: var(--warn); background: color-mix(in srgb, var(--warn) 8%, transparent); }
 .eng { font: 0.78em ui-monospace, monospace; padding: 1px 6px; border-radius: 9px; border: 1px solid var(--line); white-space: nowrap; }
-.eng.hazel { border-color: var(--accent); color: var(--accent); }
+.eng.hazel, .eng.compiled { border-color: var(--accent); color: var(--accent); }
+.eng.compiled { border-style: double; border-width: 3px; }
 .eng.js { border-color: var(--warn); color: var(--warn); }
 .ed { margin-top: 14px; }
 .ed-head { font-size: 0.92em; margin-bottom: 4px; }
