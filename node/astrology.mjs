@@ -10,6 +10,7 @@ import { readFileSync } from "node:fs";
 const read = path => readFileSync(new URL("../astrology/rules/" + path, import.meta.url), "utf8").replace(/\s+$/, "");
 const MODULES = ["Zodiac", "Aspects", "Chart"];
 const SKY = ["Orbit", "MoonOrbit", "Planets", "Outer", "PlutoOrbit", "Sky"];
+const READING = ["Wheel", "Reading"];
 const t0 = performance.now();
 const r = Hazel.runProgram({
   preamble: read("preamble.hz"),
@@ -19,7 +20,7 @@ const r = Hazel.runProgram({
 });
 if (!r.ok) { console.log("not built:", JSON.stringify(r.errors, null, 1).slice(0, 3000)); process.exit(1); }
 const H0 = r.value;
-// (hazeljs 0.0.7: a whole number from JavaScript goes in as an Int where the function wants a Float, even with the
+// (hazeljs 0.0.4 (the version these pages load): a whole number from JavaScript goes in as an Int where the function wants a Float, even with the
 // parameter annotated, and Hazel's float operations are stuck on it; found here 2026-11-17. Until hazeljs reads it as
 // the declared type, a whole number is nudged by 1e-9, a billionth of a degree or an hour, which no reading can notice.)
 const fl = v => Number.isInteger(v) ? v + 1e-9 : v;
@@ -77,7 +78,7 @@ console.log(`  the ascendant ${worst.asc.toFixed(4)} degrees (${where.asc}); the
 
 // the bodies' longitudes, against Astronomy Engine's geocentric, apparent, on the true ecliptic of date. The places are
 // computed inside Hazel for all the moments at once, the program's answer a list of numbers: a program whose answer is a
-// function reaching these modules grows past gigabytes in hazeljs 0.0.7 (Hazel's Evaluator.finish substitutes the
+// function reaching these modules grows past gigabytes in hazeljs 0.0.4 (the version these pages load) (Hazel's Evaluator.finish substitutes the
 // function's environment, every earlier module's closures in it, into the answer).
 {
   const BODY = { Sun: "Sun", Moon: "Moon", Mercury: "Mercury", Venus: "Venus", Mars: "Mars", Jupiter: "Jupiter", Saturn: "Saturn", Uranus: "Uranus", Neptune: "Neptune", Pluto: "Pluto" };
@@ -120,3 +121,17 @@ for (const p of places) {
 console.log("  aspects:", H.among(places).map(a => `${a.a.tag} ${a.kind.tag} ${a.b.tag} (${a.orb.toFixed(1)})`).join("; "));
 const now = [{ body: { tag: "Moon" }, longitude: fl(194) }, { body: { tag: "Saturn" }, longitude: fl(345) }];
 console.log("  transits:", H.transits(now, places).map(a => `${a.a.tag} ${a.kind.tag} ${a.b.tag} (${a.orb.toFixed(1)})`).join("; "));
+
+// a whole reading, as the page asks for one: a birth in Boulder and a day, the answer data (no functions, as above)
+{
+  const tail = "Reading.reading((year = 1990, month = 6, day = 15, hour = 14.500001), (latitude = 40.014986, longitude = -105.270546), " +
+    "(year = 2026, month = 11, day = 17, hour = 19.000001))";
+  const t2 = performance.now();
+  const rr = Hazel.runProgram({ preamble: read("preamble.hz"), modules: MODULES.concat(SKY, READING).map(name => ({ name, text: read(name + ".hz") })), tail });
+  if (!rr.ok) { console.log("the reading not built:", JSON.stringify(rr.errors).slice(0, 600)); process.exit(1); }
+  const v = rr.value;
+  console.log(`a reading (built and computed in hazeljs in ${((performance.now() - t2) / 1000).toFixed(1)} s): rising ${v.chart.ascendant.toFixed(1)}, ` +
+    `${v.notes.length} notes, ${v.today_notes.length} for today, ${v.aspects.length} aspects, ${v.transits.length} transits; ` +
+    `the wheel ${v.wheel.marks.length} marks, ${v.wheel.lines.length} lines`);
+  for (const n of v.notes.slice(0, 2).concat(v.today_notes.slice(0, 2))) console.log(`  ${n.head}: ${n.text}`);
+}

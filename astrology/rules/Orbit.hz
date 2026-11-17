@@ -1,4 +1,4 @@
-# Helpers for the Sky's modules (MoonOrbit, Planets, Outer, PlutoOrbit, Sky): polynomials, the nutation, Kepler's equation, degrees. The sky is in six modules rather than one, as hazeljs 0.0.7 parses a module with long numbers in it the slow way, at a cost that grows much faster than the module #
+# Helpers for the Sky's modules (MoonOrbit, Planets, Outer, PlutoOrbit, Sky): polynomials, the nutation, Kepler's equation, degrees. The sky is in six modules rather than one, as hazeljs 0.0.4 (the version these pages load) parses a module with long numbers in it the slow way, at a cost that grows much faster than the module #
 # A polynomial in t, its coefficients from the constant up (Horner's rule) #
 let horner : ([Float], Float) -> Float = fun (cs, t) ->
   case cs | [] => 0. | c :: rest => c +. t *. horner(rest, t) end;

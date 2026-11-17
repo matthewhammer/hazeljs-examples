@@ -4,6 +4,16 @@ Each version lists what the apps do as of that version. The newest version is fi
 
 ## Unreleased
 
+## 0.0.15 (2026-11-17)
+
+Everything in 0.0.14, plus:
+
+- **A third oracle: astrology.** Give a birth's date, time and place (one of a few cities, or a latitude, longitude and time zone), and Hazel places the Sun, the Moon and the planets, finds the rising sign, the midheaven and the houses (whole signs), the aspects among the planets, and today's sky against them, and reads it all in short sentences, in words of this oracle's own; the page draws the wheel, the birth inside and today's sky round it. The astronomy is rewritten in Hazel from [astronomia](https://github.com/commenthol/astronomia) (MIT), after Jean Meeus's *Astronomical Algorithms*, and from Paul Schlyter's [planetary positions](https://stjarnhimlen.se/comp/ppcomp.html): every body within 0.11° of [Astronomy Engine](https://github.com/cosinekitty/astronomy) from 1900 to 2100 (`npm run astrology`).
+- **It starts with its own birth chart**: the app's first commit, at 11:03:51 Mountain time on November 17, 2026, at 40.046313° N, 105.286695° W. Capricorn rising, the Sun in Scorpio. A planet back where it was at a birth reads as a return.
+- **Hazel alone casts it**, in about 1.3 s on a laptop: the page writes the birth into the program's last line and builds the program again for each chart, taking back data, not a function, since an answer that is a function grows past gigabytes in hazeljs 0.0.4 ([hazelgrove/hazel#2832](https://github.com/hazelgrove/hazel/issues/2832)); and the astronomy's long numbers are written as ratios, since a long float literal sends a module to a slow parse ([hazelgrove/hazel#2831](https://github.com/hazelgrove/hazel/issues/2831)). There is no JavaScript fallback, and no compiled mode yet.
+- **Birth details stay on the device**, and are kept there only when **remember these on this device** is ticked.
+- **The front page has a third card**, its picture the app's own chart (`astrology/thumb.svg`, made by `tools/astrology-thumb.mjs`).
+
 ## 0.0.14 (2026-11-17)
 
 Everything in 0.0.13, plus:

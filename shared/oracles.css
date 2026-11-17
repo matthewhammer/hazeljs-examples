@@ -163,3 +163,32 @@ body.js .nojs { display: none; }
 .question:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 .question[readonly] { background: color-mix(in srgb, var(--line) 35%, var(--paper)); }
 .reading-q { margin: 0 0 6px; font-style: italic; color: var(--muted); }
+
+/* (ticket 768) astrology: the birth's form, the wheel, the notes */
+.astro-form { display: flex; flex-direction: column; gap: 8px; }
+.astro-form .method label { display: inline-block; margin: 2px 10px 2px 0; }
+.astro-form input, .astro-form select { font: inherit; padding: 3px 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--paper); color: var(--ink); max-width: 100%; }
+.astro-form input[type="number"] { width: 7.5em; }
+.astro-form input[type="checkbox"] { padding: 0; }
+.wheel-fig { margin: 12px 0; }
+.wheel { display: block; width: 100%; max-width: 520px; height: auto; margin: 0 auto; }
+.wheel .ring { fill: none; stroke: var(--ink); stroke-width: 0.3; }
+.wheel .ring.faint { stroke: var(--cx); stroke-dasharray: 0.8 0.8; }
+.wheel .cusp { stroke: var(--muted); stroke-width: 0.25; }
+.wheel .axis { stroke: var(--ink); stroke-width: 0.45; }
+.wheel .axis-name { font: 600 3.2px ui-sans-serif, system-ui, sans-serif; fill: var(--muted); }
+.wheel .aspect { stroke-width: 0.35; opacity: 0.85; }
+.wheel .aspect.soft { stroke: var(--link); }
+.wheel .aspect.hard { stroke: var(--bad); }
+.wheel .sign.fire { color: #c2410c; } .wheel .sign.earth { color: #4d7c0f; }
+.wheel .sign.air { color: #0e7490; } .wheel .sign.water { color: #4338ca; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .wheel .sign.fire { color: #fb923c; } :root:not([data-theme="light"]) .wheel .sign.earth { color: #a3e635; }
+  :root:not([data-theme="light"]) .wheel .sign.air { color: #67e8f9; } :root:not([data-theme="light"]) .wheel .sign.water { color: #a5b4fc; } }
+.wheel .body.natal { color: var(--ink); }
+.wheel .body.today { color: var(--accent); }
+.wheel g:hover { opacity: 0.7; }
+.wheel-fig figcaption { font-size: 0.88em; margin-top: 6px; }
+.notes .note-group h3 { margin: 18px 0 6px; font-size: 1.05em; }
+.notes .note { margin: 0 0 10px; }
+.notes .reading-foot { font-size: 0.85em; }
+.astro-form .app-birth { margin: 0; font-size: 0.88em; }

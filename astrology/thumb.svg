@@ -1,0 +1,56 @@
+<svg viewBox="-6 -6 112 112" xmlns="http://www.w3.org/2000/svg">
+<title>This app's own birth chart: Capricorn rising, the Sun in Scorpio</title>
+<rect x="-5.5" y="-5.5" width="111" height="111" rx="14" fill="#F7F7F5" stroke="#D8D8D4" stroke-width="0.8"/>
+<g fill="none" stroke="#141414" stroke-width="0.5"><circle cx="50" cy="50" r="50"/><circle cx="50" cy="50" r="41"/><circle cx="50" cy="50" r="27"/></g>
+<line x1="35.20" y1="88.24" x2="31.95" y2="96.63" stroke="#5b6470" stroke-width="0.35"/>
+<line x1="56.30" y1="90.51" x2="57.69" y2="99.41" stroke="#5b6470" stroke-width="0.35"/>
+<line x1="75.71" y1="81.93" x2="81.36" y2="88.94" stroke="#5b6470" stroke-width="0.35"/>
+<line x1="88.24" y1="64.80" x2="96.63" y2="68.05" stroke="#5b6470" stroke-width="0.35"/>
+<line x1="90.51" y1="43.70" x2="99.41" y2="42.31" stroke="#5b6470" stroke-width="0.35"/>
+<line x1="81.93" y1="24.29" x2="88.94" y2="18.64" stroke="#5b6470" stroke-width="0.35"/>
+<line x1="64.80" y1="11.76" x2="68.05" y2="3.37" stroke="#5b6470" stroke-width="0.35"/>
+<line x1="43.70" y1="9.49" x2="42.31" y2="0.59" stroke="#5b6470" stroke-width="0.35"/>
+<line x1="24.29" y1="18.07" x2="18.64" y2="11.06" stroke="#5b6470" stroke-width="0.35"/>
+<line x1="11.76" y1="35.20" x2="3.37" y2="31.95" stroke="#5b6470" stroke-width="0.35"/>
+<line x1="9.49" y1="56.30" x2="0.59" y2="57.69" stroke="#5b6470" stroke-width="0.35"/>
+<line x1="18.07" y1="75.71" x2="11.06" y2="81.36" stroke="#5b6470" stroke-width="0.35"/>
+<line x1="0.00" y1="50.00" x2="100.00" y2="50.00" stroke="#141414" stroke-width="0.6"/>
+<line x1="29.83" y1="4.25" x2="70.17" y2="95.75" stroke="#141414" stroke-width="0.6"/>
+<line x1="36.49" y1="30.16" x2="30.87" y2="64.50" stroke="#b91c1c" stroke-width="0.5"/>
+<line x1="36.49" y1="30.16" x2="69.57" y2="36.10" stroke="#b91c1c" stroke-width="0.5"/>
+<line x1="36.49" y1="30.16" x2="69.70" y2="36.29" stroke="#b91c1c" stroke-width="0.5"/>
+<line x1="36.49" y1="30.16" x2="42.04" y2="72.64" stroke="#1d4ed8" stroke-width="0.5"/>
+<line x1="30.87" y1="64.50" x2="49.17" y2="26.01" stroke="#1d4ed8" stroke-width="0.5"/>
+<line x1="30.87" y1="64.50" x2="69.57" y2="36.10" stroke="#b91c1c" stroke-width="0.5"/>
+<line x1="30.87" y1="64.50" x2="69.70" y2="36.29" stroke="#b91c1c" stroke-width="0.5"/>
+<line x1="30.87" y1="64.50" x2="66.33" y2="67.59" stroke="#b91c1c" stroke-width="0.5"/>
+<line x1="43.67" y1="26.85" x2="26.54" y2="55.06" stroke="#b91c1c" stroke-width="0.5"/>
+<line x1="49.17" y1="26.01" x2="69.57" y2="36.10" stroke="#1d4ed8" stroke-width="0.5"/>
+<line x1="49.17" y1="26.01" x2="69.70" y2="36.29" stroke="#1d4ed8" stroke-width="0.5"/>
+<line x1="44.70" y1="73.41" x2="66.33" y2="67.59" stroke="#1d4ed8" stroke-width="0.5"/>
+<line x1="66.33" y1="67.59" x2="42.04" y2="72.64" stroke="#1d4ed8" stroke-width="0.5"/>
+<line x1="66.33" y1="67.59" x2="26.54" y2="55.06" stroke="#1d4ed8" stroke-width="0.5"/>
+<line x1="42.04" y1="72.64" x2="26.54" y2="55.06" stroke="#1d4ed8" stroke-width="0.5"/>
+<g transform="translate(41.82 91.94) scale(0.0660)" color="#c2410c"><path d="M50,88 V42 M50,42 C50,12 14,12 16,36 C17,48 30,50 34,44 M50,42 C50,12 86,12 84,36 C83,48 70,50 66,44" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></g>
+<g transform="translate(65.09 88.32) scale(0.0660)" color="#4d7c0f"><path d="M50,64 m-21,0 a21,21 0 1,0 42,0 a21,21 0 1,0 -42,0 M14,14 C20,40 80,40 86,14" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></g>
+<g transform="translate(83.44 73.55) scale(0.0660)" color="#0e7490"><path d="M34,22 V78 M66,22 V78 M14,16 Q50,32 86,16 M14,84 Q50,68 86,84" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></g>
+<g transform="translate(91.94 51.58) scale(0.0660)" color="#4338ca"><path d="M30,40 m-11,0 a11,11 0 1,0 22,0 a11,11 0 1,0 -22,0 M30,29 C50,20 72,22 86,34 M70,60 m-11,0 a11,11 0 1,0 22,0 a11,11 0 1,0 -22,0 M70,71 C50,80 28,78 14,66" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></g>
+<g transform="translate(88.32 28.31) scale(0.0660)" color="#c2410c"><path d="M30,62 m-13,0 a13,13 0 1,0 26,0 a13,13 0 1,0 -26,0 M43,62 C43,30 50,16 64,16 C84,16 86,40 74,54 C64,66 64,80 74,86 C80,89 86,86 88,80" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></g>
+<g transform="translate(73.55 9.96) scale(0.0660)" color="#4d7c0f"><path d="M12,26 C18,22 24,26 24,34 V76 M24,36 C24,22 44,22 44,36 V76 M44,36 C44,22 64,22 64,36 V70 C64,84 78,86 84,76 C90,66 84,54 74,58 C66,62 64,74 62,86" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></g>
+<g transform="translate(51.58 1.46) scale(0.0660)" color="#0e7490"><path d="M14,80 H86 M14,64 H36 C30,46 38,32 50,32 C62,32 70,46 64,64 H86" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></g>
+<g transform="translate(28.31 5.08) scale(0.0660)" color="#4338ca"><path d="M12,26 C18,22 24,26 24,34 V76 M24,36 C24,22 44,22 44,36 V76 M44,36 C44,22 64,22 64,36 V74 C64,82 70,84 78,80 L88,74 M78,66 L88,74 L80,84" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></g>
+<g transform="translate(9.96 19.85) scale(0.0660)" color="#c2410c"><path d="M16,84 L84,16 M56,16 H84 V44 M32,46 L54,68" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></g>
+<g transform="translate(1.46 41.82) scale(0.0660)" color="#4d7c0f"><path d="M12,22 C18,24 22,30 24,40 L32,76 L44,30 C48,18 58,18 60,32 V64 C60,80 76,84 84,74 C90,66 86,56 78,56 C68,56 64,70 60,86" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></g>
+<g transform="translate(5.08 65.09) scale(0.0660)" color="#0e7490"><path d="M12,42 L26,30 L40,42 L54,30 L68,42 L82,30 M12,70 L26,58 L40,70 L54,58 L68,70 L82,58" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></g>
+<g transform="translate(19.85 83.44) scale(0.0660)" color="#4338ca"><path d="M24,14 C54,34 54,66 24,86 M76,14 C46,34 46,66 76,86 M18,50 H82" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></g>
+<g transform="translate(36.52 76.04) scale(0.0640)" color="#141414"><path d="M18,20 C18,52 30,62 50,62 C70,62 82,52 82,20 M50,14 V90 M36,76 H64 M12,28 L18,18 L24,28 M76,28 L82,18 L88,28 M44,22 L50,12 L56,22" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></g>
+<g transform="translate(40.16 77.08) scale(0.0640)" color="#141414"><path d="M34,14 V64 M20,26 H48 M34,46 C40,36 62,36 64,50 C66,62 52,68 52,78 C52,86 60,90 68,84" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></g>
+<g transform="translate(67.89 69.52) scale(0.0640)" color="#141414"><path d="M50,74 m-11,0 a11,11 0 1,0 22,0 a11,11 0 1,0 -22,0 M50,74 m-3,0 a3,3 0 1,0 6,0 a3,3 0 1,0 -6,0 M50,63 V14 M34,30 L50,14 L66,30" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></g>
+<g transform="translate(72.24 29.09) scale(0.0640)" color="#141414"><path d="M20,30 C20,16 42,14 44,28 C46,40 34,52 18,64 H86 M66,22 V88" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></g>
+<g transform="translate(69.89 26.12) scale(0.0640)" color="#141414"><path d="M42,58 m-24,0 a24,24 0 1,0 48,0 a24,24 0 1,0 -48,0 M59,41 L84,16 M62,16 H84 V38" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></g>
+<g transform="translate(45.73 15.82) scale(0.0640)" color="#141414"><path d="M50,36 m-22,0 a22,22 0 1,0 44,0 a22,22 0 1,0 -44,0 M50,58 V90 M36,76 H64" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></g>
+<g transform="translate(38.62 16.90) scale(0.0640)" color="#141414"><path d="M50,44 m-16,0 a16,16 0 1,0 32,0 a16,16 0 1,0 -32,0 M50,60 V90 M38,78 H62 M32,12 C38,24 62,24 68,12" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></g>
+<g transform="translate(29.36 21.17) scale(0.0640)" color="#141414"><path d="M50,50 m-32,0 a32,32 0 1,0 64,0 a32,32 0 1,0 -64,0 M50,50 m-4,0 a4,4 0 1,0 8,0 a4,4 0 1,0 -8,0" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></g>
+<g transform="translate(16.50 53.33) scale(0.0640)" color="#141414"><path d="M50,30 m-12,0 a12,12 0 1,0 24,0 a12,12 0 1,0 -24,0 M24,30 C24,56 76,56 76,30 M50,52 V90 M36,74 H64" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></g>
+<g transform="translate(22.10 65.53) scale(0.0640)" color="#141414"><path d="M62,14 C40,20 30,36 30,50 C30,64 40,80 62,86 C38,86 22,70 22,50 C22,30 38,14 62,14 Z" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></g>
+</svg>

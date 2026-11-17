@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Astrology, charted in Hazel</title>
+<meta name="description" content="A birth chart and today's sky, whose astronomy and reading are written in Hazel and run by hazeljs: the Sun, Moon and planets placed from Meeus's formulas, the rising sign, aspects and transits. The third of the ancient oracles, an example app for hazeljs.">
+<link rel="stylesheet" href="../shared/style.css?v=0.0.14">
+<link rel="stylesheet" href="../shared/oracles.css?v=0.0.15.1">
+</head>
+<body><main class="oracle">
+<div class="app-head">
+<h1>Astrology, charted in Hazel</h1>
+<span class="app-links"><a href="../">the ancient oracles</a> · <a href="https://github.com/matthewhammer/hazeljs-oracles">source on GitHub</a> · <a href="https://www.npmjs.com/package/hazeljs">hazeljs on npm</a></span>
+</div>
+<p class="sub">Give a birth's date, time and place, and a <a href="https://hazel.org">Hazel</a> program places the Sun, the Moon and the planets, finds the rising sign, and reads the chart and today's sky against it.</p>
+
+<div class="oracle-grid">
+<section class="oracle-ui" aria-label="The chart">
+  <form class="astro-form" id="form" autocomplete="off">
+    <fieldset class="method"><legend>Born</legend>
+      <label>on <input type="date" id="bdate" min="1900-01-01" max="2099-12-31" value="2026-11-17" required></label>
+      <label>at <input type="time" id="btime" step="1" value="11:03:51"></label>
+      <label><input type="checkbox" id="bnotime"> time not known</label>
+    </fieldset>
+    <fieldset class="method"><legend>In</legend>
+      <select id="city" aria-label="the place of birth"></select>
+      <span id="elsewhere" hidden>
+        <label>latitude <input type="number" id="lat" min="-66" max="66" step="0.000001" value="40.046313" size="8"></label>
+        <label>longitude <input type="number" id="lon" min="-180" max="180" step="0.000001" value="-105.286695" size="9"></label>
+        <label>time zone <select id="zone"></select></label>
+      </span>
+    </fieldset>
+    <fieldset class="method"><legend>Today's sky</legend>
+      <label>on <input type="date" id="tdate" min="1900-01-01" max="2099-12-31"></label>
+    </fieldset>
+    <div class="controls">
+      <button type="submit" id="cast" class="primary">Cast the chart</button>
+      <label class="muted"><input type="checkbox" id="remember"> remember these on this device</label>
+    </div>
+    <p class="muted app-birth">It starts with this app's own birth: its first commit, at 11:03:51 Mountain time on November 17, 2026, at 40.046313° N, 105.286695° W.</p>
+  </form>
+  <div class="status wait" id="status">⏳ Loading Hazel (hazeljs from jsDelivr, about 650 kB).</div>
+  <h2 class="reading-head" id="reading-head">A birth chart</h2>
+  <p class="reading-q" id="reading-q"></p>
+  <figure class="wheel-fig" id="wheel-fig" hidden>
+    <svg class="wheel" id="wheel" viewBox="-9 -9 118 118" role="img" aria-labelledby="wheel-cap"></svg>
+    <figcaption id="wheel-cap" class="muted">The signs round the outside, the rising sign at the left. Inside, the planets at birth, joined by their aspects; between, today's sky, in color.</figcaption>
+  </figure>
+  <div class="notes" id="notes"></div>
+  <p class="nojs muted">This app needs JavaScript, and a page served over http (python3 -m http.server, then localhost).</p>
+</section>
+<section class="oracle-code" aria-label="The program, in Hazel">
+  <p class="muted" style="margin-top:0">The vocabulary every module sees (<code>astrology/rules/preamble.hz</code>). The listings are text, highlighted, until <b>Edit in Hazel</b> opens each in Hazel's own editor, where Ctrl+click on a name, or F12, goes to its definition; <b>Show as text</b> goes back, your edits kept. The astronomy is rewritten from <a href="https://github.com/commenthol/astronomia">astronomia</a> (MIT), after Jean Meeus's <i>Astronomical Algorithms</i>, and Paul Schlyter's <a href="https://stjarnhimlen.se/comp/ppcomp.html">planetary positions</a>.</p>
+  <pre class="code hazel" data-program="astrology">loading preamble.hz…</pre>
+  <div class="ed"><div class="ed-head"><b>Zodiac</b> <span class="muted">the twelve signs, their elements, modalities and rulers</span></div><pre class="code hazel" data-program="astrology" data-module="Zodiac">loading Zodiac.hz…</pre></div>
+  <div class="ed"><div class="ed-head"><b>Aspects</b> <span class="muted">the angles between bodies that count, and how near each must be</span></div><pre class="code hazel" data-program="astrology" data-module="Aspects">loading Aspects.hz…</pre></div>
+  <div class="ed"><div class="ed-head"><b>Chart</b> <span class="muted">the Julian day, sidereal time, ascendant, midheaven and houses</span></div><pre class="code hazel" data-program="astrology" data-module="Chart">loading Chart.hz…</pre></div>
+  <div class="ed"><div class="ed-head"><b>Orbit</b> <span class="muted">polynomials, the nutation, and Kepler's equation</span></div><pre class="code hazel" data-program="astrology" data-module="Orbit">loading Orbit.hz…</pre></div>
+  <div class="ed"><div class="ed-head"><b>MoonOrbit</b> <span class="muted">the Moon, from 60 periodic terms</span></div><pre class="code hazel" data-program="astrology" data-module="MoonOrbit">loading MoonOrbit.hz…</pre></div>
+  <div class="ed"><div class="ed-head"><b>Planets</b> <span class="muted">the planets' mean orbits, and where each puts a planet</span></div><pre class="code hazel" data-program="astrology" data-module="Planets">loading Planets.hz…</pre></div>
+  <div class="ed"><div class="ed-head"><b>Outer</b> <span class="muted">Jupiter to Neptune, with their pulls on each other</span></div><pre class="code hazel" data-program="astrology" data-module="Outer">loading Outer.hz…</pre></div>
+  <div class="ed"><div class="ed-head"><b>PlutoOrbit</b> <span class="muted">Pluto, from its periodic terms</span></div><pre class="code hazel" data-program="astrology" data-module="PlutoOrbit">loading PlutoOrbit.hz…</pre></div>
+  <div class="ed"><div class="ed-head"><b>Sky</b> <span class="muted">every body's longitude, as seen from the Earth at a moment</span></div><pre class="code hazel" data-program="astrology" data-module="Sky">loading Sky.hz…</pre></div>
+  <div class="ed"><div class="ed-head"><b>Wheel</b> <span class="muted">the chart as a picture: where each glyph and line goes</span></div><pre class="code hazel" data-program="astrology" data-module="Wheel">loading Wheel.hz…</pre></div>
+  <div class="ed"><div class="ed-head"><b>Reading</b> <span class="muted">the words, and the reading. The page asks for <code>Reading.reading(birth, place, today)</code>, with the birth and today in UTC.</span></div><pre class="code hazel" data-program="astrology" data-module="Reading">loading Reading.hz…</pre></div>
+  <p><button type="button" id="reset-rules">Put the program back as it was</button></p>
+</section>
+</div>
+
+<div id="advanced" class="advanced-holder"></div>
+<p class="app-foot" id="app-foot">hazeljs-oracles · <a href="../VERSIONS.md">versions</a> · Apache 2.0 (code), CC BY 4.0 (words and glyphs) · by Matthew Hammer · an example for <a href="https://github.com/hazelgrove/hazeljs">hazeljs</a></p>
+</main>
+<script src="../shared/divider.js?v=0.0.8"></script>
+<script src="../shared/advanced.js?v=0.0.12"></script>
+<script src="app.js?v=0.0.15.2"></script>
+</body>
+</html>
