@@ -10,6 +10,12 @@ It uses hazeljs (https://github.com/hazelgrove/hazeljs, MIT), loaded from npm, a
 The hexagrams' order (King Wen) and names are traditional. The names here are short glosses of our own and common
 renderings of the Chinese titles.
 
+The Tarot's woodcut faces (tarot/woodcut, a git submodule, not a copy) are Woodcut tarot, https://github.com/SONDLecT/woodcut-tarot,
+by way of our fork, https://github.com/matthewhammer/woodcut-tarot, at commit e017dd5c8e: dedicated to the public domain
+under CC0 1.0, and so not under this repository's licences. Its 78 cards are traced from the Jean Noblet tarot (Paris,
+c. 1650; Bibliotheque nationale de France, RESERVE KH-34), with the Six to Ten of Wands from the Jacques Vieville tarot
+(Paris, c. 1650), from the BnF's scans on Gallica; the colour set's small red ovals are the BnF's ownership stamps.
+
 The pages link to other sites for fuller meanings (Cafe au Soul for the I Ching; Biddy Tarot, by Brigit Esselmont,
 and Labyrinthos, by Tina Gong, for the Tarot's cards). Those pages and their text are their publishers'; nothing of
 theirs is copied here.

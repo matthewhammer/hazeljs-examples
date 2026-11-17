@@ -4,6 +4,15 @@ Each version lists what the apps do as of that version. The newest version is fi
 
 ## Unreleased
 
+## 0.0.14 (2026-11-17)
+
+Everything in 0.0.13, plus:
+
+- **The Tarot's cards can be woodcuts.** A new **Faces** choice beside the spread: the simple faces as before; the woodcut deck in black and white; or the woodcut deck in its own stencil colors. The deck is [Woodcut tarot](https://github.com/SONDLecT/woodcut-tarot), the 78 cards traced in SVG from the Jean Noblet tarot (Paris, about 1650), the oldest Tarot de Marseille that survives, and dedicated to the public domain (CC0). It is a git submodule of this repository, by way of our fork, not a copy. A card's picture loads when the card is turned: about 50 kB in black and white, about 350 kB in color. A face-down card shows the deck's own back, a reversed card is turned over, and the choice is remembered on the device. A Marseille deck numbers Justice VIII and Strength XI, the other way from Waite's order, which the cards' names here follow; the credit under the table says so.
+- **One button for the code: text or Hazel's editor.** In both oracles, **Edit in Hazel**, above the first listing, opens every listing in Hazel's editor, and **Show as text** goes back to the text, showing your edits; the editors stay loaded behind it, so switching again is quick. It replaces the button on each listing. The pages still start with the text, and Hazel's editors load only when asked.
+- **The text is highlighted**, near the colors Hazel's editor uses: keywords, types and constructors, strings, numbers and comments, in light and dark.
+- **The front page is shorter.** Each oracle is one phrase, under a new picture: the eight trigrams around the taijitu for the I Ching (`i-ching/bagua.svg`), and the woodcut deck's back for the Tarot.
+
 ## 0.0.13 (2026-11-16)
 
 Everything in 0.0.12, plus:

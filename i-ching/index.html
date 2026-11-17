@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>I Ching, cast in Hazel</title>
 <meta name="description" content="An I Ching reading whose casting and reading are written in Hazel and run by hazeljs: cast six lines by coins or by yarrow stalks, one at a time, and read the hexagram. The first of the ancient oracles, an example app for hazeljs.">
-<link rel="stylesheet" href="../shared/style.css?v=0.0.9">
+<link rel="stylesheet" href="../shared/style.css?v=0.0.14">
 <link rel="stylesheet" href="../shared/oracles.css?v=0.0.11">
 </head>
 <body><main class="oracle">
@@ -13,7 +13,7 @@
 <h1>I Ching, cast in Hazel</h1>
 <span class="app-links"><a href="../">the ancient oracles</a> · <a href="https://github.com/matthewhammer/hazeljs-oracles">source on GitHub</a> · <a href="https://www.npmjs.com/package/hazeljs">hazeljs on npm</a></span>
 </div>
-<p class="sub">Ask a question, then cast six lines, one at a time, from the bottom up: by three coins, or by dividing the yarrow stalks. Each line is cast by a <a href="https://hazel.org">Hazel</a> program, shown beside the reading in Hazel's own editor; the page only passes it random numbers and draws what comes back. Change the program and the page builds it again. While it has an error or a hole, the page's own JavaScript casts instead, and each line says which did.</p>
+<p class="sub">Ask a question, then cast six lines, one at a time, from the bottom up: by three coins, or by dividing the yarrow stalks. Each line is cast by a <a href="https://hazel.org">Hazel</a> program, shown beside the reading as text, or in Hazel's own editor at the press of a button; the page only passes it random numbers and draws what comes back. Change the program and the page builds it again. While it has an error or a hole, the page's own JavaScript casts instead, and each line says which did.</p>
 
 <div class="oracle-grid">
 <section class="oracle-ui" aria-label="The reading">
@@ -43,7 +43,7 @@
   <p class="nojs muted">This app needs JavaScript, and a page served over http (python3 -m http.server, then localhost).</p>
 </section>
 <section class="oracle-code" aria-label="The program, in Hazel">
-  <p class="muted" style="margin-top:0">The vocabulary every module sees (<code>i-ching/rules/preamble.hz</code>). Each listing is Hazel's editor: Ctrl+click a name, or F12 on it, to go to its definition.</p>
+  <p class="muted" style="margin-top:0">The vocabulary every module sees (<code>i-ching/rules/preamble.hz</code>). The listings are text, highlighted, until <b>Edit in Hazel</b> opens each in Hazel's own editor (about 7 MB each), where Ctrl+click on a name, or F12, goes to its definition; <b>Show as text</b> goes back, your edits kept.</p>
   <pre class="code hazel" data-program="iching">loading preamble.hz…</pre>
   <div class="ed"><div class="ed-head"><b>Lines</b> <span class="muted">a line's value, which lines change, and what they turn into</span></div><pre class="code hazel" data-program="iching" data-module="Lines">loading Lines.hz…</pre></div>
   <div class="ed"><div class="ed-head"><b>Casting</b> <span class="muted">three coins, or three divisions of the yarrow stalks</span></div><pre class="code hazel" data-program="iching" data-module="Casting">loading Casting.hz…</pre></div>
@@ -59,6 +59,6 @@
 <script src="../shared/history.js?v=0.0.2"></script>
 <script src="../shared/divider.js?v=0.0.8"></script>
 <script src="../shared/advanced.js?v=0.0.12"></script>
-<script src="app.js?v=0.0.14"></script>
+<script src="app.js?v=0.0.14.1"></script>
 </body>
 </html>

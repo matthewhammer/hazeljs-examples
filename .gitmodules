@@ -1,0 +1,3 @@
+[submodule "tarot/woodcut"]
+	path = tarot/woodcut
+	url = https://github.com/matthewhammer/woodcut-tarot

@@ -20,12 +20,12 @@ It is the third example app for `hazeljs`, after [Messed Up Dress Up](https://ma
 The pages need to be served over http, from `localhost` (Hazel's editor frames take messages only from a few sites, `localhost` among them):
 
 ```sh
-git clone https://github.com/matthewhammer/hazeljs-oracles
+git clone --recurse-submodules https://github.com/matthewhammer/hazeljs-oracles
 cd hazeljs-oracles
 python3 -m http.server 8000 --bind 127.0.0.1
 ```
 
-Then open http://localhost:8000/. The pages load `hazeljs` from npm through jsDelivr, so nothing needs installing for them.
+Then open http://localhost:8000/. The pages load `hazeljs` from npm through jsDelivr, so nothing needs installing for them. The Tarot's woodcut faces are a git submodule (`tarot/woodcut`); in a clone made without `--recurse-submodules`, `git submodule update --init` fetches them.
 
 The I Ching in Node, with the odds of each line by each method and what a cast costs:
 
@@ -46,7 +46,8 @@ npm run i-ching
 | `i-ching/rules/Reading.hz` | The reading so far, from the lines cast. |
 | `i-ching/index.html`, `i-ching/app.js` | The I Ching's page: the reading, the listings, hazeljs building the program, and the page's own JS for while it does not build. |
 | `tarot/rules/*.hz` | The Tarot: its vocabulary (`preamble.hz`), the deck (`Deck.hz`), the spreads' places (`Spreads.hz`), the deal (`Reading.hz`). |
-| `tarot/index.html`, `tarot/app.js` | The Tarot's page: the table, cards turned one at a time, simple faces drawn by the page for now. |
+| `tarot/index.html`, `tarot/app.js` | The Tarot's page: the table, cards turned one at a time, with a choice of faces: simple ones drawn by the page, or the woodcut deck, in black and white or in color. |
+| `tarot/woodcut/` | A git submodule, not a copy: [Woodcut tarot](https://github.com/SONDLecT/woodcut-tarot) (CC0), the 78 cards in SVG traced from the Jean Noblet tarot (Paris, c. 1650), by way of our fork, [matthewhammer/woodcut-tarot](https://github.com/matthewhammer/woodcut-tarot), pinned to one commit. GitHub Pages fetches it when it publishes the site. The page loads a card's file when the card is turned: `cards/` (black and white, 34 to 78 kB a card as served) or `colori/` (the deck's stencil colours, 300 to 420 kB). |
 | `tarot/meanings/*.json` | Where each card's meaning is on other sites, one map per site (Biddy Tarot, Brigit Esselmont; Labyrinthos, Tina Gong), keyed by our card ids. |
 | `shared/` | What the pages share: Hazel's listings as editors (`hazel-listings.js`, from hazeljs-petri-example), each oracle's 🕰 history of readings in the browser's local storage (`history.js`), the divider between the code and the reading (`divider.js`), and the styles. |
 | `node/i-ching.mjs`, `node/tarot.mjs` | Each oracle in Node (`npm run i-ching`, `npm run tarot`). |
@@ -55,10 +56,11 @@ npm run i-ching
 
 - **The yarrow stalks' odds are the procedure's.** The books give 1/16, 5/16, 7/16 and 3/16 for 6, 7, 8 and 9, which holds when each heap is as likely to leave 1, 2, 3 or 4 stalks. Here each split falls anywhere along the heap, as a hand's might, and a heap leaves 4 a little less often, so 6 comes about 1 time in 20 rather than 1 in 16 (`npm run i-ching` counts them).
 - **A Tarot deal costs about 20 ms a card** in Node (0.18 s for the Celtic Cross's ten), each card taken from a list of up to 78 in one walk. Measuring the deck and walking it twice a card, as the first draft did, cost 50 ms a card.
+- **The woodcut deck is a Marseille deck.** It numbers Justice VIII and Strength XI, where Waite's order, which the deck's names here follow, has Strength 8 and Justice 11, so the page finds each card's file by its name, not its number; its Pope is our Hierophant, its Coins our Pentacles, and its Two to Ten of each suit show the suit's signs rather than a scene.
 - **Links, not text, for meanings.** The I Ching links to Cafe au Soul's reading of the six lines, and each Tarot card to Brigit Esselmont's and Tina Gong's meanings; the pages are theirs, with ads. We copy none of their text.
 - **From JS, a constructor takes one value or a labeled tuple, not a plain tuple.** hazeljs 0.0.4 cannot match `{tag: "YearAhead", value: [10, true]}` against `YearAhead(m, t)`, so the year ahead takes `(start = Int, theme = Bool)`.
 - **Hazel answers in about a millisecond a cast** in Node (coins 0.35 ms, yarrow 1.1 ms on a laptop), and builds the program in about half a second.
 
 ## Licences
 
-Copyright 2026 Matthew Hammer. The code (the `.js`, `.mjs`, `.html`, `.css`, `.json` and `.hz` files) is under the [Apache License 2.0](LICENSE); everything else (the `.md` files) under [Creative Commons Attribution 4.0](LICENSE-CC-BY-4.0). See [NOTICE](NOTICE).
+Copyright 2026 Matthew Hammer. The code (the `.js`, `.mjs`, `.html`, `.css`, `.json` and `.hz` files) is under the [Apache License 2.0](LICENSE); everything else (the `.md` files) under [Creative Commons Attribution 4.0](LICENSE-CC-BY-4.0). The woodcut cards (`tarot/woodcut`, a submodule) are not ours: they are CC0, in the public domain. See [NOTICE](NOTICE).

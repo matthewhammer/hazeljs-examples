@@ -212,7 +212,7 @@
     // (0.0.8, Matthew 2026-11-16: "only reveal the Hazel edit boxes when asked to") each listing stays text until its button opens
     // Hazel's editor there; Hazel itself (hazel-lib.js) still casts from the text
     window.HazelListingsOptions = { start: "request" };
-    await load("../shared/hazel-listings.js?v=0.0.8");
+    await load("../shared/hazel-listings.js?v=0.0.14");
     L = window.HazelListings;
     L.tail(PROGRAM, TAIL);
     L.onChange(PROGRAM, () => { if (!window.Hazel) loadLib(); clearTimeout(timer); timer = setTimeout(build, 350); });

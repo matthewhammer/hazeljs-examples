@@ -5,15 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Tarot, dealt in Hazel</title>
 <meta name="description" content="A Tarot reading whose shuffle, deal and spreads are written in Hazel and run by hazeljs: deal a spread face down and turn the cards one at a time. The second of the ancient oracles, an example app for hazeljs.">
-<link rel="stylesheet" href="../shared/style.css?v=0.0.9">
-<link rel="stylesheet" href="../shared/oracles.css?v=0.0.11">
+<link rel="stylesheet" href="../shared/style.css?v=0.0.14">
+<link rel="stylesheet" href="../shared/oracles.css?v=0.0.14">
 </head>
 <body><main class="oracle">
 <div class="app-head">
 <h1>Tarot, dealt in Hazel</h1>
 <span class="app-links"><a href="../">the ancient oracles</a> · <a href="https://github.com/matthewhammer/hazeljs-oracles">source on GitHub</a> · <a href="https://www.npmjs.com/package/hazeljs">hazeljs on npm</a></span>
 </div>
-<p class="sub">Ask a question, choose a spread, and deal: the cards land face down, each in its place. Turn them over one at a time. The deck, the shuffle and the spreads are a <a href="https://hazel.org">Hazel</a> program, shown beside the table in Hazel's own editor; the page passes it random numbers and lays out what it deals. While the program has an error or a hole, the page's own JavaScript deals instead, and the table says which did.</p>
+<p class="sub">Ask a question, choose a spread, and deal: the cards land face down, each in its place. Turn them over one at a time. The deck, the shuffle and the spreads are a <a href="https://hazel.org">Hazel</a> program, shown beside the table as text, or in Hazel's own editor at the press of a button; the page passes it random numbers and lays out what it deals. While the program has an error or a hole, the page's own JavaScript deals instead, and the table says which did.</p>
 
 <div class="oracle-grid">
 <section class="oracle-ui" aria-label="The reading">
@@ -37,6 +37,11 @@
       </optgroup>
     </select></label>
     <label><input type="checkbox" id="reversals" checked> reversals</label>
+    <label>Faces <select id="faces" title="How the cards look: simple faces drawn by the page, or the woodcut deck (Paris, about 1650), in black and white or in color">
+      <option value="simple">simple</option>
+      <option value="woodcut" title="The woodcut deck in black and white: about 50 kB a card">woodcut, black and white</option>
+      <option value="woodcut-color" title="The woodcut deck in its own stencil colors: about 350 kB a card, heavier on an older phone">woodcut, in color</option>
+    </select></label>
     <button type="button" id="deal" class="primary">Shuffle and deal</button>
     <button type="button" id="turn">Turn the next card</button>
   </div>
@@ -45,11 +50,12 @@
   <h2 class="reading-head" id="reading-head">A new reading</h2>
   <div class="table" id="table"><p class="muted">Deal to lay out a spread.</p></div>
   <ol class="read" id="read"></ol>
+  <p class="faces-credit muted" id="faces-credit" hidden>The woodcut faces are <a href="https://github.com/SONDLecT/woodcut-tarot">Woodcut tarot</a> (CC0), traced from the Jean Noblet tarot (Paris, c. 1650), the oldest Tarot de Marseille that survives, with the Six to Ten of Wands from the Jacques Viéville tarot, from the Bibliothèque nationale de France's scans. A Marseille deck numbers Justice VIII and Strength XI, the other way from Waite's order, which this deck's names follow.<span id="faces-color" hidden> In color, each card's stencils are traced in the deck's own palette (vermilion, ochre and a steel-grey wash) and printed beneath its lines, as the press did; the small red ovals are the library's ownership stamps.</span></p>
   <div id="history"></div>
   <p class="nojs muted">This app needs JavaScript, and a page served over http (python3 -m http.server, then localhost).</p>
 </section>
 <section class="oracle-code" aria-label="The program, in Hazel">
-  <p class="muted" style="margin-top:0">The vocabulary every module sees (<code>tarot/rules/preamble.hz</code>). Each listing is Hazel's editor: Ctrl+click a name, or F12 on it, to go to its definition.</p>
+  <p class="muted" style="margin-top:0">The vocabulary every module sees (<code>tarot/rules/preamble.hz</code>). The listings are text, highlighted, until <b>Edit in Hazel</b> opens each in Hazel's own editor (about 7 MB each), where Ctrl+click on a name, or F12, goes to its definition; <b>Show as text</b> goes back, your edits kept.</p>
   <pre class="code hazel" data-program="tarot">loading preamble.hz…</pre>
   <div class="ed"><div class="ed-head"><b>Deck</b> <span class="muted">the 78 cards and their names</span></div><pre class="code hazel" data-program="tarot" data-module="Deck">loading Deck.hz…</pre></div>
   <div class="ed"><div class="ed-head"><b>Spreads</b> <span class="muted">each spread's places, and what a card there speaks to: some fixed, some built (a group of three for each path of a choice; a card for each month, from this one)</span></div><pre class="code hazel" data-program="tarot" data-module="Spreads">loading Spreads.hz…</pre></div>
@@ -63,6 +69,6 @@
 <script src="../shared/history.js?v=0.0.2"></script>
 <script src="../shared/divider.js?v=0.0.8"></script>
 <script src="../shared/advanced.js?v=0.0.12"></script>
-<script src="app.js?v=0.0.13"></script>
+<script src="app.js?v=0.0.14"></script>
 </body>
 </html>

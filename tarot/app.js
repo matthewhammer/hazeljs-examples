@@ -70,7 +70,26 @@
   // ---- a face: a major arcanum's number and name; a suit card's sign, as many times as its number; a court card's title
   const SIGN = { Wands: "⚚", Cups: "🜄", Swords: "⚔", Pentacles: "⛤" };
   const ROMAN = n => n === 0 ? "0" : ["I","II","III","IV","V","VI","VII","VIII","IX","X","XI","XII","XIII","XIV","XV","XVI","XVII","XVIII","XIX","XX","XXI"][n - 1];
+  // (0.0.14, Matthew 2026-11-17: "upgrade our ancient oracle for tarot, to include artwork from here, somehow, license permitting",
+  // https://github.com/SONDLecT/woodcut-tarot, CC0) a second set of faces: the woodcut deck, traced from the Jean Noblet tarot
+  // (Paris, c. 1650), kept in its own repository (a fork, matthewhammer/woodcut-tarot) and seen here as the submodule woodcut/.
+  // A Marseille deck: Justice is its VIII and Strength its XI (Waite's order, ours, has them the other way), the Hierophant is
+  // its Pope, Pentacles its Coins. A card's file is loaded when the card is turned. (Matthew, 2026-11-17: "let's permit woodcut
+  // color, and woodcut monochrome, as separate options") In black and white (cards/, 34 to 78 kB a card as served), or in the
+  // deck's own stencil colours (colori/, 300 to 420 kB); the back is the black and white set's in both.
+  const WOOD_MAJOR = ["00-fool", "01-magician", "02-high-priestess", "03-empress", "04-emperor", "05-pope", "06-lovers", "07-chariot",
+    "11-strength", "09-hermit", "10-wheel-of-fortune", "08-justice", "12-hanged-man", "13-death", "14-temperance", "15-devil",
+    "16-tower", "17-star", "18-moon", "19-sun", "20-judgement", "21-world"];
+  const WOOD_SUIT = { Wands: "wands", Cups: "cups", Swords: "swords", Pentacles: "coins" };
+  const WOOD_RANK = r => r === 1 ? "ace" : r <= 10 ? String(r).padStart(2, "0") : ["page", "knight", "queen", "king"][r - 11];
+  const WOOD_DIR = { woodcut: "cards", "woodcut-color": "colori" };
+  const woodFile = c => `woodcut/${WOOD_DIR[FACES]}/` + (c.tag === "Major" ? WOOD_MAJOR[c.value] : `${WOOD_SUIT[c.value[0].tag]}-${WOOD_RANK(c.value[1])}`) + ".svg";
+  const FACES_KEY = "hazeljs-oracles/tarot/faces";
+  const facesOf = v => Object.prototype.hasOwnProperty.call(WOOD_DIR, v) ? v : "simple";
+  let FACES = (() => { try { return facesOf(localStorage.getItem(FACES_KEY)); } catch (e) { return "simple"; } })();
+  const img = (src, alt) => { const i = el("img"); i.src = src; i.alt = alt; i.decoding = "async"; i.draggable = false; return i; };
   function face(d) {
+    if (FACES in WOOD_DIR) { const f = el("div", "face wood"); f.append(img(woodFile(d.card), d.name + (d.reversed ? ", reversed" : ""))); return f; }
     const f = el("div", "face" + (d.card.tag === "Major" ? " major" : " minor " + d.card.value[0].tag.toLowerCase()));
     if (d.card.tag === "Major") { f.append(el("div", "num", ROMAN(d.card.value)), el("div", "big", "✶"), el("div", "nm", d.name)); return f; }
     const [s, r] = [d.card.value[0].tag, d.card.value[1]];
@@ -139,13 +158,14 @@
   }
   function draw() {
     drawHead();
-    const t = $("table"); t.replaceChildren(); t.className = "table " + (S.dealt.length ? layoutOf(S.spread, S.dealt.length) : "");
+    const t = $("table"); t.replaceChildren(); t.className = "table " + (S.dealt.length ? layoutOf(S.spread, S.dealt.length) : "") + (FACES in WOOD_DIR ? " wood" : "");
     if (!S.dealt.length) t.append(el("p", "muted", "Deal to lay out a spread."));
     S.dealt.forEach((d, i) => {
       const c = el("button", "card" + (i < S.turned ? " up" : "") + (d.reversed ? " rev" : "") + (i === S.turned - 1 && !S.past ? " fresh" : ""));
       c.type = "button"; c.style.gridArea = "p" + (i + 1);
       c.title = i < S.turned ? `${d.position}: ${d.name}${d.reversed ? ", reversed" : ""}` : `${d.position}: face down; turn it`;
-      c.append(i < S.turned ? face(d) : el("div", "back", "✧"), el("span", "where", d.position));
+      const back = () => { if (!(FACES in WOOD_DIR)) return el("div", "back", "✧"); const b = el("div", "back wood"); b.append(img("woodcut/cards/back.svg", "")); return b; };
+      c.append(i < S.turned ? face(d) : back(), el("span", "where", d.position));
       c.addEventListener("click", () => { if (i >= S.turned) { S.turned = i + 1; draw(); } });
       t.append(c);
     });
@@ -155,6 +175,8 @@
       const m = meaningLinks(d); if (m) li.append(m);
       return li; }));
     if (S.dealt.length) { const li = el("li", "dealt-by"); li.append(el("span", "eng " + S.eng, S.eng === "hazel" || S.eng === "compiled" ? (S.eng === "compiled" ? "dealt by compiled Hazel" : "dealt by Hazel") + (S.past ? "" : S.ms < 0.1 ? " in under 0.1 ms" : S.ms < 10 ? ` in ${S.ms.toFixed(1)} ms` : ` in ${S.ms.toFixed(0)} ms`) : "dealt by JS")); $("read").append(li); }
+    $("faces-credit").hidden = !(FACES in WOOD_DIR);
+    $("faces-color").hidden = FACES !== "woodcut-color";
     if (S.turned && MEANINGS.length) {
       const li = el("li", "meanings-note muted");
       li.textContent = "The ↗ links open other sites: each author's own meaning of the card, upright and reversed, on their publisher's pages, which carry ads and promotions. They learn only which card you open.";
@@ -165,6 +187,12 @@
   // what the chosen spread is for, under the chooser
   function drawUse() { const o = $("spread").selectedOptions[0]; $("spread-use").textContent = o ? o.dataset.use || "" : ""; }
   drawUse();
+  $("faces").value = FACES;
+  $("faces").addEventListener("change", () => {
+    FACES = facesOf($("faces").value);
+    try { localStorage.setItem(FACES_KEY, FACES); } catch (e) { /* kept for this visit only */ }
+    draw();
+  });
 
   function drawStatus() {
     const st = $("status"), b = S.built;
@@ -198,7 +226,7 @@
     // (0.0.8, Matthew 2026-11-16: "only reveal the Hazel edit boxes when asked to") each listing stays text until its button opens
     // Hazel's editor there; Hazel itself (hazel-lib.js) still casts from the text
     window.HazelListingsOptions = { start: "request" };
-    await load("../shared/hazel-listings.js?v=0.0.8");
+    await load("../shared/hazel-listings.js?v=0.0.14");
     L = window.HazelListings; L.tail(PROGRAM, TAIL);
     L.onChange(PROGRAM, () => { if (!window.Hazel) loadLib(); clearTimeout(timer); timer = setTimeout(build, 350); });
   } catch (e) {

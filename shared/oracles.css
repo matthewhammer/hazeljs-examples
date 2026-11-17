@@ -67,6 +67,7 @@ body.js .nojs { display: none; }
 .series a.series-card:hover { border-color: var(--accent); }
 .series .series-card h2 { margin: 6px 0; font-size: 1.25em; }
 .series .series-card svg { display: block; height: 92px; }
+.series .series-card img.thumb { display: block; height: 92px; width: auto; }
 .series .series-card.soon { opacity: 0.7; }
 
 /* the Tarot: a table of cards, each in its place in the spread */
@@ -85,6 +86,11 @@ body.js .nojs { display: none; }
 .table { row-gap: 2.8em; }
 .table .card.up { cursor: default; }
 .table .card.rev .face { transform: rotate(180deg); }
+/* (0.0.14) the woodcut faces (tarot/woodcut, a submodule): each card's SVG has its own paper, border and caption, at 250 by 430 */
+.table.wood .card { --ch: calc(var(--cw, 104px) * 1.72); border-color: transparent; background: transparent; }
+.table.wood .card .face.wood, .table.wood .card .back.wood { padding: 0; display: block; height: 100%; background: none; }
+.face.wood img, .back.wood img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.faces-credit { font-size: 0.85em; }
 .face { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 8px 4px; box-sizing: border-box; }
 .face .num { font-weight: 700; font-size: 0.9em; }
 .face .big { font-size: 2.2em; color: var(--accent); }
