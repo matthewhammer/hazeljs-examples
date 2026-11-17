@@ -8,13 +8,14 @@ import * as A from "astronomy-engine";
 import { readFileSync } from "node:fs";
 
 const read = path => readFileSync(new URL("../astrology/rules/" + path, import.meta.url), "utf8").replace(/\s+$/, "");
-const MODULES = ["Zodiac", "Aspects", "Chart"];
+const MODULES = ["Zodiac", "Aspects", "Chart", "Sky"];
 const t0 = performance.now();
 const r = Hazel.runProgram({
   preamble: read("preamble.hz"),
   modules: MODULES.map(name => ({ name, text: read(name + ".hz") })),
   tail: "(sign_of = Zodiac.sign_of, element = Zodiac.element, modality = Zodiac.modality, ruler = Zodiac.ruler, " +
-        "julian_day = Chart.julian_day, sidereal = Chart.sidereal, chart = Chart.chart, among = Aspects.among, transits = Aspects.transits)",
+        "julian_day = Chart.julian_day, sidereal = Chart.sidereal, chart = Chart.chart, among = Aspects.among, transits = Aspects.transits, " +
+        "places = Sky.places)",
 });
 if (!r.ok) { console.log("not built:", JSON.stringify(r.errors, null, 1).slice(0, 3000)); process.exit(1); }
 const H0 = r.value;
@@ -73,6 +74,33 @@ for (let i = 0; i < 300; i++) {
 console.log(`${n} moments, 1900 to 2100, latitudes -60 to 60: the largest differences from Astronomy Engine:`);
 console.log(`  the Julian day ${worst.jd.toFixed(3)} s (${where.jd}); the sidereal time ${worst.gmst.toFixed(4)} degrees (${where.gmst})`);
 console.log(`  the ascendant ${worst.asc.toFixed(4)} degrees (${where.asc}); the midheaven ${worst.mc.toFixed(4)} degrees (${where.mc})`);
+
+// the bodies' longitudes, against Astronomy Engine's geocentric, apparent, on the true ecliptic of date
+{
+  const BODY = { Sun: "Sun", Moon: "Moon", Mercury: "Mercury", Venus: "Venus", Mars: "Mars", Jupiter: "Jupiter", Saturn: "Saturn", Uranus: "Uranus", Neptune: "Neptune", Pluto: "Pluto" };
+  const lonOf = (name, date) => {
+    if (name === "Sun") return A.SunPosition(date).elon;
+    if (name === "Moon") return A.EclipticGeoMoon(date).lon;
+    const time = A.MakeTime(date);
+    const v = A.RotateVector(A.Rotation_EQJ_ECT(time), A.GeoVector(name, date, true));
+    return A.SphereFromVector(v).lon;
+  };
+  const worst = {}, signs = {};
+  let n = 0;
+  for (let i = 0; i < 400; i++) {
+    const date = new Date(Date.UTC(1900, 0, 1) + draw() * (Date.UTC(2100, 0, 1) - Date.UTC(1900, 0, 1)));
+    const ps = H.places(moment(date));
+    for (const p of ps) {
+      const name = p.body.tag, ref = lonOf(BODY[name], date), err = sep(p.longitude, ref);
+      if (!worst[name] || err > worst[name].err) worst[name] = { err, when: date.toISOString().slice(0, 10) };
+      if (Math.floor(((p.longitude % 360) + 360) % 360 / 30) !== Math.floor(((ref % 360) + 360) % 360 / 30)) signs[name] = (signs[name] || 0) + 1;
+    }
+    n++;
+  }
+  console.log(`the bodies, ${n} moments 1900 to 2100: the largest difference from Astronomy Engine, and how often the sign differs:`);
+  for (const [k, w] of Object.entries(worst)) console.log(`  ${k.padEnd(8)} ${w.err.toFixed(4)} degrees (${w.when}); the sign differs ${signs[k] || 0} of ${n}`);
+  const t1 = performance.now(); for (let i = 0; i < 20; i++) H.places(moment(new Date(Date.UTC(2026, 10, 17, 12)))); console.log(`  a chart's ten places: ${((performance.now() - t1) / 20).toFixed(1)} ms in hazeljs`);
+}
 
 // a sample: signs, elements, and aspects among some places, and transits
 const places = [["Sun", 15.2], ["Moon", 128.7], ["Mercury", 2.9], ["Venus", 47.1], ["Mars", 196.0], ["Jupiter", 252.4]]
