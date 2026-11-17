@@ -16,6 +16,12 @@ under CC0 1.0, and so not under this repository's licences. Its 78 cards are tra
 c. 1650; Bibliotheque nationale de France, RESERVE KH-34), with the Six to Ten of Wands from the Jacques Vieville tarot
 (Paris, c. 1650), from the BnF's scans on Gallica; the colour set's small red ovals are the BnF's ownership stamps.
 
+The astrology oracle (astrology/, work in progress) writes its rules in Hazel. Its chart's formulas (the Julian day,
+sidereal time, the obliquity of the ecliptic, the ascendant and the midheaven) follow Jean Meeus, Astronomical
+Algorithms (2nd ed., Willmann-Bell, 1998), rewritten in Hazel. Its check, node/astrology.mjs, compares them with
+Astronomy Engine (https://github.com/cosinekitty/astronomy, MIT, Don Cross), a development dependency the pages do not
+load. Its glyphs (astrology/glyphs.svg) are drawn here, under this repository's licences.
+
 The pages link to other sites for fuller meanings (Cafe au Soul for the I Ching; Biddy Tarot, by Brigit Esselmont,
 and Labyrinthos, by Tina Gong, for the Tarot's cards). Those pages and their text are their publishers'; nothing of
 theirs is copied here.

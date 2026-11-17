@@ -8,11 +8,15 @@
     "i-ching": "node node/i-ching.mjs",
     "compare-compiled": "node node/compare-compiled.mjs i-ching && node node/compare-compiled.mjs tarot",
     "serve": "python3 -m http.server 8000 --bind 127.0.0.1",
-    "tarot": "node node/tarot.mjs"
+    "tarot": "node node/tarot.mjs",
+    "astrology": "node node/astrology.mjs"
   },
   "dependencies": {
     "hazeljs": "0.0.4"
   },
   "license": "Apache-2.0",
-  "repository": "github:matthewhammer/hazeljs-oracles"
+  "repository": "github:matthewhammer/hazeljs-oracles",
+  "devDependencies": {
+    "astronomy-engine": "^2.1.19"
+  }
 }
