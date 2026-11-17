@@ -6,27 +6,27 @@
 <title>Ancient oracles, in Hazel</title>
 <meta name="description" content="A series of ancient oracles, each a small app whose core logic is written in Hazel and run by hazeljs, shown beside the reading it makes: first the I Ching, then the Tarot.">
 <link rel="stylesheet" href="shared/style.css?v=0.0.2">
-<link rel="stylesheet" href="shared/oracles.css?v=0.0.14">
+<link rel="stylesheet" href="shared/oracles.css?v=0.0.14.1">
 </head>
 <body><main>
 <h1>Ancient oracles, in Hazel</h1>
-<p class="sub">People have long asked chance a question and read what came back by fixed rules: how the lots are cast, what each one means, how they combine. Those rules are small programs. This series writes each oracle's rules in <a href="https://hazel.org">Hazel</a>, a typed functional language with a live editor, and runs them in the page with <a href="https://www.npmjs.com/package/hazeljs">hazeljs</a>. Each oracle is its own app, on its own page: the reading on one side, revealed a step at a time, and on the other the Hazel program that makes it, in Hazel's own editor. Change the program and the next reading follows it.</p>
+<p class="sub">Ancient oracles whose rules are written in <a href="https://hazel.org">Hazel</a>, a typed functional language with a live editor, and run in the page by <a href="https://www.npmjs.com/package/hazeljs">hazeljs</a>.</p>
 
 <div class="series">
 <a class="series-card" href="i-ching/">
-<img class="thumb" src="i-ching/bagua.svg?v=0.0.14" alt="" width="92" height="92">
+<img class="thumb" src="i-ching/bagua.svg?v=0.0.14" alt="" width="168" height="168">
 <h2>I Ching</h2>
 <p>The Book of Changes: six lines cast by coins or yarrow</p>
 </a>
 <a class="series-card" href="tarot/">
-<img class="thumb" src="tarot/woodcut/cards/back.svg" alt="" width="53" height="92">
+<img class="thumb" src="tarot/woodcut/cards/back.svg" alt="" width="98" height="168">
 <h2>Tarot</h2>
 <p>78 cards, dealt into a spread and turned one by one</p>
 </a>
 </div>
 
 <h2>How each one works</h2>
-<p>The page keeps what is on the table and draws it; the Hazel program decides what happens. For each step the page passes the program some random numbers, and the program answers with what they mean in that oracle: a line of the hexagram, a card and where it lies. While the program has an error or a hole, the page's own JavaScript answers instead, and the page says which one did. The same pattern runs <a href="https://matthewhammer.org/kids-choice-games/dress-up/">Messed Up Dress Up</a>'s scripts and <a href="https://matthewhammer.org/hazeljs-petri-example/">a Petri net simulator</a>.</p>
+<p>The page passes the Hazel program random numbers and draws what it answers, as <a href="https://matthewhammer.org/kids-choice-games/dress-up/">Messed Up Dress Up</a>'s scripts and <a href="https://matthewhammer.org/hazeljs-petri-example/">a Petri net simulator</a> do.</p>
 <p class="app-foot">hazeljs-oracles · <a href="https://github.com/matthewhammer/hazeljs-oracles">source on GitHub</a> · <a href="VERSIONS.md">versions</a> · Apache 2.0 (code), CC BY 4.0 (words) · by Matthew Hammer · an example for <a href="https://github.com/hazelgrove/hazeljs">hazeljs</a></p>
 </main></body>
 </html>

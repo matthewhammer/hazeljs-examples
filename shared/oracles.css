@@ -67,7 +67,8 @@ body.js .nojs { display: none; }
 .series a.series-card:hover { border-color: var(--accent); }
 .series .series-card h2 { margin: 6px 0; font-size: 1.25em; }
 .series .series-card svg { display: block; height: 92px; }
-.series .series-card img.thumb { display: block; height: 92px; width: auto; }
+/* (0.0.14, Matthew: "please center the thumbnails, and make the width of each in this form bigger") */
+.series .series-card img.thumb { display: block; height: 168px; width: auto; margin: 4px auto 14px; }
 .series .series-card.soon { opacity: 0.7; }
 
 /* the Tarot: a table of cards, each in its place in the spread */
