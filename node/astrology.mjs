@@ -8,14 +8,14 @@ import * as A from "astronomy-engine";
 import { readFileSync } from "node:fs";
 
 const read = path => readFileSync(new URL("../astrology/rules/" + path, import.meta.url), "utf8").replace(/\s+$/, "");
-const MODULES = ["Zodiac", "Aspects", "Chart", "Sky"];
+const MODULES = ["Zodiac", "Aspects", "Chart"];
+const SKY = ["Orbit", "MoonOrbit", "Planets", "Outer", "PlutoOrbit", "Sky"];
 const t0 = performance.now();
 const r = Hazel.runProgram({
   preamble: read("preamble.hz"),
   modules: MODULES.map(name => ({ name, text: read(name + ".hz") })),
   tail: "(sign_of = Zodiac.sign_of, element = Zodiac.element, modality = Zodiac.modality, ruler = Zodiac.ruler, " +
-        "julian_day = Chart.julian_day, sidereal = Chart.sidereal, chart = Chart.chart, among = Aspects.among, transits = Aspects.transits, " +
-        "places = Sky.places)",
+        "julian_day = Chart.julian_day, sidereal = Chart.sidereal, chart = Chart.chart, among = Aspects.among, transits = Aspects.transits)",
 });
 if (!r.ok) { console.log("not built:", JSON.stringify(r.errors, null, 1).slice(0, 3000)); process.exit(1); }
 const H0 = r.value;
@@ -75,9 +75,13 @@ console.log(`${n} moments, 1900 to 2100, latitudes -60 to 60: the largest differ
 console.log(`  the Julian day ${worst.jd.toFixed(3)} s (${where.jd}); the sidereal time ${worst.gmst.toFixed(4)} degrees (${where.gmst})`);
 console.log(`  the ascendant ${worst.asc.toFixed(4)} degrees (${where.asc}); the midheaven ${worst.mc.toFixed(4)} degrees (${where.mc})`);
 
-// the bodies' longitudes, against Astronomy Engine's geocentric, apparent, on the true ecliptic of date
+// the bodies' longitudes, against Astronomy Engine's geocentric, apparent, on the true ecliptic of date. The places are
+// computed inside Hazel for all the moments at once, the program's answer a list of numbers: a program whose answer is a
+// function reaching these modules grows past gigabytes in hazeljs 0.0.7 (Hazel's Evaluator.finish substitutes the
+// function's environment, every earlier module's closures in it, into the answer).
 {
   const BODY = { Sun: "Sun", Moon: "Moon", Mercury: "Mercury", Venus: "Venus", Mars: "Mars", Jupiter: "Jupiter", Saturn: "Saturn", Uranus: "Uranus", Neptune: "Neptune", Pluto: "Pluto" };
+  const NAMES = Object.keys(BODY);
   const lonOf = (name, date) => {
     if (name === "Sun") return A.SunPosition(date).elon;
     if (name === "Moon") return A.EclipticGeoMoon(date).lon;
@@ -85,21 +89,25 @@ console.log(`  the ascendant ${worst.asc.toFixed(4)} degrees (${where.asc}); the
     const v = A.RotateVector(A.Rotation_EQJ_ECT(time), A.GeoVector(name, date, true));
     return A.SphereFromVector(v).lon;
   };
+  const dates = Array.from({ length: 400 }, () => new Date(Date.UTC(1900, 0, 1) + draw() * (Date.UTC(2100, 0, 1) - Date.UTC(1900, 0, 1))));
+  // (to six decimals of an hour, a few milliseconds: a longer float literal would send the program to the slow parse, hazelgrove/hazel#2831)
+  const hour = d => moment(d).hour.toFixed(6);
+  const lit = d => { const m = moment(d); return `(year = ${m.year}, month = ${m.month}, day = ${m.day}, hour = ${hour(d)})`; };
+  const tail = "let longitudes : [Place] -> [Float] = fun ps -> case ps | [] => [] | p :: rest => p.longitude :: longitudes(rest) end in " +
+    "let each : [Moment] -> [[Float]] = fun ms -> case ms | [] => [] | m :: rest => longitudes(Sky.places(m)) :: each(rest) end in " +
+    "each([" + dates.map(lit).join(", ") + "])";
+  const t1 = performance.now();
+  const rs = Hazel.runProgram({ preamble: read("preamble.hz"), modules: MODULES.concat(SKY).map(name => ({ name, text: read(name + ".hz") })), tail });
+  if (!rs.ok) { console.log("the sky not built:", JSON.stringify(rs.errors).slice(0, 600)); process.exit(1); }
+  const ms = performance.now() - t1;
   const worst = {}, signs = {};
-  let n = 0;
-  for (let i = 0; i < 400; i++) {
-    const date = new Date(Date.UTC(1900, 0, 1) + draw() * (Date.UTC(2100, 0, 1) - Date.UTC(1900, 0, 1)));
-    const ps = H.places(moment(date));
-    for (const p of ps) {
-      const name = p.body.tag, ref = lonOf(BODY[name], date), err = sep(p.longitude, ref);
-      if (!worst[name] || err > worst[name].err) worst[name] = { err, when: date.toISOString().slice(0, 10) };
-      if (Math.floor(((p.longitude % 360) + 360) % 360 / 30) !== Math.floor(((ref % 360) + 360) % 360 / 30)) signs[name] = (signs[name] || 0) + 1;
-    }
-    n++;
-  }
-  console.log(`the bodies, ${n} moments 1900 to 2100: the largest difference from Astronomy Engine, and how often the sign differs:`);
-  for (const [k, w] of Object.entries(worst)) console.log(`  ${k.padEnd(8)} ${w.err.toFixed(4)} degrees (${w.when}); the sign differs ${signs[k] || 0} of ${n}`);
-  const t1 = performance.now(); for (let i = 0; i < 20; i++) H.places(moment(new Date(Date.UTC(2026, 10, 17, 12)))); console.log(`  a chart's ten places: ${((performance.now() - t1) / 20).toFixed(1)} ms in hazeljs`);
+  rs.value.forEach((lons, i) => lons.forEach((lon, k) => {
+    const name = NAMES[k], ref = lonOf(BODY[name], new Date(Date.UTC(dates[i].getUTCFullYear(), dates[i].getUTCMonth(), dates[i].getUTCDate()) + Number(hour(dates[i])) * 3.6e6)), err = sep(lon, ref);
+    if (!worst[name] || err > worst[name].err) worst[name] = { err, when: dates[i].toISOString().slice(0, 10) };
+    if (Math.floor(((lon % 360) + 360) % 360 / 30) !== Math.floor(((ref % 360) + 360) % 360 / 30)) signs[name] = (signs[name] || 0) + 1;
+  }));
+  console.log(`the bodies, ${dates.length} moments 1900 to 2100 (built and computed in hazeljs in ${(ms / 1000).toFixed(1)} s): the largest difference from Astronomy Engine, and how often the sign differs:`);
+  for (const [k, w] of Object.entries(worst)) console.log(`  ${k.padEnd(8)} ${w.err.toFixed(4)} degrees (${w.when}); the sign differs ${signs[k] || 0} of ${dates.length}`);
 }
 
 // a sample: signs, elements, and aspects among some places, and transits

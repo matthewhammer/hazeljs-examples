@@ -20,7 +20,9 @@ The astrology oracle (astrology/, work in progress) writes its rules in Hazel. I
 sidereal time, the obliquity of the ecliptic, the ascendant and the midheaven) follow Jean Meeus, Astronomical
 Algorithms (2nd ed., Willmann-Bell, 1998), rewritten in Hazel. Its check, node/astrology.mjs, compares them with
 Astronomy Engine (https://github.com/cosinekitty/astronomy, MIT, Don Cross), a development dependency the pages do not
-load. Its Sky module rewrites in Hazel the positions of the Sun, Moon and planets from astronomia
+load. Its outer planets (Jupiter to Neptune) use Paul Schlyter's orbital elements and perturbations, from "How to compute
+planetary positions" (https://stjarnhimlen.se/comp/ppcomp.html), rewritten in Hazel. Its sky modules otherwise rewrite
+in Hazel the positions of the Sun, Moon and planets from astronomia
 (https://github.com/commenthol/astronomia, MIT, Copyright (c) 2013 Sonia Keys, (c) 2016 commenthol), a port of Meeus: its
 solar.js, moonposition.js, planetelements.js and pluto.js; the tables are generated from its source by
 tools/make-sky-tables.py. Its glyphs (astrology/glyphs.svg) are drawn here, under this repository's licences.

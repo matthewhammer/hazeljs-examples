@@ -19,9 +19,9 @@ let centuries : Float -> Float = fun jd -> (jd -. 2451545.) /. 36525.;
 # Greenwich mean sidereal time, as an angle in degrees (Meeus 12.4) #
 let sidereal : Float -> Float = fun jd ->
   let t = centuries(jd) in
-  Zodiac.normalize(280.46061837 +. 360.98564736629 *. (jd -. 2451545.) +. 0.000387933 *. t *. t -. t *. t *. t /. 38710000.);
+  Zodiac.normalize((28046061837. /. 100000000.) +. (36098564736629. /. 100000000000.) *. (jd -. 2451545.) +. (387933. /. 1000000000.) *. t *. t -. t *. t *. t /. 38710000.);
 # The tilt of the ecliptic to the equator, in degrees (Meeus 22.2, its first two terms) #
-let obliquity : Float -> Float = fun jd -> 23.439291111 -. 0.013004167 *. centuries(jd);
+let obliquity : Float -> Float = fun jd -> (23439291111. /. 1000000000.) -. (13004167. /. 1000000000.) *. centuries(jd);
 # The midheaven: the degree of the ecliptic on the meridian, from the local sidereal time (ramc) and the obliquity #
 let midheaven : (Float, Float) -> Float = fun (ramc, eps) ->
   Zodiac.normalize(deg(arctan2(sin(rad(ramc)), cos(rad(ramc)) *. cos(rad(eps)))));
