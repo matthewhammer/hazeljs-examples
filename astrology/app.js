@@ -95,25 +95,158 @@
     const now = new Date();
     const day = ty ? new Date(ty, tmo - 1, td, now.getHours(), now.getMinutes()).getTime() : now.getTime();
     const app = birth === APP_BIRTH && lat === CITIES[0][1] && lon === CITIES[0][2];
-    return { birth, lat, lon, zone, name, noTime, day, app, typed: { date: $("bdate").value, time: noTime ? "" : $("btime").value, city: $("city").value, lat, lon, zone } };
+    const typed = { date: $("bdate").value, time: noTime ? "" : $("btime").value, city: $("city").value, lat, lon, zone };
+    // (0.0.22) who: the saved chart's name, while the form is that chart's birth
+    const c = selectedChart(), who = c && sameTyped(c.typed, typed) ? c.name : null;
+    return { birth, lat, lon, zone, name, noTime, day, app, who, typed };
   }
   const tailOf = a => `Reading.reading(${momentLit(moment(a.birth))}, (latitude = ${num(a.lat)}, longitude = ${num(a.lon)}), ${momentLit(moment(a.day))})`;
 
-  // ---- remembering the birth on this device, only when asked
-  try {
-    const saved = JSON.parse(localStorage.getItem(KEY) || "null");
-    if (saved) {
-      $("remember").checked = true; $("bdate").value = saved.date || $("bdate").value;
-      if (saved.time) $("btime").value = saved.time; else { $("bnotime").checked = true; $("btime").disabled = true; }
-      $("city").value = saved.city || "0";
-      if (saved.city === ELSEWHERE) { $("lat").value = saved.lat; $("lon").value = saved.lon; if (zones.includes(saved.zone)) $("zone").value = saved.zone; }
+  // ---- the form, filled from a birth as typed ({date, time, city, and lat, lon, zone for elsewhere}), and read back as typed
+  function fillForm(t) {
+    if (t.date) $("bdate").value = t.date;
+    $("bnotime").checked = !t.time; $("btime").disabled = !t.time; if (t.time) $("btime").value = t.time;
+    $("city").value = t.city != null ? String(t.city) : "0";
+    if (t.city === ELSEWHERE) { $("lat").value = t.lat; $("lon").value = t.lon; if (zones.includes(t.zone)) $("zone").value = t.zone; }
+    showElsewhere();
+  }
+  const typedNow = () => {
+    const city = $("city").value, t = { date: $("bdate").value, time: $("bnotime").checked ? "" : $("btime").value, city };
+    return city === ELSEWHERE ? { ...t, lat: Number($("lat").value), lon: Number($("lon").value), zone: $("zone").value } : t;
+  };
+  // the same birth: the same date, time and city, or the same latitude, longitude and zone elsewhere
+  const sameTyped = (x, y) => !!x && !!y && x.date === y.date && (x.time || "") === (y.time || "") && String(x.city) === String(y.city) &&
+    (x.city !== ELSEWHERE || (Number(x.lat) === Number(y.lat) && Number(x.lon) === Number(y.lon) && x.zone === y.zone));
+  const APP_TYPED = { date: "2026-11-17", time: "11:03:51", city: "0" };
+
+  // ---- (0.0.22; Matthew, 2026-11-18: "new feature -- multiple saved birth charts, with user-defined names", and "the one that's
+  // the 'legacy' saved chart can be called 'default' at the start, when we load an old json file") Births saved under names, in
+  // this browser only: saving one is asking to keep it, so it needs no "remember"; Delete forgets it. Each is {id, name, typed,
+  // at}, in the order saved. The menu has this app's own birth first, then the saved charts, then a new birth, unsaved.
+  const CHARTS_KEY = "hazeljs-oracles/astrology/charts";
+  const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  const charts = {
+    ok: (() => { try { const k = CHARTS_KEY + ":probe"; localStorage.setItem(k, "1"); localStorage.removeItem(k); return true; } catch (e) { return false; } })(),
+    list() { try { const v = JSON.parse(localStorage.getItem(CHARTS_KEY) || "[]"); return Array.isArray(v) ? v.filter(c => c && c.id && c.name && c.typed) : []; } catch (e) { return []; } },
+    write(list) { try { localStorage.setItem(CHARTS_KEY, JSON.stringify(list)); return true; } catch (e) { return false; } },
+  };
+  const NEW = "new", APP = "app";
+  const selectedChart = () => { const v = $("saved").value; return charts.list().find(c => c.id === v) || null; };
+  const cleanName = s => s.trim().replace(/\s+/g, " ").slice(0, 60);
+  function fillSelect(value) {
+    const list = charts.list(), s = $("saved"), v = value !== undefined ? value : s.value;
+    const opt = (val, label) => { const o = el("option", "", label); o.value = val; return o; };
+    const group = list.length ? Object.assign(el("optgroup"), { label: "Saved" }) : null;
+    if (group) group.append(...list.map(c => opt(c.id, c.name)));
+    s.replaceChildren(opt(APP, "This app's own birth"), ...(group ? [group] : []), opt(NEW, "A new birth (not saved)"));
+    s.value = v === APP || list.some(c => c.id === v) ? v : NEW;
+  }
+  // what the form is to the chart chosen: saved, changed since, or a name not saved yet; Delete only for a saved chart
+  let armed = 0;
+  function disarm() { clearTimeout(armed); armed = 0; const d = $("cdelete"); d.classList.remove("armed"); d.textContent = "Delete"; }
+  function markState(said) {
+    const c = selectedChart(), st = $("cstate");
+    $("cdelete").hidden = !c; if (!c) disarm();
+    if (!charts.ok) {
+      ["saved", "cname", "csave"].forEach(id => { $(id).disabled = true; });
+      st.className = "muted cstate"; st.textContent = "This browser keeps nothing here (its storage is off for this page, as in a private window).";
+      return;
     }
-  } catch (e) { /* no storage here: nothing remembered */ }
-  showElsewhere();
+    const name = cleanName($("cname").value);
+    $("csave").title = c ? `Save the form's birth, and the name, as the chart “${c.name}”` : "Save the form's birth under the name, in this browser";
+    const changed = c && !sameTyped(c.typed, typedNow()), renamed = c && name && name !== c.name;
+    st.className = "muted cstate" + (changed || renamed ? " changed" : "");
+    st.textContent = said || (changed ? "changed since it was saved" : renamed ? "renamed, not saved yet" : "");
+  }
+  // the form remembered under KEY, while "remember" is ticked: the birth as typed, and which saved chart it was (or null)
   function remember(a) {
-    try { if ($("remember").checked) localStorage.setItem(KEY, JSON.stringify(a.typed)); else localStorage.removeItem(KEY); } catch (e) { /* no storage */ }
+    try {
+      if ($("remember").checked) localStorage.setItem(KEY, JSON.stringify({ ...a.typed, chart: selectedChart() ? $("saved").value : null }));
+      else localStorage.removeItem(KEY);
+    } catch (e) { /* no storage */ }
+  }
+  // ---- remembering the birth on this device, only when asked; a value with no `chart`, from 0.0.15 to 0.0.21, was the one birth
+  // remembered, and it is saved as the chart "default" (or, if that very birth is saved already, that chart)
+  {
+    let r = null;
+    try { r = JSON.parse(localStorage.getItem(KEY) || "null"); } catch (e) { /* no storage here: nothing remembered */ }
+    if (r && typeof r !== "object") r = null;
+    if (r && !("chart" in r)) {
+      const list = charts.list();
+      let c = list.find(x => sameTyped(x.typed, r));
+      if (!c) {
+        let name = "default", i = 2;
+        while (list.some(x => x.name.toLowerCase() === name)) name = "default " + i++;
+        const { date, time, city, lat, lon, zone } = r;
+        c = { id: newId(), name, typed: { date, time, city, lat, lon, zone }, at: new Date().toISOString() };
+        if (!charts.write([...list, c])) c = null;
+      }
+      if (c) { r = { ...r, chart: c.id }; try { localStorage.setItem(KEY, JSON.stringify(r)); } catch (e) { /* as it was */ } }
+    }
+    if (r) { $("remember").checked = true; fillForm(r); }
+    showElsewhere();
+    const start = r && r.chart && charts.list().find(c => c.id === r.chart);
+    fillSelect(start ? start.id : !r || sameTyped(r, APP_TYPED) ? APP : NEW);
+    $("cname").value = start ? start.name : "";
+    markState();
   }
   $("remember").addEventListener("change", () => { if (!$("remember").checked) try { localStorage.removeItem(KEY); } catch (e) {} if (H) H.redraw(); });
+
+  // choosing a chart casts it; choosing a new birth keeps the form as it is, to change and save under a new name
+  $("saved").addEventListener("change", () => {
+    disarm(); S.error = "";
+    const c = selectedChart(), v = $("saved").value;
+    if (c || v === APP) { fillForm(c ? c.typed : APP_TYPED); $("cname").value = c ? c.name : ""; markState(); cast(); return; }
+    $("cname").value = ""; markState(); drawStatus(); $("cname").focus();
+  });
+  // an edit to the form: off this app's birth is a new birth; on a saved chart, it says the chart has changed
+  const onFormEdit = e => {
+    if (e.target === $("saved")) return;
+    if ($("saved").value === APP && !sameTyped(typedNow(), APP_TYPED)) fillSelect(NEW);
+    markState();
+  };
+  $("form").addEventListener("input", onFormEdit);
+  $("form").addEventListener("change", onFormEdit);
+  function saveChart() {
+    disarm();
+    const name = cleanName($("cname").value);
+    if (!name) { S.error = "Please give the chart a name to save it."; drawStatus(); $("cname").focus(); return; }
+    let a;
+    try { a = asked(); } catch (e) { S.error = "Please give " + e.message + "."; drawStatus(); return; }
+    const list = charts.list(), c = selectedChart();
+    const clash = list.find(x => x.name.toLowerCase() === name.toLowerCase() && (!c || x.id !== c.id));
+    if (clash) { S.error = `A chart named “${clash.name}” is saved already: choose it above to change it, or give this one another name.`; drawStatus(); $("cname").focus(); return; }
+    const { date, time, city, lat, lon, zone } = a.typed;
+    const typed = city === ELSEWHERE ? { date, time, city, lat, lon, zone } : { date, time, city };
+    let id;
+    if (c) { id = c.id; list[list.findIndex(x => x.id === id)] = { ...c, name, typed }; }
+    else { id = newId(); list.push({ id, name, typed, at: new Date().toISOString() }); }
+    if (!charts.write(list)) { S.error = "This browser would not save the chart (its storage is full, or off for this page)."; drawStatus(); return; }
+    S.error = ""; drawStatus();
+    fillSelect(id); $("cname").value = name;
+    if ($("remember").checked) remember({ typed: a.typed });
+    markState(c ? `✓ “${name}” saved` : `✓ saved as “${name}”`);
+    // (the heading names the chart on show if it is this birth, and no longer names it if this chart was it before the change)
+    if (S.result && S.asked && !S.past) {
+      const who = sameTyped(S.asked.typed, a.typed) ? name : c && S.asked.who === c.name ? null : S.asked.who;
+      if (who !== S.asked.who) { S.asked = { ...S.asked, who }; draw(); }
+    }
+  }
+  $("csave").addEventListener("click", saveChart);
+  $("cname").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); saveChart(); } });
+  $("cdelete").addEventListener("click", () => {
+    const c = selectedChart(), d = $("cdelete");
+    if (!c) return;
+    if (!armed) { d.classList.add("armed"); d.textContent = `Forget “${c.name}”?`; armed = setTimeout(disarm, 5000); return; }
+    disarm();
+    charts.write(charts.list().filter(x => x.id !== c.id));
+    fillSelect(NEW); $("cname").value = "";
+    if ($("remember").checked) try { const r = JSON.parse(localStorage.getItem(KEY) || "null"); if (r && r.chart === c.id) localStorage.setItem(KEY, JSON.stringify({ ...r, chart: null })); } catch (e) { /* as it was */ }
+    markState(`“${c.name}” forgotten; the form keeps its birth`);
+    if (S.asked && S.asked.who === c.name) { S.asked = { ...S.asked, who: null }; if (S.result) draw(); }
+  });
+  // (another tab saved or forgot a chart)
+  addEventListener("storage", e => { if (e.key === CHARTS_KEY) { fillSelect(); markState(); } });
 
   // ---- the state: the reading asked for, and the last answer
   // (past: when a chart opened from the history was kept, or null; keep: this cast is a new chart, to keep if asked; pending:
@@ -432,14 +565,14 @@
       const v = r.value;
       const h = $("reading-head");
       h.className = "reading-head" + (S.past ? " past" : "");
-      h.replaceChildren(S.past ? `A chart from ${S.past}` : a.app ? "This app's own birth chart" : "A birth chart");
+      h.replaceChildren(S.past ? `A chart from ${S.past}` : a.who ? `A birth chart: ${a.who}` : a.app ? "This app's own birth chart" : "A birth chart");
       if (S.past) {
         const b = el("button", "", "New chart"); b.type = "button"; b.title = "Cast the birth in the form again, with today's sky";
         b.addEventListener("click", () => { const now = new Date(); $("tdate").value = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`; cast(); });
         h.append(b);
       }
       const local = new Date(a.birth).toLocaleString(undefined, { timeZone: a.zone, year: "numeric", month: "long", day: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit" });
-      $("reading-q").textContent = `Born ${a.noTime ? new Date(a.birth).toLocaleDateString(undefined, { timeZone: a.zone, year: "numeric", month: "long", day: "numeric" }) + ", time not known (noon)" : local} ${a.name}; today's sky on ${fmtDay(a.day)}.`;
+      $("reading-q").textContent = `${S.past && a.who ? a.who + ", born" : "Born"} ${a.noTime ? new Date(a.birth).toLocaleDateString(undefined, { timeZone: a.zone, year: "numeric", month: "long", day: "numeric" }) + ", time not known (noon)" : local} ${a.name}; today's sky on ${fmtDay(a.day)}.`;
       hot = null; tip.hidden = true;
       drawWheel(v);
       const n = $("notes");
@@ -486,18 +619,17 @@
     summarize: r => {
       const o = { timeZone: r.zone, year: "numeric", month: "short", day: "numeric" };
       const born = new Date(r.birth).toLocaleString(undefined, r.noTime ? o : { ...o, hour: "numeric", minute: "2-digit" });
-      return `Born ${born} ${r.name} · Sun in ${r.sun}, Moon in ${r.moon}${r.noTime ? "" : `, ${r.rising} rising`} · the sky of ${fmtDay(r.day)}`;
+      return `${r.who ? r.who + " · " : ""}Born ${born} ${r.name} · Sun in ${r.sun}, Moon in ${r.moon}${r.noTime ? "" : `, ${r.rising} rising`} · the sky of ${fmtDay(r.day)}`;
     },
     open: (r, when) => {
       const t = r.typed || {};
-      if (t.date) $("bdate").value = t.date;
-      $("bnotime").checked = !t.time; $("btime").disabled = !t.time; if (t.time) $("btime").value = t.time;
-      $("city").value = t.city != null ? t.city : "0";
-      if (t.city === ELSEWHERE) { $("lat").value = t.lat; $("lon").value = t.lon; if (zones.includes(t.zone)) $("zone").value = t.zone; }
-      showElsewhere();
+      fillForm(t);
+      // (0.0.22) the menu on the saved chart of this birth, the one of its name first, if one is saved
+      const list = charts.list(), c = list.find(x => x.name === r.who && sameTyped(x.typed, t)) || list.find(x => sameTyped(x.typed, t));
+      fillSelect(c ? c.id : sameTyped(t, APP_TYPED) ? APP : NEW); $("cname").value = c ? c.name : ""; disarm(); markState();
       const d = new Date(r.day); $("tdate").value = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
       S.past = when; S.keep = false; S.error = "";
-      go({ birth: r.birth, lat: r.lat, lon: r.lon, zone: r.zone, name: r.name, noTime: r.noTime, day: r.day, app: r.app, typed: r.typed });
+      go({ birth: r.birth, lat: r.lat, lon: r.lon, zone: r.zone, name: r.name, noTime: r.noTime, day: r.day, app: r.app, who: r.who || null, typed: r.typed });
       $("reading-head").scrollIntoView({ block: "nearest", behavior: "smooth" });
     },
   }) : null;
@@ -509,7 +641,7 @@
     const key = tailOf(a), newest = H.list()[0];
     if (newest && newest.key === key) return;   // (the same chart cast again)
     const v = r.value, at = b => (v.natal.find(p => p.body.tag === b) || {}).longitude;
-    H.add({ key, birth: a.birth, day: a.day, lat: a.lat, lon: a.lon, zone: a.zone, name: a.name, noTime: a.noTime, app: a.app, typed: a.typed,
+    H.add({ key, birth: a.birth, day: a.day, lat: a.lat, lon: a.lon, zone: a.zone, name: a.name, noTime: a.noTime, app: a.app, who: a.who, typed: a.typed,
             sun: signOf(at("Sun")), moon: signOf(at("Moon")), rising: signOf(v.chart.ascendant) });
   }
 

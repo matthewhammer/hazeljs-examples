@@ -249,6 +249,15 @@ body.js .nojs { display: none; }
 .note-glyph.aspect.soft { color: var(--link); } .note-glyph.aspect.hard { color: var(--bad); } .note-glyph.aspect { color: var(--ink); }
 .notes .reading-foot { font-size: 0.85em; }
 .astro-form .app-birth { margin: 0; font-size: 0.88em; }
+/* (0.0.22) births saved under names: the picker, the name, Save and Delete (Delete asks once more, in place) */
+.astro-form .saved-charts input[type="text"] { width: 11em; }
+.astro-form .saved-buttons { display: inline-flex; gap: 6px; margin: 2px 10px 2px 0; vertical-align: middle; }
+.astro-form .saved-buttons button { font: inherit; padding: 3px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); cursor: pointer; }
+.astro-form .saved-buttons button:hover, .astro-form .saved-buttons button:focus-visible { border-color: var(--accent); }
+.astro-form .saved-buttons button:disabled { opacity: 0.5; cursor: default; }
+.astro-form .saved-buttons button.armed { border-color: var(--bad); color: var(--bad); }
+.astro-form .cstate { display: inline-block; font-size: 0.85em; }
+.astro-form .cstate.changed { color: var(--warn); }
 
 /* (0.0.16; Matthew, 2026-11-18: "for each ancient oracle app, in two-column mode, let's provide a full screen button at the top
    of the main interactive elements -- in this mode, we ignore the Hazel listings and only show the main components, organized

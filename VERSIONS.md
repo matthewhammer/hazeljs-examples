@@ -4,6 +4,13 @@ Each version lists what the apps do as of that version. The newest version is fi
 
 ## Unreleased
 
+## 0.0.22 (2026-11-18)
+
+Everything in 0.0.21, plus:
+
+- **Astrology saves births under names.** A new box at the top of the form, **Saved charts, on this device only**, has a menu of this app's own birth, the charts you have saved, and a new birth. Give the form's birth a name and press **Save** (or Enter in the name), and it is kept in this browser under that name; choosing it from the menu later fills the form and casts its chart, headed with its name ("A birth chart: …"). With a saved chart chosen, **Save** keeps the form's changes to it, or a new name for it, and the box says when the form has changed since it was saved; to keep a copy under another name, choose **A new birth** first, which keeps the form as it is. **Delete** asks once more in place, then forgets the chart, not the 🕰 history's charts of it, which now name it too. Two charts cannot share a name. Saving a chart is asking to keep it, so it needs no **remember these on this device**, which still keeps the form as last cast, and the history.
+- **The birth remembered before is the chart "default".** A browser that remembered a birth with 0.0.15 to 0.0.21 finds it saved, on its first visit, as the chart named "default" (or "default 2", if that name is taken), chosen in the menu and in the form as before; rename it with **Save**.
+
 ## 0.0.21 (2026-11-18)
 
 Everything in 0.0.20, plus:
