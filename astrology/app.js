@@ -250,6 +250,20 @@
   const ASPECT_WORDS = { Conjunction: ["conjunct", "join with"], Sextile: ["sextile", "open a way for"], Square: ["square", "press on"],
     Trine: ["trine", "flow easily with"], Opposition: ["opposite", "pull against"] };
   const firstSentence = t => (t.match(/^[^.]*\./) || [t])[0];
+  // (0.0.21) the constellation each sign is named for, as the IAU names it
+  const CONSTELLATION = { Scorpio: "Scorpius", Capricorn: "Capricornus" };
+  // a sign's constellation, drawn from the page's constellations.svg, sized by the figure's own proportions
+  function figureOf(f) {
+    const sym = document.getElementById(f.id);
+    if (!sym) return null;
+    const [, , w, h] = (sym.getAttribute("viewBox") || "0 0 100 80").split(/\s+/).map(Number);
+    const k = Math.min(112 / h, 236 / w);
+    const svg = sv("svg", { class: "tip-con " + f.cls, width: Math.round(w * k), height: Math.round(h * k), "aria-hidden": "true" });
+    svg.append(sv("use", { href: "#" + f.id, width: "100%", height: "100%" }));
+    const box = el("span", "tip-figure");
+    box.append(svg, el("span", "tip-cap", `The stars of ${f.name}, the constellation the sign is named for. Precession has since moved the sign about one constellation west of them.`));
+    return box;
+  }
   const cap = t => t.charAt(0).toUpperCase() + t.slice(1);
   function explain(k, v) {
     const texts = [...v.notes, ...v.today_notes];
@@ -261,7 +275,8 @@
     if (kind === "sign") {
       const i = SIGNS.indexOf(a), elem = (v.wheel.signs.find(s => s.sign.tag === a) || { element: { tag: "" } }).element.tag.toLowerCase();
       return { title: a, text: (sentence(new RegExp(a + " is the [^.]*\\.")) || `${a}, ${/^[aeiou]/.test(elem) ? "an" : "a"} ${elem} sign.`) +
-        ` Its 30° run from ${i * 30}° to ${i * 30 + 30}° along the zodiac; with whole-sign houses, it is your ${ord(houseOf(i))} house.`, lights: ["sign:" + a] };
+        ` Its 30° run from ${i * 30}° to ${i * 30 + 30}° along the zodiac; with whole-sign houses, it is your ${ord(houseOf(i))} house.`, lights: ["sign:" + a],
+        figure: { id: "con-" + a.toLowerCase(), cls: "sign " + elem, name: CONSTELLATION[a] || a } };
     }
     if (kind === "natal") {
       const n = v.notes.find(n => n.head.startsWith(a + " in "));
@@ -303,7 +318,8 @@
     const x = k && v ? explain(k, v) : null;
     if (!x) { tip.hidden = true; return; }
     const g = document.querySelector(`#wheel [data-k="${k}"]`); if (g) g.classList.add("hot");
-    tip.replaceChildren(el("b", "", x.title), el("span", "", x.text));
+    const fig = x.figure ? figureOf(x.figure) : null;
+    tip.replaceChildren(el("b", "", x.title), ...(fig ? [fig] : []), el("span", "", x.text));
     tip.hidden = false;
     const lit = [...document.querySelectorAll(".notes .note")].filter(p => x.lights.some(r => (p.dataset.refs || "").split(" ").includes(r)));
     lit.forEach(p => p.classList.add("lit"));
@@ -500,7 +516,9 @@
   // ---- start: the glyphs, the program's text into the listings, the editors, then Hazel
   let timer = 0;
   try {
-    const [glyphs, pre, ...mods] = await Promise.all([text("glyphs.svg"), text("rules/preamble.hz"), ...MODULES.map(m => text(`rules/${m}.hz`))]);
+    const [glyphs, cons, pre, ...mods] = await Promise.all([text("glyphs.svg"), text("constellations.svg").catch(() => ""), text("rules/preamble.hz"), ...MODULES.map(m => text(`rules/${m}.hz`))]);
+    // (0.0.21) the zodiac's constellations, for a sign's tooltip (tools/make-constellations.mjs); none, and the tooltip has words only
+    if (cons) document.body.insertAdjacentHTML("afterbegin", cons.replace(/<\?xml[^>]*>/, "").replace('style="display:none"', 'aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden"'));
     document.body.insertAdjacentHTML("afterbegin", glyphs.replace(/<\?xml[^>]*>/, "").replace('style="display:none"', 'aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden"'));
     document.querySelector(`pre.hazel[data-program="${PROGRAM}"]:not([data-module])`).textContent = pre;
     MODULES.forEach((m, i) => { document.querySelector(`pre.hazel[data-module="${m}"]`).textContent = mods[i]; });

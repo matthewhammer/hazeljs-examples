@@ -4,6 +4,12 @@ Each version lists what the apps do as of that version. The newest version is fi
 
 ## Unreleased
 
+## 0.0.21 (2026-11-18)
+
+Everything in 0.0.20, plus:
+
+- **A sign's tooltip shows its constellation.** Hovering a sign on astrology's wheel now draws, in the sign's element color, the stars of the constellation the sign is named for, with a line on what they are: since antiquity, precession has moved each sign about one constellation west of its stars. The twelve figures (`astrology/constellations.svg`, shown together in `astrology/constellations.html`) are drawn by `tools/make-constellations.mjs` from Marc van der Sluys's [ConstellationLines](https://github.com/MarcvdSluys/ConstellationLines) (CC BY 4.0), which says which stars to join, and the Yale Bright Star Catalogue (5th revised edition, CDS V/50), for where the stars are and how bright: each figure projected onto the sky's plane at its center, north up and east to the left, its stars sized by brightness and its lines stopped short of them. The credit is in the page's foot and in NOTICE.
+
 ## 0.0.20 (2026-11-18)
 
 Everything in 0.0.19, plus:

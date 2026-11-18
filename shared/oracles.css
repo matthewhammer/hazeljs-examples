@@ -221,6 +221,14 @@ body.js .nojs { display: none; }
 .wheel-tip { position: absolute; z-index: 5; max-width: 270px; padding: 7px 10px; border-radius: 8px; background: var(--paper); color: var(--ink);
   border: 1px solid var(--line); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28); font-size: 0.86em; line-height: 1.4; pointer-events: none; }
 .wheel-tip b { display: block; margin-bottom: 2px; }
+/* (0.0.21) a sign's constellation in its tooltip, in the sign's element color, with a line on what it is */
+.wheel-tip { max-width: 290px; }
+.wheel-tip .tip-figure { display: block; margin: 4px 0 6px; text-align: center; }
+.wheel-tip .tip-con { display: block; margin: 0 auto; }
+.wheel-tip .tip-con.fire { color: #c2410c; } .wheel-tip .tip-con.earth { color: #4d7c0f; } .wheel-tip .tip-con.air { color: #0e7490; } .wheel-tip .tip-con.water { color: #4338ca; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .wheel-tip .tip-con.fire { color: #fb923c; } :root:not([data-theme="light"]) .wheel-tip .tip-con.earth { color: #a3e635; }
+  :root:not([data-theme="light"]) .wheel-tip .tip-con.air { color: #67e8f9; } :root:not([data-theme="light"]) .wheel-tip .tip-con.water { color: #a5b4fc; } }
+.wheel-tip .tip-cap { display: block; color: var(--muted); font-size: 0.86em; margin-top: 3px; text-align: left; }
 .wheel-tip[hidden] { display: none; }
 .notes .note { border-radius: 6px; transition: background-color 0.15s, box-shadow 0.15s; }
 /* (0.0.20) a note lights the wheel too: a transit it names drawn from today's body to the birth's */

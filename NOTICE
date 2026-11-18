@@ -26,6 +26,10 @@ in Hazel the positions of the Sun, Moon and planets from astronomia
 (https://github.com/commenthol/astronomia, MIT, Copyright (c) 2013 Sonia Keys, (c) 2016 commenthol), a port of Meeus: its
 solar.js, moonposition.js, planetelements.js and pluto.js; the tables are generated from its source by
 tools/make-sky-tables.py. Its glyphs (astrology/glyphs.svg) are drawn here, under this repository's licences.
+Its constellation figures (astrology/constellations.svg, made by tools/make-constellations.mjs) are drawn here from
+ConstellationLines by Marc van der Sluys (https://github.com/MarcvdSluys/ConstellationLines, Copyright (c) 2005-2026,
+CC BY 4.0), which says which stars to join, and the Yale Bright Star Catalogue, 5th revised edition (Hoffleit and
+Warren, 1991; CDS catalogue V/50), for where the stars are and how bright: projected, sized and styled here, under CC BY 4.0.
 
 The pages link to other sites for fuller meanings (Cafe au Soul for the I Ching; Biddy Tarot, by Brigit Esselmont,
 and Labyrinthos, by Tina Gong, for the Tarot's cards). Those pages and their text are their publishers'; nothing of
