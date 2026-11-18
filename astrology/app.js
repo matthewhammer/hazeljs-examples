@@ -113,10 +113,13 @@
   function remember(a) {
     try { if ($("remember").checked) localStorage.setItem(KEY, JSON.stringify(a.typed)); else localStorage.removeItem(KEY); } catch (e) { /* no storage */ }
   }
-  $("remember").addEventListener("change", () => { if (!$("remember").checked) try { localStorage.removeItem(KEY); } catch (e) {} });
+  $("remember").addEventListener("change", () => { if (!$("remember").checked) try { localStorage.removeItem(KEY); } catch (e) {} if (H) H.redraw(); });
 
   // ---- the state: the reading asked for, and the last answer
-  const S = { asked: null, result: null, busy: false, libFailed: false, libAt: 0, error: "", compiled: null, compiledError: "", edited: false };
+  // (past: when a chart opened from the history was kept, or null; keep: this cast is a new chart, to keep if asked; pending:
+  // a chart to cast once the compiled rules, or Hazel, arrive)
+  const S = { asked: null, result: null, busy: false, libFailed: false, libAt: 0, error: "", compiled: null, compiledError: "", edited: false,
+              past: null, keep: false, pending: null };
   // the compiled rules answer while they are loaded, have not failed, and the rules are as shipped
   const compiledReady = () => !!S.compiled && !S.edited && !S.compiledError;
   const compiledPending = () => COMPILED && !S.compiled && !S.compiledError && !S.edited;
@@ -144,24 +147,34 @@
     last = { key, ok: !!r.ok && !!v, value: v, errors: r.errors || [], threw, ms: performance.now() - t0 };
     return last;
   }
+  // the form's chart: a new one, kept in the history when "remember" is ticked
   async function cast() {
     if (S.busy) return;
     let a;
     try { a = asked(); } catch (e) { S.error = "Please give " + e.message + "."; drawStatus(); return; }
-    S.error = ""; S.asked = a; remember(a);
-    if (compiledPending()) { drawStatus(); return; }   // (cast when compiled.js arrives)
+    S.error = ""; remember(a);
+    if (S.past) { S.past = null; if (H) H.leave(); }
+    S.keep = true;
+    go(a);
+  }
+  // a chart, the form's or one from the history, cast and drawn (and kept, when cast() asks)
+  async function go(a) {
+    if (S.busy || !a) return;
+    S.asked = a;
+    if (compiledPending()) { S.pending = a; drawStatus(); return; }   // (cast when compiled.js arrives)
     if (compiledReady()) {
       S.result = run(a);
-      if (S.result.ok) { draw(); return; }
+      if (S.result.ok) { draw(); keep(); return; }
       // (a compiled run that stops gives no chart: Hazel casts it instead, and the status says why)
       S.compiledError = "it stopped: " + (S.result.threw || "no reading"); S.result = null; last = null;
     }
-    if (!window.Hazel) { loadLib(); drawStatus(); return; }   // (cast when Hazel arrives)
+    if (!window.Hazel) { S.pending = a; loadLib(); drawStatus(); return; }   // (cast when Hazel arrives)
     S.busy = true; drawStatus(); await painted();
     S.result = run(a);
     S.busy = false;
-    draw();
+    draw(); keep();
   }
+  const castPending = () => { const a = S.pending; S.pending = null; if (a) go(a); };
 
   // ---- drawing: the glyphs (glyphs.svg's symbols, put in the page once), the wheel, and the notes
   const GLYPH = { Aries: "aries", Taurus: "taurus", Gemini: "gemini", Cancer: "cancer", Leo: "leo", Virgo: "virgo", Libra: "libra", Scorpio: "scorpio", Sagittarius: "sagittarius", Capricorn: "capricorn", Aquarius: "aquarius", Pisces: "pisces" };
@@ -207,7 +220,14 @@
     $("wheel-fig").hidden = !(r && r.ok);
     if (r && r.ok && a) {
       const v = r.value;
-      $("reading-head").textContent = a.app ? "This app's own birth chart" : "A birth chart";
+      const h = $("reading-head");
+      h.className = "reading-head" + (S.past ? " past" : "");
+      h.replaceChildren(S.past ? `A chart from ${S.past}` : a.app ? "This app's own birth chart" : "A birth chart");
+      if (S.past) {
+        const b = el("button", "", "New chart"); b.type = "button"; b.title = "Cast the birth in the form again, with today's sky";
+        b.addEventListener("click", () => { const now = new Date(); $("tdate").value = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`; cast(); });
+        h.append(b);
+      }
       const local = new Date(a.birth).toLocaleString(undefined, { timeZone: a.zone, year: "numeric", month: "long", day: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit" });
       $("reading-q").textContent = `Born ${a.noTime ? new Date(a.birth).toLocaleDateString(undefined, { timeZone: a.zone, year: "numeric", month: "long", day: "numeric" }) + ", time not known (noon)" : local} ${a.name}; today's sky on ${fmtDay(a.day)}.`;
       drawWheel(v);
@@ -240,6 +260,45 @@
     st.textContent = "The program did not cast the chart: " + (r.threw || (r.errors || []).map(e => (e.module ? e.module + ": " : "") + String(e.message || e).replace(/\s+/g, " ")).join("; ") || "it has a hole, or its answer is not a reading.");
   }
 
+  // ---- the history (shared/history.js; 0.0.17, Matthew, 2026-11-18: "Yes, opt-in only"): a chart is kept only while "remember
+  // these on this device" is ticked, as the birth in the form is, since a birth is personal; opening one casts that very chart
+  // again (its birth, place and day as they were), and it can carry notes and an emoji like the other oracles' readings
+  const signOf = lon => SIGNS[Math.floor((((lon % 360) + 360) % 360) / 30)];
+  const H = window.OracleHistory && $("history") ? window.OracleHistory.panel({
+    holder: $("history"), key: "hazeljs-oracles/astrology/history", noun: ["chart", "charts"],
+    empty: () => $("remember").checked ? "The charts you cast are kept here, in this browser only, newest first."
+      : "Tick “remember these on this device” above, and the charts you cast are kept here, in this browser only, newest first, to come back to with notes. Nothing is kept unless you ask.",
+    foot: () => $("remember").checked ? null : "New charts are not kept while “remember these on this device” is not ticked; unticking it forgets the form, not these.",
+    summarize: r => {
+      const o = { timeZone: r.zone, year: "numeric", month: "short", day: "numeric" };
+      const born = new Date(r.birth).toLocaleString(undefined, r.noTime ? o : { ...o, hour: "numeric", minute: "2-digit" });
+      return `Born ${born} ${r.name} · Sun in ${r.sun}, Moon in ${r.moon}${r.noTime ? "" : `, ${r.rising} rising`} · the sky of ${fmtDay(r.day)}`;
+    },
+    open: (r, when) => {
+      const t = r.typed || {};
+      if (t.date) $("bdate").value = t.date;
+      $("bnotime").checked = !t.time; $("btime").disabled = !t.time; if (t.time) $("btime").value = t.time;
+      $("city").value = t.city != null ? t.city : "0";
+      if (t.city === ELSEWHERE) { $("lat").value = t.lat; $("lon").value = t.lon; if (zones.includes(t.zone)) $("zone").value = t.zone; }
+      showElsewhere();
+      const d = new Date(r.day); $("tdate").value = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+      S.past = when; S.keep = false; S.error = "";
+      go({ birth: r.birth, lat: r.lat, lon: r.lon, zone: r.zone, name: r.name, noTime: r.noTime, day: r.day, app: r.app, typed: r.typed });
+      $("reading-head").scrollIntoView({ block: "nearest", behavior: "smooth" });
+    },
+  }) : null;
+  function keep() {
+    const r = S.result, a = S.asked;
+    if (!S.keep || !H || !r || !r.ok || !a) return;
+    S.keep = false;
+    if (!$("remember").checked) return;
+    const key = tailOf(a), newest = H.list()[0];
+    if (newest && newest.key === key) return;   // (the same chart cast again)
+    const v = r.value, at = b => (v.natal.find(p => p.body.tag === b) || {}).longitude;
+    H.add({ key, birth: a.birth, day: a.day, lat: a.lat, lon: a.lon, zone: a.zone, name: a.name, noTime: a.noTime, app: a.app, typed: a.typed,
+            sun: signOf(at("Sun")), moon: signOf(at("Moon")), rising: signOf(v.chart.ascendant) });
+  }
+
   // ---- start: the glyphs, the program's text into the listings, the editors, then Hazel
   let timer = 0;
   try {
@@ -252,7 +311,7 @@
     L = window.HazelListings;
     L.tail(PROGRAM, LISTING_TAIL);
     // an edit casts the chart again, once the typing stops
-    L.onChange(PROGRAM, () => { S.edited = true; if (!window.Hazel) loadLib(); clearTimeout(timer); timer = setTimeout(() => { if (S.result) cast(); }, 600); });
+    L.onChange(PROGRAM, () => { S.edited = true; if (!window.Hazel) loadLib(); clearTimeout(timer); timer = setTimeout(() => { if (S.result && S.asked) go(S.asked); }, 600); });
   } catch (e) {
     $("status").className = "status no";
     $("status").textContent = "Could not start: " + (e && e.message || e) + ". Serve this folder over http (python3 -m http.server) and open it from localhost.";
@@ -297,7 +356,7 @@
     if (libAsked) return; libAsked = true;
     const s = document.createElement("script");
     s.src = LIB; s.async = true;
-    s.onload = () => { S.libAt = performance.now(); drawStatus(); if (S.asked && !S.result) cast(); };
+    s.onload = () => { S.libAt = performance.now(); drawStatus(); castPending(); };
     s.onerror = () => { S.libFailed = true; drawStatus(); };
     document.head.append(s);
   }
@@ -308,7 +367,7 @@
     c.src = "compiled.js?v=0.0.16"; c.async = true;
     c.onload = () => {
       const v = window.AstrologyCompiled;
-      if (v && !S.compiledError) { S.compiled = v; S.libAt = performance.now(); if (S.asked && !S.result) cast(); else drawStatus(); }
+      if (v && !S.compiledError) { S.compiled = v; S.libAt = performance.now(); drawStatus(); castPending(); }
       else { S.compiledError = S.compiledError || "it ran, but gave no rules"; drawStatus(); loadLib(); }
     };
     c.onerror = () => { S.compiledError = "it did not load"; drawStatus(); loadLib(); };

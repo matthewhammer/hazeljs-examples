@@ -4,6 +4,12 @@ Each version lists what the apps do as of that version. The newest version is fi
 
 ## Unreleased
 
+## 0.0.17 (2026-11-18)
+
+Everything in 0.0.16, plus:
+
+- **Astrology keeps a history of charts, when asked.** A chart is kept only while **remember these on this device** is ticked, as the birth in the form is: a birth is personal, so nothing is kept unless you ask, and the 🕰 History panel says so. Each kept chart is one line, the birth, its place, the Sun's, the Moon's and the rising sign, and the day of the sky (the same chart cast again is kept once). Opening one casts that very chart again, its birth, place and day as they were, under "A chart from …", with **New chart** to cast the form's birth with today's sky; and it takes notes and an emoji, as the I Ching's and the Tarot's readings do since 0.0.16. Unticking **remember** forgets the form, not the charts; ✕ or **Forget them all** does that.
+
 ## 0.0.16 (2026-11-18)
 
 Everything in 0.0.15, plus:

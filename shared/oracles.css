@@ -255,6 +255,7 @@ html.oracle-fs .astro-ui > .wheel-fig[hidden] { display: none; }
 html.oracle-fs .astro-ui .wheel { max-width: none; width: 100%; height: auto; max-height: calc(100vh - 70px); }
 html.oracle-fs .astro-ui > .notes { grid-column: 3; grid-row: 1 / -1; align-self: stretch; overflow-y: auto; padding: 34px 4px 0 0; }
 html.oracle-fs .astro-ui > .notes .note-group:first-child h3 { margin-top: 0; }
+html.oracle-fs .astro-ui > #history { grid-column: 1; grid-row: 5; align-self: stretch; overflow-y: auto; }
 
 /* the I Ching: the question and the casting on the left, the hexagrams large in the middle, the verdict and the lines cast on the right */
 html.oracle-fs .iching-ui { grid-template-columns: var(--fs-cols, minmax(280px, 1fr) minmax(0, 2.6fr));
