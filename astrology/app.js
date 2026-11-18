@@ -210,9 +210,35 @@
     w.append(label(a.x, a.y, "Asc"), label(m.x, m.y, "MC"));
   }
   const fmtDay = t => new Date(t).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
-  function notes(head, ns) {
+  // (0.0.18; Matthew, 2026-11-18: "RHS uses symbols that resemble the ones in the center chart where appropriate", and "I'd
+  // prefer to reverse the emphasis, and have it on the text that isn't the form/template of the RHS") A note's heading, the
+  // chart's facts in the reading's fixed form, is quiet, with the wheel's own glyphs beside its signs, bodies and aspects,
+  // colored as the wheel colors them (a sign by its element; a body at birth in ink, today's in the accent; an aspect soft
+  // or hard); its words, the reading itself, carry the emphasis.
+  const BODY_NAMES = ["Sun", "Moon", "Mercury", "Venus", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune", "Pluto"];
+  const ASPECT = { conjunct: ["conjunction", ""], sextile: ["sextile", "soft"], square: ["square", "hard"], trine: ["trine", "soft"], opposite: ["opposition", "hard"] };
+  const inlineGlyph = (id, cls, title) => {
+    const s = sv("svg", { class: "note-glyph " + cls, "aria-hidden": "true" });
+    if (title) { const t = sv("title", {}); t.textContent = title; s.append(t); }
+    s.append(sv("use", { href: "#" + id, width: "100%", height: "100%" }));
+    return s;
+  };
+  function headOf(text, elementOf) {
+    const h = el("span", "note-head");
+    const parts = text.split(/\b(Aries|Taurus|Gemini|Cancer|Leo|Virgo|Libra|Scorpio|Sagittarius|Capricorn|Aquarius|Pisces|Sun|Moon|Mercury|Venus|Mars|Jupiter|Saturn|Uranus|Neptune|Pluto|conjunct|sextile|square|trine|opposite)\b/);
+    parts.forEach((p, i) => {
+      if (i % 2 === 0) { if (p) h.append(p); return; }
+      const before = parts[i - 1] || "";
+      if (GLYPH[p]) h.append(inlineGlyph(GLYPH[p], "sign " + (elementOf[p] || "").toLowerCase(), p));
+      else if (BODY_NAMES.includes(p)) h.append(inlineGlyph(p.toLowerCase(), /Today's\s*$/.test(before) ? "body today" : "body natal", p));
+      else if (ASPECT[p]) h.append(inlineGlyph(ASPECT[p][0], "aspect " + ASPECT[p][1], p));
+      h.append(p);
+    });
+    return h;
+  }
+  function notes(head, ns, elementOf) {
     const s = el("section", "note-group");
-    s.append(el("h3", "", head), ...ns.map(n => { const p = el("p", "note"); p.append(el("b", "", n.head), el("br"), n.text); return p; }));
+    s.append(el("h3", "", head), ...ns.map(n => { const p = el("p", "note"); p.append(headOf(n.head, elementOf), el("span", "note-text", n.text)); return p; }));
     return s;
   }
   function draw() {
@@ -232,7 +258,8 @@
       $("reading-q").textContent = `Born ${a.noTime ? new Date(a.birth).toLocaleDateString(undefined, { timeZone: a.zone, year: "numeric", month: "long", day: "numeric" }) + ", time not known (noon)" : local} ${a.name}; today's sky on ${fmtDay(a.day)}.`;
       drawWheel(v);
       const n = $("notes");
-      n.replaceChildren(notes("At birth", v.notes), notes(`Today, ${fmtDay(a.day)}`, v.today_notes));
+      const elementOf = Object.fromEntries(v.wheel.signs.map(s => [s.sign.tag, s.element.tag]));
+      n.replaceChildren(notes("At birth", v.notes, elementOf), notes(`Today, ${fmtDay(a.day)}`, v.today_notes, elementOf));
       if (a.noTime) n.prepend(el("p", "muted", "With no time of birth, the rising sign and the houses are a guess (noon), and so is the Moon's degree."));
       n.append(el("p", "muted reading-foot", `${r.compiled ? `Cast by compiled Hazel in ${fmtMs(r.ms)}` : `Cast by Hazel in ${(r.ms / 1000).toFixed(1)} s`}: ${v.aspects.length} aspects at birth, ${v.transits.length} from today's sky (the closest six above).`));
     } else $("notes").replaceChildren();

@@ -210,8 +210,17 @@ body.js .nojs { display: none; }
 .wheel .body.today { color: var(--accent); }
 .wheel g:hover { opacity: 0.7; }
 .wheel-fig figcaption { font-size: 0.88em; margin-top: 6px; }
-.notes .note-group h3 { margin: 18px 0 6px; font-size: 1.05em; }
-.notes .note { margin: 0 0 10px; }
+.notes .note-group h3 { margin: 18px 0 6px; font-size: 0.95em; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.notes .note { margin: 0 0 14px; }
+/* (0.0.18) a note: its heading, the chart's facts in the reading's fixed form, quiet, with the wheel's glyphs; its words, emphasized */
+.notes .note-head { display: block; color: var(--muted); font-size: 0.9em; font-weight: 400; margin-bottom: 2px; }
+.notes .note-text { display: block; color: var(--ink); font-size: 1.04em; font-weight: 500; line-height: 1.5; }
+.note-glyph { display: inline-block; width: 1.15em; height: 1.15em; vertical-align: -0.22em; margin: 0 0.18em 0 0.08em; }
+.note-glyph.body.natal { color: var(--ink); } .note-glyph.body.today { color: var(--accent); }
+.note-glyph.sign.fire { color: #c2410c; } .note-glyph.sign.earth { color: #4d7c0f; } .note-glyph.sign.air { color: #0e7490; } .note-glyph.sign.water { color: #4338ca; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .note-glyph.sign.fire { color: #fb923c; } :root:not([data-theme="light"]) .note-glyph.sign.earth { color: #a3e635; }
+  :root:not([data-theme="light"]) .note-glyph.sign.air { color: #67e8f9; } :root:not([data-theme="light"]) .note-glyph.sign.water { color: #a5b4fc; } }
+.note-glyph.aspect.soft { color: var(--link); } .note-glyph.aspect.hard { color: var(--bad); } .note-glyph.aspect { color: var(--ink); }
 .notes .reading-foot { font-size: 0.85em; }
 .astro-form .app-birth { margin: 0; font-size: 0.88em; }
 
@@ -230,7 +239,7 @@ html.oracle-fs main.oracle > :not(.oracle-grid), html.oracle-fs .oracle-code, ht
 html.oracle-fs .oracle-grid { display: block; margin: 0; }
 html.oracle-fs .oracle-ui { position: fixed; inset: 0; z-index: 50; max-height: none; overflow: hidden; background: var(--bg); padding: 14px 20px;
   display: grid; column-gap: 26px; align-items: start; }
-html.oracle-fs .oracle-ui > * { min-width: 0; min-height: 0; }
+html.oracle-fs .oracle-ui > * { min-width: 0; }
 html.oracle-fs .fs-bar { position: absolute; top: 10px; right: 14px; z-index: 2; margin: 0; }
 html.oracle-fs .oracle-ui .nojs { display: none; }
 html.oracle-fs .oracle-ui .status { margin: 8px 0; }
@@ -243,64 +252,58 @@ html.oracle-fs .fs-divider::before { content: ""; width: 5px; height: 56px; bord
 html.oracle-fs .fs-divider:hover::before, html.oracle-fs .fs-divider:focus-visible::before, html.oracle-fs .fs-divider.drag::before { background: var(--accent); height: 96px; }
 html.oracle-fs .fs-divider:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
+/* (0.0.18) the left column's parts, gathered by shared/fullscreen.js into .fs-left, which scrolls on its own: as rows of the
+   grid they were squeezed together when the window was shorter than they are tall (Matthew's laptop, at high zoom) */
+html.oracle-fs .oracle-ui { grid-template-rows: minmax(0, 1fr); }
+html.oracle-fs .fs-left { grid-column: 1; grid-row: 1 / -1; align-self: stretch; overflow-y: auto; min-height: 0; padding-right: 2px; }
+html.oracle-fs .fs-left > * { max-width: 100%; }
+/* a fieldset is never narrower than its contents unless told: the place's latitude, longitude and zone ran past the column */
+.astro-form fieldset { min-width: 0; }
+.astro-form select { max-width: 100%; }
+/* (a label and its control wrap within the fieldset: the time zones' menu is as wide as its longest zone) */
+.astro-form .method label { max-width: 100%; }
+.astro-form #elsewhere label { white-space: normal; }
+
 /* astrology: the form on the left, the wheel in the middle as tall as the window, the notes on the right */
-html.oracle-fs .astro-ui { grid-template-columns: var(--fs-cols, minmax(280px, 1fr) min(calc(100vh - 28px), 54vw) minmax(300px, 1fr));
-  grid-template-rows: auto auto auto auto minmax(0, 1fr); }
-html.oracle-fs .astro-ui > .astro-form { grid-column: 1; grid-row: 1; }
-html.oracle-fs .astro-ui > #status { grid-column: 1; grid-row: 2; }
-html.oracle-fs .astro-ui > #reading-head { grid-column: 1; grid-row: 3; }
-html.oracle-fs .astro-ui > #reading-q { grid-column: 1; grid-row: 4; }
-html.oracle-fs .astro-ui > .wheel-fig { grid-column: 2; grid-row: 1 / -1; align-self: stretch; margin: 0; display: flex; flex-direction: column; justify-content: center; }
+/* (the wheel's column as wide as the window is tall, at most half its width, and narrower before the sides go under their least) */
+html.oracle-fs .astro-ui { grid-template-columns: var(--fs-cols, minmax(240px, 1fr) minmax(0, min(calc(100vh - 28px), 50vw)) minmax(260px, 1fr)); }
+html.oracle-fs .astro-ui > .wheel-fig { grid-column: 2; grid-row: 1; align-self: stretch; margin: 0; display: flex; flex-direction: column; justify-content: center; min-height: 0; }
 html.oracle-fs .astro-ui > .wheel-fig[hidden] { display: none; }
 html.oracle-fs .astro-ui .wheel { max-width: none; width: 100%; height: auto; max-height: calc(100vh - 70px); }
-html.oracle-fs .astro-ui > .notes { grid-column: 3; grid-row: 1 / -1; align-self: stretch; overflow-y: auto; padding: 34px 4px 0 0; }
+html.oracle-fs .astro-ui > .notes { grid-column: 3; grid-row: 1; align-self: stretch; overflow-y: auto; min-height: 0; padding: 34px 4px 0 0; }
 html.oracle-fs .astro-ui > .notes .note-group:first-child h3 { margin-top: 0; }
-html.oracle-fs .astro-ui > #history { grid-column: 1; grid-row: 5; align-self: stretch; overflow-y: auto; }
 
 /* the I Ching: the question and the casting on the left, the hexagrams large in the middle, the verdict and the lines cast on the right */
-html.oracle-fs .iching-ui { grid-template-columns: var(--fs-cols, minmax(280px, 1fr) minmax(0, 2.6fr));
-  grid-template-rows: auto auto auto auto auto auto minmax(0, 1fr); }
-html.oracle-fs .iching-ui > .question-label { grid-column: 1; grid-row: 1; }
-html.oracle-fs .iching-ui > .question { grid-column: 1; grid-row: 2; }
-html.oracle-fs .iching-ui > .controls { grid-column: 1; grid-row: 3; }
-html.oracle-fs .iching-ui > #status { grid-column: 1; grid-row: 4; }
-html.oracle-fs .iching-ui > #reading-head { grid-column: 1; grid-row: 5; }
-html.oracle-fs .iching-ui > #reading-q { grid-column: 1; grid-row: 6; }
-html.oracle-fs .iching-ui > #history { grid-column: 1; grid-row: 7; align-self: stretch; overflow-y: auto; }
-html.oracle-fs .iching-ui > .reading { grid-column: 2; grid-row: 1 / -1; align-self: stretch; display: grid; column-gap: 26px;
-  grid-template-columns: var(--fs-cols-in, minmax(0, 1.5fr) minmax(280px, 1fr)); grid-template-rows: auto minmax(0, 1fr); grid-template-areas: "hexes verdict" "hexes casts"; }
-html.oracle-fs .iching-ui .hexes { grid-area: hexes; align-self: center; justify-content: center; gap: 5vw; margin: 0; }
-html.oracle-fs .iching-ui .hex-lines { width: min(15vw, 30vh); gap: 2.2vh; }
+html.oracle-fs .iching-ui { grid-template-columns: var(--fs-cols, minmax(280px, 1fr) minmax(0, 2.6fr)); }
+html.oracle-fs .iching-ui > .reading { grid-column: 2; grid-row: 1; align-self: stretch; min-height: 0; display: grid; column-gap: 26px;
+  grid-template-columns: var(--fs-cols-in, minmax(0, 1.5fr) minmax(280px, 1fr)); grid-template-rows: auto auto minmax(0, 1fr); grid-template-areas: "hexes verdict" "hexes outlink" "hexes casts"; }
+/* (the two hexagrams side by side, never wrapping: at a narrow window they stacked past the top and bottom) */
+html.oracle-fs .iching-ui .hexes { grid-area: hexes; align-self: center; justify-content: center; flex-wrap: nowrap; gap: 3.5vw; margin: 0; min-width: 0; }
+html.oracle-fs .iching-ui .hex-lines { width: min(13vw, 30vh); gap: 2.2vh; }
 html.oracle-fs .iching-ui .hl { height: 4vh; gap: min(2.2vw, 4.4vh); }
 html.oracle-fs .iching-ui .hl .mark { right: -1.6em; top: 0; font-size: 1.5em; line-height: 4vh; }
-html.oracle-fs .iching-ui .hex figcaption { max-width: min(15vw, 30vh); font-size: 1.05em; }
+html.oracle-fs .iching-ui .hex figcaption { max-width: min(13vw, 30vh); font-size: 1.05em; }
+html.oracle-fs .iching-ui .outlink { grid-area: outlink; margin: 4px 0 10px; }
 html.oracle-fs .iching-ui .verdict { grid-area: verdict; margin: 34px 0 6px; font-size: 1.1em; }
 html.oracle-fs .iching-ui .casts { grid-area: casts; align-self: stretch; overflow-y: auto; margin: 0; }
 
-/* the Tarot: the spread's choices on the left, the table of cards in the middle, as large as its shape allows, the cards' words on the right */
-/* (a column that spans only the auto rows would stretch them, so each spans the flexible row too: the table and the words
-   all rows, the woodcut credit a row of its own under the table) */
-html.oracle-fs .tarot-ui { grid-template-columns: var(--fs-cols, minmax(260px, 0.9fr) minmax(0, 3fr) minmax(280px, 1fr));
-  grid-template-rows: auto auto auto auto minmax(0, 1fr) auto; }
-html.oracle-fs .tarot-ui > .controls { grid-column: 1; grid-row: 1; }
-html.oracle-fs .tarot-ui > .spread-use { grid-column: 1; grid-row: 2; }
-html.oracle-fs .tarot-ui > #status { grid-column: 1; grid-row: 3; }
-html.oracle-fs .tarot-ui > #reading-head { grid-column: 1; grid-row: 4; }
-html.oracle-fs .tarot-ui > #history { grid-column: 1; grid-row: 5; align-self: stretch; overflow-y: auto; }
-html.oracle-fs .tarot-ui > .table { grid-column: 2; grid-row: 1 / 6; align-self: stretch; margin: 0; align-content: center; justify-content: center;
+/* the Tarot: the spread's choices on the left, the table of cards in the middle, as large as its shape allows, the woodcut
+   credit under it, the cards' words on the right */
+html.oracle-fs .tarot-ui { grid-template-columns: var(--fs-cols, minmax(260px, 0.9fr) minmax(0, 3fr) minmax(280px, 1fr)); grid-template-rows: minmax(0, 1fr) auto; }
+html.oracle-fs .tarot-ui > .table { grid-column: 2; grid-row: 1; align-self: stretch; min-height: 0; margin: 0; align-content: center; justify-content: center;
   overflow: auto; --cw: min(11vh, 8vw); --ch: calc(var(--cw) * 1.62); font-size: calc(var(--cw) / 6.5); }
 html.oracle-fs .tarot-ui > .table.One { --cw: min(30vh, 18vw); }
 html.oracle-fs .tarot-ui > .table.Three { --cw: min(28vh, 13vw); }
 html.oracle-fs .tarot-ui > .table.Relationship { --cw: min(17vh, 12vw); }
 html.oracle-fs .tarot-ui > .table.YearAhead { --cw: min(10vh, 9vw); }
-html.oracle-fs .tarot-ui > .read { grid-column: 3; grid-row: 1 / -1; align-self: stretch; overflow-y: auto; margin: 34px 0 0; padding-left: 1.4em; }
-html.oracle-fs .tarot-ui > .faces-credit { grid-column: 2; grid-row: 6; margin: 6px 0 0; text-align: center; }
-html.oracle-fs .tarot-ui > .faces-credit { max-width: none; }
+html.oracle-fs .tarot-ui > .read { grid-column: 3; grid-row: 1 / -1; align-self: stretch; min-height: 0; overflow-y: auto; margin: 34px 0 0; padding-left: 1.4em; }
+html.oracle-fs .tarot-ui > .faces-credit { grid-column: 2; grid-row: 2; margin: 6px 0 0; text-align: center; max-width: none; }
 
 /* full screen in a window narrower than two columns (made narrow after the button was pressed): one column, scrolling, no dividers */
 @media (max-width: 900px) {
   html.oracle-fs .oracle-ui { display: block; overflow-y: auto; }
   html.oracle-fs .oracle-ui .reading { display: block; }
+  html.oracle-fs .fs-left { overflow: visible; }
   html.oracle-fs .fs-divider { display: none; }
   html.oracle-fs .fs-bar { position: static; }
   html.oracle-fs .astro-ui .wheel { max-height: none; }

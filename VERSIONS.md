@@ -4,6 +4,13 @@ Each version lists what the apps do as of that version. The newest version is fi
 
 ## Unreleased
 
+## 0.0.18 (2026-11-18)
+
+Everything in 0.0.17, plus:
+
+- **Astrology's notes show the wheel's glyphs, and their words come first.** Each note's heading, the chart's facts in the reading's fixed form ("Sun in Aries, 20°, in the 5th house"), is now quiet, smaller and in the muted color, with the wheel's own glyph beside each sign, body and aspect, colored as the wheel colors them: a sign by its element, a body at birth in ink and today's in the accent, an aspect soft or hard. The reading's words under it carry the emphasis, in full ink and a heavier weight. The groups' headings ("At birth", "Today, …") are small capitals.
+- **Full screen fits a small or zoomed window.** The left column's parts are gathered, in full screen, into one column that scrolls on its own, and put back after; before, a window shorter than they were tall squeezed them together, the status over the form. A fieldset no longer runs past its column (the place's latitude, longitude and time zone wrap), the wheel's column narrows before the notes go past the window's edge, and the I Ching's two hexagrams stay side by side, with its link to a reading's text in a place of its own. Checked at 1000 by 660.
+
 ## 0.0.17 (2026-11-18)
 
 Everything in 0.0.16, plus:

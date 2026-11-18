@@ -11,6 +11,10 @@
 // dividers, one each side of the picture: drag one, or the arrow keys on it, to widen or narrow its side's column, the
 // picture taking what is left; a double-click puts both back. Their places are kept in this browser, as shares of the
 // width, one pair for each oracle's page, as shared/divider.js keeps the two-column split.
+//
+// (0.0.18; Matthew, 2026-11-18, a screenshot at his laptop's high zoom: "layout is goofy at my laptop's low resolution") The
+// left column's parts move, in full screen, into one container that scrolls on its own (.fs-left), and back to their
+// places after: as rows of the page's grid they were squeezed together when the window was shorter than they are tall.
 (() => {
   "use strict";
   const ui = document.querySelector(".oracle-ui");
@@ -25,7 +29,29 @@
     btn.setAttribute("aria-pressed", String(on()));
     btn.title = on() ? "Back to the page, with the program beside it (Esc)" : "Fill the screen with the oracle alone, without the program's listings";
   };
+  // ---- the left column, gathered: each part's place kept by a marker, to put it back
+  const LEFT_PARTS = { "astro-ui": [".astro-form", "#status", "#reading-head", "#reading-q", "#history"],
+    "iching-ui": [".question-label", ".question", ".controls", "#status", "#reading-head", "#reading-q", "#history"],
+    "tarot-ui": [".controls", ".spread-use", "#status", "#reading-head", "#history"] };
+  const partsOf = Object.entries(LEFT_PARTS).find(([c]) => ui.classList.contains(c));
+  const left = document.createElement("div");
+  left.className = "fs-left";
+  let moved = [];
+  const gather = () => {
+    if (!partsOf || moved.length) return;
+    for (const sel of partsOf[1]) {
+      const e = ui.querySelector(":scope > " + sel);
+      if (!e) continue;
+      const mark = document.createComment("fs " + sel);
+      e.replaceWith(mark);
+      left.append(e);
+      moved.push([e, mark]);
+    }
+    ui.insertBefore(left, ui.firstChild.nextSibling);
+  };
+  const scatter = () => { for (const [e, mark] of moved) mark.replaceWith(e); moved = []; left.remove(); };
   const set = v => {
+    if (v) gather(); else scatter();
     root.classList.toggle("oracle-fs", v);
     label();
     if (v) cols(); else clearCols();
@@ -51,7 +77,7 @@
 
   // ---- the two dividers: each oracle's left column, its right column (the I Ching's inside its .reading grid), by an element
   // as wide as the column
-  const APP = [["astro-ui", ".astro-form", ".notes", false], ["iching-ui", ".question", ".casts", true], ["tarot-ui", ".controls", ".read", false]]
+  const APP = [["astro-ui", ".fs-left", ".notes", false], ["iching-ui", ".fs-left", ".casts", true], ["tarot-ui", ".fs-left", ".read", false]]
     .find(([c]) => ui.classList.contains(c));
   let cols = () => {}, clearCols = () => {};
   if (APP) {
