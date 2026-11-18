@@ -1,0 +1,133 @@
+// hazeljs-oracles: full screen, for each oracle (0.0.16; Matthew, 2026-11-18: "for each ancient oracle app, in two-column
+// mode, let's provide a full screen button at the top of the main interactive elements -- in this mode, we ignore the Hazel
+// listings and only show the main components, organized into the geometry of the full browser window.")
+//
+// A button at the top of the reading's column (.oracle-ui), shown in two-column mode (oracles.css). Pressed, it puts the
+// class oracle-fs on <html>, which hides the listings and lays the oracle's own parts out across the window (oracles.css,
+// "full screen"), and asks the browser for full screen; where the browser will not, the window is filled all the same.
+// Pressed again, or Esc, or the browser leaving full screen, puts the page back as it was.
+//
+// (Matthew, 2026-11-18: "in FS mode, let's provide divider support for LHS and RHS widths (versus center size).") Two
+// dividers, one each side of the picture: drag one, or the arrow keys on it, to widen or narrow its side's column, the
+// picture taking what is left; a double-click puts both back. Their places are kept in this browser, as shares of the
+// width, one pair for each oracle's page, as shared/divider.js keeps the two-column split.
+(() => {
+  "use strict";
+  const ui = document.querySelector(".oracle-ui");
+  if (!ui) return;
+  const root = document.documentElement;
+  const on = () => root.classList.contains("oracle-fs");
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "fs-button";
+  const label = () => {
+    btn.textContent = on() ? "✕ Leave full screen" : "⛶ Full screen";
+    btn.setAttribute("aria-pressed", String(on()));
+    btn.title = on() ? "Back to the page, with the program beside it (Esc)" : "Fill the screen with the oracle alone, without the program's listings";
+  };
+  const set = v => {
+    root.classList.toggle("oracle-fs", v);
+    label();
+    if (v) cols(); else clearCols();
+    // (anything that measures itself, such as the Tarot's table, measures again)
+    window.dispatchEvent(new Event("resize"));
+  };
+  btn.addEventListener("click", () => {
+    if (!on()) {
+      set(true);
+      if (root.requestFullscreen && !document.fullscreenElement) root.requestFullscreen().catch(() => { /* the window is filled anyway */ });
+    } else {
+      set(false);
+      if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
+    }
+  });
+  document.addEventListener("fullscreenchange", () => { if (!document.fullscreenElement && on()) set(false); });
+  // (Esc, where the browser gave no full screen: the browser's own Esc leaves it, and fullscreenchange follows)
+  document.addEventListener("keydown", e => { if (e.key === "Escape" && on() && !document.fullscreenElement) set(false); });
+  const bar = document.createElement("div");
+  bar.className = "fs-bar";
+  bar.append(btn);
+  ui.prepend(bar);
+
+  // ---- the two dividers: each oracle's left column, its right column (the I Ching's inside its .reading grid), by an element
+  // as wide as the column
+  const APP = [["astro-ui", ".astro-form", ".notes", false], ["iching-ui", ".question", ".casts", true], ["tarot-ui", ".controls", ".read", false]]
+    .find(([c]) => ui.classList.contains(c));
+  let cols = () => {}, clearCols = () => {};
+  if (APP) {
+    const [, LEFT, RIGHT, NESTED] = APP;
+    const inner = NESTED ? ui.querySelector(".reading") : null;
+    const KEY = "hazeljs-oracles/fs-cols:" + location.pathname;
+    const MIN_SIDE = 220, MIN_MID = 320;
+    const handles = ["left", "right"].map(side => {
+      const h = document.createElement("div");
+      h.className = "fs-divider";
+      Object.entries({ role: "separator", "aria-orientation": "vertical", tabindex: "0",
+        "aria-label": side === "left" ? "Between the controls and the picture" : "Between the picture and the words",
+        title: "Drag to widen or narrow this side (double-click: as it was)" }).forEach(([k, v]) => h.setAttribute(k, v));
+      ui.append(h);
+      return h;
+    });
+    const gap = () => parseFloat(getComputedStyle(ui).columnGap) || 0;
+    const inside = () => { const cs = getComputedStyle(ui); return ui.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight); };
+    const widths = () => [ui.querySelector(LEFT).getBoundingClientRect().width, ui.querySelector(RIGHT).getBoundingClientRect().width];
+    const kept = () => { try { const v = JSON.parse(localStorage.getItem(KEY)); return v && v.l > 0 && v.r > 0 ? v : null; } catch (e) { return null; } };
+    const place = () => {
+      if (!on()) return;
+      const g = gap(), a = ui.querySelector(LEFT).getBoundingClientRect(), b = ui.querySelector(RIGHT).getBoundingClientRect();
+      handles[0].style.left = (a.right + g / 2) + "px";
+      handles[1].style.left = (b.left - g / 2) + "px";
+    };
+    clearCols = () => { ui.style.removeProperty("--fs-cols"); if (inner) inner.style.removeProperty("--fs-cols-in"); };
+    // l, r: the left and right columns' widths in px; none, the kept shares at today's width (or the page's own, none kept)
+    cols = (l, r, keep) => {
+      if (!on()) return;
+      const W = inside(), g = gap();
+      if (l == null) {
+        const k = kept();
+        if (!k) { clearCols(); place(); return; }
+        l = k.l * W; r = k.r * W;
+      }
+      l = Math.round(Math.max(MIN_SIDE, Math.min(l, W - 2 * g - MIN_MID - MIN_SIDE)));
+      r = Math.round(Math.max(MIN_SIDE, Math.min(r, W - 2 * g - MIN_MID - l)));
+      ui.style.setProperty("--fs-cols", NESTED ? `${l}px minmax(0, 1fr)` : `${l}px minmax(0, 1fr) ${r}px`);
+      if (inner) inner.style.setProperty("--fs-cols-in", `minmax(0, 1fr) ${r}px`);
+      if (keep) try { localStorage.setItem(KEY, JSON.stringify({ l: l / W, r: r / W })); } catch (e) { /* kept for this visit only */ }
+      place();
+    };
+    handles.forEach((h, i) => {
+      let drag = null;
+      h.addEventListener("pointerdown", e => {
+        if (e.button !== 0) return;
+        const [l, r] = widths();
+        drag = { id: e.pointerId, x: e.clientX, l, r, now: null };
+        try { h.setPointerCapture(e.pointerId); } catch (_) { /* moves still reach the handle */ }
+        h.classList.add("drag"); root.classList.add("dragging-split"); e.preventDefault();
+      });
+      h.addEventListener("pointermove", e => {
+        if (!drag || e.pointerId !== drag.id) return;
+        const dx = e.clientX - drag.x;
+        drag.now = i === 0 ? [drag.l + dx, drag.r] : [drag.l, drag.r - dx];
+        cols(...drag.now);
+      });
+      const end = e => {
+        if (!drag || e.pointerId !== drag.id) return;
+        if (drag.now) cols(...drag.now, true);
+        drag = null; h.classList.remove("drag"); root.classList.remove("dragging-split");
+      };
+      h.addEventListener("pointerup", end);
+      h.addEventListener("pointercancel", end);
+      h.addEventListener("dblclick", () => { try { localStorage.removeItem(KEY); } catch (e) { /* nothing kept */ } clearCols(); place(); });
+      h.addEventListener("keydown", e => {
+        const d = { ArrowLeft: -40, ArrowRight: 40 }[e.key];
+        if (!d) return;
+        e.preventDefault();
+        const [l, r] = widths();
+        if (i === 0) cols(l + d, r, true); else cols(l, r - d, true);
+      });
+    });
+    // (the browser's full screen arrives after the press, as a resize; a timer, not a frame, as divider.js says)
+    addEventListener("resize", () => setTimeout(() => cols(), 0));
+  }
+  label();
+})();

@@ -6,7 +6,7 @@
 <title>Tarot, dealt in Hazel</title>
 <meta name="description" content="A Tarot reading whose shuffle, deal and spreads are written in Hazel and run by hazeljs: deal a spread face down and turn the cards one at a time. The second of the ancient oracles, an example app for hazeljs.">
 <link rel="stylesheet" href="../shared/style.css?v=0.0.14">
-<link rel="stylesheet" href="../shared/oracles.css?v=0.0.14">
+<link rel="stylesheet" href="../shared/oracles.css?v=0.0.16">
 </head>
 <body><main class="oracle">
 <div class="app-head">
@@ -16,7 +16,7 @@
 <p class="sub">Ask a question, choose a spread, and deal: the cards land face down, each in its place. Turn them over one at a time. The deck, the shuffle and the spreads are a <a href="https://hazel.org">Hazel</a> program, shown beside the table as text, or in Hazel's own editor at the press of a button; the page passes it random numbers and lays out what it deals. While the program has an error or a hole, the page's own JavaScript deals instead, and the table says which did.</p>
 
 <div class="oracle-grid">
-<section class="oracle-ui" aria-label="The reading">
+<section class="oracle-ui tarot-ui" aria-label="The reading">
   <div class="controls">
     <label>Spread <select id="spread">
       <option value="One" data-use="Daily reflection, or a focused question: one card gives a theme, a view, or advice.">One card</option>
@@ -66,8 +66,9 @@
 <div id="advanced" class="advanced-holder"></div>
 <p class="app-foot" id="app-foot">hazeljs-oracles · <a href="../VERSIONS.md">versions</a> · Apache 2.0 (code), CC BY 4.0 (words) · by Matthew Hammer · an example for <a href="https://github.com/hazelgrove/hazeljs">hazeljs</a></p>
 </main>
-<script src="../shared/history.js?v=0.0.2"></script>
+<script src="../shared/history.js?v=0.0.16"></script>
 <script src="../shared/divider.js?v=0.0.8"></script>
+<script src="../shared/fullscreen.js?v=0.0.16"></script>
 <script src="../shared/advanced.js?v=0.0.12"></script>
 <script src="app.js?v=0.0.14"></script>
 </body>

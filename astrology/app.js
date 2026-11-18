@@ -7,8 +7,16 @@
 // program that answers with a function reaching these modules grows past gigabytes in hazeljs 0.0.4 (hazelgrove/hazel#2832),
 // and a float literal past six decimals sends it to the slow parse (hazelgrove/hazel#2831): the page writes six.
 // There is no JS fallback here, as the other oracles have: the sky is Hazel's alone.
+//
+// (0.0.16, ticket 768; Matthew, 2026-11-18: "does our astrology app use compiled code by default, like the others seem to?
+// ... It seems like we should, if possible") By default the page casts through compiled.js, the same rules compiled to
+// JavaScript by hazel-jit when the site was made (tools/make-compiled.py), without loading Hazel's library or building the
+// program, until someone edits the rules; ?interpreted=1 (or ?compiled=0) builds and casts with hazeljs, as before. Its
+// inputs are rounded to six decimals, as the program's last line writes them, so both give the same chart.
 (async () => {
   "use strict";
+  const Q = new URLSearchParams(location.search);
+  const COMPILED = !(Q.has("interpreted") || Q.get("compiled") === "0");
   const LIB = "https://cdn.jsdelivr.net/npm/hazeljs@0.0.4/hazel-lib.js";
   const PROGRAM = "astrology";
   const MODULES = ["Zodiac", "Aspects", "Chart", "Orbit", "MoonOrbit", "Planets", "Outer", "PlutoOrbit", "Sky", "Wheel", "Reading"];
@@ -108,11 +116,25 @@
   $("remember").addEventListener("change", () => { if (!$("remember").checked) try { localStorage.removeItem(KEY); } catch (e) {} });
 
   // ---- the state: the reading asked for, and the last answer
-  const S = { asked: null, result: null, busy: false, libFailed: false, libAt: 0, error: "" };
+  const S = { asked: null, result: null, busy: false, libFailed: false, libAt: 0, error: "", compiled: null, compiledError: "", edited: false };
+  // the compiled rules answer while they are loaded, have not failed, and the rules are as shipped
+  const compiledReady = () => !!S.compiled && !S.edited && !S.compiledError;
+  const compiledPending = () => COMPILED && !S.compiled && !S.compiledError && !S.edited;
   let L = null;
   // one reading: the program as the listings have it, with the birth and the day as its last line; the same text asks again for nothing
   let last = null;
+  const six = x => Number(num(x));
+  const momentIn = t => { const m = moment(t); return { ...m, hour: Number(m.hour.toFixed(6)) }; };
   function run(a) {
+    if (compiledReady()) {
+      const key = "compiled " + tailOf(a);
+      if (last && last.key === key) return last;
+      const t0 = performance.now();
+      let v = null, threw = "";
+      try { v = S.compiled.reading(momentIn(a.birth), { latitude: six(a.lat), longitude: six(a.lon) }, momentIn(a.day)); } catch (e) { threw = String(e && e.message || e); }
+      last = { key, ok: !!(v && v.wheel), value: v, errors: [], threw, ms: performance.now() - t0, compiled: true };
+      return last;
+    }
     const sp = L.spec(PROGRAM, tailOf(a)), key = JSON.stringify(sp);
     if (last && last.key === key) return last;
     const t0 = performance.now();
@@ -127,6 +149,13 @@
     let a;
     try { a = asked(); } catch (e) { S.error = "Please give " + e.message + "."; drawStatus(); return; }
     S.error = ""; S.asked = a; remember(a);
+    if (compiledPending()) { drawStatus(); return; }   // (cast when compiled.js arrives)
+    if (compiledReady()) {
+      S.result = run(a);
+      if (S.result.ok) { draw(); return; }
+      // (a compiled run that stops gives no chart: Hazel casts it instead, and the status says why)
+      S.compiledError = "it stopped: " + (S.result.threw || "no reading"); S.result = null; last = null;
+    }
     if (!window.Hazel) { loadLib(); drawStatus(); return; }   // (cast when Hazel arrives)
     S.busy = true; drawStatus(); await painted();
     S.result = run(a);
@@ -185,17 +214,28 @@
       const n = $("notes");
       n.replaceChildren(notes("At birth", v.notes), notes(`Today, ${fmtDay(a.day)}`, v.today_notes));
       if (a.noTime) n.prepend(el("p", "muted", "With no time of birth, the rising sign and the houses are a guess (noon), and so is the Moon's degree."));
-      n.append(el("p", "muted reading-foot", `Cast by Hazel in ${(r.ms / 1000).toFixed(1)} s: ${v.aspects.length} aspects at birth, ${v.transits.length} from today's sky (the closest six above).`));
+      n.append(el("p", "muted reading-foot", `${r.compiled ? `Cast by compiled Hazel in ${fmtMs(r.ms)}` : `Cast by Hazel in ${(r.ms / 1000).toFixed(1)} s`}: ${v.aspects.length} aspects at birth, ${v.transits.length} from today's sky (the closest six above).`));
     } else $("notes").replaceChildren();
     drawStatus();
   }
+  const fmtMs = ms => ms < 1 ? "under a millisecond" : `${ms.toFixed(0)} ms`;
   function drawStatus() {
     const st = $("status"), r = S.result;
     if (S.error) { st.className = "status no"; st.textContent = S.error; return; }
-    if (!window.Hazel) { st.className = S.libFailed ? "status no" : "status wait"; st.textContent = S.libFailed ? "Hazel did not load from jsDelivr, and this page has no other way to cast." : "⏳ Loading Hazel (hazeljs from jsDelivr, about 650 kB)" + (S.asked ? "; the chart is cast when it arrives." : "."); return; }
+    if (compiledPending()) { st.className = "status wait"; st.textContent = "⏳ Loading the rules, compiled ahead of time to JavaScript (compiled.js)" + (S.asked ? "; the chart is cast when they arrive." : "."); return; }
+    if (compiledReady()) {
+      st.className = "status ok";
+      st.textContent = r && r.ok && r.compiled
+        ? `✓ Cast by compiled Hazel in ${fmtMs(r.ms)}: the rules run as JavaScript, compiled ahead of time by hazel-jit (${S.compiled.made}), without loading Hazel's library or building the program. Hazel loads if you edit the rules.`
+        : `✓ The rules are compiled and ready (hazel-jit, ${S.compiled.made}). Cast the chart.`;
+      return;
+    }
+    const why = COMPILED && S.compiledError ? `Compiled mode was asked for, but compiled.js did not run (${S.compiledError}), so Hazel interprets the rules instead. `
+      : COMPILED && S.edited ? "The rules were edited, so Hazel interprets them. " : "";
+    if (!window.Hazel) { st.className = S.libFailed ? "status no" : "status wait"; st.textContent = why + (S.libFailed ? "Hazel did not load from jsDelivr, and this page has no other way to cast." : "⏳ Loading Hazel (hazeljs from jsDelivr, about 650 kB)" + (S.asked ? "; the chart is cast when it arrives." : ".")); return; }
     if (S.busy) { st.className = "status wait"; st.textContent = "⏳ Hazel is building the program and casting the chart (a few seconds; longer on a phone)…"; return; }
     if (!r) { st.className = "status ok"; st.textContent = "✓ Hazel is ready. Cast the chart."; return; }
-    if (r.ok) { st.className = "status ok"; st.textContent = `✓ Built and cast by Hazel in ${(r.ms / 1000).toFixed(1)} s.`; return; }
+    if (r.ok) { st.className = "status ok"; st.textContent = why + `✓ Built and cast by Hazel in ${(r.ms / 1000).toFixed(1)} s.`; return; }
     st.className = "status no";
     st.textContent = "The program did not cast the chart: " + (r.threw || (r.errors || []).map(e => (e.module ? e.module + ": " : "") + String(e.message || e).replace(/\s+/g, " ")).join("; ") || "it has a hole, or its answer is not a reading.");
   }
@@ -212,7 +252,7 @@
     L = window.HazelListings;
     L.tail(PROGRAM, LISTING_TAIL);
     // an edit casts the chart again, once the typing stops
-    L.onChange(PROGRAM, () => { clearTimeout(timer); timer = setTimeout(() => { if (S.result) cast(); }, 600); });
+    L.onChange(PROGRAM, () => { S.edited = true; if (!window.Hazel) loadLib(); clearTimeout(timer); timer = setTimeout(() => { if (S.result) cast(); }, 600); });
   } catch (e) {
     $("status").className = "status no";
     $("status").textContent = "Could not start: " + (e && e.message || e) + ". Serve this folder over http (python3 -m http.server) and open it from localhost.";
@@ -224,11 +264,12 @@
   // ---- ⚙️ Advanced (../shared/advanced.js): the version and its notes, and 🧪 this device's speed: three charts cast in Hazel
   if (window.OracleAdvanced) window.OracleAdvanced.panel({
     holder: $("advanced"), name: "Astrology", built: () => last && { ok: last.ok, ms: last.ms }, libAt: () => S.libAt, keysIn: null,
-    mode: () => ({ asked: "interpreted", error: null }),
-    about: "three charts built and cast by Hazel (the same three births on every device) and ten drawings of the wheel",
+    mode: () => ({ asked: COMPILED ? "compiled" : "interpreted", error: S.compiledError || null, compiled: compiledReady() }),
+    about: "three charts cast (compiled, or built and cast by Hazel, as the page runs; the same three births on every device) and ten drawings of the wheel",
     work: async say => {
       const { stats, painted } = window.OracleAdvanced;
-      if (!window.Hazel || !L) return { data: { hazel: false }, text: ["Hazel was not ready, so nothing was timed in it"] };
+      if (!compiledReady() && (!window.Hazel || !L)) return { data: { hazel: false }, text: ["Hazel was not ready, so nothing was timed in it"] };
+      const how = compiledReady() ? "cast by compiled Hazel" : "built and cast by Hazel";
       const births = [Date.UTC(1969, 6, 20, 20, 17), Date.UTC(1990, 5, 15, 14, 30), Date.UTC(2024, 3, 8, 18, 18)], casts = [];
       for (const b of births) {
         say(`🧪 measuring: chart ${casts.length + 1} of 3…`); await painted();
@@ -240,9 +281,17 @@
       const draws = [];
       for (let i = 0; i < 10; i++) { const t = performance.now(); draw(); await painted(); draws.push(performance.now() - t); }
       const c = stats(casts), d = stats(draws);
-      return { data: { cast: c, draw: d }, text: [`a chart built and cast by Hazel ${c.median} ms (worst ${c.worst})`, `drawing the chart, to the next frame: ${d.median} ms`] };
+      return { data: { cast: c, draw: d, compiled: compiledReady() }, text: [`a chart ${how} ${c.median} ms (worst ${c.worst})`, `drawing the chart, to the next frame: ${d.median} ms`] };
     },
   });
+  // (0.0.16) the switch, under ⚙️ Advanced: compiled ahead of time, or interpreted as before
+  { const box = $("advanced") && $("advanced").querySelector("details.advanced");
+    if (box) {
+      const u = new URL(location.href); u.searchParams.delete("compiled"); if (COMPILED) u.searchParams.set("interpreted", "1"); else u.searchParams.delete("interpreted");
+      const p = el("p", "advanced-version", COMPILED ? "⚡ This page casts with its rules compiled ahead of time to JavaScript, without loading Hazel (until you edit them). " : "⚡ This page builds and casts its rules with hazeljs, as before compiling. ");
+      const a = el("a", "", COMPILED ? "Open it interpreted" : "Open it compiled"); a.href = u.href;
+      p.append(a); box.querySelector(".advanced-version").after(p);
+    } }
   let libAsked = false;
   function loadLib() {
     if (libAsked) return; libAsked = true;
@@ -252,5 +301,17 @@
     s.onerror = () => { S.libFailed = true; drawStatus(); };
     document.head.append(s);
   }
-  loadLib();
+  if (!COMPILED) loadLib();
+  else {
+    addEventListener("error", e => { if (/compiled\.js/.test(e.filename || "")) S.compiledError = String(e.message || e.error || "an error"); });
+    const c = document.createElement("script");
+    c.src = "compiled.js?v=0.0.16"; c.async = true;
+    c.onload = () => {
+      const v = window.AstrologyCompiled;
+      if (v && !S.compiledError) { S.compiled = v; S.libAt = performance.now(); if (S.asked && !S.result) cast(); else drawStatus(); }
+      else { S.compiledError = S.compiledError || "it ran, but gave no rules"; drawStatus(); loadLib(); }
+    };
+    c.onerror = () => { S.compiledError = "it did not load"; drawStatus(); loadLib(); };
+    document.head.append(c);
+  }
 })();

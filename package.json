@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "i-ching": "node node/i-ching.mjs",
-    "compare-compiled": "node node/compare-compiled.mjs i-ching && node node/compare-compiled.mjs tarot",
+    "compare-compiled": "node node/compare-compiled.mjs i-ching && node node/compare-compiled.mjs tarot && node node/compare-compiled.mjs astrology",
     "serve": "python3 -m http.server 8000 --bind 127.0.0.1",
     "tarot": "node node/tarot.mjs",
     "astrology": "node node/astrology.mjs"

@@ -4,6 +4,14 @@ Each version lists what the apps do as of that version. The newest version is fi
 
 ## Unreleased
 
+## 0.0.16 (2026-11-18)
+
+Everything in 0.0.15, plus:
+
+- **Astrology runs compiled by default,** as the I Ching and the Tarot have since 0.0.13. The page casts through `astrology/compiled.js` (101 kB), the same eleven modules compiled ahead of time to JavaScript by hazel-jit, without loading hazeljs or building the program: a chart in about a millisecond, where hazeljs builds and casts one in about 1.4 s (Node, the median of 40 charts). hazeljs loads only when the rules are edited, and runs them as before; `?interpreted=1`, or the link under ⚙️ Advanced, interprets. If the compiled rules stop on a chart, Hazel casts it instead, and the status says why. Checked against hazeljs on 40 charts, the app's own first, then births and days drawn from 1900 to 2099 and places to 60° north and south: the same words, and every number within a relative 10⁻¹⁰ (`node node/compare-compiled.mjs astrology`). Made by `tools/make-compiled.py` from the program a test prints on hazelgrove/hazel's branch `trial/768-astrology-aot`.
+- **Full screen, in each oracle.** In two-column mode, **⛶ Full screen** at the top of the reading's column fills the screen with the oracle alone, without the program's listings: the controls on the left, the picture in the middle as large as the window allows (the wheel, the hexagrams, the table of cards), and the words on the right, each column scrolling on its own. Two dividers, either side of the picture, widen or narrow the side columns (drag them, or the arrow keys on them; a double-click puts them back), kept in this browser for each oracle. **✕ Leave full screen**, or Esc, goes back to the page.
+- **Notes and an emoji on each reading in the history** (the I Ching and the Tarot). 📝 writes a note under a reading, kept with the time it was written, for when you come back to it; each note can be hidden, shown again, or removed. ♡ marks a reading with a red heart, and pressing the mark again chooses another, or none. All of it stays in this browser, with the history.
+
 ## 0.0.15 (2026-11-17)
 
 Everything in 0.0.14, plus:
