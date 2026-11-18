@@ -6,7 +6,7 @@
 <title>Astrology, charted in Hazel</title>
 <meta name="description" content="A birth chart and today's sky, whose astronomy and reading are written in Hazel and run by hazeljs: the Sun, Moon and planets placed from Meeus's formulas, the rising sign, aspects and transits. The third of the ancient oracles, an example app for hazeljs.">
 <link rel="stylesheet" href="../shared/style.css?v=0.0.14">
-<link rel="stylesheet" href="../shared/oracles.css?v=0.0.19">
+<link rel="stylesheet" href="../shared/oracles.css?v=0.0.20">
 </head>
 <body><main class="oracle">
 <div class="app-head">
@@ -17,6 +17,7 @@
 
 <div class="oracle-grid">
 <section class="oracle-ui astro-ui" aria-label="The chart">
+  <button type="button" id="split-toggle" class="split-toggle" aria-pressed="false" title="In full screen: the birth's notes on the left, under the birth itself, and today's on the right, to see both as you hover over the wheel">◧ Birth and today side by side</button>
   <form class="astro-form" id="form" autocomplete="off">
     <fieldset class="method"><legend>Born</legend>
       <label>on <input type="date" id="bdate" min="1900-01-01" max="2099-12-31" value="2026-11-17" required></label>
@@ -43,6 +44,7 @@
   <div class="status wait" id="status">⏳ Loading the rules…</div>
   <h2 class="reading-head" id="reading-head">A birth chart</h2>
   <p class="reading-q" id="reading-q"></p>
+  <div class="notes notes-birth" id="notes-birth"></div>
   <figure class="wheel-fig" id="wheel-fig" hidden>
     <svg class="wheel" id="wheel" viewBox="-9 -9 118 118" role="img" aria-labelledby="wheel-cap"></svg>
     <figcaption id="wheel-cap" class="muted">The signs round the outside, the rising sign at the left. Inside, the planets at birth, joined by their aspects; between, today's sky, in color.</figcaption>
@@ -74,8 +76,8 @@
 </main>
 <script src="../shared/history.js?v=0.0.17"></script>
 <script src="../shared/divider.js?v=0.0.8"></script>
-<script src="../shared/fullscreen.js?v=0.0.18"></script>
+<script src="../shared/fullscreen.js?v=0.0.20"></script>
 <script src="../shared/advanced.js?v=0.0.12"></script>
-<script src="app.js?v=0.0.19"></script>
+<script src="app.js?v=0.0.20"></script>
 </body>
 </html>

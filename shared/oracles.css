@@ -216,13 +216,16 @@ body.js .nojs { display: none; }
 .wheel [data-k] { cursor: help; }
 .wheel g.hot line.cusp, .wheel g.hot line.axis { stroke: var(--accent); stroke-width: 0.8; }
 .wheel g.hot line.aspect { stroke-width: 0.9; opacity: 1; }
-.wheel g.hot .hit { fill: color-mix(in srgb, var(--accent) 22%, transparent); }
+.wheel g.hot .hit { fill: color-mix(in srgb, var(--accent) 28%, transparent); stroke: var(--accent); stroke-width: 0.35; }
 .wheel-fig { position: relative; }
 .wheel-tip { position: absolute; z-index: 5; max-width: 270px; padding: 7px 10px; border-radius: 8px; background: var(--paper); color: var(--ink);
   border: 1px solid var(--line); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28); font-size: 0.86em; line-height: 1.4; pointer-events: none; }
 .wheel-tip b { display: block; margin-bottom: 2px; }
 .wheel-tip[hidden] { display: none; }
 .notes .note { border-radius: 6px; transition: background-color 0.15s, box-shadow 0.15s; }
+/* (0.0.20) a note lights the wheel too: a transit it names drawn from today's body to the birth's */
+.wheel .transit-line { stroke: var(--accent); stroke-width: 0.6; stroke-dasharray: 1.4 1; pointer-events: none; }
+.note-glyph[data-k] { cursor: help; }
 .notes .note.lit { background: color-mix(in srgb, var(--accent) 13%, transparent); box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent) 13%, transparent), -5px 0 0 2px var(--accent); }
 .wheel-fig figcaption { font-size: 0.88em; margin-top: 6px; }
 .notes .note-group h3 { margin: 18px 0 6px; font-size: 0.95em; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
@@ -287,6 +290,17 @@ html.oracle-fs .astro-ui > .wheel-fig[hidden] { display: none; }
 html.oracle-fs .astro-ui .wheel { max-width: none; width: 100%; height: auto; max-height: calc(100vh - 70px); }
 html.oracle-fs .astro-ui > .notes { grid-column: 3; grid-row: 1; align-self: stretch; overflow-y: auto; min-height: 0; padding: 34px 4px 0 0; }
 html.oracle-fs .astro-ui > .notes .note-group:first-child h3 { margin-top: 0; }
+/* (0.0.20) birth and today side by side: the toggle, in full screen only; with it on, the form, the status and the history put
+   away, the birth's heading and when and where at the top of the left column, the birth's notes under them */
+.split-toggle { display: none; }
+html.oracle-fs .split-toggle { display: inline-block; font: inherit; font-size: 0.85em; padding: 3px 10px; margin: 0 0 8px; border-radius: 8px;
+  border: 1px solid var(--line); background: var(--paper); color: var(--ink); cursor: pointer; }
+html.oracle-fs .split-toggle[aria-pressed="true"] { border-color: var(--accent); }
+.notes-birth { display: none; }
+html.astro-split .notes-birth { display: block; margin-top: 10px; }
+html.astro-split .notes-birth .note-group h3 { margin-top: 6px; }
+html.astro-split .astro-form, html.astro-split .astro-ui #status, html.astro-split .astro-ui #history { display: none; }
+html.astro-split .astro-ui #reading-head { margin-top: 0; }
 
 /* the I Ching: the question and the casting on the left, the hexagrams large in the middle, the verdict and the lines cast on the right */
 html.oracle-fs .iching-ui { grid-template-columns: var(--fs-cols, minmax(280px, 1fr) minmax(0, 2.6fr)); }

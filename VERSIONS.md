@@ -4,6 +4,13 @@ Each version lists what the apps do as of that version. The newest version is fi
 
 ## Unreleased
 
+## 0.0.20 (2026-11-18)
+
+Everything in 0.0.19, plus:
+
+- **Astrology in full screen: the birth and today side by side.** A toggle at the top of the left column, **◧ Birth and today side by side**, puts the form away (with the status and the history), so the left column starts with the birth itself, its heading and when and where, and the birth's notes follow under it; today's notes stay on the right. Hovering the wheel then lights notes on both sides at once, and each side scrolls on its own to its first lit note. **◨ Show the form, the notes together** puts it back. The choice is kept in this browser.
+- **The notes light the wheel, the other way round.** Hovering a note lights what it is about on the wheel: its bodies, its signs, the line where its house begins, the horizon for the rising sign; a note on today's sky also draws the aspect it names, a dashed line from today's body to the birth's. Hovering a glyph in a note's heading lights only what that glyph stands for.
+
 ## 0.0.19 (2026-11-18)
 
 Everything in 0.0.18, plus:

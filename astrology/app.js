@@ -216,6 +216,31 @@
   }
   const fmtDay = t => new Date(t).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
 
+  // ---- (0.0.20; Matthew, 2026-11-18: "In FS mode for the chart, let's have a toggle for the birth information that moves it to
+  // the top of the LHS column, so we can see text for birth chart and today's chart side by side as we hover over the center
+  // chart") In full screen, the toggle puts away the form, so the birth itself (the heading, and when and where) is at the top
+  // of the left column, with the birth's notes under it; today's stay on the right. Kept in this browser, as a convenience.
+  const SPLIT_KEY = "hazeljs-oracles/astrology/split";
+  let split = (() => { try { return localStorage.getItem(SPLIT_KEY) === "1"; } catch (e) { return false; } })();
+  const splitNow = () => split && document.documentElement.classList.contains("oracle-fs");
+  function placeNotes() {
+    const birth = document.querySelector(".note-group.birth");
+    document.documentElement.classList.toggle("astro-split", splitNow());
+    const t = $("split-toggle");
+    t.setAttribute("aria-pressed", String(split));
+    t.textContent = split ? "◨ Show the form, the notes together" : "◧ Birth and today side by side";
+    if (!birth) return;
+    if (splitNow()) { if (birth.parentNode !== $("notes-birth")) $("notes-birth").append(birth); }
+    else if (birth.parentNode !== $("notes")) $("notes").prepend(birth);
+  }
+  $("split-toggle").addEventListener("click", () => {
+    split = !split;
+    try { localStorage.setItem(SPLIT_KEY, split ? "1" : "0"); } catch (e) { /* this visit only */ }
+    placeNotes();
+  });
+  // (entering or leaving full screen: shared/fullscreen.js sends a resize)
+  addEventListener("resize", () => setTimeout(placeNotes, 0));
+
   // ---- (0.0.19; Matthew, 2026-11-18: "when the user hovers over different SVG elements of the chart, there's a tooltip that
   // explains that element of the chart, and also highlights any relevant parts of the RHS (text part of the reading)") What
   // each element of the wheel is, in words from the reading where it has them (a note's own first sentence, a sign's or a
@@ -270,21 +295,28 @@
   function light(k) {
     if (hot === k) return;
     hot = k;
+    fromNotes = null;
+    document.querySelectorAll("#wheel .transit-line").forEach(e => e.remove());
     document.querySelectorAll("#wheel .hot").forEach(e => e.classList.remove("hot"));
-    document.querySelectorAll("#notes .note.lit").forEach(e => e.classList.remove("lit"));
+    document.querySelectorAll(".notes .note.lit").forEach(e => e.classList.remove("lit"));
     const v = S.result && S.result.ok ? S.result.value : null;
     const x = k && v ? explain(k, v) : null;
     if (!x) { tip.hidden = true; return; }
     const g = document.querySelector(`#wheel [data-k="${k}"]`); if (g) g.classList.add("hot");
     tip.replaceChildren(el("b", "", x.title), el("span", "", x.text));
     tip.hidden = false;
-    const lit = [...document.querySelectorAll("#notes .note")].filter(p => x.lights.some(r => (p.dataset.refs || "").split(" ").includes(r)));
+    const lit = [...document.querySelectorAll(".notes .note")].filter(p => x.lights.some(r => (p.dataset.refs || "").split(" ").includes(r)));
     lit.forEach(p => p.classList.add("lit"));
-    // (in full screen the notes scroll on their own: bring the first lit one into their view, without moving the page)
-    const box = $("notes");
-    if (lit.length && document.documentElement.classList.contains("oracle-fs") && box.scrollHeight > box.clientHeight) {
-      const top = lit[0].offsetTop - box.offsetTop, bottom = top + lit[0].offsetHeight;
-      if (top < box.scrollTop || bottom > box.scrollTop + box.clientHeight) box.scrollTo({ top: Math.max(0, top - 24), behavior: "smooth" });
+    // (in full screen each column scrolls on its own: bring each column's first lit note into its view, without moving the page)
+    if (document.documentElement.classList.contains("oracle-fs")) {
+      const seen = new Set();
+      for (const p of lit) {
+        const box = p.closest("#notes, .fs-left");
+        if (!box || seen.has(box)) continue;
+        seen.add(box);
+        const br = box.getBoundingClientRect(), pr = p.getBoundingClientRect();
+        if (pr.top < br.top || pr.bottom > br.bottom) box.scrollBy({ top: pr.top - br.top - 24, behavior: "smooth" });
+      }
     }
   }
   function placeTip(e) {
@@ -298,6 +330,39 @@
   $("wheel").addEventListener("pointermove", onWheel);
   $("wheel").addEventListener("pointerdown", onWheel);
   $("wheel").addEventListener("pointerleave", () => light(null));
+
+  // ---- (0.0.20; Matthew, 2026-11-18: "when we hover over the symbols or entries in the RHS text for "today", please highlight
+  // the related elements of the center chart") The other way: a note lights what it is about on the wheel (its bodies, its
+  // signs, the line where its house begins, the horizon for the rising sign), and a note on today's sky draws the aspect it
+  // names, a dashed line from today's body to the birth's; a glyph in a note's heading lights only what it stands for
+  let fromNotes = null;
+  function wheelKeysOf(refs, v) {
+    const ascSign = Math.floor((((v.chart.ascendant % 360) + 360) % 360) / 30);
+    return refs.map(r => { const [k, a] = r.split(":"); return k === "house" ? "cusp:" + ((ascSign + Number(a) - 1) % 12) : r; });
+  }
+  function lightFromNotes(key, p) {
+    const id = key ? key + (p ? "@" + p.dataset.refs : "") : p ? "note:" + p.dataset.refs + ":" + p.textContent.length : null;
+    if (id === fromNotes) return;
+    fromNotes = id; hot = null; tip.hidden = true;
+    document.querySelectorAll("#wheel .hot").forEach(e => e.classList.remove("hot"));
+    document.querySelectorAll("#wheel .transit-line").forEach(e => e.remove());
+    document.querySelectorAll(".notes .note.lit").forEach(e => e.classList.remove("lit"));
+    const v = S.result && S.result.ok ? S.result.value : null;
+    if (!v || !id) return;
+    const refs = key ? [key] : (p.dataset.refs || "").split(" ").filter(Boolean);
+    for (const k of wheelKeysOf(refs, v)) document.querySelectorAll(`#wheel [data-k="${k}"]`).forEach(e => e.classList.add("hot"));
+    if (p) p.classList.add("lit");
+    const t = !key && refs.find(r => r.startsWith("today:")), n = !key && refs.find(r => r.startsWith("natal:"));
+    if (t && n) {
+      const at = (ring, b) => v.wheel.marks.find(m => m.ring === ring && m.body.tag === b);
+      const a = at(1, t.slice(6)), b = at(0, n.slice(6));
+      if (a && b) $("wheel").insertBefore(sv("line", { x1: a.x, y1: a.y, x2: b.x, y2: b.y, class: "transit-line" }), $("wheel").querySelector('[data-k^="natal:"], [data-k^="today:"]'));
+    }
+  }
+  for (const box of [$("notes"), $("notes-birth")]) {
+    box.addEventListener("pointermove", e => { const g = e.target.closest(".note-glyph[data-k]"), p = e.target.closest(".note"); lightFromNotes(g ? g.dataset.k : null, p); });
+    box.addEventListener("pointerleave", () => lightFromNotes(null, null));
+  }
   // (0.0.18; Matthew, 2026-11-18: "RHS uses symbols that resemble the ones in the center chart where appropriate", and "I'd
   // prefer to reverse the emphasis, and have it on the text that isn't the form/template of the RHS") A note's heading, the
   // chart's facts in the reading's fixed form, is quiet, with the wheel's own glyphs beside its signs, bodies and aspects,
@@ -305,8 +370,9 @@
   // or hard); its words, the reading itself, carry the emphasis.
   const BODY_NAMES = ["Sun", "Moon", "Mercury", "Venus", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune", "Pluto"];
   const ASPECT = { conjunct: ["conjunction", ""], sextile: ["sextile", "soft"], square: ["square", "hard"], trine: ["trine", "soft"], opposite: ["opposition", "hard"] };
-  const inlineGlyph = (id, cls, title) => {
+  const inlineGlyph = (id, cls, title, k) => {
     const s = sv("svg", { class: "note-glyph " + cls, "aria-hidden": "true" });
+    if (k) s.dataset.k = k;
     if (title) { const t = sv("title", {}); t.textContent = title; s.append(t); }
     s.append(sv("use", { href: "#" + id, width: "100%", height: "100%" }));
     return s;
@@ -317,8 +383,11 @@
     parts.forEach((p, i) => {
       if (i % 2 === 0) { if (p) h.append(p); return; }
       const before = parts[i - 1] || "";
-      if (GLYPH[p]) h.append(inlineGlyph(GLYPH[p], "sign " + (elementOf[p] || "").toLowerCase(), p));
-      else if (BODY_NAMES.includes(p)) h.append(inlineGlyph(p.toLowerCase(), /Today's\s*$/.test(before) ? "body today" : "body natal", p));
+      if (GLYPH[p]) h.append(inlineGlyph(GLYPH[p], "sign " + (elementOf[p] || "").toLowerCase(), p, "sign:" + p));
+      else if (BODY_NAMES.includes(p)) {
+        const today = /Today's\s*$/.test(before);
+        h.append(inlineGlyph(p.toLowerCase(), today ? "body today" : "body natal", p, (today ? "today:" : "natal:") + p));
+      }
       else if (ASPECT[p]) h.append(inlineGlyph(ASPECT[p][0], "aspect " + ASPECT[p][1], p));
       h.append(p);
     });
@@ -335,8 +404,8 @@
     if (/^Rising\b/.test(head)) refs.push("axis:asc", "house:1");
     return refs;
   }
-  function notes(head, ns, elementOf) {
-    const s = el("section", "note-group");
+  function notes(head, ns, elementOf, which) {
+    const s = el("section", "note-group " + which);
     s.append(el("h3", "", head), ...ns.map(n => { const p = el("p", "note"); p.dataset.refs = refsOf(n.head).join(" "); p.append(headOf(n.head, elementOf), el("span", "note-text", n.text)); return p; }));
     return s;
   }
@@ -359,10 +428,12 @@
       drawWheel(v);
       const n = $("notes");
       const elementOf = Object.fromEntries(v.wheel.signs.map(s => [s.sign.tag, s.element.tag]));
-      n.replaceChildren(notes("At birth", v.notes, elementOf), notes(`Today, ${fmtDay(a.day)}`, v.today_notes, elementOf));
+      $("notes-birth").replaceChildren();
+      n.replaceChildren(notes("At birth", v.notes, elementOf, "birth"), notes(`Today, ${fmtDay(a.day)}`, v.today_notes, elementOf, "today"));
       if (a.noTime) n.prepend(el("p", "muted", "With no time of birth, the rising sign and the houses are a guess (noon), and so is the Moon's degree."));
       n.append(el("p", "muted reading-foot", `${r.compiled ? `Cast by compiled Hazel in ${fmtMs(r.ms)}` : `Cast by Hazel in ${(r.ms / 1000).toFixed(1)} s`}: ${v.aspects.length} aspects at birth, ${v.transits.length} from today's sky (the closest six above).`));
-    } else $("notes").replaceChildren();
+    } else { $("notes").replaceChildren(); $("notes-birth").replaceChildren(); }
+    placeNotes();
     drawStatus();
   }
   const fmtMs = ms => ms < 1 ? "under a millisecond" : `${ms.toFixed(0)} ms`;

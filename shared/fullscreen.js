@@ -30,7 +30,7 @@
     btn.title = on() ? "Back to the page, with the program beside it (Esc)" : "Fill the screen with the oracle alone, without the program's listings";
   };
   // ---- the left column, gathered: each part's place kept by a marker, to put it back
-  const LEFT_PARTS = { "astro-ui": [".astro-form", "#status", "#reading-head", "#reading-q", "#history"],
+  const LEFT_PARTS = { "astro-ui": ["#split-toggle", ".astro-form", "#status", "#reading-head", "#reading-q", "#notes-birth", "#history"],
     "iching-ui": [".question-label", ".question", ".controls", "#status", "#reading-head", "#reading-q", "#history"],
     "tarot-ui": [".controls", ".spread-use", "#status", "#reading-head", "#history"] };
   const partsOf = Object.entries(LEFT_PARTS).find(([c]) => ui.classList.contains(c));
