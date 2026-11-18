@@ -178,9 +178,11 @@
 
   // ---- drawing: the glyphs (glyphs.svg's symbols, put in the page once), the wheel, and the notes
   const GLYPH = { Aries: "aries", Taurus: "taurus", Gemini: "gemini", Cancer: "cancer", Leo: "leo", Virgo: "virgo", Libra: "libra", Scorpio: "scorpio", Sagittarius: "sagittarius", Capricorn: "capricorn", Aquarius: "aquarius", Pisces: "pisces" };
-  const glyph = (id, x, y, size, cls, title) => {
-    const g = sv("g", { class: cls });
-    if (title) { const t = sv("title", {}); t.textContent = title; g.append(t); }
+  // (0.0.19: k, the element's key for the hover's tooltip and the notes it lights; a transparent disc under the glyph is
+  // what the pointer meets, as its strokes alone are hard to land on)
+  const glyph = (id, x, y, size, cls, title, k) => {
+    const g = sv("g", { class: cls, "aria-label": title || "" });
+    if (k) { g.dataset.k = k; g.append(sv("circle", { cx: x, cy: y, r: size / 2, class: "hit" })); }
     g.append(sv("use", { href: "#" + id, x: x - size / 2, y: y - size / 2, width: size, height: size }));
     return g;
   };
@@ -190,17 +192,20 @@
   function drawWheel(v) {
     const w = $("wheel"), c = (r, cls) => sv("circle", { cx: 50, cy: 50, r, class: cls });
     const line = (l, cls) => sv("line", { x1: l.x1, y1: l.y1, x2: l.x2, y2: l.y2, class: cls });
+    // a line with a wider, invisible twin for the pointer, under one key
+    const keyed = (l, cls, k) => { const g = sv("g", {}); g.dataset.k = k; g.append(line(l, cls), line(l, "hit-line")); return g; };
     const lonOf = (ps, b) => (ps.find(p => p.body.tag === b) || {}).longitude;
     w.replaceChildren(
-      ...v.wheel.signs.map(s => glyph(GLYPH[s.sign.tag], s.x, s.y, 5.4, "sign " + s.element.tag.toLowerCase(), `${s.sign.tag}, ${s.element.tag.toLowerCase()}`)),
+      ...v.wheel.signs.map(s => glyph(GLYPH[s.sign.tag], s.x, s.y, 5.4, "sign " + s.element.tag.toLowerCase(), `${s.sign.tag}, ${s.element.tag.toLowerCase()}`, "sign:" + s.sign.tag)),
       c(50, "ring"), c(41, "ring"), c(34.3, "ring faint"), c(27, "ring"),
-      ...v.wheel.cusps.map(l => line(l, "cusp")),
-      ...v.wheel.axes.map(l => line(l, "axis")),
-      ...v.wheel.lines.filter(l => l.kind.tag !== "Conjunction").map(l => line(l, "aspect " + (HARD[l.kind.tag] ? "hard" : "soft"))),
+      ...v.wheel.cusps.map((l, i) => keyed(l, "cusp", "cusp:" + i)),
+      ...v.wheel.axes.map((l, i) => keyed(l, "axis", i === 0 ? "axis:asc" : "axis:mc")),
+      // (the lines follow the birth's aspects in order, Wheel.hz's lines; a conjunction has none drawn)
+      ...v.wheel.lines.map((l, i) => l.kind.tag === "Conjunction" ? null : keyed(l, "aspect " + (HARD[l.kind.tag] ? "hard" : "soft"), "aspect:" + i)).filter(Boolean),
       ...v.wheel.marks.map(m => {
         const ps = m.ring === 0 ? v.natal : v.today, lon = lonOf(ps, m.body.tag);
         return glyph(m.body.tag.toLowerCase(), m.x, m.y, m.ring === 0 ? 5.6 : 4.8, m.ring === 0 ? "body natal" : "body today",
-          `${m.ring === 0 ? "At birth" : "Today"}: ${m.body.tag}, ${where(lon)}`);
+          `${m.ring === 0 ? "At birth" : "Today"}: ${m.body.tag}, ${where(lon)}`, (m.ring === 0 ? "natal:" : "today:") + m.body.tag);
       }),
     );
     // the axes' names, outside the wheel: Asc at the ascendant's end, MC at the midheaven's
@@ -210,6 +215,89 @@
     w.append(label(a.x, a.y, "Asc"), label(m.x, m.y, "MC"));
   }
   const fmtDay = t => new Date(t).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
+
+  // ---- (0.0.19; Matthew, 2026-11-18: "when the user hovers over different SVG elements of the chart, there's a tooltip that
+  // explains that element of the chart, and also highlights any relevant parts of the RHS (text part of the reading)") What
+  // each element of the wheel is, in words from the reading where it has them (a note's own first sentence, a sign's or a
+  // house's sentence), and the keys of the notes it lights
+  const ord = n => n + (n === 1 ? "st" : n === 2 ? "nd" : n === 3 ? "rd" : "th");
+  // (Reading.hz's verb and kind_word, for an aspect at birth)
+  const ASPECT_WORDS = { Conjunction: ["conjunct", "join with"], Sextile: ["sextile", "open a way for"], Square: ["square", "press on"],
+    Trine: ["trine", "flow easily with"], Opposition: ["opposite", "pull against"] };
+  const firstSentence = t => (t.match(/^[^.]*\./) || [t])[0];
+  const cap = t => t.charAt(0).toUpperCase() + t.slice(1);
+  function explain(k, v) {
+    const texts = [...v.notes, ...v.today_notes];
+    const sentence = re => { for (const n of texts) { const m = n.text.match(re); if (m) return m[0]; } return ""; };
+    const ascSign = Math.floor((((v.chart.ascendant % 360) + 360) % 360) / 30);
+    const houseOf = signIndex => ((signIndex - ascSign + 12) % 12) + 1;
+    const lon = (ps, b) => (ps.find(p => p.body.tag === b) || {}).longitude;
+    const [kind, a, b] = k.split(":");
+    if (kind === "sign") {
+      const i = SIGNS.indexOf(a), elem = (v.wheel.signs.find(s => s.sign.tag === a) || { element: { tag: "" } }).element.tag.toLowerCase();
+      return { title: a, text: (sentence(new RegExp(a + " is the [^.]*\\.")) || `${a}, ${/^[aeiou]/.test(elem) ? "an" : "a"} ${elem} sign.`) +
+        ` Its 30° run from ${i * 30}° to ${i * 30 + 30}° along the zodiac; with whole-sign houses, it is your ${ord(houseOf(i))} house.`, lights: ["sign:" + a] };
+    }
+    if (kind === "natal") {
+      const n = v.notes.find(n => n.head.startsWith(a + " in "));
+      return { title: "At birth: " + (n ? n.head : `${a}, ${where(lon(v.natal, a))}`), text: n ? firstSentence(n.text) : "", lights: ["natal:" + a] };
+    }
+    if (kind === "today") {
+      const ns = v.today_notes.filter(n => n.head.startsWith("Today's " + a));
+      return { title: `Today: ${a}, ${where(lon(v.today, a))}`,
+        text: ns.length ? cap(ns.map(n => n.head.replace("Today's " + a + ", ", "").replace("Today's " + a + " ", "")).join("; ")) + "." : "Not among today's closest aspects to your chart.", lights: ["today:" + a] };
+    }
+    if (kind === "aspect") {
+      const x = v.aspects[Number(a)]; if (!x) return null;
+      const [word, verb] = ASPECT_WORDS[x.kind.tag];
+      return { title: `At birth: ${x.a.tag} ${word} ${x.b.tag}`, text: `${x.orb.toFixed(1)}° from exact. ${x.a.tag} and ${x.b.tag} ${verb} each other.`,
+        lights: ["natal:" + x.a.tag, "natal:" + x.b.tag] };
+    }
+    if (kind === "cusp") {
+      const i = Number(a), h = houseOf(i);
+      return { title: `The start of ${SIGNS[i]}, and of your ${ord(h)} house`,
+        text: sentence(new RegExp("The " + ord(h) + " house holds [^.]*\\.")) || "With whole-sign houses, each sign is a house, counted from the rising sign.", lights: ["house:" + h] };
+    }
+    if (kind === "axis" && a === "asc") return { title: `The ascendant: ${where(v.chart.ascendant)}`,
+      text: "The degree of the zodiac rising in the east at the moment of birth. Its sign is the rising sign, and your 1st house.", lights: ["axis:asc"] };
+    if (kind === "axis" && a === "mc") return { title: `The midheaven: ${where(v.chart.midheaven)}`,
+      text: "The degree of the zodiac highest in the sky at the moment of birth, on the meridian.", lights: [] };
+    return null;
+  }
+  const tip = el("div", "wheel-tip"); tip.hidden = true; tip.setAttribute("role", "tooltip");
+  $("wheel-fig").append(tip);
+  let hot = null;
+  function light(k) {
+    if (hot === k) return;
+    hot = k;
+    document.querySelectorAll("#wheel .hot").forEach(e => e.classList.remove("hot"));
+    document.querySelectorAll("#notes .note.lit").forEach(e => e.classList.remove("lit"));
+    const v = S.result && S.result.ok ? S.result.value : null;
+    const x = k && v ? explain(k, v) : null;
+    if (!x) { tip.hidden = true; return; }
+    const g = document.querySelector(`#wheel [data-k="${k}"]`); if (g) g.classList.add("hot");
+    tip.replaceChildren(el("b", "", x.title), el("span", "", x.text));
+    tip.hidden = false;
+    const lit = [...document.querySelectorAll("#notes .note")].filter(p => x.lights.some(r => (p.dataset.refs || "").split(" ").includes(r)));
+    lit.forEach(p => p.classList.add("lit"));
+    // (in full screen the notes scroll on their own: bring the first lit one into their view, without moving the page)
+    const box = $("notes");
+    if (lit.length && document.documentElement.classList.contains("oracle-fs") && box.scrollHeight > box.clientHeight) {
+      const top = lit[0].offsetTop - box.offsetTop, bottom = top + lit[0].offsetHeight;
+      if (top < box.scrollTop || bottom > box.scrollTop + box.clientHeight) box.scrollTo({ top: Math.max(0, top - 24), behavior: "smooth" });
+    }
+  }
+  function placeTip(e) {
+    const f = $("wheel-fig").getBoundingClientRect();
+    let x = e.clientX - f.left + 14, y = e.clientY - f.top + 14;
+    if (x + tip.offsetWidth > f.width) x = Math.max(0, e.clientX - f.left - tip.offsetWidth - 14);
+    if (y + tip.offsetHeight > f.height) y = Math.max(0, e.clientY - f.top - tip.offsetHeight - 14);
+    tip.style.left = x + "px"; tip.style.top = y + "px";
+  }
+  const onWheel = e => { const g = e.target.closest && e.target.closest("[data-k]"); light(g ? g.dataset.k : null); if (g) placeTip(e); };
+  $("wheel").addEventListener("pointermove", onWheel);
+  $("wheel").addEventListener("pointerdown", onWheel);
+  $("wheel").addEventListener("pointerleave", () => light(null));
   // (0.0.18; Matthew, 2026-11-18: "RHS uses symbols that resemble the ones in the center chart where appropriate", and "I'd
   // prefer to reverse the emphasis, and have it on the text that isn't the form/template of the RHS") A note's heading, the
   // chart's facts in the reading's fixed form, is quiet, with the wheel's own glyphs beside its signs, bodies and aspects,
@@ -236,9 +324,20 @@
     });
     return h;
   }
+  // (0.0.19) what a note is about, as the keys the wheel's elements light: a body at birth or today, a sign, a house, the rising sign
+  function refsOf(head) {
+    const refs = [];
+    const parts = head.split(/\b(Sun|Moon|Mercury|Venus|Mars|Jupiter|Saturn|Uranus|Neptune|Pluto)\b/);
+    for (let i = 1; i < parts.length; i += 2) refs.push((/Today's\s*$/.test(parts[i - 1]) ? "today:" : "natal:") + parts[i]);
+    if (/back where it was at your birth/.test(head)) refs.push("natal:" + parts[1]);
+    for (const sg of SIGNS) if (new RegExp("\\b" + sg + "\\b").test(head)) refs.push("sign:" + sg);
+    const h = head.match(/(\d+)(?:st|nd|rd|th) house/); if (h) refs.push("house:" + h[1]);
+    if (/^Rising\b/.test(head)) refs.push("axis:asc", "house:1");
+    return refs;
+  }
   function notes(head, ns, elementOf) {
     const s = el("section", "note-group");
-    s.append(el("h3", "", head), ...ns.map(n => { const p = el("p", "note"); p.append(headOf(n.head, elementOf), el("span", "note-text", n.text)); return p; }));
+    s.append(el("h3", "", head), ...ns.map(n => { const p = el("p", "note"); p.dataset.refs = refsOf(n.head).join(" "); p.append(headOf(n.head, elementOf), el("span", "note-text", n.text)); return p; }));
     return s;
   }
   function draw() {
@@ -256,6 +355,7 @@
       }
       const local = new Date(a.birth).toLocaleString(undefined, { timeZone: a.zone, year: "numeric", month: "long", day: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit" });
       $("reading-q").textContent = `Born ${a.noTime ? new Date(a.birth).toLocaleDateString(undefined, { timeZone: a.zone, year: "numeric", month: "long", day: "numeric" }) + ", time not known (noon)" : local} ${a.name}; today's sky on ${fmtDay(a.day)}.`;
+      hot = null; tip.hidden = true;
       drawWheel(v);
       const n = $("notes");
       const elementOf = Object.fromEntries(v.wheel.signs.map(s => [s.sign.tag, s.element.tag]));

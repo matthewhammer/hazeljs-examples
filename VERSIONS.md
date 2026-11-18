@@ -4,6 +4,12 @@ Each version lists what the apps do as of that version. The newest version is fi
 
 ## Unreleased
 
+## 0.0.19 (2026-11-18)
+
+Everything in 0.0.18, plus:
+
+- **Astrology's wheel explains itself under the pointer.** Hover over a sign, a body at birth or today, an aspect's line, a line between two signs, or the horizon or meridian, and a tooltip says what it is, in the reading's own words where it has them: a body's note and what it is about ("At birth: Sun in Scorpio, 25°, in the 11th house. About who you are, and what gives you life."), a sign's sentence and which of your houses it is, an aspect's two bodies, how far from exact and what they do to each other, a house's sentence. The notes it concerns light up on the right, as does the element on the wheel; in full screen, the notes column scrolls to the first of them. A tap does the same on a touch screen. Each glyph has a disc under it, and each line a wider twin, for the pointer to land on.
+
 ## 0.0.18 (2026-11-18)
 
 Everything in 0.0.17, plus:

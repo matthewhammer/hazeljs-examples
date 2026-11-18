@@ -208,7 +208,22 @@ body.js .nojs { display: none; }
   :root:not([data-theme="light"]) .wheel .sign.air { color: #67e8f9; } :root:not([data-theme="light"]) .wheel .sign.water { color: #a5b4fc; } }
 .wheel .body.natal { color: var(--ink); }
 .wheel .body.today { color: var(--accent); }
-.wheel g:hover { opacity: 0.7; }
+/* (0.0.19) the hover: what the pointer meets (a disc under each glyph, a wide twin of each line), the element lit, its tooltip,
+   and the notes it lights */
+.wheel .hit { fill: transparent; pointer-events: all; }
+.wheel .hit-line { stroke: transparent; stroke-width: 2.6; pointer-events: stroke; }
+.wheel use { pointer-events: none; }
+.wheel [data-k] { cursor: help; }
+.wheel g.hot line.cusp, .wheel g.hot line.axis { stroke: var(--accent); stroke-width: 0.8; }
+.wheel g.hot line.aspect { stroke-width: 0.9; opacity: 1; }
+.wheel g.hot .hit { fill: color-mix(in srgb, var(--accent) 22%, transparent); }
+.wheel-fig { position: relative; }
+.wheel-tip { position: absolute; z-index: 5; max-width: 270px; padding: 7px 10px; border-radius: 8px; background: var(--paper); color: var(--ink);
+  border: 1px solid var(--line); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28); font-size: 0.86em; line-height: 1.4; pointer-events: none; }
+.wheel-tip b { display: block; margin-bottom: 2px; }
+.wheel-tip[hidden] { display: none; }
+.notes .note { border-radius: 6px; transition: background-color 0.15s, box-shadow 0.15s; }
+.notes .note.lit { background: color-mix(in srgb, var(--accent) 13%, transparent); box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent) 13%, transparent), -5px 0 0 2px var(--accent); }
 .wheel-fig figcaption { font-size: 0.88em; margin-top: 6px; }
 .notes .note-group h3 { margin: 18px 0 6px; font-size: 0.95em; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
 .notes .note { margin: 0 0 14px; }
