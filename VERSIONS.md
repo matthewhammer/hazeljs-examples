@@ -4,6 +4,12 @@ Each version lists what the apps do as of that version. The newest version is fi
 
 ## Unreleased
 
+## 0.0.23 (2026-11-19)
+
+Everything in 0.0.22, plus:
+
+- **Today's sky has a time, and keeps up with the clock.** Astrology's **Today's sky** is now a date and a time, in this browser's time zone, with **Now** beside them. Until you change either, both follow the clock: they are kept up to the minute while the page is open, brought up to date when the page is shown again, and read afresh at each cast, so a chart cast after the page has sat open for hours, or past midnight, has the sky of the moment it was cast. Change the date or the time and the chart takes that moment instead; **Now** goes back to the clock. The time matters most for the Moon, which moves about half a degree an hour. Before, the date was the day the page was loaded and the time, unseen, the clock's at the cast, so a page left open past midnight cast yesterday's date at today's time. The chart shows the moment it uses ("today's sky on November 19, 2026 at 7:02 AM"), in its notes' heading and in the 🕰 history; opening a chart from the history sets the date and time to its moment.
+
 ## 0.0.22 (2026-11-18)
 
 Everything in 0.0.21, plus:

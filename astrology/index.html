@@ -6,7 +6,7 @@
 <title>Astrology, charted in Hazel</title>
 <meta name="description" content="A birth chart and today's sky, whose astronomy and reading are written in Hazel and run by hazeljs: the Sun, Moon and planets placed from Meeus's formulas, the rising sign, aspects and transits. The third of the ancient oracles, an example app for hazeljs.">
 <link rel="stylesheet" href="../shared/style.css?v=0.0.14">
-<link rel="stylesheet" href="../shared/oracles.css?v=0.0.22">
+<link rel="stylesheet" href="../shared/oracles.css?v=0.0.23">
 </head>
 <body><main class="oracle">
 <div class="app-head">
@@ -22,7 +22,7 @@
     <fieldset class="method saved-charts" id="saved-box"><legend>Saved charts, on this device only</legend>
       <label>chart <select id="saved" aria-label="a saved birth chart"></select></label>
       <label>name <input type="text" id="cname" maxlength="60" size="14" placeholder="a name, to save it" aria-label="the chart's name"></label>
-      <span class="saved-buttons"><button type="button" id="csave">Save</button><button type="button" id="cdelete" hidden>Delete</button></span>
+      <span class="form-buttons"><button type="button" id="csave">Save</button><button type="button" id="cdelete" hidden>Delete</button></span>
       <span class="muted cstate" id="cstate" aria-live="polite"></span>
     </fieldset>
     <fieldset class="method"><legend>Born</legend>
@@ -40,6 +40,9 @@
     </fieldset>
     <fieldset class="method"><legend>Today's sky</legend>
       <label>on <input type="date" id="tdate" min="1900-01-01" max="2099-12-31"></label>
+      <label>at <input type="time" id="ttime" aria-label="the time of today's sky, in this browser's time zone"></label>
+      <span class="form-buttons"><button type="button" id="tnow" aria-pressed="true" title="Today's sky now, the date and time kept up with the clock">Now</button></span>
+      <span class="muted cstate" id="tstate"></span>
     </fieldset>
     <div class="controls">
       <button type="submit" id="cast" class="primary">Cast the chart</button>
@@ -84,6 +87,6 @@
 <script src="../shared/divider.js?v=0.0.8"></script>
 <script src="../shared/fullscreen.js?v=0.0.20"></script>
 <script src="../shared/advanced.js?v=0.0.12"></script>
-<script src="app.js?v=0.0.22"></script>
+<script src="app.js?v=0.0.23"></script>
 </body>
 </html>

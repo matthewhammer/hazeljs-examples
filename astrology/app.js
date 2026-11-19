@@ -54,8 +54,25 @@
   $("city").addEventListener("change", showElsewhere);
   $("bnotime").addEventListener("change", () => { $("btime").disabled = $("bnotime").checked; });
   const pad = n => String(n).padStart(2, "0");
-  const today = new Date();
-  $("tdate").value = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
+  const ymd = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const hm = d => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  // ---- (0.0.23; Matthew, 2026-11-19: "is the current time a factor in the chart, or just the current date?", then "Yes, add it",
+  // and "if the app is left in a browser running, does it have a way to notice that the date and time have advanced from when it
+  // was loaded originally?") Today's sky is a date and a time, in this browser's time zone. Until either is changed, both follow
+  // the clock: kept up to the minute while the page is open (and when it is shown again), and read afresh at each cast; Now
+  // goes back to following it. Before, the date was the day the page loaded and the time the clock's at the cast, unseen, so
+  // a page left open past midnight cast yesterday's date at today's time.
+  let followNow = true;
+  const showNow = () => { const d = new Date(); $("tdate").value = ymd(d); $("ttime").value = hm(d); };
+  const markNow = () => { $("tstate").textContent = followNow ? "now, following the clock" : ""; $("tnow").setAttribute("aria-pressed", String(followNow)); };
+  const fixNow = d => { const t = new Date(d); $("tdate").value = ymd(t); $("ttime").value = hm(t); followNow = false; markNow(); };
+  showNow(); markNow();
+  // (not while either is being typed in)
+  const keepUp = () => { if (followNow && !document.hidden && ![$("tdate"), $("ttime")].includes(document.activeElement)) showNow(); };
+  setInterval(keepUp, 15000);
+  document.addEventListener("visibilitychange", keepUp);
+  for (const id of ["tdate", "ttime"]) $(id).addEventListener("input", () => { followNow = false; markNow(); });
+  $("tnow").addEventListener("click", () => { followNow = true; showNow(); markNow(); });
 
   // ---- a local time in a time zone, to UTC: the zone's offset at a guess, then again at the answer (a change of clocks between)
   function offsetMs(utc, zone) {
@@ -91,9 +108,13 @@
       name = k === 0 ? "at 40.046313° N, 105.286695° W" : "in " + name;
     }
     const birth = zonedToUtc(y, mo, d, h, mi, sec, zone);
+    // today's sky: now, while following the clock, or the date and time chosen, in this browser's time zone
+    if (followNow) showNow();
     const [ty, tmo, td] = ($("tdate").value || "").split("-").map(Number);
-    const now = new Date();
-    const day = ty ? new Date(ty, tmo - 1, td, now.getHours(), now.getMinutes()).getTime() : now.getTime();
+    if (!ty) throw new Error("a date for today's sky");
+    if (!$("ttime").value) throw new Error("a time for today's sky");
+    const [th, tmi] = $("ttime").value.split(":").map(Number);
+    const day = new Date(ty, tmo - 1, td, th, tmi).getTime();
     const app = birth === APP_BIRTH && lat === CITIES[0][1] && lon === CITIES[0][2];
     const typed = { date: $("bdate").value, time: noTime ? "" : $("btime").value, city: $("city").value, lat, lon, zone };
     // (0.0.22) who: the saved chart's name, while the form is that chart's birth
@@ -347,7 +368,8 @@
     const a = out(v.wheel.axes[0], 1.1), m = out(v.wheel.axes[1], 1.1);
     w.append(label(a.x, a.y, "Asc"), label(m.x, m.y, "MC"));
   }
-  const fmtDay = t => new Date(t).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
+  // (0.0.23) today's sky, with its time: "November 19, 2026 at 9:14 AM"
+  const fmtDay = t => new Date(t).toLocaleString(undefined, { year: "numeric", month: "long", day: "numeric", hour: "numeric", minute: "2-digit" });
 
   // ---- (0.0.20; Matthew, 2026-11-18: "In FS mode for the chart, let's have a toggle for the birth information that moves it to
   // the top of the LHS column, so we can see text for birth chart and today's chart side by side as we hover over the center
@@ -568,7 +590,7 @@
       h.replaceChildren(S.past ? `A chart from ${S.past}` : a.who ? `A birth chart: ${a.who}` : a.app ? "This app's own birth chart" : "A birth chart");
       if (S.past) {
         const b = el("button", "", "New chart"); b.type = "button"; b.title = "Cast the birth in the form again, with today's sky";
-        b.addEventListener("click", () => { const now = new Date(); $("tdate").value = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`; cast(); });
+        b.addEventListener("click", () => { followNow = true; showNow(); markNow(); cast(); });
         h.append(b);
       }
       const local = new Date(a.birth).toLocaleString(undefined, { timeZone: a.zone, year: "numeric", month: "long", day: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit" });
@@ -627,7 +649,7 @@
       // (0.0.22) the menu on the saved chart of this birth, the one of its name first, if one is saved
       const list = charts.list(), c = list.find(x => x.name === r.who && sameTyped(x.typed, t)) || list.find(x => sameTyped(x.typed, t));
       fillSelect(c ? c.id : sameTyped(t, APP_TYPED) ? APP : NEW); $("cname").value = c ? c.name : ""; disarm(); markState();
-      const d = new Date(r.day); $("tdate").value = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+      fixNow(r.day);
       S.past = when; S.keep = false; S.error = "";
       go({ birth: r.birth, lat: r.lat, lon: r.lon, zone: r.zone, name: r.name, noTime: r.noTime, day: r.day, app: r.app, who: r.who || null, typed: r.typed });
       $("reading-head").scrollIntoView({ block: "nearest", behavior: "smooth" });
