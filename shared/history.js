@@ -1,4 +1,4 @@
-// hazeljs-oracles: each oracle's history of readings, kept in this browser's local storage (^ticket(734); Matthew, 2026-11-15:
+// hazeljs-examples: each oracle's history of readings, kept in this browser's local storage (^ticket(734); Matthew, 2026-11-15:
 // "retrieves past oracle readings with timestamps and outcomes, with a chance to open it as if it was just read (but with a new
 // heading --- reading from <Date, Time>)"; "stores that data in browser local storage, for now").
 //

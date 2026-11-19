@@ -1,4 +1,4 @@
-// hazeljs-oracles: an oracle compiled ahead of time (<app>/compiled.js, tools/make-compiled.py) against the same rules run
+// hazeljs-examples: an oracle compiled ahead of time (<app>/compiled.js, tools/make-compiled.py) against the same rules run
 // by hazeljs. The I Ching: many casts by coins and by yarrow, every one of the 64 hexagrams with each set of changing lines,
 // and readings of fewer than six lines. The Tarot: every spread (the year ahead from each month, with and without its
 // theme), many shuffles each, with reversals and without. Astrology (0.0.16): readings for births and days drawn across

@@ -1,4 +1,4 @@
-// hazeljs-oracles, the I Ching: its Hazel (rules/*.hz), compiled ahead of time to JavaScript by hazel-jit at
+// hazeljs-examples, the I Ching: its Hazel (rules/*.hz), compiled ahead of time to JavaScript by hazel-jit at
 // hazelgrove/hazel a4633af773 (trial/765-iching-aot), wrapped by tools/make-compiled.py. Made, not written: do not edit.
 // A prototype (ticket 765): with ?compiled in its address, the page casts and reads through this file instead of loading
 // hazeljs and building the program. The same answers are checked by node/compare-compiled.mjs.

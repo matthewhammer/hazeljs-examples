@@ -1,4 +1,4 @@
-// hazeljs-oracles, the Tarot: its Hazel (rules/*.hz), compiled ahead of time to JavaScript by hazel-jit at
+// hazeljs-examples, the Tarot: its Hazel (rules/*.hz), compiled ahead of time to JavaScript by hazel-jit at
 // hazelgrove/hazel 760ce2cf67 (trial/765-iching-aot), wrapped by tools/make-compiled.py. Made, not written: do not edit.
 // (ticket 765) The page runs its rules through this file instead of loading hazeljs and building the program, unless asked
 // for interpreted (?interpreted=1) or the rules are edited. The same answers are checked by node/compare-compiled.mjs.

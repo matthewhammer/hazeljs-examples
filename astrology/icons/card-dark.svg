@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200" width="320" height="200">
+<style>.h{fill:#1f2328;font:700 15px system-ui,sans-serif}.m{fill:#5b6470;font:10px system-ui,sans-serif}.k{fill:#1f2328;font:11px system-ui,sans-serif}
+.h{fill:#e8e6e3}.m{fill:#a2a9b3}.k{fill:#e8e6e3}
+</style>
+<text class="h" x="16" y="26">Astrology</text>
+<text class="m" x="16" y="42">an ancient oracle, charted in Hazel</text>
+<svg x="16" y="56" width="132" height="132" viewBox="0 0 512 512"><clipPath id="round"><rect width="512" height="512" rx="88"/></clipPath><g clip-path="url(#round)">
+
+<defs>
+<radialGradient id="bg" cx="50%" cy="45%" r="75%"><stop offset="0" stop-color="#1f3a7a"/><stop offset="0.6" stop-color="#0f1d45"/><stop offset="1" stop-color="#050a1c"/></radialGradient>
+<linearGradient id="gold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe7a3"/><stop offset="1" stop-color="#e0a83a"/></linearGradient>
+</defs>
+<rect width="512" height="512" fill="url(#bg)"/>
+<g fill="#fff6d8"><circle cx="70" cy="80" r="2.4"/><circle cx="452" cy="64" r="2"/><circle cx="440" cy="446" r="2.6"/><circle cx="58" cy="430" r="1.8"/><circle cx="470" cy="250" r="1.6"/><circle cx="40" cy="250" r="1.6"/></g>
+<g transform="translate(256 256)" fill="none" stroke="url(#gold)">
+<circle r="192" stroke-width="7"/>
+<circle r="150" stroke-width="3.5"/>
+<circle r="96" stroke-width="2" stroke-opacity="0.55"/>
+<g stroke-width="3.5">
+<line x1="150" y1="0" x2="192" y2="0"/><line x1="129.9" y1="75" x2="166.3" y2="96"/><line x1="75" y1="129.9" x2="96" y2="166.3"/>
+<line x1="0" y1="150" x2="0" y2="192"/><line x1="-75" y1="129.9" x2="-96" y2="166.3"/><line x1="-129.9" y1="75" x2="-166.3" y2="96"/>
+<line x1="-150" y1="0" x2="-192" y2="0"/><line x1="-129.9" y1="-75" x2="-166.3" y2="-96"/><line x1="-75" y1="-129.9" x2="-96" y2="-166.3"/>
+<line x1="0" y1="-150" x2="0" y2="-192"/><line x1="75" y1="-129.9" x2="96" y2="-166.3"/><line x1="129.9" y1="-75" x2="166.3" y2="-96"/>
+</g>
+</g>
+<g transform="translate(256 256)">
+<g fill="#ffe39a"><circle cx="164.9" cy="44.2" r="7"/><circle cx="44.2" cy="164.9" r="7"/><circle cx="-120.7" cy="120.7" r="7"/><circle cx="-164.9" cy="-44.2" r="7"/><circle cx="-44.2" cy="-164.9" r="7"/><circle cx="120.7" cy="-120.7" r="7"/></g>
+<path d="M 92.7 24.8 L -67.9 67.9 L -24.8 -92.7 Z" fill="none" stroke="#9ec5ff" stroke-width="3" stroke-opacity="0.85"/>
+<path d="M 24.8 92.7 L -92.7 -24.8 M 67.9 -67.9 L -92.7 -24.8" stroke="#ff9ec0" stroke-width="2.5" stroke-opacity="0.75"/>
+<circle r="42" fill="#0f1d45" stroke="url(#gold)" stroke-width="7"/>
+<circle r="10" fill="url(#gold)"/>
+</g>
+</g></svg>
+<text class="k" x="164" y="84">a birth chart: the Sun,</text>
+<text class="k" x="164" y="106">the Moon and the planets,</text>
+<text class="k" x="164" y="128">the rising sign, the houses;</text>
+<text class="k" x="164" y="150">today's sky against it</text>
+</svg>

@@ -1,4 +1,4 @@
-// hazeljs-oracles, the I Ching: the page. The casting and the reading are Hazel (rules/*.hz), shown in Hazel's own editor
+// hazeljs-examples, the I Ching: the page. The casting and the reading are Hazel (rules/*.hz), shown in Hazel's own editor
 // (../shared/hazel-listings.js) and built by hazeljs from npm; the page passes random numbers in and draws what comes back.
 // While the program has an error or a hole, the page's own JS (castJS, readingJS) answers instead, and each line says which did.
 (async () => {

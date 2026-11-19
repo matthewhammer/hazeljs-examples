@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""hazeljs-oracles, astrology: every float literal with more than six decimal places, outside comments, written as a ratio of
+"""hazeljs-examples, astrology: every float literal with more than six decimal places, outside comments, written as a ratio of
 whole numbers, 280.46061837 as (28046061837. /. 100000000.), the same number. Until hazelgrove/hazel#2831: Hazel prints a
 float literal to six decimal places, so its fast parser gives up on a longer one, and the slow parse of a whole program
 of these rules runs out of memory. A whole-number float prints back exactly.

@@ -1,4 +1,4 @@
-// hazeljs-oracles, the Tarot in Node: the same Hazel modules as the page (tarot/rules/*.hz), run through hazeljs. It deals each
+// hazeljs-examples, the Tarot in Node: the same Hazel modules as the page (tarot/rules/*.hz), run through hazeljs. It deals each
 // spread, checks that a deal never repeats a card and that every card can come, and says what a deal costs.
 //
 //   npm install && npm run tarot

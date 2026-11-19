@@ -1,4 +1,4 @@
-// hazeljs-oracles, the Tarot: the page. The deck, the deal and the spreads are Hazel (rules/*.hz), shown in Hazel's own editor
+// hazeljs-examples, the Tarot: the page. The deck, the deal and the spreads are Hazel (rules/*.hz), shown in Hazel's own editor
 // (../shared/hazel-listings.js) and built by hazeljs from npm; the page passes random numbers in and lays out what is dealt.
 // While the program has an error or a hole, the page's own JS (dealJS) deals instead. The faces are simple ones drawn here
 // (^ticket(732) will make them a deck; ^ticket(731) adds the 1909 cards).

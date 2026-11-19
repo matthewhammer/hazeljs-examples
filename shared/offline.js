@@ -5,7 +5,7 @@
   "use strict";
   const here = document.currentScript ? document.currentScript.src : location.href;
   const SW = new URL("../sw.js", here), SCOPE = new URL("../", here);
-  const EXTRA = "oracles-extra";
+  const EXTRA = "hazeljs-examples-extra";
   const secure = location.protocol === "https:" || ["localhost", "127.0.0.1", "[::1]"].includes(location.hostname);
   const supported = secure && "serviceWorker" in navigator && "caches" in window;
   let failed = "", prompt = null;
@@ -27,9 +27,9 @@
     s.active = !!navigator.serviceWorker.controller;
     try {
       for (const k of await caches.keys()) {
-        if (!k.startsWith("oracles-")) continue;
+        if (!k.startsWith("hazeljs-examples-")) continue;
         const n = (await (await caches.open(k)).keys()).length;
-        if (k === EXTRA) s.extras = n; else { s.files += n; s.version = k.slice("oracles-".length); }
+        if (k === EXTRA) s.extras = n; else { s.files += n; s.version = k.slice("hazeljs-examples-".length); }
       }
     } catch (e) { /* the browser keeps no caches here */ }
     return s;

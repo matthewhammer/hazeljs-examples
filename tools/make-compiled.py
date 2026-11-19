@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""hazeljs-oracles: an oracle's Hazel, compiled ahead of time, as <app>/compiled.js (ticket 765, and the Hazel reports'
+"""hazeljs-examples: an oracle's Hazel, compiled ahead of time, as <app>/compiled.js (ticket 765, and the Hazel reports'
 report 54, "Compiled ahead of time, for older phones"): the I Ching's since 0.0.11, the Tarot's since 0.0.13, astrology's
 since 0.0.16 (ticket 768).
 
@@ -94,7 +94,7 @@ runtime = jit[i:jit.index("|};", i)]
 src = open(a.src).read().strip()
 assert "HAZEL-JIT" not in src and src, "the compiled program, between the markers only"
 
-out = f"""// hazeljs-oracles, {TITLE}: its Hazel (rules/*.hz), compiled ahead of time to JavaScript by hazel-jit at
+out = f"""// hazeljs-examples, {TITLE}: its Hazel (rules/*.hz), compiled ahead of time to JavaScript by hazel-jit at
 // hazelgrove/hazel {a.commit} ({a.branch}), wrapped by tools/make-compiled.py. Made, not written: do not edit.
 // (ticket {TICKET}) The page runs its rules through this file instead of loading hazeljs and building the program, unless asked
 // for interpreted (?interpreted=1) or the rules are edited. The same answers are checked by node/compare-compiled.mjs.

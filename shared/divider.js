@@ -1,4 +1,4 @@
-// hazeljs-oracles: the divider between the code and the reading, in two-column mode (^ticket(739); Matthew, 2026-11-15: "in the
+// hazeljs-examples: the divider between the code and the reading, in two-column mode (^ticket(739); Matthew, 2026-11-15: "in the
 // two-column mode for each app, let's provide slider in the center to adjust the vertical division"). As the Petri example's and
 // Messed Up Dress Up's: drag it, or the arrow keys on it; a double-click puts it back. Its place is kept in this browser as the
 // code column's share of the width, one for each oracle's page. In one column it is hidden, and the page is as it was.

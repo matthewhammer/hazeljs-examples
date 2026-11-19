@@ -1,8 +1,15 @@
-# hazeljs-oracles: versions
+# hazeljs-examples: versions
 
 Each version lists what the apps do as of that version. The newest version is first.
 
 ## Unreleased
+
+## 0.0.25 (2026-11-19)
+
+Everything in 0.0.24, plus:
+
+- **Hazel activities, at a new address.** The apps are now at https://matthewhammer.org/hazeljs-examples/, and their repository is [hazeljs-examples](https://github.com/matthewhammer/hazeljs-examples). The front page has two parts, each with a link of its own: **Ancient oracles** (`#oracles`), and **One-player games** (`#games`), where Solitaire comes next. Each app's header links back to both: Hazel activities › ancient oracles.
+- **The old address sends you on.** Each page at https://matthewhammer.org/hazeljs-oracles/ goes to its new one, with its query and anchor. An app saved for use with no connection at the old address is cleared there; open it once at the new address, and it saves itself again (the Tarot's woodcut faces need saving again, too). Your past readings and saved charts carry over: they live in this browser, under the same names as before.
 
 ## 0.0.24 (2026-11-19)
 

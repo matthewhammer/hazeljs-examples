@@ -1,4 +1,4 @@
-// hazeljs-oracles, the I Ching in Node: the same Hazel modules as the page (i-ching/rules/*.hz), run through hazeljs. It casts
+// hazeljs-examples, the I Ching in Node: the same Hazel modules as the page (i-ching/rules/*.hz), run through hazeljs. It casts
 // lines by coins and by yarrow, checks the odds of each over many casts, checks the hexagram table against the trigrams, and
 // reads a few readings, with what each call costs.
 //

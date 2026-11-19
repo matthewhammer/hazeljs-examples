@@ -1,5 +1,5 @@
 {
-  "name": "hazeljs-oracles",
+  "name": "hazeljs-examples",
   "version": "0.0.14",
   "private": true,
   "description": "Ancient oracles whose core logic is written in Hazel and run by hazeljs: the I Ching, then the Tarot. Example apps for hazeljs.",
@@ -15,7 +15,7 @@
     "hazeljs": "0.0.4"
   },
   "license": "Apache-2.0",
-  "repository": "github:matthewhammer/hazeljs-oracles",
+  "repository": "github:matthewhammer/hazeljs-examples",
   "devDependencies": {
     "astronomy-engine": "^2.1.19"
   }

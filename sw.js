@@ -1,14 +1,14 @@
-// hazeljs-oracles: the service worker that lets each oracle run with no connection (0.0.24).
+// hazeljs-examples: the service worker that lets each oracle run with no connection (0.0.24).
 //
 // shared/offline.js installs it from any of the site's pages; its scope is the whole site. When it installs it saves every
 // app's own files (PRECACHE), and from then on it saves each file of the site a page fetches, and Hazel's library from
 // jsDelivr. Every request goes to the network first, so a page that is online always gets the newest files; with no
 // network, the saved copy answers, its ?v= query ignored. Hazel's editor frames come from build.hazel.org, which this
 // worker cannot answer for: with no connection, the listings stay text.
-const VERSION = "0.0.24";
-const CACHE = "oracles-" + VERSION;
+const VERSION = "0.0.25";
+const CACHE = "hazeljs-examples-" + VERSION;
 // (files a page saves on request, the Tarot's woodcut faces, and every face a page has shown: kept across versions)
-const EXTRA = "oracles-extra";
+const EXTRA = "hazeljs-examples-extra";
 const PRECACHE = [
   "./",
   "index.html",
@@ -90,7 +90,7 @@ self.addEventListener("install", e => {
 
 self.addEventListener("activate", e => {
   e.waitUntil(caches.keys()
-    .then(ks => Promise.all(ks.filter(k => k.startsWith("oracles-") && k !== CACHE && k !== EXTRA).map(k => caches.delete(k))))
+    .then(ks => Promise.all(ks.filter(k => k.startsWith("hazeljs-examples-") && k !== CACHE && k !== EXTRA).map(k => caches.delete(k))))
     .then(() => self.clients.claim()));
 });
 

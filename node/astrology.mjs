@@ -1,4 +1,4 @@
-// hazeljs-oracles, astrology (ticket 768): the rules in astrology/rules/*.hz, built by hazeljs, and checked against
+// hazeljs-examples, astrology (ticket 768): the rules in astrology/rules/*.hz, built by hazeljs, and checked against
 // Astronomy Engine (https://github.com/cosinekitty/astronomy, MIT), which the pages never load: the Julian day, the
 // sidereal time, the ascendant and the midheaven, for many moments and places; then the signs and aspects of a sample.
 //

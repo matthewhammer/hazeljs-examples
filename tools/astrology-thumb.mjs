@@ -1,4 +1,4 @@
-// hazeljs-oracles, astrology: the front page's picture, astrology/thumb.svg: the app's own birth chart (its first commit,
+// hazeljs-examples, astrology: the front page's picture, astrology/thumb.svg: the app's own birth chart (its first commit,
 // 0fa9e0a, 2026-11-17 18:03:51 UTC, at 40.046313° N, 105.286695° W), as the Wheel module lays it out, drawn on a light tile like
 // the I Ching's, with glyphs.svg's strokes copied in (a picture in an <img> cannot reach another file's symbols).
 //

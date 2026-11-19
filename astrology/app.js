@@ -1,4 +1,4 @@
-// hazeljs-oracles, astrology (ticket 768): the page. The astronomy, the chart, the aspects and the reading are Hazel
+// hazeljs-examples, astrology (ticket 768): the page. The astronomy, the chart, the aspects and the reading are Hazel
 // (rules/*.hz), shown in Hazel's own editor (../shared/hazel-listings.js) and built by hazeljs from npm. The page turns the
 // birth's local time into UTC (the browser's own time zones), asks the program for one reading, and draws what comes back.
 //

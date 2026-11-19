@@ -1,8 +1,8 @@
-# hazeljs-oracles
+# hazeljs-examples: Hazel activities
 
-**▶ Try it at https://matthewhammer.org/hazeljs-oracles/** (the [I Ching](https://matthewhammer.org/hazeljs-oracles/i-ching/), the [Tarot](https://matthewhammer.org/hazeljs-oracles/tarot/), [astrology](https://matthewhammer.org/hazeljs-oracles/astrology/))
+**▶ Try it at https://matthewhammer.org/hazeljs-examples/**: the ancient oracles (the [I Ching](https://matthewhammer.org/hazeljs-examples/i-ching/), the [Tarot](https://matthewhammer.org/hazeljs-examples/tarot/), [astrology](https://matthewhammer.org/hazeljs-examples/astrology/)) and one-player games. The old address, https://matthewhammer.org/hazeljs-oracles/, sends each page to its new one.
 
-**Ancient oracles whose core logic is written in [Hazel](https://hazel.org) and run by [hazeljs](https://www.npmjs.com/package/hazeljs).** Each oracle is its own app, on its own page: the reading on one side, revealed a step at a time, and on the other the Hazel program that makes it, in Hazel's own editor. The page passes the program random numbers, or a birth's time and place, and draws what it answers; edit the program and the page builds it again. While it has an error or a hole, the I Ching's and the Tarot's own JavaScript answers instead, and the page says which did (astrology has no such fallback: its sky is Hazel's alone).
+**Small apps whose rules are written in [Hazel](https://hazel.org) and run by [hazeljs](https://www.npmjs.com/package/hazeljs): ancient oracles, and one-player games.** Each is its own app, on its own page: the reading on one side, revealed a step at a time, and on the other the Hazel program that makes it, in Hazel's own editor. The page passes the program random numbers, or a birth's time and place, and draws what it answers; edit the program and the page builds it again. While it has an error or a hole, the I Ching's and the Tarot's own JavaScript answers instead, and the page says which did (astrology has no such fallback: its sky is Hazel's alone).
 
 It is the third example app for `hazeljs`, after [Messed Up Dress Up](https://matthewhammer.org/kids-choice-games/dress-up/) and [hazeljs-petri-example](https://github.com/matthewhammer/hazeljs-petri-example).
 
@@ -21,8 +21,8 @@ It is the third example app for `hazeljs`, after [Messed Up Dress Up](https://ma
 The pages need to be served over http, from `localhost` (Hazel's editor frames take messages only from a few sites, `localhost` among them):
 
 ```sh
-git clone --recurse-submodules https://github.com/matthewhammer/hazeljs-oracles
-cd hazeljs-oracles
+git clone --recurse-submodules https://github.com/matthewhammer/hazeljs-examples
+cd hazeljs-examples
 python3 -m http.server 8000 --bind 127.0.0.1
 ```
 

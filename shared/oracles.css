@@ -1,4 +1,4 @@
-/* hazeljs-oracles: what the oracles' pages share, beside style.css (the Petri example's, for Hazel's listings) */
+/* hazeljs-examples: what the oracles' pages share, beside style.css (the Petri example's, for Hazel's listings) */
 main.oracle { max-width: 1500px; }
 .app-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px; }
 .app-head h1 { margin: 0; }
@@ -65,11 +65,13 @@ body.js .nojs { display: none; }
 .series { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; margin: 20px 0; }
 .series a.series-card { display: block; padding: 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--paper); color: var(--ink); text-decoration: none; }
 .series a.series-card:hover { border-color: var(--accent); }
-.series .series-card h2 { margin: 6px 0; font-size: 1.25em; }
+.series .series-card h2, .series .series-card h3 { margin: 6px 0; font-size: 1.25em; }
+.toc { margin: 4px 0 8px; }
+h2[id] { scroll-margin-top: 12px; }
 .series .series-card svg { display: block; height: 92px; }
 /* (0.0.14, Matthew: "please center the thumbnails, and make the width of each in this form bigger") */
 .series .series-card img.thumb { display: block; height: 168px; width: auto; margin: 4px auto 14px; }
-.series .series-card.soon { opacity: 0.7; }
+.series .series-card.soon { opacity: 0.7; padding: 16px; border: 1px dashed var(--line); border-radius: 12px; }
 
 /* the Tarot: a table of cards, each in its place in the spread */
 .table { display: grid; gap: 12px; margin: 16px 0; justify-content: start; overflow-x: auto; padding: 4px 4px 2.2em; }

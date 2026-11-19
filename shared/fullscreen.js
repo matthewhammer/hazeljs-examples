@@ -1,4 +1,4 @@
-// hazeljs-oracles: full screen, for each oracle (0.0.16; Matthew, 2026-11-18: "for each ancient oracle app, in two-column
+// hazeljs-examples: full screen, for each oracle (0.0.16; Matthew, 2026-11-18: "for each ancient oracle app, in two-column
 // mode, let's provide a full screen button at the top of the main interactive elements -- in this mode, we ignore the Hazel
 // listings and only show the main components, organized into the geometry of the full browser window.")
 //

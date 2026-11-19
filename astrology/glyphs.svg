@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" style="display:none">
-<!-- hazeljs-oracles, astrology: the signs, the bodies and the aspects, drawn in simple strokes on a 100 by 100 grid.
+<!-- hazeljs-examples, astrology: the signs, the bodies and the aspects, drawn in simple strokes on a 100 by 100 grid.
      Ours (CC BY 4.0, as the repository's pictures). Use: <svg class="glyph"><use href="glyphs.svg#aries"/></svg>;
      the stroke is currentColor. -->
 <symbol id="aries" viewBox="0 0 100 100"><path d="M50,88 V42 M50,42 C50,12 14,12 16,36 C17,48 30,50 34,44 M50,42 C50,12 86,12 84,36 C83,48 70,50 66,44" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></symbol>

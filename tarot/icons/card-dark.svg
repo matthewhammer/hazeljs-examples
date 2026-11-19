@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200" width="320" height="200">
+<style>.h{fill:#1f2328;font:700 15px system-ui,sans-serif}.m{fill:#5b6470;font:10px system-ui,sans-serif}.k{fill:#1f2328;font:11px system-ui,sans-serif}
+.h{fill:#e8e6e3}.m{fill:#a2a9b3}.k{fill:#e8e6e3}
+</style>
+<text class="h" x="16" y="26">Tarot</text>
+<text class="m" x="16" y="42">an ancient oracle, dealt in Hazel</text>
+<svg x="16" y="56" width="132" height="132" viewBox="0 0 512 512"><clipPath id="round"><rect width="512" height="512" rx="88"/></clipPath><g clip-path="url(#round)">
+
+<defs>
+<radialGradient id="bg" cx="50%" cy="40%" r="75%"><stop offset="0" stop-color="#7a1f3d"/><stop offset="0.6" stop-color="#3d0f24"/><stop offset="1" stop-color="#170610"/></radialGradient>
+<linearGradient id="card" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff8e6"/><stop offset="1" stop-color="#efe0bd"/></linearGradient>
+<linearGradient id="gold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffd76a"/><stop offset="1" stop-color="#c9861c"/></linearGradient>
+</defs>
+<rect width="512" height="512" fill="url(#bg)"/>
+<g transform="rotate(-13 256 266)">
+<rect x="171" y="128" width="170" height="276" rx="16" fill="#2a0918" stroke="#e8c26a" stroke-width="5"/>
+<rect x="187" y="144" width="138" height="244" rx="9" fill="none" stroke="#e8c26a" stroke-opacity="0.6" stroke-width="3"/>
+<path d="M256 214 l10 32 l32 10 l-32 10 l-10 32 l-10 -32 l-32 -10 l32 -10 z" fill="#e8c26a" fill-opacity="0.75"/>
+</g>
+<g transform="rotate(10 256 266)">
+<rect x="171" y="128" width="170" height="276" rx="16" fill="url(#card)" stroke="#2a0918" stroke-width="4"/>
+<rect x="185" y="142" width="142" height="248" rx="9" fill="none" stroke="#9c2b4f" stroke-width="3"/>
+<path d="M256 186 l17 54 l54 17 l-54 17 l-17 54 l-17 -54 l-54 -17 l54 -17 z" fill="url(#gold)" stroke="#8a4a10" stroke-width="2"/>
+<circle cx="256" cy="257" r="9" fill="#9c2b4f"/>
+<path d="M214 175 l4 12 l12 4 l-12 4 l-4 12 l-4 -12 l-12 -4 l12 -4 z M298 315 l4 12 l12 4 l-12 4 l-4 12 l-4 -12 l-12 -4 l12 -4 z" fill="#9c2b4f"/>
+</g>
+</g></svg>
+<text class="k" x="164" y="84">78 cards, shuffled and</text>
+<text class="k" x="164" y="106">dealt into a spread,</text>
+<text class="k" x="164" y="128">turned one at a time,</text>
+<text class="k" x="164" y="150">simple or woodcut faces</text>
+</svg>

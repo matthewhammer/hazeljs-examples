@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""hazeljs-oracles, astrology (ticket 768): the Sky module's tables, written as Hazel from astronomia's source
+"""hazeljs-examples, astrology (ticket 768): the Sky module's tables, written as Hazel from astronomia's source
 (https://github.com/commenthol/astronomia, MIT; Sonia Keys's port of Jean Meeus's Astronomical Algorithms): the Moon's
 periodic terms in longitude (src/moonposition.js, ta; Meeus Table 47.A), Pluto's (src/pluto.js, t37; Meeus Table 37.A),
 and the planets' mean orbital elements of date (src/planetelements.js, cMean; Meeus Table 31.A). Prints Hazel, for

@@ -1,4 +1,4 @@
-// hazeljs-oracles, astrology (0.0.21, ticket 768; Matthew, 2026-11-18: "For this tool tip (outer ring of signs, which are
+// hazeljs-examples, astrology (0.0.21, ticket 768; Matthew, 2026-11-18: "For this tool tip (outer ring of signs, which are
 // constellations), can we show some SVG of the constellation too in the tool tip? ... one, perhaps stylized, for each sign?"):
 // the twelve zodiac constellations as small star figures, astrology/constellations.svg, a <symbol> each (con-aries, ...), and
 // astrology/constellations.html to look at them.
@@ -94,7 +94,7 @@ const credit = "The figures: ConstellationLines by Marc van der Sluys (https://g
   "the stars: the Yale Bright Star Catalogue, 5th revised edition (CDS V/50). Drawn by tools/make-constellations.mjs, which projects and styles them.";
 const symbols = made.map(m => `<symbol id="con-${m.sign.toLowerCase()}" viewBox="0 0 ${m.W} ${m.H}"><title>${m.name}</title>${m.svg}</symbol>`).join("\n");
 writeFileSync(new URL("../astrology/constellations.svg", import.meta.url),
-  `<?xml version="1.0" encoding="UTF-8"?>\n<!-- hazeljs-oracles: the twelve zodiac constellations, made by tools/make-constellations.mjs; do not edit.\n     ${credit} -->\n` +
+  `<?xml version="1.0" encoding="UTF-8"?>\n<!-- hazeljs-examples: the twelve zodiac constellations, made by tools/make-constellations.mjs; do not edit.\n     ${credit} -->\n` +
   `<svg xmlns="http://www.w3.org/2000/svg" style="display:none">\n<style>.con-lines line { stroke: currentColor; stroke-width: 0.7; stroke-linecap: round; opacity: 0.6; } .con-stars circle { fill: currentColor; }</style>\n${symbols}\n</svg>\n`);
 writeFileSync(new URL("../astrology/constellations.html", import.meta.url), `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
