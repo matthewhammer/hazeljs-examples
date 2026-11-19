@@ -203,6 +203,12 @@
   // ---- making frames: in document order, one at a time, the next when the last says ready (or gives up)
   function make(L) {
     if (L.frame || L.failed) return;
+    // (0.0.24) with no connection, Hazel's editor cannot load: the listing stays text, and asking again online opens it
+    if (!navigator.onLine && !FRAME.startsWith(location.origin)) {
+      L.holder.dataset.state = "text"; paint(L);
+      L.pre.title = "Hazel's editor needs a connection; here is the text";
+      pump(); return;
+    }
     L.frame = document.createElement("iframe");
     L.frame.className = "hazel-listing-frame";
     L.frame.title = L.module ? `Hazel's editor: the module ${L.module}` : "Hazel's editor: the program's types";

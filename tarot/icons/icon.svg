@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+<title>Tarot: two cards fanned, the front one a star</title>
+<defs>
+<radialGradient id="bg" cx="50%" cy="40%" r="75%"><stop offset="0" stop-color="#7a1f3d"/><stop offset="0.6" stop-color="#3d0f24"/><stop offset="1" stop-color="#170610"/></radialGradient>
+<linearGradient id="card" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff8e6"/><stop offset="1" stop-color="#efe0bd"/></linearGradient>
+<linearGradient id="gold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffd76a"/><stop offset="1" stop-color="#c9861c"/></linearGradient>
+</defs>
+<rect width="512" height="512" fill="url(#bg)"/>
+<g transform="rotate(-13 256 266)">
+<rect x="171" y="128" width="170" height="276" rx="16" fill="#2a0918" stroke="#e8c26a" stroke-width="5"/>
+<rect x="187" y="144" width="138" height="244" rx="9" fill="none" stroke="#e8c26a" stroke-opacity="0.6" stroke-width="3"/>
+<path d="M256 214 l10 32 l32 10 l-32 10 l-10 32 l-10 -32 l-32 -10 l32 -10 z" fill="#e8c26a" fill-opacity="0.75"/>
+</g>
+<g transform="rotate(10 256 266)">
+<rect x="171" y="128" width="170" height="276" rx="16" fill="url(#card)" stroke="#2a0918" stroke-width="4"/>
+<rect x="185" y="142" width="142" height="248" rx="9" fill="none" stroke="#9c2b4f" stroke-width="3"/>
+<path d="M256 186 l17 54 l54 17 l-54 17 l-17 54 l-17 -54 l-54 -17 l54 -17 z" fill="url(#gold)" stroke="#8a4a10" stroke-width="2"/>
+<circle cx="256" cy="257" r="9" fill="#9c2b4f"/>
+<path d="M214 175 l4 12 l12 4 l-12 4 l-4 12 l-4 -12 l-12 -4 l12 -4 z M298 315 l4 12 l12 4 l-12 4 l-4 12 l-4 -12 l-12 -4 l12 -4 z" fill="#9c2b4f"/>
+</g>
+</svg>

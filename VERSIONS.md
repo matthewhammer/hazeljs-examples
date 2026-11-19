@@ -4,6 +4,15 @@ Each version lists what the apps do as of that version. The newest version is fi
 
 ## Unreleased
 
+## 0.0.24 (2026-11-19)
+
+Everything in 0.0.23, plus:
+
+- **Each oracle works with no connection.** Open an oracle once while online and it saves itself on this device; after that it opens, casts and reads with no connection at all, and your past readings and saved charts are there as before. Opening or editing the rules in Hazel's editor still needs a connection; with none, the listings stay text.
+- **Each oracle is an app with its own icon.** The I Ching's is a gold hexagram (63, After Completion), the Tarot's two fanned cards with a star, Astrology's a gold zodiac wheel with the Sun at its heart. Put it on your home screen, or install it on a computer, and it opens in its own window.
+- **📲 Use it with no connection,** under ⚙️ Advanced: whether this app is saved on this device, an **Install this app** button where the browser offers one, and how to put the app's icon on this device (iPhone and iPad, Android, a computer), this device's way first. On the Tarot, a button saves the woodcut faces too (about 4 MB to download in black and white, about 28 MB in color); a woodcut face that is not saved, with no connection, is drawn simple instead.
+- **One button casts in full screen.** In full screen with nothing cast yet, the picture's place has one button: **☰ Cast the hexagram** (all six lines, by the method chosen), **✧ Shuffle, deal and turn** (the spread chosen, every card turned), **✶ Cast the chart** (the birth in the form, against today's sky).
+
 ## 0.0.23 (2026-11-19)
 
 Everything in 0.0.22, plus:

@@ -135,6 +135,7 @@
     rel.hidden = !(n >= 6 && r.changing.length);
     if (!rel.hidden) { drawHex($("relating-lines"), ls.map(becomes), false); $("relating-cap").textContent = `becomes ${r.relating.number}. ${r.relating.name}`; }
     drawStatus();
+    if (window.OracleFs) window.OracleFs.empty(n === 0);
   }
   // ---- the reading's heading: a new one, or one opened from the history, with the time it was made
   function drawHead() {
@@ -212,7 +213,7 @@
     // (0.0.8, Matthew 2026-11-16: "only reveal the Hazel edit boxes when asked to") each listing stays text until its button opens
     // Hazel's editor there; Hazel itself (hazel-lib.js) still casts from the text
     window.HazelListingsOptions = { start: "request" };
-    await load("../shared/hazel-listings.js?v=0.0.14");
+    await load("../shared/hazel-listings.js?v=0.0.24");
     L = window.HazelListings;
     L.tail(PROGRAM, TAIL);
     L.onChange(PROGRAM, () => { if (!window.Hazel) loadLib(); clearTimeout(timer); timer = setTimeout(build, 350); });
@@ -221,6 +222,8 @@
   }
   $("cast").addEventListener("click", () => { castOne(); keep(); draw(); });
   $("all").addEventListener("click", () => { while (S.casts.length < 6) castOne(); keep(); draw(); });
+  // (0.0.24) in full screen with nothing cast, one button casts all six lines, by the method chosen
+  if (window.OracleFs) window.OracleFs.offer({ label: "☰ Cast the hexagram", title: "Casts all six lines at once, by the method chosen", where: ".hexes", cast: () => $("all").click() });
   $("again").addEventListener("click", startAgain);
   $("question").addEventListener("input", drawHead);
   $("reset-rules").addEventListener("click", () => { if (L) L.reset(PROGRAM); });

@@ -100,6 +100,76 @@
     return stats(times);
   }
 
+  // ---- 📲 this app on this device with no connection (0.0.24): whether it is saved, the browser's own install button where it
+  // offers one, and how to put the app's icon on this device, this device's way first. shared/offline.js keeps the service
+  // worker; app.offlineExtras, if any, are sets of files saved only on request (the Tarot's woodcut faces).
+  function platform() {
+    const ua = navigator.userAgent;
+    if (/iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)) return "ios";
+    if (/Android/.test(ua)) return "android";
+    if (/Firefox\//.test(ua)) return "firefox";
+    if (/Safari\//.test(ua) && !/Chrome|Chromium|Edg\//.test(ua)) return "safari";
+    return "desktop";
+  }
+  const STEPS = {
+    ios: ["📱 iPhone or iPad, in Safari", ["Tap Share (the square with an arrow pointing up), at the bottom of the screen or at the top right.",
+      "Scroll down the list, and tap Add to Home Screen.", "Tap Add. The app's icon is now on your home screen: open the app from there."]],
+    android: ["📱 Android, in Chrome", ["Tap ⋮ at the top right.", "Tap Add to Home screen, or Install app.",
+      "Tap Install (or Add). The app's icon is now on your home screen: open the app from there."]],
+    desktop: ["💻 A computer, in Chrome or Edge", ["Click the install button at the right end of the address bar (a small screen with an arrow), or open the menu (⋮ in Chrome; … then Apps in Edge).",
+      "Choose Install, then Install again.", "The app opens in its own window, with its own icon, like any other app."]],
+    safari: ["💻 A Mac, in Safari", ["Choose File, then Add to Dock.", "Click Add. The app's icon is in the Dock: open the app from there."]],
+    firefox: ["💻 Firefox", ["Firefox makes no icon for a site: bookmark this page instead.",
+      "Once opened here while online, the page works with no connection too."]],
+  };
+  function offlineSection(app) {
+    const O = window.OracleOffline;
+    const state = el("p", { class: "offline-status" }, "📲 …");
+    const install = el("button", { type: "button", class: "primary", hidden: "", onclick: async () => { await O.install(); show(); } }, "📲 Install this app");
+    const mine = platform();
+    const stepsOf = k => el("div", { class: "offline-steps" }, [el("b", {}, STEPS[k][0]), el("ol", {}, STEPS[k][1].map(t => el("li", {}, t)))]);
+    const others = el("details", { class: "offline-others" }, [el("summary", {}, "On other devices"),
+      ...Object.keys(STEPS).filter(k => k !== mine).map(stepsOf)]);
+    const extras = (app.offlineExtras || []).map(x => {
+      const line = el("span", { class: "muted" }, "");
+      const b = el("button", { type: "button" }, `💾 Save ${x.label} too (${x.size})`);
+      const count = async () => { const n = O ? await O.saved(x.urls) : 0; line.textContent = ` ${n} of ${x.urls.length} saved on this device`; b.disabled = n === x.urls.length; };
+      b.addEventListener("click", async () => {
+        b.disabled = true;
+        const got = await O.save(x.urls, (d, n) => { line.textContent = ` saving: ${d} of ${n}…`; });
+        line.textContent = got < x.urls.length ? ` ${got} of ${x.urls.length} saved; the rest when there is a connection` : ` all ${got} saved on this device`;
+        b.disabled = got === x.urls.length;
+      });
+      return { row: el("p", { class: "offline-extra" }, [b, line]), count };
+    });
+    async function show() {
+      if (!O) { state.textContent = "📴 The offline part of the page did not load."; return; }
+      const s = await O.status();
+      const now = s.online ? "" : " You are offline now: casting and readings work; Hazel's editor and library wait for a connection.";
+      state.textContent =
+        !s.secure ? "📴 Saving for offline use needs the page served over https, or from localhost; this one is not."
+        : !s.supported ? "📴 This browser cannot keep the app for use with no connection."
+        : s.failed ? `📴 The offline worker did not start (${s.failed}).`
+        : s.files ? `✓ Ready with no connection: ${s.files} files saved on this device${s.version ? ` (version ${s.version})` : ""}.` +
+            (s.standalone ? " You opened it from its icon." : "") + now
+        : "⏳ Saving the app on this device for use with no connection…" + now;
+      install.hidden = !O.canInstall();
+      extras.forEach(x => x.count());
+    }
+    if (O) { O.onChange(show); O.ready.then(show); }
+    return { show, nodes: [
+      el("h3", { class: "advanced-cap" }, "📲 Use it with no connection"),
+      state,
+      el("p", { class: "muted" }, `Put ${app.name}'s icon on this device, and open it once while online, so it saves itself. After that it works ` +
+        "with no connection: casting, the reading, and your past readings and anything you saved, which live on this device. Opening the rules in Hazel's " +
+        "editor, or editing them, needs a connection."),
+      el("div", { class: "speed-row" }, [install]),
+      stepsOf(mine),
+      ...extras.map(x => x.row),
+      others,
+    ] };
+  }
+
   // app: { holder, name, about, built(), libAt(), work: async (say) => ({ data, text: [phrases] }), keysIn: element or null }
   function panel(app) {
     const out = el("input", { type: "text", readonly: "", class: "speed-line", placeholder: "🧪 the line shows here", onfocus: e => e.target.select() });
@@ -141,9 +211,11 @@
     const ver = el("p", { class: "advanced-version" }, "🏷️ version …");
     versionKnown.then(() => { ver.textContent = `🏷️ version ${VERSION}` + (RELEASED ? `, out ${RELEASED}` : ""); });
     const newsBox = el("div", { class: "news", tabindex: "0", "aria-label": "what's new: every version and its notes" }, el("p", { class: "muted" }, "📰 …"));
+    const off = offlineSection(app);
     const box = el("details", { class: "advanced" }, [
       el("summary", {}, "⚙️ Advanced"),
       ver,
+      ...off.nodes,
       el("h3", { class: "advanced-cap" }, "🧪 This device's speed"),
       el("div", { class: "speed-row" }, [run, copy, pad]),
       out,
@@ -153,7 +225,7 @@
       newsBox,
     ]);
     // (the notes are read when ⚙️ Advanced is first opened, not with the page)
-    box.addEventListener("toggle", () => { if (box.open && !newsBox.dataset.read) { newsBox.dataset.read = "1"; news(newsBox); } });
+    box.addEventListener("toggle", () => { if (box.open) off.show(); if (box.open && !newsBox.dataset.read) { newsBox.dataset.read = "1"; news(newsBox); } });
     app.holder.replaceChildren(box);
   }
   window.OracleAdvanced = { panel, stats, painted };

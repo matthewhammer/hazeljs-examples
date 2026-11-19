@@ -50,9 +50,29 @@
     ui.insertBefore(left, ui.firstChild.nextSibling);
   };
   const scatter = () => { for (const [e, mark] of moved) mark.replaceWith(e); moved = []; left.remove(); };
+  // ---- (0.0.24) one button in the picture's place, in full screen while no reading is cast: each app offers its cast
+  // (OracleFs.offer({ label, title, cast })) and says, as its reading changes, whether it is empty (OracleFs.empty(bool))
+  const castBtn = document.createElement("button");
+  castBtn.type = "button";
+  castBtn.className = "fs-cast primary";
+  castBtn.hidden = true;
+  let offered = null, isEmpty = true;
+  const showCast = () => { castBtn.hidden = !(offered && isEmpty && on()); };
+  castBtn.addEventListener("click", () => { if (offered) offered.cast(); });
+  window.OracleFs = {
+    // (o.where: an element of the picture to center the button on, kept when the app draws, as the I Ching's hexagrams)
+    offer(o) {
+      offered = o; castBtn.textContent = o.label; castBtn.title = o.title || "";
+      const at = o.where && ui.querySelector(o.where);
+      if (at) { at.classList.add("fs-cast-at"); at.append(castBtn); castBtn.classList.add("fs-cast-in"); }
+      showCast();
+    },
+    empty(v) { isEmpty = !!v; showCast(); },
+  };
   const set = v => {
     if (v) gather(); else scatter();
     root.classList.toggle("oracle-fs", v);
+    showCast();
     label();
     if (v) cols(); else clearCols();
     // (anything that measures itself, such as the Tarot's table, measures again)
@@ -74,6 +94,7 @@
   bar.className = "fs-bar";
   bar.append(btn);
   ui.prepend(bar);
+  bar.after(castBtn);
 
   // ---- the two dividers: each oracle's left column, its right column (the I Ching's inside its .reading grid), by an element
   // as wide as the column

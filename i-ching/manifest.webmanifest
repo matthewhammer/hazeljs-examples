@@ -1,0 +1,36 @@
+{
+ "name": "I Ching, cast in Hazel",
+ "short_name": "I Ching",
+ "description": "Cast six lines by three coins or the yarrow stalks; the hexagram, its changing lines and the one they turn it into.",
+ "start_url": "./",
+ "scope": "./",
+ "display": "standalone",
+ "background_color": "#26164a",
+ "theme_color": "#26164a",
+ "icons": [
+  {
+   "src": "icons/icon.svg",
+   "sizes": "any",
+   "type": "image/svg+xml",
+   "purpose": "any"
+  },
+  {
+   "src": "icons/icon-192.png",
+   "sizes": "192x192",
+   "type": "image/png",
+   "purpose": "any"
+  },
+  {
+   "src": "icons/icon-512.png",
+   "sizes": "512x512",
+   "type": "image/png",
+   "purpose": "any"
+  },
+  {
+   "src": "icons/icon-512.png",
+   "sizes": "512x512",
+   "type": "image/png",
+   "purpose": "maskable"
+  }
+ ]
+}

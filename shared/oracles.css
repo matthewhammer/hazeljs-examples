@@ -277,6 +277,12 @@ html.oracle-fs .oracle-ui { position: fixed; inset: 0; z-index: 50; max-height: 
 html.oracle-fs .oracle-ui > * { min-width: 0; }
 html.oracle-fs .fs-bar { position: absolute; top: 10px; right: 14px; z-index: 2; margin: 0; }
 html.oracle-fs .oracle-ui .nojs { display: none; }
+/* (0.0.24) the one button that casts a whole reading, in the picture's place, while none is cast */
+.fs-cast[hidden], html:not(.oracle-fs) .fs-cast { display: none; }
+html.oracle-fs .fs-cast { font-size: 1.45em; padding: 0.85em 1.9em; border-radius: 14px; box-shadow: 0 6px 22px rgba(0, 0, 0, 0.22); white-space: nowrap; }
+html.oracle-fs .oracle-ui > .fs-cast { grid-column: 2; grid-row: 1; align-self: center; justify-self: center; z-index: 2; }
+html.oracle-fs .fs-cast-at { position: relative; }
+html.oracle-fs .fs-cast-in { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 2; }
 html.oracle-fs .oracle-ui .status { margin: 8px 0; }
 html.oracle-fs .reading-head { margin-top: 6px; }
 /* the two dividers (shared/fullscreen.js), each in the gap beside the picture, placed by the script */
@@ -352,5 +358,14 @@ html.oracle-fs .tarot-ui > .faces-credit { grid-column: 2; grid-row: 2; margin: 
   html.oracle-fs .fs-left { overflow: visible; }
   html.oracle-fs .fs-divider { display: none; }
   html.oracle-fs .fs-bar { position: static; }
+  html.oracle-fs .oracle-ui > .fs-cast:not([hidden]) { display: block; margin: 12px auto; }
   html.oracle-fs .astro-ui .wheel { max-height: none; }
 }
+
+/* (0.0.24) ⚙️ Advanced, 📲 use it with no connection */
+.advanced .offline-status { margin: 4px 0 6px; }
+.advanced .offline-steps { margin: 8px 0; }
+.advanced .offline-steps ol { margin: 4px 0 0; padding-left: 1.5em; }
+.advanced .offline-steps li { margin: 2px 0; }
+.advanced .offline-extra { margin: 8px 0; }
+.advanced .offline-others > summary { cursor: pointer; color: var(--muted); margin: 6px 0; }

@@ -606,6 +606,7 @@
     } else { $("notes").replaceChildren(); $("notes-birth").replaceChildren(); }
     placeNotes();
     drawStatus();
+    if (window.OracleFs) window.OracleFs.empty(!(r && r.ok));
   }
   const fmtMs = ms => ms < 1 ? "under a millisecond" : `${ms.toFixed(0)} ms`;
   function drawStatus() {
@@ -677,7 +678,7 @@
     document.querySelector(`pre.hazel[data-program="${PROGRAM}"]:not([data-module])`).textContent = pre;
     MODULES.forEach((m, i) => { document.querySelector(`pre.hazel[data-module="${m}"]`).textContent = mods[i]; });
     window.HazelListingsOptions = { start: "request" };
-    await load("../shared/hazel-listings.js?v=0.0.14");
+    await load("../shared/hazel-listings.js?v=0.0.24");
     L = window.HazelListings;
     L.tail(PROGRAM, LISTING_TAIL);
     // an edit casts the chart again, once the typing stops
@@ -687,6 +688,8 @@
     $("status").textContent = "Could not start: " + (e && e.message || e) + ". Serve this folder over http (python3 -m http.server) and open it from localhost.";
   }
   $("form").addEventListener("submit", e => { e.preventDefault(); cast(); });
+  // (0.0.24) in full screen with no chart, one button casts it: the birth the form holds, against today's sky
+  if (window.OracleFs) window.OracleFs.offer({ label: "✶ Cast the chart", title: "Casts the chart of the birth in the form, against today's sky", cast: () => $("cast").click() });
   $("reset-rules").addEventListener("click", () => { if (L) L.reset(PROGRAM); });
   document.body.classList.add("js");
   draw();

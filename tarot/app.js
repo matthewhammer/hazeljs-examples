@@ -88,8 +88,13 @@
   const facesOf = v => Object.prototype.hasOwnProperty.call(WOOD_DIR, v) ? v : "simple";
   let FACES = (() => { try { return facesOf(localStorage.getItem(FACES_KEY)); } catch (e) { return "simple"; } })();
   const img = (src, alt) => { const i = el("img"); i.src = src; i.alt = alt; i.decoding = "async"; i.draggable = false; return i; };
-  function face(d) {
-    if (FACES in WOOD_DIR) { const f = el("div", "face wood"); f.append(img(woodFile(d.card), d.name + (d.reversed ? ", reversed" : ""))); return f; }
+  // (0.0.24) a woodcut face that does not load (with no connection, and not saved on this device) is drawn simple instead
+  function face(d, simple) {
+    if (!simple && FACES in WOOD_DIR) {
+      const f = el("div", "face wood"), i = img(woodFile(d.card), d.name + (d.reversed ? ", reversed" : ""));
+      i.addEventListener("error", () => f.replaceWith(face(d, true)), { once: true });
+      f.append(i); return f;
+    }
     const f = el("div", "face" + (d.card.tag === "Major" ? " major" : " minor " + d.card.value[0].tag.toLowerCase()));
     if (d.card.tag === "Major") { f.append(el("div", "num", ROMAN(d.card.value)), el("div", "big", "✶"), el("div", "nm", d.name)); return f; }
     const [s, r] = [d.card.value[0].tag, d.card.value[1]];
@@ -183,6 +188,7 @@
       $("read").append(li);
     }
     drawStatus();
+    if (window.OracleFs) window.OracleFs.empty(!S.dealt.length);
   }
   // what the chosen spread is for, under the chooser
   function drawUse() { const o = $("spread").selectedOptions[0]; $("spread-use").textContent = o ? o.dataset.use || "" : ""; }
@@ -226,18 +232,27 @@
     // (0.0.8, Matthew 2026-11-16: "only reveal the Hazel edit boxes when asked to") each listing stays text until its button opens
     // Hazel's editor there; Hazel itself (hazel-lib.js) still casts from the text
     window.HazelListingsOptions = { start: "request" };
-    await load("../shared/hazel-listings.js?v=0.0.14");
+    await load("../shared/hazel-listings.js?v=0.0.24");
     L = window.HazelListings; L.tail(PROGRAM, TAIL);
     L.onChange(PROGRAM, () => { if (!window.Hazel) loadLib(); clearTimeout(timer); timer = setTimeout(build, 350); });
   } catch (e) {
     $("status").textContent = "Could not start: " + (e && e.message || e) + ". Serve this folder over http (python3 -m http.server) and open it from localhost.";
   }
   $("deal").addEventListener("click", () => { deal(); drawUse(); draw(); });
+  // (0.0.24) in full screen with nothing dealt, one button shuffles, deals the spread chosen and turns every card
+  if (window.OracleFs) window.OracleFs.offer({ label: "✧ Shuffle, deal and turn", title: "Deals the spread chosen and turns every card",
+    cast: () => { deal(); drawUse(); S.turned = S.dealt.length; draw(); } });
   // ---- (0.0.9) ⚙️ Advanced (../shared/advanced.js): the version and its notes, and 🧪 this device's speed: a deal of every spread through Hazel, with a
   // fixed stream of draws so every device does the same work, and a Celtic Cross drawn with every card turned; then the
   // table as it was
+  // (0.0.24) every woodcut face of a set, and the back, to save for use with no connection
+  const woodAll = dir => [...WOOD_MAJOR.map(m => `woodcut/${dir}/${m}.svg`),
+    ...Object.values(WOOD_SUIT).flatMap(su => Array.from({ length: 14 }, (_, k) => `woodcut/${dir}/${su}-${WOOD_RANK(k + 1)}.svg`)),
+    "woodcut/cards/back.svg"].map(u => new URL(u, location.href).href);
   if (window.OracleAdvanced) window.OracleAdvanced.panel({
     holder: $("advanced"), name: "Tarot", built: () => S.built, libAt: () => S.libAt, keysIn: null,
+    offlineExtras: [["the black and white woodcut faces", "cards", "about 4 MB to download"], ["the colored woodcut faces", "colori", "about 28 MB to download"]]
+      .map(([label, dir, size]) => ({ label, size, urls: woodAll(dir) })),
     mode: () => ({ asked: COMPILED ? "compiled" : "interpreted", error: S.compiledError || null }),
     about: "a deal of each spread through Hazel, and five drawings of a Celtic Cross with every card turned",
     work: async say => {
