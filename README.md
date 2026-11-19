@@ -55,9 +55,12 @@ npm run i-ching
 | `astrology/constellations.svg` | The twelve zodiac constellations as star figures, for a sign's tooltip (`constellations.html` shows them), made by `tools/make-constellations.mjs` from ConstellationLines (Marc van der Sluys, CC BY 4.0) and the Yale Bright Star Catalogue. |
 | `tarot/meanings/*.json` | Where each card's meaning is on other sites, one map per site (Biddy Tarot, Brigit Esselmont; Labyrinthos, Tina Gong), keyed by our card ids. |
 | `shared/` | What the pages share: Hazel's listings as editors (`hazel-listings.js`, from hazeljs-petri-example), each oracle's 🕰 history of readings in the browser's local storage, with notes and an emoji on each (`history.js`), the divider between the code and the reading (`divider.js`), full screen, with its two dividers (`fullscreen.js`), and the styles. |
+| `solitaire/rules/*.hz` | Solitaire (Klondike) in Hazel: its vocabulary (`preamble.hz`: a card, a pile, the game, a move), the deck (`Cards.hz`), the deal (`Deal.hz`: the deck shuffled by the page's random numbers into seven piles and the stock), and the moves (`Moves.hz`: every legal move, the moves from one place, a move made, the win). The page calls `(deal, moves, moves_from, apply, won)`: a game is a value, (game, move) -> game, the shape a livelit for the game will want. |
+| `solitaire/index.html`, `solitaire/app.js` | Solitaire's page: the table, a tap moving a card where Hazel says it first fits, a drag where you choose, undo, a hint, and finishing; the game kept on this device. |
+| `solitaire/cards/`, `solitaire/backs.js` | The 52 faces, Adrian Kennard's (CC0); the backs, drawn by `backs.js`: thirteen designs, each the same either way up, in five colour themes, chosen under ⚙️ Advanced. |
 | `sw.js`, `shared/offline.js` | Each oracle with no connection: the service worker saves every app's own files when it installs, and each file a page fetches after, answering from them when there is no network; `offline.js` installs it and keeps the browser's install prompt. Under ⚙️ Advanced, 📲 says whether this device holds the app, and how to put its icon on the device. |
 | `*/manifest.webmanifest`, `*/icons/` | Each oracle as an app of its own: its name, colors and icon (an SVG, drawn by hand, and PNGs made from it with ffmpeg), for a home screen or a computer's apps. |
-| `node/i-ching.mjs`, `node/tarot.mjs`, `node/astrology.mjs` | Each oracle in Node (`npm run i-ching`, `npm run tarot`, `npm run astrology`). |
+| `node/i-ching.mjs`, `node/tarot.mjs`, `node/astrology.mjs`, `node/solitaire.mjs` | Each oracle in Node (`npm run i-ching`, `npm run tarot`, `npm run astrology`). |
 
 ## Things to know
 

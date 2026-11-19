@@ -32,7 +32,8 @@
   // ---- the left column, gathered: each part's place kept by a marker, to put it back
   const LEFT_PARTS = { "astro-ui": ["#split-toggle", ".astro-form", "#status", "#reading-head", "#reading-q", "#notes-birth", "#history"],
     "iching-ui": [".question-label", ".question", ".controls", "#status", "#reading-head", "#reading-q", "#history"],
-    "tarot-ui": [".controls", ".spread-use", "#status", "#reading-head", "#history"] };
+    "tarot-ui": [".controls", ".spread-use", "#status", "#reading-head", "#history"],
+    "solitaire-ui": [".controls", "#status", "#info"] };
   const partsOf = Object.entries(LEFT_PARTS).find(([c]) => ui.classList.contains(c));
   const left = document.createElement("div");
   left.className = "fs-left";

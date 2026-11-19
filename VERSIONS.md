@@ -4,6 +4,15 @@ Each version lists what the apps do as of that version. The newest version is fi
 
 ## Unreleased
 
+## 0.0.26 (2026-11-19)
+
+Everything in 0.0.25, plus:
+
+- **Solitaire, the first of the one-player games.** Klondike, at https://matthewhammer.org/hazeljs-examples/solitaire/: its deal, every legal move, the moves from one place, a move made, and the win are a Hazel program, shown beside the table, and the page asks it at every move. Tap a card to move it where Hazel says it first fits (its foundation first), or drag it where you choose; tap the stock to turn one card over, or three. **↶ Undo**, **Hint**, and **Finish** once every card is face up. The game in progress is kept on this device. In full screen with no game, one button deals.
+- **The cards.** The faces are Adrian Kennard's, CC0 (court cards traced from a Goodall & Son deck of about 1870). The backs are ours: thirteen designs (fleurs-de-lis, lions, salamanders, tigers, leaves, flowers and vines, hazelnuts, peacock feathers, butterflies, a compass rose, a woven knot, waves and sun, diamonds), each drawn twice, base to base, or already the same either way up, so a card turned around cannot be told from the rest; in five colour themes (royal blue and gold, magenta and black, forest green and cream, crimson and ivory, midnight and silver). Chosen under ⚙️ Advanced, 🂠 Card backs.
+- **Solitaire works with no connection too,** once opened, with its own icon: three cards fanned on green felt.
+- **In Node:** `npm run solitaire` deals, plays random legal moves, and checks that no card is lost or doubled, that each move offered is allowed, and that the moves from one place agree with every move.
+
 ## 0.0.25 (2026-11-19)
 
 Everything in 0.0.24, plus:

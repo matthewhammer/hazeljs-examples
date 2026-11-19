@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="-120 -168 240 336" width="2.5in" height="3.5in">
+<title>A card's back: two gold fleurs-de-lis base to base, one turned over, so the back looks the same either way up, in an oval on a blue lattice (hazeljs-examples, drawn for it, CC BY 4.0)</title>
+<defs>
+<pattern id="lattice" width="18" height="18" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="18" height="18" fill="#1d3a7a"/><path d="M0 0H18M0 0V18" stroke="#8fb0f0" stroke-width="2"/><circle cx="9" cy="9" r="1.8" fill="#e8c56f"/></pattern>
+<g id="lily" fill="#e8c56f" stroke="#7a5a12" stroke-width="1.2" stroke-linejoin="round">
+<path d="M0 -62 C11 -50 15 -30 9 -12 C7 -6 5 -2 4 2 L-4 2 C-5 -2 -7 -6 -9 -12 C-15 -30 -11 -50 0 -62 Z"/>
+<path d="M5 0 C9 -20 22 -34 37 -32 C50 -30 54 -16 46 -6 C42 -1 36 -1 33 -5 C38 -6 41 -11 39 -16 C36 -22 27 -22 20 -14 C15 -9 11 -3 9 3 Z"/>
+<path d="M-5 0 C-9 -20 -22 -34 -37 -32 C-50 -30 -54 -16 -46 -6 C-42 -1 -36 -1 -33 -5 C-38 -6 -41 -11 -39 -16 C-36 -22 -27 -22 -20 -14 C-15 -9 -11 -3 -9 3 Z"/>
+<rect x="-21" y="1" width="42" height="9" rx="2.5"/>
+<path d="M-4 10 L4 10 C4 17 2 23 0 28 C-2 23 -4 17 -4 10 Z"/>
+<path d="M7 10 C9 18 15 24 22 22 C26 21 27 16 23 14 C21 18 16 18 13 10 Z"/>
+<path d="M-7 10 C-9 18 -15 24 -22 22 C-26 21 -27 16 -23 14 C-21 18 -16 18 -13 10 Z"/>
+</g>
+</defs>
+<rect x="-119" y="-167" width="238" height="334" rx="12" fill="#fff" stroke="#3a3a3a" stroke-width="1"/>
+<rect x="-106" y="-154" width="212" height="308" rx="8" fill="url(#lattice)" stroke="#1d3a7a" stroke-width="3"/>
+<rect x="-98" y="-146" width="196" height="292" rx="6" fill="none" stroke="#e8c56f" stroke-width="2"/>
+<ellipse rx="74" ry="126" fill="#16306a" stroke="#e8c56f" stroke-width="4"/>
+<ellipse rx="66" ry="118" fill="none" stroke="#e8c56f" stroke-width="1.2" stroke-opacity="0.7"/>
+<use xlink:href="#lily" href="#lily" transform="translate(0 -36) scale(1.12)"/>
+<use xlink:href="#lily" href="#lily" transform="rotate(180) translate(0 -36) scale(1.12)"/>
+</svg>

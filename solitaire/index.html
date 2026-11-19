@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Solitaire, played by Hazel's rules</title>
+<meta name="description" content="Klondike solitaire whose deal, legal moves and win are written in Hazel and run by hazeljs, shown beside the game: tap or drag the cards. A one-player game among the Hazel activities, an example for hazeljs.">
+<link rel="stylesheet" href="../shared/style.css?v=0.0.14">
+<link rel="stylesheet" href="../shared/oracles.css?v=0.0.26">
+<link rel="stylesheet" href="solitaire.css?v=0.0.26">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="icon" href="icons/icon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="theme-color" content="#16532c">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Solitaire">
+</head>
+<body><main class="oracle">
+<div class="app-head">
+<h1>Solitaire, played by Hazel's rules</h1>
+<span class="app-links"><a href="../">Hazel activities</a> › <a href="../#games">one-player games</a> · <a href="https://github.com/matthewhammer/hazeljs-examples">source on GitHub</a> · <a href="https://www.npmjs.com/package/hazeljs">hazeljs on npm</a></span>
+</div>
+<p class="sub">Klondike: build the four foundations, each suit from the Ace up to the King. Tap a card to move it where it fits, or drag it; tap the stock to turn cards over. The deal, every legal move and the win are a <a href="https://hazel.org">Hazel</a> program, shown beside the game, and the page asks it before every move.</p>
+
+<div class="oracle-grid">
+<section class="oracle-ui solitaire-ui" aria-label="The game">
+  <div class="controls">
+    <button type="button" id="new" class="primary">New game</button>
+    <button type="button" id="undo">↶ Undo</button>
+    <button type="button" id="hint">Hint</button>
+    <button type="button" id="finish" hidden>Finish</button>
+    <label class="draw-pick">Turn over <select id="draw"><option value="1">one card</option><option value="3">three cards</option></select></label>
+  </div>
+  <div class="status wait" id="status">⏳ Loading Hazel (hazeljs from jsDelivr), whose rules deal and play.</div>
+  <p class="sol-info" id="info"></p>
+  <div class="felt" id="table" aria-label="The table"></div>
+  <p class="nojs muted">This app needs JavaScript, and a page served over http (python3 -m http.server, then localhost).</p>
+</section>
+<section class="oracle-code" aria-label="The rules, in Hazel">
+  <p class="muted" style="margin-top:0">The vocabulary every module sees (<code>solitaire/rules/preamble.hz</code>). The listings are text, highlighted, until <b>Edit in Hazel</b> opens each in Hazel's own editor; an edit changes how the next move is judged.</p>
+  <pre class="code hazel" data-program="solitaire">loading preamble.hz…</pre>
+  <div class="ed"><div class="ed-head"><b>Cards</b> <span class="muted">the 52 cards, their colours, names and counts</span></div><pre class="code hazel" data-program="solitaire" data-module="Cards">loading Cards.hz…</pre></div>
+  <div class="ed"><div class="ed-head"><b>Deal</b> <span class="muted">the deck shuffled by the page's random numbers, into seven piles and the stock</span></div><pre class="code hazel" data-program="solitaire" data-module="Deal">loading Deal.hz…</pre></div>
+  <div class="ed"><div class="ed-head"><b>Moves</b> <span class="muted">every legal move, the moves from one place, a move made, and the win. The page calls <code>(deal, moves, moves_from, apply, won)</code>.</span></div><pre class="code hazel" data-program="solitaire" data-module="Moves">loading Moves.hz…</pre></div>
+  <p><button type="button" id="reset-rules">Put the program back as it was</button></p>
+</section>
+</div>
+
+<div id="advanced" class="advanced-holder"></div>
+<p class="app-foot" id="app-foot">hazeljs-examples · <a href="../VERSIONS.md">versions</a> · Apache 2.0 (code), CC BY 4.0 (words, the card back) · the card faces are Adrian Kennard's, CC0 (<a href="cards/README.md">about them</a>) · by Matthew Hammer · an example for <a href="https://github.com/hazelgrove/hazeljs">hazeljs</a></p>
+</main>
+<script src="../shared/divider.js?v=0.0.8"></script>
+<script src="../shared/fullscreen.js?v=0.0.26"></script>
+<script src="../shared/offline.js?v=0.0.25"></script>
+<script src="../shared/advanced.js?v=0.0.26"></script>
+<script src="backs.js?v=0.0.26"></script>
+<script src="app.js?v=0.0.26"></script>
+</body>
+</html>

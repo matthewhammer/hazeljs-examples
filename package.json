@@ -2,14 +2,15 @@
   "name": "hazeljs-examples",
   "version": "0.0.14",
   "private": true,
-  "description": "Ancient oracles whose core logic is written in Hazel and run by hazeljs: the I Ching, then the Tarot. Example apps for hazeljs.",
+  "description": "Hazel activities: small apps whose rules are written in Hazel and run by hazeljs: ancient oracles (the I Ching, the Tarot, astrology) and one-player games (Solitaire). Examples for hazeljs.",
   "type": "module",
   "scripts": {
     "i-ching": "node node/i-ching.mjs",
     "compare-compiled": "node node/compare-compiled.mjs i-ching && node node/compare-compiled.mjs tarot && node node/compare-compiled.mjs astrology",
     "serve": "python3 -m http.server 8000 --bind 127.0.0.1",
     "tarot": "node node/tarot.mjs",
-    "astrology": "node node/astrology.mjs"
+    "astrology": "node node/astrology.mjs",
+    "solitaire": "node node/solitaire.mjs"
   },
   "dependencies": {
     "hazeljs": "0.0.4"

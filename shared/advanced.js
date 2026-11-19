@@ -215,6 +215,8 @@
     const box = el("details", { class: "advanced" }, [
       el("summary", {}, "⚙️ Advanced"),
       ver,
+      // (0.0.26) an app's own sections first (Solitaire's card backs)
+      ...(app.extras || []),
       ...off.nodes,
       el("h3", { class: "advanced-cap" }, "🧪 This device's speed"),
       el("div", { class: "speed-row" }, [run, copy, pad]),
