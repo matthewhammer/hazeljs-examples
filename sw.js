@@ -5,7 +5,7 @@
 // jsDelivr. Every request goes to the network first, so a page that is online always gets the newest files; with no
 // network, the saved copy answers, its ?v= query ignored. Hazel's editor frames come from build.hazel.org, which this
 // worker cannot answer for: with no connection, the listings stay text.
-const VERSION = "0.0.26";
+const VERSION = "0.0.27";
 const CACHE = "hazeljs-examples-" + VERSION;
 // (files a page saves on request, the Tarot's woodcut faces, and every face a page has shown: kept across versions)
 const EXTRA = "hazeljs-examples-extra";
@@ -79,6 +79,19 @@ const PRECACHE = [
   "tarot/meanings/biddy-tarot.json",
   "tarot/meanings/labyrinthos.json",
   "tarot/woodcut/cards/back.svg",
+  "minesweeper/",
+  "minesweeper/index.html",
+  "minesweeper/app.js",
+  "minesweeper/minesweeper.css",
+  "minesweeper/manifest.webmanifest",
+  "minesweeper/icons/icon.svg",
+  "minesweeper/icons/icon-192.png",
+  "minesweeper/icons/icon-512.png",
+  "minesweeper/icons/icon-32.png",
+  "minesweeper/icons/apple-touch-icon.png",
+  "minesweeper/rules/Board.hz",
+  "minesweeper/rules/Play.hz",
+  "minesweeper/rules/preamble.hz",
   "solitaire/",
   "solitaire/index.html",
   "solitaire/app.js",
@@ -165,6 +178,8 @@ self.addEventListener("activate", e => {
 self.addEventListener("fetch", e => {
   const req = e.request;
   if (req.method !== "GET") return;
+  // (0.0.27) a request that asks not to be stored goes by: the pages' check for a newer version (shared/offline.js)
+  if (req.cache === "no-store") return;
   const url = new URL(req.url);
   const same = url.origin === self.location.origin;
   const lib = url.hostname === "cdn.jsdelivr.net" && url.pathname.startsWith("/npm/hazeljs@");

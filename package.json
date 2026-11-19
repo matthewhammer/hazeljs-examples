@@ -2,7 +2,7 @@
   "name": "hazeljs-examples",
   "version": "0.0.14",
   "private": true,
-  "description": "Hazel activities: small apps whose rules are written in Hazel and run by hazeljs: ancient oracles (the I Ching, the Tarot, astrology) and one-player games (Solitaire). Examples for hazeljs.",
+  "description": "Hazel activities: small apps whose rules are written in Hazel and run by hazeljs: ancient oracles (the I Ching, the Tarot, astrology) and one-player games (Solitaire, Minesweeper). Examples for hazeljs.",
   "type": "module",
   "scripts": {
     "i-ching": "node node/i-ching.mjs",
@@ -10,7 +10,8 @@
     "serve": "python3 -m http.server 8000 --bind 127.0.0.1",
     "tarot": "node node/tarot.mjs",
     "astrology": "node node/astrology.mjs",
-    "solitaire": "node node/solitaire.mjs"
+    "solitaire": "node node/solitaire.mjs",
+    "minesweeper": "node node/minesweeper.mjs"
   },
   "dependencies": {
     "hazeljs": "0.0.4"

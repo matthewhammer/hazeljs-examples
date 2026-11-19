@@ -17,6 +17,7 @@
 
   // ---- the state: Hazel's program as built, the game (a Hazel value, kept as hazeljs gives it), the moves made, the undo stack
   const S = { built: null, libAt: 0, libFailed: false, game: null, moves: 0, started: 0, undo: [], hint: null, wonAt: 0 };
+  let hintFs = null;   // (the 💡 under ☰ in full screen, while the controls are hidden: fullscreen.js)
   const saved = kept("game", null);
   if (saved && saved.game && Array.isArray(saved.game.piles)) Object.assign(S, { game: saved.game, moves: saved.moves || 0, started: saved.started || Date.now() });
   let DRAW = kept("draw", 1) === 3 ? 3 : 1;
@@ -51,7 +52,10 @@
   };
   function layout() {
     const w = table.clientWidth || 640;
-    const cw = Math.max(36, Math.min(110, Math.floor((w - 16) / 7.9)));
+    // (in full screen, the cards as big as the window allows: seven across, and a tall pile's height down)
+    const fs = document.documentElement.classList.contains("oracle-fs");
+    const most = fs ? Math.max(110, Math.floor((innerHeight - 60) / 5.2)) : 110;
+    const cw = Math.max(36, Math.min(most, Math.floor((w - 16) / 7.9)));
     table.style.setProperty("--cw", cw + "px");
     return cw;
   }
@@ -123,6 +127,7 @@
     const g = S.game;
     $("undo").disabled = !S.undo.length;
     $("hint").disabled = !g || !!S.wonAt || !H();
+    if (hintFs) hintFs.disabled = $("hint").disabled;
     $("new").disabled = !H();
     const ready = g && !S.wonAt && !g.stock.length && !g.waste.length && g.piles.every(p => !p.down.length);
     $("finish").hidden = !ready;
@@ -221,7 +226,12 @@
     const reveals = m => m.value.from.tag === "FromPile" && S.game.piles[m.value.from.value.pile].down.length && m.value.from.value.count === S.game.piles[m.value.from.value.pile].up.length;
     const pick = shift.find(m => m.value.to.tag === "ToFoundation") || shift.find(reveals) ||
       shift.find(m => m.value.from.tag === "FromWaste") || ms.find(m => m.tag !== "Shift") || shift[0];
-    if (!pick) { $("info").textContent = "No moves left: undo, or deal a new game. · " + statsLine(); return; }
+    if (!pick) {
+      $("info").textContent = "No moves left: undo, or deal a new game. · " + statsLine();
+      // (the line above is hidden with the controls in full screen: the 💡 there says so itself, for a moment)
+      if (hintFs) { hintFs.textContent = "🤷"; hintFs.title = "No moves left: undo, or deal a new game"; setTimeout(() => { hintFs.textContent = "💡"; hintFs.title = HINT_TITLE; }, 2200); }
+      return;
+    }
     S.hint = pick; draw();
     setTimeout(() => { if (S.hint === pick) { S.hint = null; draw(); } }, 1800);
   });
@@ -243,6 +253,8 @@
   $("draw").value = String(DRAW);
   $("draw").addEventListener("change", () => { DRAW = $("draw").value === "3" ? 3 : 1; keep("draw", DRAW); $("draw").title = "From the next game"; });
   if (window.OracleFs) window.OracleFs.offer({ label: "🂠 Deal a new game", title: "Shuffles and deals a new game", cast: newGame });
+  const HINT_TITLE = "Hint: the card to move, and where it goes";
+  if (window.OracleFs && window.OracleFs.tool) { hintFs = window.OracleFs.tool({ label: "💡", title: HINT_TITLE, click: () => $("hint").click() }); tools(); }
 
   // ---- Hazel: its library, the program built from the listings, and the status line
   function drawStatus() {

@@ -13,10 +13,11 @@
 (() => {
   "use strict";
   const PAD = "https://pad.riseup.net/p/LgBrn8VRzEJxrsmMW82I";
-  // (the release, as version.json says it)
+  // (this page's version: version.json as the page read it on loading, offline.js; a newer one is offered there and below)
   let VERSION = "?", RELEASED = "";
-  const versionKnown = fetch(new URL("../version.json", location.href), { cache: "no-cache" }).then(r => r.json())
-    .then(j => { VERSION = j.number || "?"; RELEASED = j.released || ""; }).catch(() => {});
+  const O = window.OracleOffline;
+  const versionKnown = (O && O.loaded ? O.loaded : fetch(new URL("../version.json", location.href), { cache: "no-cache" }).then(r => r.json()))
+    .then(j => { if (j) { VERSION = j.number || "?"; RELEASED = j.released || ""; } }).catch(() => {});
 
   // ---- 📰 VERSIONS.md as cards: a version's heading (its number and date), its paragraphs and points, **bold**, `code` and
   // [links] as such, all else as text; a heading with nothing under it ("## Unreleased", kept for the next notes) is no card
@@ -210,11 +211,26 @@
     } }, "🧪 measure this device's speed");
     const ver = el("p", { class: "advanced-version" }, "🏷️ version …");
     versionKnown.then(() => { ver.textContent = `🏷️ version ${VERSION}` + (RELEASED ? `, out ${RELEASED}` : ""); });
+    // (0.0.27) a newer version, once offline.js has seen one, and the pop-up that offers it switched on or off
+    const newerRow = el("p", { class: "advanced-newer" });
+    const syncNewer = () => {
+      if (!O || !O.offered) return;
+      const v = O.offered(), on = O.askOn();
+      newerRow.replaceChildren(...[
+        v ? el("button", { type: "button", class: "primary", onclick: O.switchNow }, `🆕 Switch to version ${v.number}`) : null,
+        el("button", { type: "button", class: "ask-new-toggle", "aria-pressed": String(on), onclick: () => O.askSet(!O.askOn()),
+          title: "A card at the top of the page when a new version is out, offering to switch to it" },
+          on ? "🔔 a pop-up when a new version is out: on" : "🔕 a pop-up when a new version is out: off"),
+      ].filter(Boolean));
+    };
+    syncNewer();
+    if (O && O.onChange) O.onChange(syncNewer);
     const newsBox = el("div", { class: "news", tabindex: "0", "aria-label": "what's new: every version and its notes" }, el("p", { class: "muted" }, "📰 …"));
     const off = offlineSection(app);
     const box = el("details", { class: "advanced" }, [
       el("summary", {}, "⚙️ Advanced"),
       ver,
+      newerRow,
       // (0.0.26) an app's own sections first (Solitaire's card backs)
       ...(app.extras || []),
       ...off.nodes,

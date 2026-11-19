@@ -1,0 +1,36 @@
+{
+ "name": "Minesweeper, swept by Hazel's rules",
+ "short_name": "Minesweeper",
+ "description": "Minesweeper: the mines, the counts, the opening and the flags in Hazel.",
+ "start_url": "./",
+ "scope": "./",
+ "display": "standalone",
+ "background_color": "#22304a",
+ "theme_color": "#22304a",
+ "icons": [
+  {
+   "src": "icons/icon.svg",
+   "sizes": "any",
+   "type": "image/svg+xml",
+   "purpose": "any"
+  },
+  {
+   "src": "icons/icon-192.png",
+   "sizes": "192x192",
+   "type": "image/png",
+   "purpose": "any"
+  },
+  {
+   "src": "icons/icon-512.png",
+   "sizes": "512x512",
+   "type": "image/png",
+   "purpose": "any"
+  },
+  {
+   "src": "icons/icon-512.png",
+   "sizes": "512x512",
+   "type": "image/png",
+   "purpose": "maskable"
+  }
+ ]
+}

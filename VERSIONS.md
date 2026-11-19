@@ -4,6 +4,15 @@ Each version lists what the apps do as of that version. The newest version is fi
 
 ## Unreleased
 
+## 0.0.27 (2026-11-19)
+
+Everything in 0.0.26, plus:
+
+- **Minesweeper, the second one-player game,** at https://matthewhammer.org/hazeljs-examples/minesweeper/: beginner (9 by 9, 10 mines), intermediate (16 by 16, 40) and expert (16 by 30, 99). Its board, the mines, the counts, the opening of a cell and the empty region around it, the flags and the chords are a Hazel program, shown beside the board. The first tap is always safe: the mines are laid after it, never in its 3 by 3. Tap to open; flag with a right click, a long press, or 🚩 mode; tap a number whose mines are flagged to open the rest around it. Best times kept on this device; offline with its own icon.
+- **Full screen on a landscape screen hides the controls** (M's ask, on a tablet). In every app, full screen on a screen turned sideways starts with the left column put away and the picture filling the room; ☰ at the top left brings the controls back, and the choice is kept on this device. Under ☰, what a game needs while the controls are away: Solitaire's 💡 hint (M's ask: the card to move, and where it goes, outlined as before) and Minesweeper's 🚩 flag mode. Solitaire's cards and Minesweeper's cells grow to fill a full screen.
+- **A new version offers itself** (as Messed Up Dress Up does). Each minute while a page is open, and whenever it is shown again, it asks whether a newer version is out; when one is, a card at the top says so, over full screen too: 🔄 Switch loads it, Not now puts the card away. A 🆕 chip after the page's title stays until the switch, and ⚙️ Advanced has the switch too, and turns the card off on this device. A game in progress, past readings and settings stay as they are.
+- **In Node:** `npm run minesweeper` lays the mines and checks them (as many as asked, none beside the first tap, every count right), opens the first tap's region and checks that it floods all the way, plays each board to a win, loses one on a mine, and flags and chords.
+
 ## 0.0.26 (2026-11-19)
 
 Everything in 0.0.25, plus:

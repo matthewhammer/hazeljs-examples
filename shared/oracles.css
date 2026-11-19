@@ -371,3 +371,43 @@ html.oracle-fs .tarot-ui > .faces-credit { grid-column: 2; grid-row: 2; margin: 
 .advanced .offline-steps li { margin: 2px 0; }
 .advanced .offline-extra { margin: 8px 0; }
 .advanced .offline-others > summary { cursor: pointer; color: var(--muted); margin: 6px 0; }
+
+/* (0.0.27; M, on a tablet: "in FS mode, landscape, we want to hide the LHS by default, with some little icon to reveal it")
+   In full screen on a landscape screen, the left column (the controls) is hidden until ☰ shows it (fullscreen.js), and the
+   picture takes its room. */
+.fs-left-toggle, .fs-tools { display: none; }
+@media (orientation: landscape) and (min-width: 901px) {
+  html.oracle-fs .fs-left-toggle { display: flex; position: absolute; top: 10px; left: 12px; z-index: 4; width: 36px; height: 36px; padding: 0;
+    align-items: center; justify-content: center; font-size: 19px; line-height: 1; border-radius: 9px; }
+  html.oracle-fs .fs-left-toggle[aria-pressed="true"] { border-color: var(--accent); }
+  html.oracle-fs:not(.fs-left-hidden) .oracle-ui { padding-top: 52px; }
+  html.oracle-fs.fs-left-hidden .oracle-ui { padding-left: 58px; }
+  html.oracle-fs.fs-left-hidden .fs-left, html.oracle-fs.fs-left-hidden .fs-divider.left { display: none !important; }
+  /* (an app's own buttons under ☰ while the left column is hidden: Solitaire's 💡 hint) */
+  html.oracle-fs.fs-left-hidden .fs-tools { display: flex; flex-direction: column; gap: 8px; position: absolute; top: 56px; left: 12px; z-index: 4; }
+  html.oracle-fs .fs-tool { width: 36px; height: 36px; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 19px; line-height: 1;
+    border-radius: 9px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); cursor: pointer; }
+  html.oracle-fs .fs-tool:hover, html.oracle-fs .fs-tool:focus-visible { border-color: var(--accent); }
+  html.oracle-fs .fs-tool:disabled { opacity: 0.4; cursor: default; }
+  html.oracle-fs.fs-left-hidden .astro-ui { grid-template-columns: 0 minmax(0, 1.4fr) minmax(260px, 1fr) !important; }
+  html.oracle-fs.fs-left-hidden .iching-ui { grid-template-columns: 0 minmax(0, 1fr) !important; }
+  html.oracle-fs.fs-left-hidden .tarot-ui { grid-template-columns: 0 minmax(0, 3fr) minmax(280px, 1fr) !important; }
+  html.oracle-fs.fs-left-hidden .solitaire-ui, html.oracle-fs.fs-left-hidden .sweeper-ui { grid-template-columns: 0 minmax(0, 1fr) !important; }
+}
+
+/* (0.0.27; Matthew: "messed up dress up also has a feature that pops up when there's a new live version. Can we do that here,
+   somehow?") A newer version (shared/offline.js): the card at the top of the window, over full screen too; the 🆕 chip after the
+   page's title; ⚙️ Advanced's switch and its pop-up toggle. */
+#ask-new { position: fixed; z-index: 2147483600; left: 0; right: 0; top: 14px; margin: 0 auto; width: fit-content; max-width: min(92vw, 440px);
+  box-sizing: border-box; text-align: center; background: var(--paper); color: var(--ink); border: 2px solid var(--accent); border-radius: 16px;
+  padding: 12px 16px; box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35); }
+#ask-new p { margin: 0 0 6px; font-weight: 600; }
+#ask-new .ask-new-hint { font-weight: 400; color: var(--muted); font-size: 0.85em; margin-bottom: 10px; }
+.ask-new-row { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+#ask-new button, .advanced-newer button, .newer-chip { font: inherit; padding: 6px 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--paper);
+  color: var(--ink); cursor: pointer; }
+#ask-new button.primary, .advanced-newer button.primary { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--paper)); font-weight: 600; }
+.newer-chip { font-size: 0.85em; padding: 2px 10px; border-radius: 999px; border-color: var(--accent); color: var(--accent); align-self: center; }
+.advanced .advanced-newer { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.advanced-newer:empty { display: none; }
+.ask-new-toggle[aria-pressed="true"] { border-color: var(--accent); }

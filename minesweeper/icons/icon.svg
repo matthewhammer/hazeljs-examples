@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+<title>Minesweeper: a mine on a grid of tiles, a red flag and two numbers beside it</title>
+<defs>
+<radialGradient id="bg" cx="50%" cy="40%" r="75%"><stop offset="0" stop-color="#3d4f6b"/><stop offset="0.6" stop-color="#22304a"/><stop offset="1" stop-color="#0d1424"/></radialGradient>
+<linearGradient id="tile" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#dfe6f1"/><stop offset="1" stop-color="#9aa8bd"/></linearGradient>
+<radialGradient id="ball" cx="38%" cy="34%" r="70%"><stop offset="0" stop-color="#5b6372"/><stop offset="0.45" stop-color="#1c2028"/><stop offset="1" stop-color="#05060a"/></radialGradient>
+</defs>
+<rect width="512" height="512" fill="url(#bg)"/>
+<g transform="translate(106 106)">
+<rect x="0" y="0" width="96" height="96" rx="12" fill="url(#tile)"/>
+<rect x="104" y="0" width="96" height="96" rx="12" fill="#c9d3e3" opacity="0.35"/><text x="152" y="72" text-anchor="middle" font-family="Verdana, sans-serif" font-size="64" font-weight="bold" fill="#3b82f6">1</text>
+<rect x="208" y="0" width="96" height="96" rx="12" fill="url(#tile)"/>
+<rect x="0" y="104" width="96" height="96" rx="12" fill="#c9d3e3" opacity="0.35"/><text x="48" y="176" text-anchor="middle" font-family="Verdana, sans-serif" font-size="64" font-weight="bold" fill="#22c55e">2</text>
+<rect x="104" y="104" width="96" height="96" rx="12" fill="#ef4444" opacity="0.9"/>
+<rect x="208" y="104" width="96" height="96" rx="12" fill="url(#tile)"/>
+<rect x="0" y="208" width="96" height="96" rx="12" fill="url(#tile)"/>
+<rect x="104" y="208" width="96" height="96" rx="12" fill="url(#tile)"/>
+<rect x="208" y="208" width="96" height="96" rx="12" fill="url(#tile)"/>
+<g transform="translate(256 256)"><rect x="-4" y="-34" width="8" height="58" fill="#1f2937"/><path d="M4 -34 L40 -20 L4 -6 Z" fill="#ef4444" stroke="#7f1d1d" stroke-width="2"/><rect x="-22" y="22" width="44" height="10" rx="3" fill="#1f2937"/></g>
+</g>
+<g transform="translate(258 258)">
+<g stroke="#0b0d12" stroke-width="9" stroke-linecap="round"><line x1="-46" y1="0" x2="46" y2="0"/><line x1="0" y1="-46" x2="0" y2="46"/><line x1="-33" y1="-33" x2="33" y2="33"/><line x1="-33" y1="33" x2="33" y2="-33"/></g>
+<circle r="32" fill="url(#ball)" stroke="#05060a" stroke-width="3"/>
+<circle cx="-11" cy="-12" r="7" fill="#ffffff" opacity="0.85"/>
+</g>
+</svg>

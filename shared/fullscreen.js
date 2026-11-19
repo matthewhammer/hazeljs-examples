@@ -33,7 +33,8 @@
   const LEFT_PARTS = { "astro-ui": ["#split-toggle", ".astro-form", "#status", "#reading-head", "#reading-q", "#notes-birth", "#history"],
     "iching-ui": [".question-label", ".question", ".controls", "#status", "#reading-head", "#reading-q", "#history"],
     "tarot-ui": [".controls", ".spread-use", "#status", "#reading-head", "#history"],
-    "solitaire-ui": [".controls", "#status", "#info"] };
+    "solitaire-ui": [".controls", "#status", "#info"],
+    "sweeper-ui": [".controls", "#status", "#info"] };
   const partsOf = Object.entries(LEFT_PARTS).find(([c]) => ui.classList.contains(c));
   const left = document.createElement("div");
   left.className = "fs-left";
@@ -70,9 +71,40 @@
     },
     empty(v) { isEmpty = !!v; showCast(); },
   };
+  // ---- (0.0.27; M, on a tablet: "in FS mode, landscape, we want to hide the LHS by default, with some little icon to reveal
+  // it") the left column hidden in full screen, landscape (oracles.css), until ☰ shows it; the choice kept on this device
+  const LEFT_KEY = "hazeljs-examples/fs-left-shown";
+  let leftShown = (() => { try { return localStorage.getItem(LEFT_KEY) === "1"; } catch (e) { return false; } })();
+  const leftBtn = document.createElement("button");
+  leftBtn.type = "button"; leftBtn.className = "fs-left-toggle"; leftBtn.textContent = "☰";
+  const leftLabel = () => {
+    leftBtn.setAttribute("aria-pressed", String(leftShown));
+    leftBtn.title = leftShown ? "Hide the controls, for more room" : "Show the controls";
+    leftBtn.setAttribute("aria-label", leftBtn.title);
+  };
+  leftBtn.addEventListener("click", () => {
+    leftShown = !leftShown;
+    try { localStorage.setItem(LEFT_KEY, leftShown ? "1" : "0"); } catch (e) { /* this visit only */ }
+    root.classList.toggle("fs-left-hidden", on() && !leftShown); leftLabel();
+    window.dispatchEvent(new Event("resize"));
+  });
+  leftLabel();
+  // ---- (0.0.27; M, on the tablet: "when we hide the LHS, we still want 'hint'") an app's own buttons, under ☰ while the
+  // left column is hidden: OracleFs.tool({ label, title, click }) gives back the button, for the app to enable and disable
+  const toolBox = document.createElement("div");
+  toolBox.className = "fs-tools";
+  window.OracleFs.tool = o => {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "fs-tool"; b.textContent = o.label; b.title = o.title || "";
+    b.setAttribute("aria-label", o.title || o.label);
+    b.addEventListener("click", o.click);
+    toolBox.append(b);
+    return b;
+  };
   const set = v => {
     if (v) gather(); else scatter();
     root.classList.toggle("oracle-fs", v);
+    root.classList.toggle("fs-left-hidden", v && !leftShown);
     showCast();
     label();
     if (v) cols(); else clearCols();
@@ -96,6 +128,8 @@
   bar.append(btn);
   ui.prepend(bar);
   bar.after(castBtn);
+  ui.prepend(leftBtn);
+  leftBtn.after(toolBox);
 
   // ---- the two dividers: each oracle's left column, its right column (the I Ching's inside its .reading grid), by an element
   // as wide as the column
@@ -113,6 +147,7 @@
       Object.entries({ role: "separator", "aria-orientation": "vertical", tabindex: "0",
         "aria-label": side === "left" ? "Between the controls and the picture" : "Between the picture and the words",
         title: "Drag to widen or narrow this side (double-click: as it was)" }).forEach(([k, v]) => h.setAttribute(k, v));
+      if (side === "left") h.classList.add("left");
       ui.append(h);
       return h;
     });
