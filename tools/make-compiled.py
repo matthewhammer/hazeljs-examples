@@ -214,6 +214,8 @@ out = f"""// hazeljs-examples, {TITLE}: its Hazel (rules/*.hz), compiled ahead o
   const array = l => {{ const out = []; for (let p = l; p !== null; p = p.t) out.push(p.h); return out; }};
   const int = n => Number(n);
   const made = "{a.commit}";{ADAPT}
+  // (ticket 797) a game's converters, for node/three-way.mjs to time the page boundary by itself
+  try {{ api.$convert = {{ gameIn, gameOut }}; }} catch (e) {{ /* an oracle: no game crosses */ }}
   if (typeof window !== "undefined") window.{GLOBAL} = api;
   if (typeof module !== "undefined") module.exports = api;
 }})();

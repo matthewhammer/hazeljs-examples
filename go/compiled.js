@@ -237,6 +237,8 @@
   const score = g => { const r = P.score(gameIn(g)); return { black: int(r.black), white: int(r.white), komi: int(r.komi), owners: array(r.owners).map(int) }; };
   const choose = (g, rs) => int(P.choose([gameIn(g), list(rs || [])]));
   const api = { fresh, play, pass, score, choose, made };
+  // (ticket 797) a game's converters, for node/three-way.mjs to time the page boundary by itself
+  try { api.$convert = { gameIn, gameOut }; } catch (e) { /* an oracle: no game crosses */ }
   if (typeof window !== "undefined") window.GoCompiled = api;
   if (typeof module !== "undefined") module.exports = api;
 })();

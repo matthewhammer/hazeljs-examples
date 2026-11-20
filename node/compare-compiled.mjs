@@ -19,6 +19,10 @@
 import Hazel from "hazeljs";
 import { readFileSync } from "node:fs";
 
+// (ticket 797) --plain: the games' plain JavaScript (<game>/plain.js) in hazeljs's place, checked against the compiled rules
+const PLAIN = process.argv.includes("--plain");
+if (PLAIN) process.argv = process.argv.filter(a => a !== "--plain");
+const HN = PLAIN ? "plain JS" : "hazeljs";
 const APP = process.argv[2] || "i-ching";
 // (ticket 794) the games take a cap on the turns or steps of each game as a second number, to keep a run on a laptop short
 const CAP = Number(process.argv[4] || 0);
@@ -38,9 +42,13 @@ new Function("module", "window", readFileSync(new URL(`../${APP}/compiled.js`, i
 const C = box.exports;
 const read = path => readFileSync(new URL(`../${APP}/rules/` + path, import.meta.url), "utf8").replace(/\s+$/, "");
 if (APP === "astrology") astrology();
-const r = Hazel.runProgram({ preamble: read("preamble.hz"), modules: SETUP.modules.map(name => ({ name, text: read(name + ".hz") })), tail: SETUP.tail });
-if (!r.ok) { console.log("not built", r.errors); process.exit(1); }
-const H = r.value;
+let H;
+if (PLAIN) { const b = { exports: {} }; new Function("module", "window", readFileSync(new URL(`../${APP}/plain.js`, import.meta.url), "utf8"))(b, undefined); H = b.exports; }
+else {
+  const r = Hazel.runProgram({ preamble: read("preamble.hz"), modules: SETUP.modules.map(name => ({ name, text: read(name + ".hz") })), tail: SETUP.tail });
+  if (!r.ok) { console.log("not built", r.errors); process.exit(1); }
+  H = r.value;
+}
 let seed = 7; const draw = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
 const same = (x, y) => JSON.stringify(x) === JSON.stringify(y);
 let checked = 0, differ = 0;
@@ -66,8 +74,8 @@ if (APP === "checkers") {
   console.log(`${checked} answers compared at ${positions} positions of ${games} games, ${differ} differ`);
   let g = C.start; for (let i = 0; i < 8; i++) { const ms = C.moves(g); g = C.apply(g, ms[Math.floor(draw() * ms.length)]); }
   const rs = Array.from({ length: 48 }, () => Math.floor(draw() * 1000));
-  console.log(`the moves: hazeljs ${time(() => H.moves(g), 20).toFixed(2)} ms, compiled ${time(() => C.moves(g), 500).toFixed(4)} ms`);
-  for (const d of [1, 2, 3, 4]) console.log(`Hazel looking ${d} ahead: hazeljs ${time(() => H.choose(g, d, rs), d >= 3 ? 3 : 10).toFixed(1)} ms, compiled ${time(() => C.choose(g, d, rs), d >= 3 ? 20 : 200).toFixed(3)} ms`);
+  console.log(`the moves: ${HN} ${time(() => H.moves(g), 20).toFixed(2)} ms, compiled ${time(() => C.moves(g), 500).toFixed(4)} ms`);
+  for (const d of [1, 2, 3, 4]) console.log(`Hazel looking ${d} ahead: ${HN} ${time(() => H.choose(g, d, rs), d >= 3 ? 3 : 10).toFixed(1)} ms, compiled ${time(() => C.choose(g, d, rs), d >= 3 ? 20 : 200).toFixed(3)} ms`);
   for (const d of [5, 6, 7]) console.log(`Hazel looking ${d} ahead, compiled only: ${time(() => C.choose(g, d, rs), 5).toFixed(1)} ms`);
 } else if (APP === "go") {
   // (ticket 794) Hazel against itself on 9 by 9 boards, the page's random numbers for its choice; at every turn the choice, the
@@ -90,15 +98,15 @@ if (APP === "checkers") {
   console.log(`${checked} answers compared over ${turns} turns of ${games} games, ${differ} differ`);
   let g = C.fresh(9); for (const p of [40, 20, 60]) { g = C.play(g, p); const w = C.choose(g, Array(81).fill(3)); g = w < 0 ? C.pass(g) : C.play(g, w); }
   const rs = Array.from({ length: 81 }, () => Math.floor(draw() * 20));
-  console.log(`a move played: hazeljs ${time(() => H.play(g, 30), 10).toFixed(1)} ms, compiled ${time(() => C.play(g, 30), 200).toFixed(3)} ms`);
-  console.log(`Hazel's choice: hazeljs ${time(() => H.choose(g, rs), 5).toFixed(1)} ms, compiled ${time(() => C.choose(g, rs), 50).toFixed(2)} ms`);
-  console.log(`the score: hazeljs ${time(() => H.score(g), 5).toFixed(1)} ms, compiled ${time(() => C.score(g), 50).toFixed(2)} ms`);
+  console.log(`a move played: ${HN} ${time(() => H.play(g, 30), 10).toFixed(1)} ms, compiled ${time(() => C.play(g, 30), 200).toFixed(3)} ms`);
+  console.log(`Hazel's choice: ${HN} ${time(() => H.choose(g, rs), 5).toFixed(1)} ms, compiled ${time(() => C.choose(g, rs), 50).toFixed(2)} ms`);
+  console.log(`the score: ${HN} ${time(() => H.score(g), 5).toFixed(1)} ms, compiled ${time(() => C.score(g), 50).toFixed(2)} ms`);
 } else if (APP === "minesweeper") {
   // (ticket 794) boards at the three levels, mines laid from the first tap; then, until the board is done, the hint, the move
   // it names (or a random closed cell), a flag and a chord on random cells, and the flags counted, both ways
   const boards = Number(process.argv[3] || 6), LEVELS = [[9, 9, 10], [16, 16, 40], [16, 30, 99]];
   check("fresh", H.fresh(9, 9, 10), C.fresh(9, 9, 10));
-  let positions = 0;
+  let positions = 0; const kinds = [0, 0, 0, 0];
   for (let n = 0; n < boards; n++) {
     const [rows, cols, mines] = LEVELS[n % 3], us = Array.from({ length: rows * cols }, draw);
     const r0 = Math.floor(draw() * rows), c0 = Math.floor(draw() * cols);
@@ -106,10 +114,13 @@ if (APP === "checkers") {
     let g1 = C.reveal(g, r0, c0); check(`board ${n + 1}: the first tap`, H.reveal(g, r0, c0), g1); g = g1;
     for (let i = 0; i < (CAP || 400) && !g.over; i++) {
       positions++;
-      const m = C.sure(g); check(`board ${n + 1} step ${i + 1}: sure`, H.sure(g), m);
+      const m = C.sure(g); check(`board ${n + 1} step ${i + 1}: sure`, H.sure(g), m); kinds[m.kind]++;
       const rr = Math.floor(draw() * rows), rc = Math.floor(draw() * cols);
       if (i % 5 === 0) { check(`board ${n + 1} step ${i + 1}: flag`, H.flag(g, rr, rc), C.flag(g, rr, rc)); check(`board ${n + 1} step ${i + 1}: chord`, H.chord(g, rr, rc), C.chord(g, rr, rc)); }
       if (i % 10 === 0) check(`board ${n + 1} step ${i + 1}: flags`, H.flags(g), C.flags(g));
+      // (ticket 797) every seventh step a random flag is kept, so wrong flags (the hint's kind 3) and flags beside open empty
+      // cells come up
+      if (i % 7 === 3) { const g3 = C.flag(g, rr, rc); check(`board ${n + 1} step ${i + 1}: a flag kept at ${rr},${rc}`, H.flag(g, rr, rc), g3); g = g3; }
       let r = rr, c = rc;
       if (m.kind) { r = Math.floor(m.at / cols); c = m.at % cols; }
       const flagIt = m.kind === 2 || m.kind === 3; // (2, a mine to flag; 3, a wrong flag to take off: flag toggles)
@@ -119,12 +130,12 @@ if (APP === "checkers") {
       g = g1;
     }
   }
-  console.log(`${checked} answers compared at ${positions} positions of ${boards} boards, ${differ} differ`);
+  console.log(`${checked} answers compared at ${positions} positions of ${boards} boards, ${differ} differ; hints by kind 0 to 3: ${kinds.join(", ")}`);
   for (const [rows, cols, mines] of LEVELS) {
     const us = Array.from({ length: rows * cols }, draw), r0 = Math.floor(rows / 2), c0 = Math.floor(cols / 2);
     const g = C.reveal(C.lay(rows, cols, mines, us, r0, c0), r0, c0);
-    console.log(`${rows} by ${cols}: a tap hazeljs ${time(() => H.reveal(g, 0, 0), 10).toFixed(1)} ms, compiled ${time(() => C.reveal(g, 0, 0), 100).toFixed(3)} ms; ` +
-      `a hint hazeljs ${time(() => H.sure(g), 5).toFixed(0)} ms, compiled ${time(() => C.sure(g), 50).toFixed(2)} ms`);
+    console.log(`${rows} by ${cols}: a tap ${HN} ${time(() => H.reveal(g, 0, 0), 10).toFixed(1)} ms, compiled ${time(() => C.reveal(g, 0, 0), 100).toFixed(3)} ms; ` +
+      `a hint ${HN} ${time(() => H.sure(g), 5).toFixed(0)} ms, compiled ${time(() => C.sure(g), 50).toFixed(2)} ms`);
   }
 } else if (APP === "mahjong") {
   // (ticket 794) whole hands: you discarding a random tile and passing every claim, as the page's timing does (every other
@@ -132,25 +143,35 @@ if (APP === "checkers") {
   const hands = Number(process.argv[3] || 3);
   const NONE = { kind: 0, tile: -1 };
   const waiting = o => !!o && (o.discard || o.win || o.pung || o.kong || o.chows.length > 0 || o.kongs.length > 0);
-  const rs = () => Array.from({ length: 136 }, () => Math.floor(draw() * 1e6));
+  // (ticket 797) every third deal's keys from 0 to 19, so many tie, and the shuffle's merge sort must break ties as Hazel's does
+  let deals = 0;
+  const rs = () => { const k = deals++ % 3 === 2 ? 20 : 1e6; return Array.from({ length: 136 }, () => Math.floor(draw() * k)); };
   const r0 = rs(); let g = C.start(r0); check("start", H.start(r0), g);
-  let steps = 0;
+  let steps = 0; const acts = Array(10).fill(0);
   for (let n = 0; n < hands; n++) {
     for (let i = 0; i < 400 && g.phase !== 3; i++) {
       steps++;
       const o = C.options(g); check(`hand ${n + 1} step ${i + 1}: options`, H.options(g), o);
       const hand = g.seats[0].hand;
       // (ticket 796) the second hand, and every other, Hazel plays your seat too (kind 9)
-      const a = n % 2 === 1 && waiting(o) ? { kind: 9, tile: -1 } : o.discard ? { kind: 1, tile: hand[Math.floor(draw() * hand.length)] } : waiting(o) ? { kind: 4, tile: -1 } : NONE;
-      const g1 = C.step(g, a); check(`hand ${n + 1} step ${i + 1}: step ${JSON.stringify(a)}`, H.step(g, a), g1); g = g1;
+      // (ticket 797) and in the others your claims too, now and then: a win, a kong, a pung, a chow, a kong of your own
+      const x = draw();
+      // (every fourth hand, Hazel's discards in your seat with your own claims always made, so your wins come up: kinds 2, 7, 8)
+      const a = n % 4 === 3 && waiting(o) ? (o.discard ? (o.win ? { kind: 2, tile: -1 } : o.kongs.length ? { kind: 3, tile: o.kongs[0] } : { kind: 9, tile: -1 })
+                                             : o.win ? { kind: 8, tile: g.tile } : o.kong ? { kind: 7, tile: g.tile } : o.pung ? { kind: 6, tile: g.tile } : { kind: 9, tile: -1 })
+        : n % 2 === 1 && waiting(o) ? { kind: 9, tile: -1 }
+        : o.discard ? (o.win && x < 0.6 ? { kind: 2, tile: -1 } : o.kongs.length && x < 0.6 ? { kind: 3, tile: o.kongs[0] } : { kind: 1, tile: hand[Math.floor(draw() * hand.length)] })
+        : o.win && x < 0.7 ? { kind: 8, tile: g.tile } : o.kong && x < 0.5 ? { kind: 7, tile: g.tile } : o.pung && x < 0.4 ? { kind: 6, tile: g.tile }
+        : o.chows.length && x < 0.4 ? { kind: 5, tile: o.chows[o.chows.length - 1] } : waiting(o) ? { kind: 4, tile: -1 } : NONE;
+      const g1 = C.step(g, a); check(`hand ${n + 1} step ${i + 1}: step ${JSON.stringify(a)}`, H.step(g, a), g1); g = g1; acts[a.kind]++;
     }
     if (n + 1 < hands) { const r = rs(); const g1 = C.next_hand(g, r); check(`hand ${n + 2}: next_hand`, H.next_hand(g, r), g1); g = g1; }
   }
-  console.log(`${checked} answers compared over ${steps} steps of ${hands} hands, ${differ} differ`);
+  console.log(`${checked} answers compared over ${steps} steps of ${hands} hands, ${differ} differ; your acts by kind 0 to 9: ${acts.join(", ")}`);
   const r = rs(); g = C.start(r); for (let i = 0; i < 12; i++) g = C.step(g, NONE);
-  console.log(`a hand dealt: hazeljs ${time(() => H.start(r), 5).toFixed(1)} ms, compiled ${time(() => C.start(r), 100).toFixed(3)} ms`);
-  console.log(`a step: hazeljs ${time(() => H.step(g, NONE), 10).toFixed(1)} ms, compiled ${time(() => C.step(g, NONE), 200).toFixed(3)} ms`);
-  console.log(`the options: hazeljs ${time(() => H.options(g), 10).toFixed(1)} ms, compiled ${time(() => C.options(g), 200).toFixed(3)} ms`);
+  console.log(`a hand dealt: ${HN} ${time(() => H.start(r), 5).toFixed(1)} ms, compiled ${time(() => C.start(r), 100).toFixed(3)} ms`);
+  console.log(`a step: ${HN} ${time(() => H.step(g, NONE), 10).toFixed(1)} ms, compiled ${time(() => C.step(g, NONE), 200).toFixed(3)} ms`);
+  console.log(`the options: ${HN} ${time(() => H.options(g), 10).toFixed(1)} ms, compiled ${time(() => C.options(g), 200).toFixed(3)} ms`);
 } else if (APP === "solitaire") {
   // (ticket 794) deals drawing one and three; at every position the moves, the moves from each place, a random move made, and
   // whether it is won, both ways
@@ -172,10 +193,10 @@ if (APP === "checkers") {
   }
   console.log(`${checked} answers compared at ${positions} positions of ${deals} deals, ${differ} differ`);
   const us = Array.from({ length: 52 }, draw), g = C.deal(us, 1);
-  console.log(`a deal: hazeljs ${time(() => H.deal(us, 1), 10).toFixed(1)} ms, compiled ${time(() => C.deal(us, 1), 200).toFixed(3)} ms`);
-  console.log(`all moves: hazeljs ${time(() => H.moves(g), 10).toFixed(1)} ms, compiled ${time(() => C.moves(g), 200).toFixed(3)} ms`);
+  console.log(`a deal: ${HN} ${time(() => H.deal(us, 1), 10).toFixed(1)} ms, compiled ${time(() => C.deal(us, 1), 200).toFixed(3)} ms`);
+  console.log(`all moves: ${HN} ${time(() => H.moves(g), 10).toFixed(1)} ms, compiled ${time(() => C.moves(g), 200).toFixed(3)} ms`);
   const m = C.moves(g)[0];
-  console.log(`a move: hazeljs ${time(() => H.apply(g, m), 10).toFixed(1)} ms, compiled ${time(() => C.apply(g, m), 200).toFixed(3)} ms`);
+  console.log(`a move: ${HN} ${time(() => H.apply(g, m), 10).toFixed(1)} ms, compiled ${time(() => C.apply(g, m), 200).toFixed(3)} ms`);
 } else if (APP === "i-ching") {
   for (const tag of ["Coins", "Yarrow"]) for (let i = 0; i < 2000; i++) { const u = [draw(), draw(), draw()]; check(`${tag} ${u}`, H.cast({ tag }, ...u), C.cast({ tag }, ...u)); }
   const TAGS = ["YoungYin", "YoungYang", "OldYin", "OldYang"];
@@ -184,7 +205,7 @@ if (APP === "checkers") {
   console.log(`${checked} answers compared, ${differ} differ`);
   const six = [0, 1, 2, 3, 4, 5].map(i => ({ tag: TAGS[i % 4] }));
   for (const [name, f] of [["a cast by coins", e => e.cast({ tag: "Coins" }, 0.3, 0.6, 0.1)], ["a cast by yarrow", e => e.cast({ tag: "Yarrow" }, 0.3, 0.6, 0.1)], ["a reading", e => e.reading(six)]])
-    console.log(`${name}: hazeljs ${time(() => f(H), 50).toFixed(3)} ms, compiled ${time(() => f(C), 2000).toFixed(4)} ms`);
+    console.log(`${name}: ${HN} ${time(() => f(H), 50).toFixed(3)} ms, compiled ${time(() => f(C), 2000).toFixed(4)} ms`);
 } else {
   const spreads = [{ tag: "One" }, { tag: "CelticCross" }, { tag: "Relationship" }, { tag: "Choice", value: 2 }, { tag: "Choice", value: 3 },
     ...["PastPresentFuture", "SituationChallengeAdvice", "MindBodySpirit"].map(t => ({ tag: "Three", value: { tag: t } })),
@@ -196,7 +217,7 @@ if (APP === "checkers") {
   console.log(`${checked} deals compared (${spreads.length} spreads), ${differ} differ`);
   const us = Array.from({ length: 40 }, draw);
   for (const s of [{ tag: "One" }, { tag: "CelticCross" }, { tag: "YearAhead", value: { start: 10, theme: true } }])
-    console.log(`a deal, ${s.tag}: hazeljs ${time(() => H.deal(s, us, true), 20).toFixed(2)} ms, compiled ${time(() => C.deal(s, us, true), 2000).toFixed(4)} ms`);
+    console.log(`a deal, ${s.tag}: ${HN} ${time(() => H.deal(s, us, true), 20).toFixed(2)} ms, compiled ${time(() => C.deal(s, us, true), 2000).toFixed(4)} ms`);
 }
 process.exit(differ ? 1 : 0);
 

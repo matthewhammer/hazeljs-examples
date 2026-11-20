@@ -242,6 +242,8 @@
   const flags = g => int(P.flags(gameIn(g)));
   const sure = g => { const r = P.sure(gameIn(g)); return { kind: int(r.kind), at: int(r.at), why: int(r.why) }; };
   const api = { fresh, lay, reveal, flag, chord, flags, sure, made };
+  // (ticket 797) a game's converters, for node/three-way.mjs to time the page boundary by itself
+  try { api.$convert = { gameIn, gameOut }; } catch (e) { /* an oracle: no game crosses */ }
   if (typeof window !== "undefined") window.MinesweeperCompiled = api;
   if (typeof module !== "undefined") module.exports = api;
 })();

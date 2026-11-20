@@ -4,6 +4,8 @@ Each version lists what the apps do as of that version. The newest version is fi
 
 ## Unreleased
 
+- **In Node: each game in plain JavaScript too, and timed three ways** (ticket 797, Matthew: "For each game, let's have a plain JS version, just for the sake of timing comparisons that we do now, and in the future, as the hazel components becomes better in performance. That version should be equivalent in terms of game def, logic, and strategy"). `<game>/plain.js` for Solitaire, Minesweeper, Go, Checkers and Mahjong: the same game, rules and strategy as its Hazel, written as a JavaScript programmer would, giving the same answers in the same order (`node node/compare-compiled.mjs <game> [n] --plain`: Checkers 8,969, Solitaire 48,040, Minesweeper 15,137, Go 5,160, Mahjong 15,386 answers against the compiled rules, none different). The pages never load them. `node node/three-way.mjs <game> [out.json]` times each game's operations and whole self-played games through hazeljs, hazel-jit and plain JS, and the page boundary by itself; a GitHub workflow (`three-way timing`) runs it for every game on one runner. The comparison check also keeps wrong flags in Minesweeper, makes your own claims and wins in Mahjong, and deals tied shuffle keys.
+
 ## 0.0.35 (2026-11-20)
 
 Everything in 0.0.34, plus:

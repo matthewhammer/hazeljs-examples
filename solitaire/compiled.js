@@ -252,6 +252,8 @@
   const apply = (g, m) => gameOut(P.apply([gameIn(g), moveIn(m)]));
   const won = g => P.won(gameIn(g));
   const api = { deal, moves, moves_from, apply, won, made };
+  // (ticket 797) a game's converters, for node/three-way.mjs to time the page boundary by itself
+  try { api.$convert = { gameIn, gameOut }; } catch (e) { /* an oracle: no game crosses */ }
   if (typeof window !== "undefined") window.SolitaireCompiled = api;
   if (typeof module !== "undefined") module.exports = api;
 })();

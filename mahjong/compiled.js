@@ -250,6 +250,8 @@
     return { discard: r.discard, win: r.win, kongs: ints(r.kongs), pung: r.pung, kong: r.kong, chows: ints(r.chows) }; };
   const next_hand = (g, rs) => gameOut(P.next_hand([gameIn(g), list(rs)]));
   const api = { start, step, options, next_hand, made };
+  // (ticket 797) a game's converters, for node/three-way.mjs to time the page boundary by itself
+  try { api.$convert = { gameIn, gameOut }; } catch (e) { /* an oracle: no game crosses */ }
   if (typeof window !== "undefined") window.MahjongCompiled = api;
   if (typeof module !== "undefined") module.exports = api;
 })();

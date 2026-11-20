@@ -238,6 +238,8 @@
   const apply = (g, m) => gameOut(P.apply([gameIn(g), moveIn(m)]));
   const choose = (g, depth, rs) => moveOut(P.choose([gameIn(g), depth, list(rs || [])]));
   const api = { start, moves, apply, choose, made };
+  // (ticket 797) a game's converters, for node/three-way.mjs to time the page boundary by itself
+  try { api.$convert = { gameIn, gameOut }; } catch (e) { /* an oracle: no game crosses */ }
   if (typeof window !== "undefined") window.CheckersCompiled = api;
   if (typeof module !== "undefined") module.exports = api;
 })();
