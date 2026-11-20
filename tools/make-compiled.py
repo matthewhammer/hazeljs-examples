@@ -21,7 +21,7 @@ labeled tuple as an object; hazel-jit's code has {c}, a chain of {h, t} cells, a
 import argparse, os, subprocess
 
 ap = argparse.ArgumentParser()
-ap.add_argument("--app", default="i-ching", choices=["i-ching", "tarot", "astrology", "checkers", "go", "minesweeper", "mahjong", "solitaire"])
+ap.add_argument("--app", default="i-ching", choices=["i-ching", "tarot", "astrology", "checkers", "go", "minesweeper", "mahjong", "solitaire", "pinball"])
 ap.add_argument("--hazel", required=True, help="a checkout of hazelgrove/hazel with the commit")
 ap.add_argument("--commit", required=True, help="the commit whose hazel-jit compiled the program")
 ap.add_argument("--branch", default="trial/765-iching-aot", help="the branch whose test printed it")
@@ -188,10 +188,30 @@ ADAPTERS = {
   const apply = (g, m) => gameOut(P.apply([gameIn(g), moveIn(m)]));
   const won = g => P.won(gameIn(g));
   const api = { deal, moves, moves_from, apply, won, made };"""),
+  "pinball": ("PinballCompiled", """
+  // (ticket 793) Game = (x = Int, y = Int, vx = Int, vy = Int, flips = [Int], score = Int, balls = Int, over = Bool, hits = [Int]);
+  // Board = (name, bg, ink, glow = String, walls = [Wall], bumpers = [Bumper], flippers = [Flipper], portals = [Portal], sx = Int,
+  // sy = Int, svx = Int, svy = Int, gravity = Int), its pieces records of Ints
+  const ints = l => array(l).map(int);
+  const G = ["x", "y", "vx", "vy", "flips", "score", "balls", "over", "hits"];
+  const gameIn = g => $R.tup([g.x, g.y, g.vx, g.vy, list(g.flips), g.score, g.balls, g.over, list(g.hits)], G);
+  const gameOut = r => ({ x: int(r.x), y: int(r.y), vx: int(r.vx), vy: int(r.vy), flips: ints(r.flips), score: int(r.score),
+                          balls: int(r.balls), over: r.over, hits: ints(r.hits) });
+  const rec = (r, ks) => Object.fromEntries(ks.map(k => [k, int(r[k])]));
+  const boardOut = r => ({ name: r.name, bg: r.bg, ink: r.ink, glow: r.glow,
+    walls: array(r.walls).map(w => rec(w, ["ax", "ay", "bx", "by", "bounce", "kick"])), bumpers: array(r.bumpers).map(b => rec(b, ["x", "y", "r", "points"])),
+    flippers: array(r.flippers).map(f => rec(f, ["x", "y", "len", "side"])), portals: array(r.portals).map(q => rec(q, ["x", "y", "r", "tx", "ty"])),
+    sx: int(r.sx), sy: int(r.sy), svx: int(r.svx), svy: int(r.svy), gravity: int(r.gravity) });
+  // board : Int -> Board; start : Int -> Game; step : (Int, Game, Bool, Bool, Int) -> Game (the board, the game, the left and
+  // right flippers held, the plunger's launch 0 to 100)
+  const board = i => boardOut(P.board(i));
+  const start = i => gameOut(P.start(i));
+  const step = (i, g, left, right, launch) => gameOut(P.step([i, gameIn(g), left, right, launch]));
+  const api = { board, start, step, made };"""),
 }
 GLOBAL, ADAPT = ADAPTERS[a.app]
-TITLE = {"i-ching": "the I Ching", "tarot": "the Tarot", "astrology": "astrology", "checkers": "Checkers", "go": "Go", "minesweeper": "Minesweeper", "mahjong": "Mahjong", "solitaire": "Solitaire"}[a.app]
-TICKET = {"i-ching": "765", "tarot": "765", "astrology": "768", "checkers": "794", "go": "794", "minesweeper": "794", "mahjong": "794", "solitaire": "794"}[a.app]
+TITLE = {"i-ching": "the I Ching", "tarot": "the Tarot", "astrology": "astrology", "checkers": "Checkers", "go": "Go", "minesweeper": "Minesweeper", "mahjong": "Mahjong", "solitaire": "Solitaire", "pinball": "Pinball"}[a.app]
+TICKET = {"i-ching": "765", "tarot": "765", "astrology": "768", "checkers": "794", "go": "794", "minesweeper": "794", "mahjong": "794", "solitaire": "794", "pinball": "793"}[a.app]
 
 jit = subprocess.run(["git", "-C", a.hazel, "show", f"{a.commit}:src/language/dynamics/HazelJit.re"], capture_output=True, text=True, check=True).stdout
 i = jit.index("let source = {|") + len("let source = {|")

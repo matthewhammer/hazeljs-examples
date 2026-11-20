@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pinball, its physics in Hazel</title>
+<meta name="description" content="Pinball whose ten boards are Hazel data and whose physics is a Hazel program: gravity, the walls, the bumpers, the flippers, the portals, the drain, compiled ahead of time to JavaScript by hazel-jit to run at 60 frames a second. An example for hazeljs.">
+<link rel="stylesheet" href="../shared/style.css?v=0.0.14">
+<link rel="stylesheet" href="../shared/oracles.css?v=0.0.33">
+<link rel="stylesheet" href="pinball.css?v=0.0.36">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="icon" href="icons/icon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="theme-color" content="#0b1030">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Pinball">
+</head>
+<body><main class="oracle">
+<div class="app-head">
+<h1>Pinball, its physics in Hazel</h1>
+<span class="app-links"><a href="../">Hazel activities</a> › <a href="../#physics">Physics simulation</a> · <a href="https://github.com/matthewhammer/hazeljs-examples">source on GitHub</a> · <a href="https://www.npmjs.com/package/hazeljs">hazeljs on npm</a></span>
+</div>
+<p class="sub">Ten boards, each a piece of Hazel data: its walls, bumpers, flippers and portals. Every frame, a Hazel program moves the ball: gravity, then the walls, the bumpers and the flippers it meets, and the portals it falls into. Hold <b>🚀 Launch</b> (or the space bar) to pull the plunger, and let go to launch the ball; the longer you hold, the harder it goes. The flippers are <b>⬅️</b> and <b>➡️</b> (or Z and /, or the arrow keys, or the two sides of the board). Three balls a game.</p>
+
+<div class="oracle-grid">
+<section class="oracle-ui pb-ui" aria-label="The game">
+  <div class="controls">
+    <label class="board-pick">Board <select id="boardpick"></select></label>
+    <button type="button" id="new" class="primary">New game</button>
+    <button type="button" id="music" class="pb-toggle" aria-pressed="true" title="Music: three tunes of our own, on a little chip">🎵</button>
+    <button type="button" id="sfx" class="pb-toggle" aria-pressed="true" title="Sounds: the bumpers, the flippers, the plunger…">🔊</button>
+  </div>
+  <div class="status wait" id="status">⏳ Loading the rules…</div>
+  <div class="pb-bar"><span id="score">0</span><span id="balls"></span><span id="fps" class="muted"></span></div>
+  <div class="pb-wrap"><canvas id="board" width="600" height="1000" aria-label="The pinball table"></canvas></div>
+  <div class="pb-pad"><button type="button" id="flipL" aria-label="Left flipper">⬅️</button><button type="button" id="launch">🚀 Launch</button><button type="button" id="flipR" aria-label="Right flipper">➡️</button></div>
+  <p class="sol-info" id="info"></p>
+  <p class="nojs muted">This app needs JavaScript, and a page served over http (python3 -m http.server, then localhost).</p>
+</section>
+<section class="oracle-code" aria-label="The rules, in Hazel">
+  <p class="muted" style="margin-top:0">The vocabulary the module sees (<code>pinball/rules/preamble.hz</code>). The listings are text, highlighted, until <b>Edit in Hazel</b> opens each in Hazel's own editor; an edit changes the next frame (interpreted, so slower).</p>
+  <pre class="code hazel" data-program="pinball">loading preamble.hz…</pre>
+  <div class="ed"><div class="ed-head"><b>Pinball</b> <span class="muted">the ten boards as data, and a frame of the game: the flippers turning, then in four small steps gravity, the walls, the bumpers, the flippers and the portals; the drain, and the plunger</span></div>
+  <pre class="code hazel" data-program="pinball" data-module="Pinball">loading Pinball.hz…</pre></div>
+  <p><button type="button" id="reset-rules">Put the program back as it was</button></p>
+</section>
+</div>
+
+<div id="advanced" class="advanced-holder"></div>
+<p class="app-foot" id="app-foot">hazeljs-examples · <a href="../VERSIONS.md">versions</a> · Apache 2.0 (code), CC BY 4.0 (words, the icon) · by Matthew Hammer · an example for <a href="https://github.com/hazelgrove/hazeljs">hazeljs</a></p>
+</main>
+<script src="../shared/divider.js?v=0.0.8"></script>
+<script src="../shared/fullscreen.js?v=0.0.33"></script>
+<script src="../shared/offline.js?v=0.0.27"></script>
+<script src="../shared/advanced.js?v=0.0.27"></script>
+<script src="sound.js?v=0.0.36"></script>
+<script src="app.js?v=0.0.36"></script>
+</body>
+</html>
