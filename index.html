@@ -4,14 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Hazel activities</title>
-<meta name="description" content="Small apps whose rules are written in Hazel and run in the page by hazeljs, each beside the Hazel program it runs: ancient oracles (the I Ching, the Tarot, astrology), one-player games, and games against an opponent written in Hazel.">
+<meta name="description" content="Small apps whose rules are written in Hazel and run in the page by hazeljs, each beside the Hazel program it runs: ancient oracles (the I Ching, the Tarot, astrology), one-player games, games against an opponent written in Hazel, and automata.">
 <link rel="stylesheet" href="shared/style.css?v=0.0.2">
 <link rel="stylesheet" href="shared/oracles.css?v=0.0.27">
 </head>
 <body><main>
 <h1>Hazel activities</h1>
 <p class="sub">Small apps whose rules are written in <a href="https://hazel.org">Hazel</a>, a typed functional language with a live editor, and run in the page by <a href="https://www.npmjs.com/package/hazeljs">hazeljs</a>, each shown beside the program it runs. Each works on a phone, and with no connection once opened.</p>
-<p class="toc"><a href="#oracles">Ancient oracles</a> · <a href="#games">One-player games</a> · <a href="#opponents">Hazel AI opponents</a></p>
+<p class="toc"><a href="#oracles">Ancient oracles</a> · <a href="#games">One-player games</a> · <a href="#opponents">Hazel AI opponents</a> · <a href="#automata">Automata</a></p>
 
 <h2 id="oracles">Ancient oracles</h2>
 <div class="series">
@@ -61,8 +61,17 @@
 </a>
 </div>
 
+<h2 id="automata">Automata</h2>
+<div class="series">
+<a class="series-card" href="petri-net/">
+<img class="thumb" src="petri-net/icons/icon.svg?v=0.0.31" alt="" width="168" height="168">
+<h3>Petri nets</h3>
+<p>A net and its firing rule in Hazel, edited while it runs</p>
+</a>
+</div>
+
 <h2>How each one works</h2>
-<p>The page passes the Hazel program random numbers, a birth's time and place, or a move, and draws what it answers, as <a href="https://matthewhammer.org/kids-choice-games/dress-up/">Messed Up Dress Up</a>'s scripts and <a href="https://matthewhammer.org/hazeljs-petri-example/">a Petri net simulator</a> do.</p>
+<p>The page passes the Hazel program random numbers, a birth's time and place, or a move, and draws what it answers, as <a href="https://matthewhammer.org/kids-choice-games/dress-up/">Messed Up Dress Up</a>'s scripts and <a href="petri-net/">a Petri net simulator</a> do.</p>
 <p class="app-foot">hazeljs-examples · <a href="https://github.com/matthewhammer/hazeljs-examples">source on GitHub</a> · <a href="VERSIONS.md">versions</a> · Apache 2.0 (code), CC BY 4.0 (words) · by Matthew Hammer · examples for <a href="https://github.com/hazelgrove/hazeljs">hazeljs</a></p>
 </main>
 <script src="shared/offline.js?v=0.0.27"></script>

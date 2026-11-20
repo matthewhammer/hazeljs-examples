@@ -6,6 +6,14 @@
 <title>Petri nets, with rules in Hazel</title>
 <meta name="description" content="A Petri net simulator whose firing rule is written in Hazel and run by hazeljs: edit the rules in Hazel's own editor while the net runs. An example app for hazeljs, after Messed Up Dress Up.">
 <link rel="stylesheet" href="style.css?v=0.0.10">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="icon" href="icons/icon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="theme-color" content="#14313a">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Petri nets">
 <style>
   .app-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px; }
   .app-head h1 { margin: 0; }
@@ -16,7 +24,7 @@
 <body><main>
 <div class="app-head">
 <h1>Petri nets, with rules in Hazel</h1>
-<span class="app-links"><a href="https://github.com/matthewhammer/hazeljs-petri-example">source on GitHub</a> · <a href="https://www.npmjs.com/package/hazeljs">hazeljs on npm</a> · <a href="https://matthewhammer.org/hazel/reports/043/">how it works</a></span>
+<span class="app-links"><a href="../">Hazel activities</a> › <a href="../#automata">automata</a> · <a href="https://github.com/matthewhammer/hazeljs-examples">source on GitHub</a> · <a href="https://www.npmjs.com/package/hazeljs">hazeljs on npm</a> · <a href="https://matthewhammer.org/hazel/reports/043/">how it works</a></span>
 </div>
 <p class="sub">The page keeps the net and draws it; a Hazel program decides what each event does. Click a transition to fire it, or step at random. The rules below are in <a href="https://hazel.org">Hazel</a>'s own editor: change them, and the page builds them again with <code>hazeljs</code>. While they have an error or a hole, the page's own JavaScript answers instead, and the log says which did.</p>
 
@@ -42,7 +50,7 @@
 </div>
 </div>
 
-<p class="app-foot" id="app-foot">hazeljs-petri-example · <a href="VERSIONS.md">versions</a> · Apache 2.0 (code), CC BY 4.0 (words) · by Matthew Hammer · an example for <a href="https://github.com/hazelgrove/hazeljs">hazeljs</a>, after <a href="https://matthewhammer.org/kids-choice-games/dress-up/">Messed Up Dress Up</a>, the first app with rules in Hazel</p>
+<p class="app-foot" id="app-foot">hazeljs-examples · <a href="../VERSIONS.md">versions</a> (<a href="VERSIONS.md">to 0.0.10, as hazeljs-petri-example</a>) · Apache 2.0 (code), CC BY 4.0 (words) · by Matthew Hammer · an example for <a href="https://github.com/hazelgrove/hazeljs">hazeljs</a>, after <a href="https://matthewhammer.org/kids-choice-games/dress-up/">Messed Up Dress Up</a>, the first app with rules in Hazel</p>
 </main>
 <script src="js/app.js?v=0.0.10"></script>
 </body>

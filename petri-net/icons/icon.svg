@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+<title>Petri nets: a place holding three tokens, a transition, and a place holding one, joined by arcs</title>
+<defs>
+<radialGradient id="bg" cx="50%" cy="40%" r="75%"><stop offset="0" stop-color="#245563"/><stop offset="0.65" stop-color="#14313a"/><stop offset="1" stop-color="#0a1b20"/></radialGradient>
+<marker id="ah" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="4" markerHeight="4" orient="auto"><path d="M0 0 L10 5 L0 10 Z" fill="#e8f1f2"/></marker>
+</defs>
+<rect width="512" height="512" fill="url(#bg)"/>
+<g fill="none" stroke="#e8f1f2" stroke-width="12" stroke-linecap="round">
+<path d="M178 256 L222 256" marker-end="url(#ah)"/>
+<path d="M290 256 L330 256" marker-end="url(#ah)"/>
+<path d="M404 186 C 400 90, 112 90, 108 178" marker-end="url(#ah)"/>
+</g>
+<circle cx="110" cy="256" r="66" fill="#0f2a31" stroke="#e8f1f2" stroke-width="12"/>
+<circle cx="402" cy="256" r="66" fill="#0f2a31" stroke="#e8f1f2" stroke-width="12"/>
+<g fill="#f2c14e"><circle cx="90" cy="238" r="17"/><circle cx="130" cy="238" r="17"/><circle cx="110" cy="276" r="17"/><circle cx="402" cy="256" r="17"/></g>
+<rect x="238" y="176" width="40" height="160" rx="5" fill="#e8f1f2"/>
+</svg>

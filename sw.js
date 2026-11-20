@@ -5,7 +5,7 @@
 // jsDelivr. Every request goes to the network first, so a page that is online always gets the newest files; with no
 // network, the saved copy answers, its ?v= query ignored. Hazel's editor frames come from build.hazel.org, which this
 // worker cannot answer for: with no connection, the listings stay text.
-const VERSION = "0.0.30";
+const VERSION = "0.0.31";
 const CACHE = "hazeljs-examples-" + VERSION;
 // (files a page saves on request, the Tarot's woodcut faces, and every face a page has shown: kept across versions)
 const EXTRA = "hazeljs-examples-extra";
@@ -116,6 +116,22 @@ const PRECACHE = [
   "checkers/icons/apple-touch-icon.png",
   "checkers/rules/preamble.hz",
   "checkers/rules/Checkers.hz",
+  "petri-net/",
+  "petri-net/index.html",
+  "petri-net/style.css",
+  "petri-net/js/app.js",
+  "petri-net/js/live.js",
+  "petri-net/js/hazel-listings.js",
+  "petri-net/manifest.webmanifest",
+  "petri-net/icons/icon.svg",
+  "petri-net/icons/icon-192.png",
+  "petri-net/icons/icon-512.png",
+  "petri-net/icons/icon-32.png",
+  "petri-net/icons/apple-touch-icon.png",
+  "petri-net/rules/preamble.hz",
+  "petri-net/rules/Common.hz",
+  "petri-net/rules/Rules.hz",
+  "petri-net/rules/Main.hz",
   "minesweeper/rules/preamble.hz",
   "solitaire/",
   "solitaire/index.html",

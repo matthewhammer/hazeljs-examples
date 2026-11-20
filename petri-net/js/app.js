@@ -9,7 +9,7 @@
   const load = src => new Promise((ok, no) => { const s = document.createElement("script"); s.src = src; s.onload = ok; s.onerror = () => no(new Error(src)); document.body.append(s); });
   try {
     const [preamble, common, rules, main, version] = await Promise.all([text("rules/preamble.hz"), text("rules/Common.hz"), text("rules/Rules.hz"),
-      text("rules/Main.hz"), fetch("version.json", { cache: "no-cache" }).then(r => r.json()).catch(() => null)]);
+      text("rules/Main.hz"), fetch("../version.json", { cache: "no-cache" }).then(r => r.json()).catch(() => null)]);
     document.querySelector('pre.hazel[data-program="petri"]:not([data-module])').textContent = preamble;
     document.querySelector('pre.hazel[data-module="Common"]').textContent = common;
     document.querySelector('pre.hazel[data-module="Rules"]').textContent = rules;

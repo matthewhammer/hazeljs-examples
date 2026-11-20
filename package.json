@@ -14,7 +14,8 @@
     "minesweeper": "node node/minesweeper.mjs",
     "minesweeper-hint": "node node/minesweeper-hint.mjs",
     "go": "node node/go.mjs",
-    "checkers": "node node/checkers.mjs"
+    "checkers": "node node/checkers.mjs",
+    "petri-net": "node petri-net/node/petri.mjs"
   },
   "dependencies": {
     "hazeljs": "0.0.4"

@@ -4,6 +4,14 @@ Each version lists what the apps do as of that version. The newest version is fi
 
 ## Unreleased
 
+## 0.0.31 (2026-11-19)
+
+Everything in 0.0.30, plus:
+
+- **Petri nets join the Hazel activities, under a new part of the front page, Automata** (`#automata`, Matthew's ask), at https://matthewhammer.org/hazeljs-examples/petri-net/. The simulator was hazeljs-petri-example; it came here with its history, and its versions to 0.0.10 stay in `petri-net/VERSIONS.md`. The net and its firing rule are Hazel, edited in Hazel's own editor while the net runs. It now has its own icon, works with no connection once opened, and links back to the Hazel activities.
+- **The old address sends you on.** Each page at https://matthewhammer.org/hazeljs-petri-example/ goes to its new one, with its query and anchor.
+- **In Node:** `npm run petri-net` runs the net in Node, as `npm run example` did in hazeljs-petri-example.
+
 ## 0.0.30 (2026-11-19)
 
 Everything in 0.0.29, plus:
