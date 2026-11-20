@@ -34,7 +34,9 @@
     "iching-ui": [".question-label", ".question", ".controls", "#status", "#reading-head", "#reading-q", "#history"],
     "tarot-ui": [".controls", ".spread-use", "#status", "#reading-head", "#history"],
     "solitaire-ui": [".controls", "#status", "#info"],
-    "sweeper-ui": [".controls", "#status", "#info"] };
+    "sweeper-ui": [".controls", "#status", "#info"],
+    // (0.0.33) the Hazel AI opponents: the board or table takes the rest of the window
+    "go-ui": [".controls", "#status", "#info"], "ck-ui": [".controls", "#status", "#info"], "mj-ui": [".controls", "#status", "#log"] };
   const partsOf = Object.entries(LEFT_PARTS).find(([c]) => ui.classList.contains(c));
   const left = document.createElement("div");
   left.className = "fs-left";

@@ -4,6 +4,12 @@ Each version lists what the apps do as of that version. The newest version is fi
 
 ## Unreleased
 
+## 0.0.33 (2026-11-20)
+
+Everything in 0.0.32, plus:
+
+- **The Hazel AI opponents fill the screen** (Matthew: "majong full screen looks strange --- we can use more space on the screen, right?"). In full screen, Go, Checkers and Mahjong now do as Solitaire and Minesweeper do: the controls and the status go to the left column (which ☰ puts away on a landscape screen), and the board or table takes the rest of the window. Mahjong's table fills the window's height, its tiles grow with the window, and what happened goes to the left column too.
+
 ## 0.0.32 (2026-11-20)
 
 Everything in 0.0.31, plus:

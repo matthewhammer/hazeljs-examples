@@ -34,7 +34,16 @@
 .mj-end table { border-collapse: collapse; margin: 4px 0; } .mj-end td { padding: 1px 10px 1px 0; }
 .mj-log { font-size: 0.88em; color: var(--muted); max-height: 9.5em; overflow: auto; margin: 4px 0; padding-left: 1.4em; }
 @media (max-width: 560px) { .mj-table { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr); padding: 6px; gap: 5px; } .tile.sm { --w: 15px; } .tile { --w: 22px; } }
-/* full screen: the controls on the left (hidden in landscape until ☰), the table in the rest */
-html.oracle-fs .mj-ui { grid-template-columns: minmax(200px, 0.55fr) minmax(0, 3fr); }
-html.oracle-fs .mj-ui > .mj-table, html.oracle-fs .mj-ui > .mj-acts, html.oracle-fs .mj-ui > .mj-end, html.oracle-fs .mj-ui > .mj-log { grid-column: 2; }
+/* full screen: the controls, the status and what happened on the left (hidden in landscape until ☰); the table fills the rest,
+   its tiles as large as the window lets them be, your moves and the end of a hand under it */
+html.oracle-fs .mj-ui { grid-template-columns: minmax(200px, 0.55fr) minmax(0, 3fr); grid-template-rows: minmax(0, 1fr) auto auto; }
+html.oracle-fs .mj-ui > .mj-table { grid-column: 2; grid-row: 1; align-self: stretch; margin: 0; min-height: 0; overflow: auto;
+  grid-template-rows: auto minmax(0, 1fr) auto; padding: 1.2vh 1.2vw; gap: 1.2vh 1vw; }
+html.oracle-fs .mj-ui > .mj-acts { grid-column: 2; grid-row: 2; }
+html.oracle-fs .mj-ui > .mj-end { grid-column: 2; grid-row: 3; }
+html.oracle-fs .mj-ui .tile { --w: clamp(22px, min(2.6vw, 4.2vh), 46px); }
+html.oracle-fs .mj-ui .tile.sm { --w: clamp(15px, min(1.75vw, 2.9vh), 32px); }
+html.oracle-fs .mj-ui .tile.lg { --w: clamp(26px, min(3.9vw, 6.6vh), 64px); }
+html.oracle-fs .mj-ui .seat .who { font-size: clamp(0.9em, 1.2vw, 1.15em); }
+html.oracle-fs .mj-ui .mj-mid { font-size: clamp(0.9em, 1.3vw, 1.3em); }
 html.oracle-fs .mj-ui > .fs-cast { grid-row: 1 / -1; }

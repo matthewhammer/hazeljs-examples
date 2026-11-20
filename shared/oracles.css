@@ -393,6 +393,7 @@ html.oracle-fs .tarot-ui > .faces-credit { grid-column: 2; grid-row: 2; margin: 
   html.oracle-fs.fs-left-hidden .iching-ui { grid-template-columns: 0 minmax(0, 1fr) !important; }
   html.oracle-fs.fs-left-hidden .tarot-ui { grid-template-columns: 0 minmax(0, 3fr) minmax(280px, 1fr) !important; }
   html.oracle-fs.fs-left-hidden .solitaire-ui, html.oracle-fs.fs-left-hidden .sweeper-ui { grid-template-columns: 0 minmax(0, 1fr) !important; }
+  html.oracle-fs.fs-left-hidden .go-ui, html.oracle-fs.fs-left-hidden .ck-ui, html.oracle-fs.fs-left-hidden .mj-ui { grid-template-columns: 0 minmax(0, 1fr) !important; }
 }
 
 /* (0.0.27; Matthew: "messed up dress up also has a feature that pops up when there's a new live version. Can we do that here,
