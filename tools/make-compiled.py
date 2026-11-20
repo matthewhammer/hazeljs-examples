@@ -16,11 +16,12 @@ labeled tuple as an object; hazel-jit's code has {c}, a chain of {h, t} cells, a
   python3 tools/make-compiled.py --app i-ching --hazel ~/hazel-694-merge --commit a4633af773 --src iching-src.js
   python3 tools/make-compiled.py --app tarot --hazel ~/hazel-694-merge --commit 760ce2cf67 --src tarot-src.js
   python3 tools/make-compiled.py --app astrology --hazel ~/hazel-694-merge --commit COMMIT --branch trial/768-astrology-aot --src astrology-src.js
+  python3 tools/make-compiled.py --app checkers --hazel ~/hazel-694-merge --commit COMMIT --branch trial/794-games-aot --src checkers-src.js
 """
 import argparse, os, subprocess
 
 ap = argparse.ArgumentParser()
-ap.add_argument("--app", default="i-ching", choices=["i-ching", "tarot", "astrology"])
+ap.add_argument("--app", default="i-ching", choices=["i-ching", "tarot", "astrology", "checkers", "go", "minesweeper", "mahjong", "solitaire"])
 ap.add_argument("--hazel", required=True, help="a checkout of hazelgrove/hazel with the commit")
 ap.add_argument("--commit", required=True, help="the commit whose hazel-jit compiled the program")
 ap.add_argument("--branch", default="trial/765-iching-aot", help="the branch whose test printed it")
@@ -83,10 +84,114 @@ ADAPTERS = {
              today_notes: array(r.today_notes).map(note), wheel: wheel(r.wheel) };
   };
   const api = { reading, made };"""),
+  "checkers": ("CheckersCompiled", """
+  // (ticket 794, the games compiled as the oracles are) Game = (black = Int, white = Int, kings = Int, turn = Int, quiet = Int,
+  // over = Bool, winner = Int, last = [Int]), Move = (from = Int, path = [Int], took = [Int])
+  const G = ["black", "white", "kings", "turn", "quiet", "over", "winner", "last"], M = ["from", "path", "took"];
+  const gameIn = g => $R.tup([g.black, g.white, g.kings, g.turn, g.quiet, g.over, g.winner, list(g.last)], G);
+  const gameOut = r => ({ black: int(r.black), white: int(r.white), kings: int(r.kings), turn: int(r.turn), quiet: int(r.quiet),
+                          over: r.over, winner: int(r.winner), last: array(r.last).map(int) });
+  const moveIn = m => $R.tup([m.from, list(m.path), list(m.took)], M);
+  const moveOut = r => ({ from: int(r.from), path: array(r.path).map(int), took: array(r.took).map(int) });
+  // start : Game; moves : Game -> [Move]; apply : (Game, Move) -> Game; choose : (Game, Int, [Int]) -> Move
+  const start = gameOut(P.start);
+  const moves = g => array(P.moves(gameIn(g))).map(moveOut);
+  const apply = (g, m) => gameOut(P.apply([gameIn(g), moveIn(m)]));
+  const choose = (g, depth, rs) => moveOut(P.choose([gameIn(g), depth, list(rs || [])]));
+  const api = { start, moves, apply, choose, made };"""),
+  "go": ("GoCompiled", """
+  // (ticket 794) Game = (size = Int, board = [[Int]], turn = Int, ko = Int, passes = Int, black_took = Int, white_took = Int,
+  // last = Int, over = Bool), Score = (black = Int, white = Int, komi = Int, owners = [Int])
+  const G = ["size", "board", "turn", "ko", "passes", "black_took", "white_took", "last", "over"];
+  const gameIn = g => $R.tup([g.size, list(g.board.map(list)), g.turn, g.ko, g.passes, g.black_took, g.white_took, g.last, g.over], G);
+  const gameOut = r => ({ size: int(r.size), board: array(r.board).map(row => array(row).map(int)), turn: int(r.turn), ko: int(r.ko),
+                          passes: int(r.passes), black_took: int(r.black_took), white_took: int(r.white_took), last: int(r.last), over: r.over });
+  // fresh : Int -> Game; play : (Game, Int) -> Game; pass : Game -> Game; score : Game -> Score; choose : (Game, [Int]) -> Int
+  const fresh = n => gameOut(P.fresh(n));
+  const play = (g, p) => gameOut(P.play([gameIn(g), p]));
+  const pass = g => gameOut(P.pass(gameIn(g)));
+  const score = g => { const r = P.score(gameIn(g)); return { black: int(r.black), white: int(r.white), komi: int(r.komi), owners: array(r.owners).map(int) }; };
+  const choose = (g, rs) => int(P.choose([gameIn(g), list(rs || [])]));
+  const api = { fresh, play, pass, score, choose, made };"""),
+  "minesweeper": ("MinesweeperCompiled", """
+  // (ticket 794) Cell = (mine = Bool, near = Int, open = Bool, flag = Bool), Game = (rows = Int, cols = Int, mines = Int,
+  // grid = [[Cell]], left = Int, over = Bool, won = Bool, boom = Int)
+  const CL = ["mine", "near", "open", "flag"], G = ["rows", "cols", "mines", "grid", "left", "over", "won", "boom"];
+  const cellIn = c => $R.tup([c.mine, c.near, c.open, c.flag], CL);
+  const cellOut = r => ({ mine: r.mine, near: int(r.near), open: r.open, flag: r.flag });
+  const gameIn = g => $R.tup([g.rows, g.cols, g.mines, list(g.grid.map(row => list(row.map(cellIn)))), g.left, g.over, g.won, g.boom], G);
+  const gameOut = r => ({ rows: int(r.rows), cols: int(r.cols), mines: int(r.mines), grid: array(r.grid).map(row => array(row).map(cellOut)),
+                          left: int(r.left), over: r.over, won: r.won, boom: int(r.boom) });
+  // fresh : (Int, Int, Int) -> Game; lay : (Int, Int, Int, [Float], Int, Int) -> Game; reveal, flag, chord : (Game, Int, Int)
+  // -> Game; flags : Game -> Int; sure : Game -> (kind = Int, at = Int, why = Int)
+  const fresh = (rows, cols, mines) => gameOut(P.fresh([rows, cols, mines]));
+  const lay = (rows, cols, mines, us, r0, c0) => gameOut(P.lay([rows, cols, mines, list(us), r0, c0]));
+  const reveal = (g, r, c) => gameOut(P.reveal([gameIn(g), r, c]));
+  const flag = (g, r, c) => gameOut(P.flag([gameIn(g), r, c]));
+  const chord = (g, r, c) => gameOut(P.chord([gameIn(g), r, c]));
+  const flags = g => int(P.flags(gameIn(g)));
+  const sure = g => { const r = P.sure(gameIn(g)); return { kind: int(r.kind), at: int(r.at), why: int(r.why) }; };
+  const api = { fresh, lay, reveal, flag, chord, flags, sure, made };"""),
+  "mahjong": ("MahjongCompiled", """
+  // (ticket 794) Meld = (kind = Int, tile = Int, shown = Bool), Seat = (hand = [Int], melds = [Meld], river = [Int], points = Int),
+  // Item = (code = Int, faan = Int), Event = (who = Int, what = Int, tile = Int), Game = (wall = [Int], seats = [Seat],
+  // turn = Int, phase = Int, tile = Int, from = Int, drawn = Int, dealer = Int, wind = Int, hand_no = Int, winner = Int,
+  // items = [Item], pays = [Int], events = [Event]), Act = (kind = Int, tile = Int), Opts = (discard = Bool, win = Bool,
+  // kongs = [Int], pung = Bool, kong = Bool, chows = [Int])
+  const ints = l => array(l).map(int);
+  const ML = ["kind", "tile", "shown"], SL = ["hand", "melds", "river", "points"], IL = ["code", "faan"], EL = ["who", "what", "tile"];
+  const G = ["wall", "seats", "turn", "phase", "tile", "from", "drawn", "dealer", "wind", "hand_no", "winner", "items", "pays", "events"];
+  const seatIn = s => $R.tup([list(s.hand), list(s.melds.map(m => $R.tup([m.kind, m.tile, m.shown], ML))), list(s.river), s.points], SL);
+  const seatOut = r => ({ hand: ints(r.hand), melds: array(r.melds).map(m => ({ kind: int(m.kind), tile: int(m.tile), shown: m.shown })),
+                          river: ints(r.river), points: int(r.points) });
+  const gameIn = g => $R.tup([list(g.wall), list(g.seats.map(seatIn)), g.turn, g.phase, g.tile, g.from, g.drawn, g.dealer, g.wind,
+    g.hand_no, g.winner, list(g.items.map(i => $R.tup([i.code, i.faan], IL))), list(g.pays),
+    list(g.events.map(e => $R.tup([e.who, e.what, e.tile], EL)))], G);
+  const gameOut = r => ({ wall: ints(r.wall), seats: array(r.seats).map(seatOut), turn: int(r.turn), phase: int(r.phase),
+    tile: int(r.tile), from: int(r.from), drawn: int(r.drawn), dealer: int(r.dealer), wind: int(r.wind), hand_no: int(r.hand_no),
+    winner: int(r.winner), items: array(r.items).map(i => ({ code: int(i.code), faan: int(i.faan) })), pays: ints(r.pays),
+    events: array(r.events).map(e => ({ who: int(e.who), what: int(e.what), tile: int(e.tile) })) });
+  const actIn = a => $R.tup([a.kind, a.tile], ["kind", "tile"]);
+  // start : [Int] -> Game; step : (Game, Act) -> Game; options : Game -> Opts; next_hand : (Game, [Int]) -> Game
+  const start = rs => gameOut(P.start(list(rs)));
+  const step = (g, a) => gameOut(P.step([gameIn(g), actIn(a)]));
+  const options = g => { const r = P.options(gameIn(g));
+    return { discard: r.discard, win: r.win, kongs: ints(r.kongs), pung: r.pung, kong: r.kong, chows: ints(r.chows) }; };
+  const next_hand = (g, rs) => gameOut(P.next_hand([gameIn(g), list(rs)]));
+  const api = { start, step, options, next_hand, made };"""),
+  "solitaire": ("SolitaireCompiled", """
+  // (ticket 794) Suit = + Spades + Hearts + Diamonds + Clubs, Card = (suit = Suit, rank = Int), Pile = (down = [Card],
+  // up = [Card]), Game = (stock = [Card], waste = [Card], foundations = [[Card]], piles = [Pile], draw = Int),
+  // Run = (pile = Int, count = Int), From = + FromWaste + FromPile(Run) + FromFoundation(Int), To = + ToPile(Int) + ToFoundation,
+  // Step = (from = From, to = To), Move = + Draw + Redeal + Shift(Step)
+  const cardIn = k => $R.tup([{ c: k.suit.tag }, k.rank], ["suit", "rank"]);
+  const cardOut = r => ({ suit: { tag: r.suit.c }, rank: int(r.rank) });
+  const cards = l => array(l).map(cardOut), cardsIn = ks => list(ks.map(cardIn));
+  const G = ["stock", "waste", "foundations", "piles", "draw"];
+  const gameIn = g => $R.tup([cardsIn(g.stock), cardsIn(g.waste), list(g.foundations.map(cardsIn)),
+    list(g.piles.map(p => $R.tup([cardsIn(p.down), cardsIn(p.up)], ["down", "up"]))), g.draw], G);
+  const gameOut = r => ({ stock: cards(r.stock), waste: cards(r.waste), foundations: array(r.foundations).map(cards),
+    piles: array(r.piles).map(p => ({ down: cards(p.down), up: cards(p.up) })), draw: int(r.draw) });
+  const fromIn = f => f.tag === "FromPile" ? { c: "FromPile", v: $R.tup([f.value.pile, f.value.count], ["pile", "count"]) }
+    : f.tag === "FromFoundation" ? { c: "FromFoundation", v: f.value } : { c: f.tag };
+  const fromOut = r => r.c === "FromPile" ? { tag: "FromPile", value: { pile: int(r.v.pile), count: int(r.v.count) } }
+    : r.c === "FromFoundation" ? { tag: "FromFoundation", value: int(r.v) } : { tag: r.c };
+  const toIn = t => t.tag === "ToPile" ? { c: "ToPile", v: t.value } : { c: t.tag };
+  const toOut = r => r.c === "ToPile" ? { tag: "ToPile", value: int(r.v) } : { tag: r.c };
+  const moveIn = m => m.tag === "Shift" ? { c: "Shift", v: $R.tup([fromIn(m.value.from), toIn(m.value.to)], ["from", "to"]) } : { c: m.tag };
+  const moveOut = r => r.c === "Shift" ? { tag: "Shift", value: { from: fromOut(r.v.from), to: toOut(r.v.to) } } : { tag: r.c };
+  // deal : ([Float], Int) -> Game; moves : Game -> [Move]; moves_from : (Game, From) -> [Move]; apply : (Game, Move) -> Game;
+  // won : Game -> Bool
+  const deal = (us, draw) => gameOut(P.deal([list(us), draw]));
+  const moves = g => array(P.moves(gameIn(g))).map(moveOut);
+  const moves_from = (g, f) => array(P.moves_from([gameIn(g), fromIn(f)])).map(moveOut);
+  const apply = (g, m) => gameOut(P.apply([gameIn(g), moveIn(m)]));
+  const won = g => P.won(gameIn(g));
+  const api = { deal, moves, moves_from, apply, won, made };"""),
 }
 GLOBAL, ADAPT = ADAPTERS[a.app]
-TITLE = {"i-ching": "the I Ching", "tarot": "the Tarot", "astrology": "astrology"}[a.app]
-TICKET = {"i-ching": "765", "tarot": "765", "astrology": "768"}[a.app]
+TITLE = {"i-ching": "the I Ching", "tarot": "the Tarot", "astrology": "astrology", "checkers": "Checkers", "go": "Go", "minesweeper": "Minesweeper", "mahjong": "Mahjong", "solitaire": "Solitaire"}[a.app]
+TICKET = {"i-ching": "765", "tarot": "765", "astrology": "768", "checkers": "794", "go": "794", "minesweeper": "794", "mahjong": "794", "solitaire": "794"}[a.app]
 
 jit = subprocess.run(["git", "-C", a.hazel, "show", f"{a.commit}:src/language/dynamics/HazelJit.re"], capture_output=True, text=True, check=True).stdout
 i = jit.index("let source = {|") + len("let source = {|")

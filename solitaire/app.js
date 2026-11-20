@@ -8,6 +8,11 @@
   const PROGRAM = "solitaire", MODULES = ["Cards", "Deal", "Moves"];
   const TAIL = "(deal = Deal.deal, moves = Moves.moves, moves_from = Moves.moves_from, apply = Moves.apply, won = Moves.won)";
   const KEY = "hazeljs-examples/solitaire/";
+  // (0.0.34, ticket 794, as the oracles since 0.0.13 and Checkers in 0.0.34) the rules run compiled ahead of time to JavaScript
+  // by hazel-jit (compiled.js), without loading hazeljs or building the program, unless the address asks for interpreted
+  // (?interpreted=1, or ?compiled=0) or the rules are edited, when hazeljs loads and runs the edited rules
+  const Q = new URLSearchParams(location.search);
+  const COMPILED = !(Q.has("interpreted") || Q.get("compiled") === "0");
   const $ = id => document.getElementById(id);
   const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
   const text = async path => { const r = await fetch(path, { cache: "no-cache" }); if (!r.ok) throw new Error(path + ": " + r.status); return (await r.text()).replace(/\s+$/, ""); };
@@ -16,7 +21,7 @@
   const keep = (k, v) => { try { localStorage.setItem(KEY + k, JSON.stringify(v)); } catch (e) { /* kept for this visit only */ } };
 
   // ---- the state: Hazel's program as built, the game (a Hazel value, kept as hazeljs gives it), the moves made, the undo stack
-  const S = { built: null, libAt: 0, libFailed: false, game: null, moves: 0, started: 0, undo: [], hint: null, wonAt: 0 };
+  const S = { built: null, libAt: 0, libFailed: false, game: null, moves: 0, started: 0, undo: [], hint: null, wonAt: 0, compiledError: "" };
   let hintFs = null;   // (the 💡 under ☰ in full screen, while the controls are hidden: fullscreen.js)
   const saved = kept("game", null);
   if (saved && saved.game && Array.isArray(saved.game.piles)) Object.assign(S, { game: saved.game, moves: saved.moves || 0, started: saved.started || Date.now() });
@@ -259,6 +264,8 @@
   // ---- Hazel: its library, the program built from the listings, and the status line
   function drawStatus() {
     const st = $("status"), b = S.built;
+    if (COMPILED && S.compiledError && !(b && b.compiled) && !window.Hazel) { st.className = "status no"; st.textContent = `Compiled mode was asked for, but compiled.js did not run (${S.compiledError}); loading Hazel to interpret the rules instead.`; return; }
+    if (b && b.compiled) { st.className = "status ok"; st.textContent = `✓ Compiled ahead of time: the rules run as JavaScript (hazel-jit, ${b.made || "a prototype"}), without loading Hazel's library or building the program` + "."; return; }
     if (!window.Hazel) { st.className = "status wait"; st.textContent = S.libFailed ? "Hazel did not load from jsDelivr, so there is nothing to play by: check the connection, then reload." : "⏳ Loading Hazel (hazeljs from jsDelivr), whose rules deal and play."; return; }
     if (!b) { st.className = "status wait"; st.textContent = "⏳ Building the rules…"; return; }
     if (b.ok) { st.className = "status ok"; st.textContent = `✓ Hazel's rules are ready, built by hazeljs in ${b.ms.toFixed(0)} ms: every move is asked of them.`; return; }
@@ -276,6 +283,21 @@
     S.built = { key, ok: !!r.ok && !!v && typeof v.apply === "function", value: v, errors: r.errors || [], threw, ms: performance.now() - t0, at: performance.now() };
     drawStatus(); draw();
   }
+  function loadCompiled() {
+    addEventListener("error", e => { if (/compiled\.js/.test(e.filename || "")) S.compiledError = String(e.message || e.error || "an error"); });
+    const c = document.createElement("script");
+    c.src = "compiled.js?v=0.0.34"; c.async = true;
+    c.onload = () => {
+      const v = window.SolitaireCompiled;
+      if (v && !S.built) {
+        S.libAt = performance.now(); S.built = { key: "compiled", ok: true, compiled: true, made: v.made, value: v, errors: [], threw: "", ms: 0, at: performance.now() };
+        drawStatus();
+        draw();
+      } else if (!v) { S.compiledError = S.compiledError || "it ran, but gave no Solitaire"; drawStatus(); loadLib(); }
+    };
+    c.onerror = () => { S.compiledError = "it did not load"; drawStatus(); loadLib(); };
+    document.head.append(c);
+  }
   let libAsked = false;
   function loadLib() {
     if (libAsked) return; libAsked = true;
@@ -290,8 +312,8 @@
     window.HazelListingsOptions = { start: "request" };
     await load("../shared/hazel-listings.js?v=0.0.24");
     L = window.HazelListings; L.tail(PROGRAM, TAIL);
-    L.onChange(PROGRAM, () => { clearTimeout(timer); timer = setTimeout(build, 350); });
-    loadLib();
+    L.onChange(PROGRAM, () => { if (!window.Hazel) loadLib(); clearTimeout(timer); timer = setTimeout(build, 350); });
+    if (COMPILED) loadCompiled(); else loadLib();
   } catch (e) {
     $("status").textContent = "Could not start: " + (e && e.message || e) + ". Serve this folder over http (python3 -m http.server) and open it from localhost.";
   }
@@ -324,7 +346,7 @@
   }
   if (window.OracleAdvanced) window.OracleAdvanced.panel({
     holder: $("advanced"), name: "Solitaire", built: () => S.built, libAt: () => S.libAt, keysIn: null,
-    mode: () => ({ asked: "interpreted", error: null }),
+    mode: () => ({ asked: COMPILED ? "compiled" : "interpreted", error: S.compiledError || null }),
     extras: [el("h3", "advanced-cap", "🂠 Card backs"), backsChooser()],
     about: "a deal, every legal move, the moves from each pile and ten moves made through Hazel, and ten drawings of the table",
     work: async say => {
@@ -347,6 +369,15 @@
                       `drawing the table, to the next frame: ${dr.median} ms`] };
     },
   });
+  // (0.0.34) the switch, under ⚙️ Advanced: this page compiled ahead of time, or interpreted
+  { const box = $("advanced") && $("advanced").querySelector("details.advanced");
+    if (box && box.querySelector(".advanced-version")) {
+      const u = new URL(location.href); u.searchParams.delete("compiled"); if (COMPILED) u.searchParams.set("interpreted", "1"); else u.searchParams.delete("interpreted");
+      const p = document.createElement("p"); p.className = "advanced-version";
+      p.textContent = COMPILED ? "⚡ This page runs its rules compiled ahead of time to JavaScript, without loading Hazel (until you edit them). " : "⚡ This page interprets its rules with hazeljs. ";
+      const a = document.createElement("a"); a.textContent = COMPILED ? "Open it interpreted" : "Open it compiled"; a.href = u.href;
+      p.append(a); box.querySelector(".advanced-version").after(p);
+    } }
   document.body.classList.add("js");
   drawStatus(); draw();
 })();
