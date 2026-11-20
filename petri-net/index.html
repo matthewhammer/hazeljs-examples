@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Petri nets, with rules in Hazel</title>
+<meta name="description" content="A Petri net simulator whose firing rule is written in Hazel and run by hazeljs: edit the rules in Hazel's own editor while the net runs. An example app for hazeljs, after Messed Up Dress Up.">
+<link rel="stylesheet" href="style.css?v=0.0.10">
+<style>
+  .app-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px; }
+  .app-head h1 { margin: 0; }
+  .app-links { color: var(--muted); font-size: 0.92em; }
+  .app-foot { color: var(--muted); font-size: 0.88em; border-top: 1px solid var(--line); margin-top: 32px; padding-top: 10px; }
+</style>
+</head>
+<body><main>
+<div class="app-head">
+<h1>Petri nets, with rules in Hazel</h1>
+<span class="app-links"><a href="https://github.com/matthewhammer/hazeljs-petri-example">source on GitHub</a> · <a href="https://www.npmjs.com/package/hazeljs">hazeljs on npm</a> · <a href="https://matthewhammer.org/hazel/reports/043/">how it works</a></span>
+</div>
+<p class="sub">The page keeps the net and draws it; a Hazel program decides what each event does. Click a transition to fire it, or step at random. The rules below are in <a href="https://hazel.org">Hazel</a>'s own editor: change them, and the page builds them again with <code>hazeljs</code>. While they have an error or a hole, the page's own JavaScript answers instead, and the log says which did.</p>
+
+<div class="live" id="live" data-start="max">
+<div class="live-grid">
+<div class="live-left">
+<div class="live-panel">
+<div class="figscroll" id="live-net"><p class="muted" style="margin:0;padding:24px 0;text-align:center">⏳ The net is drawn from its definition in Hazel (the module Main, with the rules), once hazeljs has built it.</p></div>
+<p class="live-marking" id="live-marking"></p>
+<div class="live-controls"><button type="button" id="live-step">Step</button><button type="button" id="live-run">Step ×100</button><button type="button" id="live-reset">Reset the net</button><button type="button" id="live-rules">Reset the rules</button></div>
+<div class="live-status wait" id="live-status"></div>
+<p class="live-nojs muted">This app needs JavaScript, and a page served over http (python3 -m http.server, then localhost): Hazel's editor frames take no file:// page.</p>
+</div>
+<div class="live-log script-log" id="live-log"><div class="log-head"><b>🪵 event log</b> <span class="log-count"></span> <button type="button" id="live-log-clear">🧹 clear</button></div><div class="log-list"></div></div>
+</div>
+<div class="live-right">
+<p class="muted" style="margin-top:0">The vocabulary, the preamble every module sees (<code>rules/preamble.hz</code>). Each listing is Hazel's editor: Ctrl+click a name, or F12 on it, to go to its definition.</p>
+<pre class="code hazel" data-program="petri">loading rules/preamble.hz…</pre>
+<div class="live-ed" id="live-ed-Common"><div class="live-ed-head"><b>Common</b> <span class="muted">helpers the rules use (<code>rules/Common.hz</code>)</span></div><pre class="code hazel" data-program="petri" data-module="Common">loading rules/Common.hz…</pre></div>
+<div class="live-ed" id="live-ed-Rules"><div class="live-ed-head"><b>Rules</b> <span class="muted">the handler, <code>on_event</code> (<code>rules/Rules.hz</code>)</span></div><pre class="code hazel" data-program="petri" data-module="Rules">loading rules/Rules.hz…</pre></div>
+<div class="live-ed" id="live-ed-Main"><div class="live-ed-head"><b>Main</b> <span class="muted">the net, where it is drawn, and the handler the page calls (<code>rules/Main.hz</code>). The program ends by reading them: <code>(places = Main.places, place_at = Main.place_at, transitions = Main.transitions, transition_at = Main.transition_at, marking = Main.marking, on_event = Main.on_event)</code>. Change the net here and the page draws it again.</span></div><pre class="code hazel" data-program="petri" data-module="Main">loading rules/Main.hz…</pre></div>
+</div>
+</div>
+</div>
+
+<p class="app-foot" id="app-foot">hazeljs-petri-example · <a href="VERSIONS.md">versions</a> · Apache 2.0 (code), CC BY 4.0 (words) · by Matthew Hammer · an example for <a href="https://github.com/hazelgrove/hazeljs">hazeljs</a>, after <a href="https://matthewhammer.org/kids-choice-games/dress-up/">Messed Up Dress Up</a>, the first app with rules in Hazel</p>
+</main>
+<script src="js/app.js?v=0.0.10"></script>
+</body>
+</html>
