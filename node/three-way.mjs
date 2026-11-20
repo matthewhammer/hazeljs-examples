@@ -98,8 +98,10 @@ function whole(name, play, opts = {}) {
   const ends = [];
   for (const [way, impl] of WAYS) {
     if (way === "hazeljs" && (opts.skipHazel || NOHAZEL)) { row[way] = null; continue; }
-    const s0 = seed; const t = performance.now(); const r = play(impl); const ms = performance.now() - t; seed = s0;
-    ends.push(r.end); row[way] = { ms, moves: r.moves };
+    // (the same seeded game each time; hazeljs once, the others 5 times, the median kept: a first run is cold)
+    const runs = []; let r;
+    for (let k = 0; k < (way === "hazeljs" || QUICK ? 1 : 5); k++) { const s0 = seed; const t = performance.now(); r = play(impl); runs.push(performance.now() - t); seed = s0; }
+    ends.push(r.end); row[way] = { ms: median(runs), runs, moves: r.moves };
   }
   // (each way played from the same seed: the same game, so the same end)
   row.same = ends.every(e => same(e, ends[0]));
