@@ -4,6 +4,14 @@ Each version lists what the apps do as of that version. The newest version is fi
 
 ## Unreleased
 
+## 0.0.35 (2026-11-20)
+
+Everything in 0.0.34, plus:
+
+- **Go: Hazel's randomness, as a slider** (Matthew: "For Go, let's permit the user to control the degree of randomness for the AI, as a slider"). Hazel's choice of move adds a random amount to what each point is worth before it picks the best; the slider sets the most it adds, from none (Hazel plays its best move every time: two games it plays against itself at 0 come out the same, stone for stone) to 10 points, by half points. It starts at 2, about what it was before (up to 1.9). It counts for every Hazel move, yours too while 🤖 Hazel plays for you. Hazel's rules are unchanged: the noise is the page's random numbers, which the rules always took.
+- **Minesweeper: 🤖 Hazel plays for you** (Matthew: "also do AI mode for minesweeper --- so that it runs automatically as an animation with controls like the others"), with the same switch, pace and clock as Go, Checkers and Mahjong. Hazel makes the first tap in the middle, then plays its 💡 sure moves one after another: a safe cell opened, a mine flagged, a wrong flag taken off; the cell it plays shows in yellow and the number that shows it in blue, at the pace chosen. When no number shows a sure move it must guess, and the guess is a closed cell picked at random by the page, not by Hazel, whose rules have no guessing; the clock counts the guesses. A board Hazel played is kept out of your tally. At full speed, beginner and intermediate boards are typically cleared in about a tenth of a second with no guess at all.
+- **The switch's full screen** (Matthew: "fullscreen majong layout is goofy"). The switch and its clock now sit with the buttons, so full screen takes them to the left column; a 🤖 under ☰ flips the switch while that column is hidden.
+
 ## 0.0.34 (2026-11-20)
 
 Everything in 0.0.33, plus:

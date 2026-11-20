@@ -44,15 +44,16 @@
   // screen they go to the left column with the buttons; a 🤖 under ☰ flips the switch while that column is hidden); key, the page's localStorage
   // prefix (the pace is kept, the switch is not: a page opens with you playing); sides, the two sides' names for the clock
   // (["⚫", "⚪"]); pace, the page's own pace ({ get }) when it has one (Mahjong's), else the switch brings its own select;
-  // onChange(on), called when the switch is flipped
-  function make({ into, key, sides, pace, onChange }) {
+  // onChange(on), called when the switch is flipped; sides may be one name (Minesweeper: Hazel alone); more(), words the page
+  // adds to the clock (its guesses); label, the switch's words
+  function make({ into, key, sides, pace, onChange, more, label }) {
     style();
     const box = document.createElement("div"); box.className = "autoplay";
     const sw = document.createElement("label"); sw.className = "switch";
     sw.title = "Hazel plays your side too, as it plays its own, to the end of the game: a game to watch, and to time";
     const input = document.createElement("input"); input.type = "checkbox"; input.setAttribute("role", "switch");
     const knob = document.createElement("span"); knob.className = "knob"; knob.setAttribute("aria-hidden", "true");
-    sw.append(input, knob, document.createTextNode("🤖 Hazel plays for you"));
+    sw.append(input, knob, document.createTextNode(label || "🤖 Hazel plays for you"));
     box.append(sw);
     let select = null;
     if (!pace) {
@@ -75,8 +76,10 @@
       const wall = (done || performance.now()) - t0, logic = think[0] + think[1];
       const share = wall > 0 ? Math.round(100 * logic / wall) : 0;
       const head = done ? `🏁 ${endText ? endText + ": " : ""}${moves} move${moves === 1 ? "" : "s"}${from ? ` from move ${from + 1}` : ""} in ${secs(wall)} on the clock, ${paceName(paceAtStart)}`
-        : `🤖 Hazel plays both sides, ${paceName(paceNow())} · move ${from + moves} · ${secs(wall)} on the clock`;
-      return `${head} · Hazel's thinking: ${sides[0]} ${secs(think[0])}, ${sides[1]} ${secs(think[1])}` + (moves ? ` (${share}% of the clock; slowest move ${secs(slowest)})` : "") + (done ? "." : "");
+        : `🤖 Hazel plays ${sides.length > 1 ? "both sides" : "the board"}, ${paceName(paceNow())} · move ${from + moves} · ${secs(wall)} on the clock`;
+      // (one side, Minesweeper's: Hazel's thinking in all; more(), the page's own words, such as its guesses)
+      const thinking = sides.length > 1 ? `Hazel's thinking: ${sides[0]} ${secs(think[0])}, ${sides[1]} ${secs(think[1])}` : `Hazel's thinking ${secs(think[0])}`;
+      return `${head} · ${thinking}` + (moves ? ` (${share}% of the clock; slowest move ${secs(slowest)})` : "") + (more ? more() : "") + (done ? "." : "");
     }
     const W = {
       get on() { return input.checked; },

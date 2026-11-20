@@ -23,7 +23,13 @@
   const painted = () => new Promise(r => { let done = false; const go = () => { if (!done) { done = true; r(); } }; requestAnimationFrame(() => setTimeout(go, 0)); setTimeout(go, 60); });
 
   // ---- the state: Hazel's program, the board size, the game (a Hazel value), the moves to undo, the score once it is over
-  const S = { built: null, libAt: 0, libFailed: false, size: kept("size", 9), game: null, undo: [], score: null, busy: false, note: "", thinkMs: 0, compiledError: "", auto: false, touched: false, looping: false };
+  const S = { built: null, libAt: 0, libFailed: false, size: kept("size", 9), game: null, undo: [], score: null, busy: false, note: "", thinkMs: 0, compiledError: "", auto: false, touched: false, looping: false, noise: kept("noise", 2) };
+  if (!(S.noise >= 0 && S.noise <= 10)) S.noise = 2;
+  // (0.0.35, Matthew: "For Go, let's permit the user to control the degree of randomness for the AI, as a slider") Hazel's
+  // choice adds to each point's worth, in tenths of a point, the page's random number for that point (Go.hz, try_from):
+  // here 0 to S.noise points, drawn fresh for every move; 0 makes Hazel play its best move every time (a tie goes to the
+  // first point, from the top left). Until 0.0.34 it was 0 to 1.9 points.
+  const noisy = n => Array.from({ length: n * n }, () => Math.floor(Math.random() * (10 * S.noise + 1)));
   if (!SIZES.includes(S.size)) S.size = 9;
   const saved = kept("game", null);
   if (saved && saved.game && Array.isArray(saved.game.board) && saved.game.size === S.size) Object.assign(S, { game: saved.game, undo: saved.undo || [], score: saved.score || null, touched: !!saved.touched });
@@ -115,7 +121,7 @@
   async function reply() {
     const h = H(); let g = S.game; if (!h || !g || g.over || g.turn !== 2 || S.busy) return;
     S.busy = true; draw(); await painted();
-    const rs = Array.from({ length: g.size * g.size }, () => Math.floor(Math.random() * 20));
+    const rs = noisy(g.size);
     const t = performance.now(); let w = -1;
     try { w = h.choose(g, rs); } catch (e) { w = -1; }
     S.thinkMs = performance.now() - t;
@@ -159,7 +165,7 @@
     try {
       while (S.auto && S.game && !S.game.over && H()) {
         const h = H(), g = S.game, side = g.turn, n = g.size;
-        const rs = Array.from({ length: n * n }, () => Math.floor(Math.random() * 20));
+        const rs = noisy(n);
         const t = performance.now(); let w = -1, g2 = null;
         const long = S.undo.length >= 4 * n * n;
         try { w = long ? -1 : h.choose(g, rs); g2 = w < 0 ? h.pass(g) : h.play(g, w); } catch (e) { g2 = null; }
@@ -197,6 +203,9 @@
   $("pass").addEventListener("click", pass);
   $("undo").addEventListener("click", undo);
   $("size").addEventListener("change", () => { S.size = +$("size").value; keep("size", S.size); newGame(); });
+  const noiseSays = () => { $("noise-says").textContent = S.noise === 0 ? "none: its best move, every time" : `up to ${S.noise} point${S.noise === 1 ? "" : "s"} of noise`; };
+  $("noise").value = String(S.noise); noiseSays();
+  $("noise").addEventListener("input", () => { S.noise = +$("noise").value; keep("noise", S.noise); noiseSays(); });
   let passFs = null;
   if (window.OracleFs) window.OracleFs.offer({ label: "⚫ New game", title: "A new game, on the board size chosen", cast: newGame });
   if (window.OracleFs && window.OracleFs.tool) passFs = window.OracleFs.tool({ label: "⏭", title: "Pass: two passes in a row end the game", click: pass });

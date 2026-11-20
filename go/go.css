@@ -19,3 +19,8 @@ html.oracle-fs .go-ui { grid-template-columns: minmax(200px, 0.55fr) minmax(0, 3
 html.oracle-fs .go-ui > .go-bar { grid-column: 2; grid-row: 1; justify-self: center; width: min(520px, 100%); margin: 0 0 8px; }
 html.oracle-fs .go-ui > .goban-wrap { grid-column: 2; grid-row: 2; justify-self: center; align-self: start; width: min(100%, calc(100vh - 110px)); max-width: none; }
 html.oracle-fs .go-ui > .fs-cast { grid-row: 1 / -1; }
+
+/* (0.0.35) Hazel's randomness: the slider, and what it says */
+.noise-pick { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.noise-pick input[type=range] { width: 120px; accent-color: var(--accent); }
+.noise-pick output { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 0.92em; }

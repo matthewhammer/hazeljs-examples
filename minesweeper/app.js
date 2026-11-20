@@ -25,13 +25,13 @@
   const painted = () => new Promise(r => { let done = false; const go = () => { if (!done) { done = true; r(); } }; requestAnimationFrame(() => setTimeout(go, 0)); setTimeout(go, 60); });
 
   // ---- the state: Hazel's program, the level, the game (a Hazel value), whether its mines are laid, its clock
-  const S = { built: null, libAt: 0, libFailed: false, level: kept("level", "beginner"), game: null, laid: false, started: 0, ended: 0, busy: false, flagMode: false, hint: null, compiledError: "" };
+  const S = { built: null, libAt: 0, libFailed: false, level: kept("level", "beginner"), game: null, laid: false, started: 0, ended: 0, busy: false, flagMode: false, hint: null, compiledError: "", auto: false, touched: false, looping: false, guesses: 0 };
   if (!LEVELS[S.level]) S.level = "beginner";
   const saved = kept("game", null);
-  if (saved && saved.game && Array.isArray(saved.game.grid) && saved.level === S.level) Object.assign(S, { game: saved.game, laid: saved.laid, started: saved.started, ended: saved.ended });
+  if (saved && saved.game && Array.isArray(saved.game.grid) && saved.level === S.level) Object.assign(S, { game: saved.game, laid: saved.laid, started: saved.started, ended: saved.ended, touched: !!saved.touched });
   const stats = kept("stats", {});
   const H = () => S.built && S.built.ok ? S.built.value : null;
-  const save = () => keep("game", S.game ? { level: S.level, game: S.game, laid: S.laid, started: S.started, ended: S.ended } : null);
+  const save = () => keep("game", S.game ? { level: S.level, game: S.game, laid: S.laid, started: S.started, ended: S.ended, touched: S.touched } : null);
 
   // ---- the board
   const board = $("board");
@@ -72,7 +72,7 @@
     if (window.OracleFs) window.OracleFs.empty(!!g.over);
     hintAble();
   }
-  const face = () => { $("face").textContent = S.busy ? "😮" : !S.game ? "🙂" : S.game.over ? (S.game.won ? "😎" : "😵") : "🙂"; };
+  const face = () => { $("face").textContent = S.auto && S.game && !S.game.over ? "🤖" : S.busy ? "😮" : !S.game ? "🙂" : S.game.over ? (S.game.won ? "😎" : "😵") : "🙂"; };
   const secs = () => !S.started ? 0 : Math.floor(((S.ended || Date.now()) - S.started) / 1000);
   const clockDraw = () => { $("time").textContent = "⏱ " + Math.min(999, secs()); };
   setInterval(() => { if (S.started && !S.ended) clockDraw(); }, 500);
@@ -80,7 +80,7 @@
     const st = stats[S.level] || { played: 0, won: 0, best: 0 };
     const g = S.game, end = g && g.over ? (g.won ? `🎉 Cleared in ${secs()} s. ` : "💥 A mine. ") : "";
     if (S.hint && S.hint.text) { $("info").textContent = S.hint.text; return; }
-    $("info").textContent = `${end}${S.level}: won ${st.won} of ${st.played} on this device` + (st.best ? `, best ${st.best} s` : "");
+    $("info").textContent = `${end}${S.level}: won ${st.won} of ${st.played} on this device` + (st.best ? `, best ${st.best} s` : "") + (S.touched ? " (boards Hazel played for you are not counted)" : "");
   }
   addEventListener("resize", () => { if (S.game) size(); });
 
@@ -93,7 +93,7 @@
     S.busy = false;
     if (g && Array.isArray(g.grid)) {
       const was = S.game; S.game = g;
-      if (g.over && !(was && was.over)) {
+      if (g.over && !(was && was.over) && !S.touched) {
         S.ended = Date.now();
         const st = stats[S.level] || { played: 0, won: 0, best: 0 };
         if (g.won) { st.won++; const t = secs(); if (!st.best || t < st.best) st.best = t; }
@@ -106,11 +106,13 @@
   function newBoard() {
     const h = H(); if (!h) return;
     const [rows, cols, mines] = LEVELS[S.level];
-    S.game = h.fresh(rows, cols, mines); Object.assign(S, { laid: false, started: 0, ended: 0, hint: null });
+    S.game = h.fresh(rows, cols, mines); Object.assign(S, { laid: false, started: 0, ended: 0, hint: null, touched: S.auto, guesses: 0 });
+    if (S.auto) W.start(0);
     save(); draw();
+    if (S.auto) autoplay();
   }
   function tapCell(r, c, flagIt) {
-    const g = S.game; if (!g || g.over) return;
+    const g = S.game; if (!g || g.over || S.auto) return;
     const x = g.grid[r][c];
     if (flagIt || S.flagMode) { if (!x.open) ask(h => h.flag(S.game, r, c)); return; }
     if (x.flag) return;
@@ -155,7 +157,7 @@
   const HINT_TITLE = "Hint: a sure move, and the number that shows it";
   let hintFs = null;
   function hintAble() {
-    const off = !H() || !S.game || !!S.game.over || S.busy;
+    const off = !H() || !S.game || !!S.game.over || S.busy || S.auto;
     $("hint").disabled = off; if (hintFs) hintFs.disabled = off;
   }
   const hintSays = (k, n) => k === 1 ? `💡 Safe to open: the ${n} beside it already has its ${n === 1 ? "mine" : n + " mines"}.`
@@ -163,7 +165,7 @@
     : k === 3 ? `💡 This flag is on a safe cell: the ${n} beside it already has its ${n === 1 ? "mine" : n + " mines"}. Take the flag off.`
     : "💡 No number shows a sure move by itself: time for a guess.";
   async function hint() {
-    const h = H(), g = S.game; if (!h || !g || g.over || S.busy || typeof h.sure !== "function") return;
+    const h = H(), g = S.game; if (!h || !g || g.over || S.busy || S.auto || typeof h.sure !== "function") return;
     if (!S.laid) { S.hint = { at: -1, why: -1, text: "💡 Tap any cell: the first tap is never a mine, nor beside one." }; info(); return; }
     S.busy = true; face(); hintAble(); await painted();
     let m = null;
@@ -183,6 +185,64 @@
     flagFs.setAttribute("aria-pressed", "false");
     hintFs = window.OracleFs.tool({ label: "💡", title: HINT_TITLE, click: hint });
   }
+
+  // ---- 🤖 Hazel plays for you (0.0.35, Matthew: "also do AI mode for minesweeper --- so that it runs automatically as an
+  // animation with controls like the others"): the first tap in the middle (never a mine, nor beside one), then Hazel's sure
+  // move (Hint.sure: a safe cell opened, a mine flagged, a wrong flag taken off) again and again; when no number shows a sure
+  // move, a guess: a closed cell picked at random by the page, not by Hazel (its rules have no guessing). The cell played
+  // shows in yellow and the number that showed it in blue, at the pace chosen; the clock times the board.
+  const flagsOf = g => g.grid.reduce((n, row) => n + row.filter(x => x.flag).length, 0);
+  async function autoplay() {
+    if (S.looping) return; S.looping = true;
+    while (S.busy) await new Promise(r => setTimeout(r, 30));
+    S.busy = true; face(); hintAble();
+    try {
+      while (S.auto && S.game && !S.game.over && H()) {
+        const h = H(), g = S.game; let g2 = null, hint = null;
+        const t = performance.now();
+        try {
+          if (!S.laid) {
+            const [rows, cols, mines] = LEVELS[S.level], r = Math.floor(rows / 2), c = Math.floor(cols / 2);
+            g2 = h.reveal(h.lay(rows, cols, mines, Array.from({ length: rows * cols }, Math.random), r, c), r, c);
+            S.laid = true; S.started = Date.now();
+            hint = { at: r * cols + c, why: -1, text: "🤖 The first tap, in the middle: never a mine, nor beside one." };
+          } else {
+            const m = h.sure(g);
+            if (m.kind) {
+              const r = Math.floor(m.at / g.cols), c = m.at % g.cols, why = m.why >= 0 ? g.grid[Math.floor(m.why / g.cols)][m.why % g.cols] : null;
+              g2 = m.kind === 1 ? h.reveal(g, r, c) : h.flag(g, r, c);
+              hint = { at: m.at, why: m.why, text: "🤖 " + hintSays(m.kind, why ? why.near : 0).replace(/^💡 /, "").replace(/ (Flag it|Take the flag off)\.$/, "") };
+            } else {
+              const closed = [];
+              g.grid.forEach((row, r) => row.forEach((x, c) => { if (!x.open && !x.flag) closed.push(r * g.cols + c); }));
+              const p = closed[Math.floor(Math.random() * closed.length)];
+              g2 = h.reveal(g, Math.floor(p / g.cols), p % g.cols); S.guesses++;
+              hint = { at: p, why: -1, text: `🎲 No number shows a sure move: a guess, picked at random by the page (guess ${S.guesses}).` };
+            }
+          }
+        } catch (e) { g2 = null; }
+        const ms = performance.now() - t;
+        if (!g2 || (!g2.over && g2.left === g.left && flagsOf(g2) === flagsOf(g) && S.laid && g.grid.some(row => row.some(x => x.open)))) { S.hint = { at: -1, why: -1, text: "Hazel's rules made no move here." }; break; }
+        W.think(0, ms);
+        S.game = g2; S.touched = true; S.hint = hint;
+        if (g2.over) { S.ended = Date.now(); break; }
+        await W.between(() => { draw(); });
+      }
+    } finally { S.busy = false; S.looping = false; }
+    if (S.game && S.game.over) { W.end(S.game.won ? "Hazel cleared the board" : "Hazel hit a mine"); S.hint = null; }
+    save(); draw();
+  }
+  const W = window.HazelAutoplay.make({
+    into: $("new").parentElement, key: KEY, sides: ["Hazel"],
+    more: () => S.guesses ? `; ${S.guesses} guess${S.guesses === 1 ? "" : "es"}, picked at random by the page` : "; no guesses",
+    onChange: on => {
+      S.auto = on;
+      if (!on) { W.stop(); S.hint = null; draw(); return; }
+      if (!H()) { draw(); return; }
+      if (!S.game || S.game.over) { newBoard(); return; }
+      S.touched = true; S.guesses = 0; W.start(0); autoplay();
+    },
+  });
 
   // ---- Hazel: its library, the program built from the listings, and the status line
   function drawStatus() {

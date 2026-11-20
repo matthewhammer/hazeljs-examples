@@ -7,7 +7,7 @@
 <meta name="description" content="Go against an opponent written in Hazel: the board, a move and its captures, the ko, the score, and the opponent's choice of move are a Hazel program run by hazeljs, shown beside the board. The first of the Hazel AI opponents, an example for hazeljs.">
 <link rel="stylesheet" href="../shared/style.css?v=0.0.14">
 <link rel="stylesheet" href="../shared/oracles.css?v=0.0.33">
-<link rel="stylesheet" href="go.css?v=0.0.29">
+<link rel="stylesheet" href="go.css?v=0.0.35">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
 <link rel="icon" href="icons/icon-32.png" sizes="32x32" type="image/png">
@@ -28,6 +28,7 @@
 <section class="oracle-ui go-ui" aria-label="The game">
   <div class="controls">
     <label class="size-pick">Board <select id="size"><option value="7">7 by 7, komi 9</option><option value="9">9 by 9, komi 7</option></select></label>
+    <label class="noise-pick" title="Hazel adds a random amount, up to this, to what each point is worth before it chooses: 0, and it plays its best move every time; more, and it plays looser and harder to predict. It counts for every move Hazel makes, yours too when 🤖 Hazel plays for you.">Hazel's randomness <input type="range" id="noise" min="0" max="10" step="0.5" value="2" aria-describedby="noise-says"> <output id="noise-says" for="noise">up to 2 points of noise</output></label>
     <button type="button" id="new" class="primary">New game</button>
     <button type="button" id="pass" title="Pass: two passes in a row end the game">Pass</button>
     <button type="button" id="undo" title="Take back your last move, and Hazel's reply">↶ Undo</button>
@@ -53,7 +54,7 @@
 <script src="../shared/fullscreen.js?v=0.0.33"></script>
 <script src="../shared/offline.js?v=0.0.27"></script>
 <script src="../shared/advanced.js?v=0.0.27"></script>
-<script src="../shared/autoplay.js?v=0.0.34"></script>
-<script src="app.js?v=0.0.34"></script>
+<script src="../shared/autoplay.js?v=0.0.35"></script>
+<script src="app.js?v=0.0.35"></script>
 </body>
 </html>
