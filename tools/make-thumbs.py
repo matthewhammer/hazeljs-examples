@@ -17,6 +17,7 @@ APPS = {
   "mahjong": ("Mahjong", "against three players written in Hazel", ["Hong Kong rules: the", "claims, the winning hands,", "the faan, and what each", "Hazel player discards"]),
   "petri-net": ("Petri nets", "an automaton, its rules in Hazel", ["places, tokens and", "transitions; the firing", "rule and the net in Hazel,", "edited while it runs"]),
   "checkers": ("Checkers", "against an opponent written in Hazel", ["the moves, the jumps", "(compulsory, and on while", "they can), the kings, and", "Hazel's look-ahead"]),
+  "pinball": ("Pinball", "a physics simulation in Hazel", ["ten tables as Hazel data:", "walls, bumpers, flippers", "and portals; each frame's", "physics in Hazel, compiled"]),
 }
 LIGHT = ".h{fill:#1f2328;font:700 15px system-ui,sans-serif}.m{fill:#5b6470;font:10px system-ui,sans-serif}.k{fill:#1f2328;font:11px system-ui,sans-serif}"
 DARK = ".h{fill:#e8e6e3}.m{fill:#a2a9b3}.k{fill:#e8e6e3}"
@@ -25,13 +26,15 @@ def card(app, dark):
     name, sub, lines = APPS[app]
     icon = (ROOT / app / "icons" / "icon.svg").read_text()
     inner = re.sub(r"<title>.*?</title>", "", icon[icon.index(">", icon.index("<svg")) + 1:icon.rindex("</svg>")], flags=re.S)
+    vb = re.search(r'viewBox="([^"]+)"', icon[:icon.index(">", icon.index("<svg"))]).group(1)  # an icon's own size (most 512, Pinball's 120)
+    side = float(vb.split()[2]); rx = round(88 * side / 512, 2)
     text = "\n".join(f'<text class="k" x="164" y="{84 + 22 * i}">{t}</text>' for i, t in enumerate(lines))
     return f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200" width="320" height="200">
 <style>{LIGHT}{chr(10) + DARK if dark else ""}
 </style>
 <text class="h" x="16" y="26">{name}</text>
 <text class="m" x="16" y="42">{sub}</text>
-<svg x="16" y="56" width="132" height="132" viewBox="0 0 512 512"><clipPath id="round"><rect width="512" height="512" rx="88"/></clipPath><g clip-path="url(#round)">{inner}</g></svg>
+<svg x="16" y="56" width="132" height="132" viewBox="{vb}"><clipPath id="round"><rect width="{side:g}" height="{side:g}" rx="{rx:g}"/></clipPath><g clip-path="url(#round)">{inner}</g></svg>
 {text}
 </svg>
 '''

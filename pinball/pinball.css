@@ -1,0 +1,14 @@
+/* hazeljs-examples, Pinball (ticket 793): the table, the score bar, the buttons under it. The table is as wide as fits, and
+   short enough to see whole in the window, its flippers and the buttons under it in view */
+.pb-bar { display: flex; gap: 16px; align-items: baseline; font-variant-numeric: tabular-nums; margin: 6px 0; }
+.pb-bar #score { font-size: 1.6em; font-weight: 700; }
+.pb-wrap { display: flex; justify-content: center; }
+.pb-wrap canvas { width: min(100%, 420px, calc((100vh - 120px) * 0.6)); height: auto; aspect-ratio: 600 / 1000; border-radius: 14px; touch-action: none; box-shadow: 0 2px 12px rgb(0 0 0 / 0.35); }
+.pb-pad { display: grid; grid-template-columns: 1fr 1.2fr 1fr; gap: 10px; max-width: 420px; margin: 10px auto 0; }
+.pb-pad button { font: inherit; font-size: 1.3em; padding: 14px 0; border-radius: 12px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); touch-action: none; user-select: none; }
+.pb-pad button.held { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 20%, var(--paper)); }
+html.oracle-fs .pb-ui > .pb-wrap { grid-column: 2; grid-row: 1; align-self: stretch; }
+html.oracle-fs .pb-ui .pb-wrap canvas { max-width: none; height: 100%; width: auto; }
+/* (🎵 and 🔊: on, lit; off, dim and struck through) */
+.pb-toggle { font-size: 1.15em; padding: 2px 8px; }
+.pb-toggle[aria-pressed="false"] { opacity: 0.45; text-decoration: line-through; }

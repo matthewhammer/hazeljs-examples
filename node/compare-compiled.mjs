@@ -14,6 +14,7 @@
 //   node node/compare-compiled.mjs minesweeper [boards, default 6]
 //   node node/compare-compiled.mjs mahjong [hands, default 3]
 //   node node/compare-compiled.mjs solitaire [deals, default 4]
+//   node node/compare-compiled.mjs pinball [boards, default 10] [steps checked a board, default 30]
 // Checkers (0.0.34, ticket 794, the first of the games compiled): random games, and at every position the moves, a move
 // made, and Hazel's choice looking 1 and 2 ahead (3 and 4 on some), both ways.
 import Hazel from "hazeljs";
@@ -34,6 +35,7 @@ const SETUP = {
   "minesweeper": { modules: ["Board", "Play", "Hint"], tail: "(fresh = Board.fresh, lay = Board.lay_mines, reveal = Play.reveal, flag = Play.flag, chord = Play.chord, flags = Play.flags, sure = Hint.sure)" },
   "mahjong": { modules: ["Mahjong"], tail: "(start = Mahjong.start, step = Mahjong.step, options = Mahjong.options, next_hand = Mahjong.next_hand)" },
   "solitaire": { modules: ["Cards", "Deal", "Moves"], tail: "(deal = Deal.deal, moves = Moves.moves, moves_from = Moves.moves_from, apply = Moves.apply, won = Moves.won)" },
+  "pinball": { modules: ["Pinball"], tail: "(start = Pinball.start, step = Pinball.step, board = Pinball.board)" },
   "astrology": { modules: ["Zodiac", "Aspects", "Chart", "Orbit", "MoonOrbit", "Planets", "Outer", "PlutoOrbit", "Sky", "Wheel", "Reading"], tail: null },
 }[APP];
 // (compiled.js is a classic script for the page; the package is "type": "module", so it is run here as one)
@@ -197,6 +199,28 @@ if (APP === "checkers") {
   console.log(`all moves: ${HN} ${time(() => H.moves(g), 10).toFixed(1)} ms, compiled ${time(() => C.moves(g), 200).toFixed(3)} ms`);
   const m = C.moves(g)[0];
   console.log(`a move: ${HN} ${time(() => H.apply(g, m), 10).toFixed(1)} ms, compiled ${time(() => C.apply(g, m), 200).toFixed(3)} ms`);
+} else if (APP === "pinball") {
+  // (ticket 793) every board, and its start, both ways; then a game played by the compiled rules (the flippers pressed at random,
+  // the plunger pulled to a random strength whenever the ball waits in the lane), and at steps spread across it (the launch,
+  // the arch, bumpers, flippers, the drains) the next step both ways, from the same game and buttons
+  const boards = Number(process.argv[3] || 10), per = CAP || 30;
+  let steps = 0, hits = 0;
+  for (let i = 0; i < boards; i++) {
+    check(`board ${i}`, H.board(i), C.board(i));
+    let g = C.start(i); check(`board ${i}: start`, H.start(i), g);
+    const run = [];
+    for (let k = 0; k < 1500 && !g.over; k++) {
+      const l = draw() < 0.2, r = draw() < 0.2, launch = g.vx === 0 && g.vy === 0 && g.x > 540000 ? 1 + Math.floor(draw() * 100) : 0;
+      run.push([g, l, r, launch]); g = C.step(i, g, l, r, launch);
+    }
+    const pick = run.filter((_, k) => k < 3 || k % Math.max(1, Math.floor(run.length / per)) === 0 || run[k][0].hits.length).slice(0, per + 3);
+    for (const [g0, l, r, launch] of pick) { steps++; const c = C.step(i, g0, l, r, launch); if (c.hits.length) hits++;
+      check(`board ${i}: step from ${JSON.stringify(g0)} ${l} ${r} ${launch}`, H.step(i, g0, l, r, launch), c); }
+  }
+  console.log(`${checked} answers compared: ${boards} boards and their starts, and ${steps} steps (${hits} with a bumper hit), ${differ} differ`);
+  const g = C.step(0, C.start(0), false, false, 60);
+  console.log(`a step: ${HN} ${time(() => H.step(0, g, true, false, 0), 10).toFixed(1)} ms, compiled ${time(() => C.step(0, g, true, false, 0), 500).toFixed(3)} ms`);
+  console.log(`a board: ${HN} ${time(() => H.board(4), 10).toFixed(1)} ms, compiled ${time(() => C.board(4), 500).toFixed(3)} ms`);
 } else if (APP === "i-ching") {
   for (const tag of ["Coins", "Yarrow"]) for (let i = 0; i < 2000; i++) { const u = [draw(), draw(), draw()]; check(`${tag} ${u}`, H.cast({ tag }, ...u), C.cast({ tag }, ...u)); }
   const TAGS = ["YoungYin", "YoungYang", "OldYin", "OldYang"];
