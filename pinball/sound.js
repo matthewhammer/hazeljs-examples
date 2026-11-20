@@ -177,7 +177,14 @@
     drain: () => sfx(t => { seq(t, [76, 75, 72, 71, 67, 64, 60], 0.06, "half", 0.13); tone(sfxBus, "triangle", hz(40), hz(28), t + 0.42, 0.3, 0.35); }),
     bonus: () => sfx(t => seq(t, [72, 76, 79, 84, 88, 91, 96], 0.045, "quarter", 0.1)),
     fanfare: () => sfx(t => { seq(t, [64, 67, 71], 0.09, "quarter", 0.12); tone(sfxBus, "quarter", hz(76), hz(76), t + 0.27, 0.4, 0.12, 14); }),
-    over: () => sfx(t => { seq(t, [72, 71, 70], 0.2, "quarter", 0.12); tone(sfxBus, "quarter", hz(69), hz(69), t + 0.6, 0.7, 0.12, 18); tone(sfxBus, "triangle", hz(45), hz(45), t + 0.6, 0.7, 0.3); })
+    over: () => sfx(t => { seq(t, [72, 71, 70], 0.2, "quarter", 0.12); tone(sfxBus, "quarter", hz(69), hz(69), t + 0.6, 0.7, 0.12, 18); tone(sfxBus, "triangle", hz(45), hz(45), t + 0.6, 0.7, 0.3); }),
+    // (round two, ticket 805) a lamp lit: a blip climbing the scale as its row fills; a row all lit: a run up and a sparkle; a
+    // kicker's spring; a ball out of a portal; a ball saved
+    lamp: n => sfx(t => { const m = [79, 81, 84, 86, 88, 91, 93, 96][Math.min(7, Math.max(0, n - 1))]; tone(sfxBus, "eighth", hz(m), hz(m), t, 0.05, 0.1); tone(sfxBus, "eighth", hz(m + 12), hz(m + 12), t + 0.03, 0.04, 0.05); }),
+    row: () => sfx(t => { seq(t, [72, 76, 79, 84, 88, 91, 96, 100], 0.035, "eighth", 0.1); for (let i = 0; i < 6; i++) tone(sfxBus, "half", hz(96 + (i % 3) * 4), hz(96 + (i % 3) * 4), t + 0.3 + i * 0.05, 0.04, 0.05); }),
+    kick: () => sfx(t => { tone(sfxBus, "quarter", hz(55), hz(84), t, 0.16, 0.14); hiss(sfxBus, t, 0.08, 0.12, "bandpass", 2500, 0.8); }),
+    warpOut: () => sfx(t => { tone(sfxBus, "triangle", hz(67), hz(91), t, 0.14, 0.16); tone(sfxBus, "half", hz(91), hz(91), t + 0.12, 0.08, 0.08); }),
+    saved: () => sfx(t => { seq(t, [72, 79, 84, 88], 0.08, "quarter", 0.12); tone(sfxBus, "quarter", hz(91), hz(91), t + 0.32, 0.35, 0.11, 14); })
   };
 
   window.PinballSound = {

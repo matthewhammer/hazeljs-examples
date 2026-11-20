@@ -17,7 +17,8 @@
     "checkers": "node node/checkers.mjs",
     "petri-net": "node petri-net/node/petri.mjs",
     "mahjong": "node node/mahjong.mjs",
-    "pinball": "node node/pinball.mjs"
+    "pinball": "node node/pinball.mjs",
+    "pinball-lab": "node tools/pinball-lab.mjs play"
   },
   "dependencies": {
     "hazeljs": "0.0.4"

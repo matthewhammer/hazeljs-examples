@@ -189,18 +189,19 @@ ADAPTERS = {
   const won = g => P.won(gameIn(g));
   const api = { deal, moves, moves_from, apply, won, made };"""),
   "pinball": ("PinballCompiled", """
-  // (ticket 793) Game = (x = Int, y = Int, vx = Int, vy = Int, flips = [Int], score = Int, balls = Int, over = Bool, hits = [Int]);
-  // Board = (name, bg, ink, glow = String, walls = [Wall], bumpers = [Bumper], flippers = [Flipper], portals = [Portal], sx = Int,
-  // sy = Int, svx = Int, svy = Int, gravity = Int), its pieces records of Ints
+  // (ticket 793; round two, ticket 805) Game = (x = Int, y = Int, vx = Int, vy = Int, flips = [Int], score = Int, balls = Int,
+  // over = Bool, hits = [Int], warp = Int, gate = Int, save = Int); Board = (name, bg, ink, glow, pattern = String, walls = [Wall],
+  // bumpers = [Bumper], flippers = [Flipper], portals = [Portal], lights = [Light], sx = Int, sy = Int, svx = Int, svy = Int,
+  // gravity = Int), its pieces records of Ints
   const ints = l => array(l).map(int);
-  const G = ["x", "y", "vx", "vy", "flips", "score", "balls", "over", "hits"];
-  const gameIn = g => $R.tup([g.x, g.y, g.vx, g.vy, list(g.flips), g.score, g.balls, g.over, list(g.hits)], G);
+  const G = ["x", "y", "vx", "vy", "flips", "score", "balls", "over", "hits", "warp", "gate", "save"];
+  const gameIn = g => $R.tup([g.x, g.y, g.vx, g.vy, list(g.flips), g.score, g.balls, g.over, list(g.hits), g.warp, g.gate, g.save], G);
   const gameOut = r => ({ x: int(r.x), y: int(r.y), vx: int(r.vx), vy: int(r.vy), flips: ints(r.flips), score: int(r.score),
-                          balls: int(r.balls), over: r.over, hits: ints(r.hits) });
+                          balls: int(r.balls), over: r.over, hits: ints(r.hits), warp: int(r.warp), gate: int(r.gate), save: int(r.save) });
   const rec = (r, ks) => Object.fromEntries(ks.map(k => [k, int(r[k])]));
-  const boardOut = r => ({ name: r.name, bg: r.bg, ink: r.ink, glow: r.glow,
+  const boardOut = r => ({ name: r.name, bg: r.bg, ink: r.ink, glow: r.glow, pattern: r.pattern,
     walls: array(r.walls).map(w => rec(w, ["ax", "ay", "bx", "by", "bounce", "kick"])), bumpers: array(r.bumpers).map(b => rec(b, ["x", "y", "r", "points"])),
-    flippers: array(r.flippers).map(f => rec(f, ["x", "y", "len", "side"])), portals: array(r.portals).map(q => rec(q, ["x", "y", "r", "tx", "ty"])),
+    flippers: array(r.flippers).map(f => rec(f, ["x", "y", "len", "side"])), portals: array(r.portals).map(q => rec(q, ["x", "y", "r", "tx", "ty"])), lights: array(r.lights).map(l => rec(l, ["x", "y", "group"])),
     sx: int(r.sx), sy: int(r.sy), svx: int(r.svx), svy: int(r.svy), gravity: int(r.gravity) });
   // board : Int -> Board; start : Int -> Game; step : (Int, Game, Bool, Bool, Int) -> Game (the board, the game, the left and
   // right flippers held, the plunger's launch 0 to 100)
