@@ -13,6 +13,9 @@
 .board .cell.n1 { color: #2563eb; } .board .cell.n2 { color: #16a34a; } .board .cell.n3 { color: #dc2626; } .board .cell.n4 { color: #1e3a8a; }
 .board .cell.n5 { color: #7f1d1d; } .board .cell.n6 { color: #0f766e; } .board .cell.n7 { color: #111827; } .board .cell.n8 { color: #6b7280; }
 .board .cell:focus-visible { outline: 2px solid #f59e0b; outline-offset: -2px; }
+/* the 💡 hint: the cell to open or flag (yellow, as Solitaire's), and the number that shows it (blue, dashed) */
+.board .cell.hint { outline: 3px solid #fbbf24; outline-offset: -3px; }
+.board .cell.why { outline: 3px dashed #0ea5e9; outline-offset: -3px; }
 #flagmode[aria-pressed="true"] { border-color: #ef4444; background: #fee2e2; color: #7f1d1d; }
 /* full screen: the controls on the left (hidden in landscape until ☰), the bar above the board in the rest, the board centred */
 html.oracle-fs .sweeper-ui { grid-template-columns: minmax(200px, 0.55fr) minmax(0, 3fr); grid-template-rows: auto minmax(0, 1fr); }

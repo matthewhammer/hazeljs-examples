@@ -1,12 +1,13 @@
 // hazeljs-examples, Minesweeper: the page. The board, the mines (laid after the first tap, never beside it), the counts, a cell
 // opened and the empty region flooding open, flags and chords are Hazel (rules/*.hz), shown in Hazel's own editor
 // (../shared/hazel-listings.js) and built by hazeljs from npm. The page draws the board and asks Hazel at every tap; the game
-// is a value it holds and passes back in, (game, row, col) -> game.
+// is a value it holds and passes back in, (game, row, col) -> game. The 💡 hint is Hazel too (rules/Hint.hz): a sure move,
+// worked out from the open numbers alone, and the number that shows it.
 (async () => {
   "use strict";
   const LIB = "https://cdn.jsdelivr.net/npm/hazeljs@0.0.4/hazel-lib.js";
-  const PROGRAM = "minesweeper", MODULES = ["Board", "Play"];
-  const TAIL = "(fresh = Board.fresh, lay = Board.lay_mines, reveal = Play.reveal, flag = Play.flag, chord = Play.chord, flags = Play.flags)";
+  const PROGRAM = "minesweeper", MODULES = ["Board", "Play", "Hint"];
+  const TAIL = "(fresh = Board.fresh, lay = Board.lay_mines, reveal = Play.reveal, flag = Play.flag, chord = Play.chord, flags = Play.flags, sure = Hint.sure)";
   const KEY = "hazeljs-examples/minesweeper/";
   const LEVELS = { beginner: [9, 9, 10], intermediate: [16, 16, 40], expert: [16, 30, 99] };
   const $ = id => document.getElementById(id);
@@ -19,7 +20,7 @@
   const painted = () => new Promise(r => { let done = false; const go = () => { if (!done) { done = true; r(); } }; requestAnimationFrame(() => setTimeout(go, 0)); setTimeout(go, 60); });
 
   // ---- the state: Hazel's program, the level, the game (a Hazel value), whether its mines are laid, its clock
-  const S = { built: null, libAt: 0, libFailed: false, level: kept("level", "beginner"), game: null, laid: false, started: 0, ended: 0, busy: false, flagMode: false };
+  const S = { built: null, libAt: 0, libFailed: false, level: kept("level", "beginner"), game: null, laid: false, started: 0, ended: 0, busy: false, flagMode: false, hint: null };
   if (!LEVELS[S.level]) S.level = "beginner";
   const saved = kept("game", null);
   if (saved && saved.game && Array.isArray(saved.game.grid) && saved.level === S.level) Object.assign(S, { game: saved.game, laid: saved.laid, started: saved.started, ended: saved.ended });
@@ -40,7 +41,7 @@
   function draw() {
     const g = S.game;
     $("level").value = S.level;
-    if (!g) { board.replaceChildren(); $("count").textContent = "💣 " + LEVELS[S.level][2]; face(); clockDraw(); info(); return; }
+    if (!g) { board.replaceChildren(); $("count").textContent = "💣 " + LEVELS[S.level][2]; face(); clockDraw(); info(); hintAble(); return; }
     size();
     board.style.gridTemplateColumns = `repeat(${g.cols}, var(--cs))`;
     const cells = [];
@@ -58,10 +59,13 @@
       } else b.setAttribute("aria-label", "closed");
       cells.push(b);
     }));
+    // (the hint: the cell in yellow, the number that shows it in blue, until the next move)
+    if (S.hint && S.hint.at >= 0 && cells[S.hint.at]) { cells[S.hint.at].classList.add("hint"); if (cells[S.hint.why]) cells[S.hint.why].classList.add("why"); }
     board.replaceChildren(...cells);
     $("count").textContent = "💣 " + (g.mines - g.grid.reduce((n, row) => n + row.filter(x => x.flag).length, 0));
     face(); clockDraw(); info();
     if (window.OracleFs) window.OracleFs.empty(!!g.over);
+    hintAble();
   }
   const face = () => { $("face").textContent = S.busy ? "😮" : !S.game ? "🙂" : S.game.over ? (S.game.won ? "😎" : "😵") : "🙂"; };
   const secs = () => !S.started ? 0 : Math.floor(((S.ended || Date.now()) - S.started) / 1000);
@@ -70,6 +74,7 @@
   function info() {
     const st = stats[S.level] || { played: 0, won: 0, best: 0 };
     const g = S.game, end = g && g.over ? (g.won ? `🎉 Cleared in ${secs()} s. ` : "💥 A mine. ") : "";
+    if (S.hint && S.hint.text) { $("info").textContent = S.hint.text; return; }
     $("info").textContent = `${end}${S.level}: won ${st.won} of ${st.played} on this device` + (st.best ? `, best ${st.best} s` : "");
   }
   addEventListener("resize", () => { if (S.game) size(); });
@@ -77,7 +82,7 @@
   // ---- a tap, asked of Hazel; while it thinks, the face says so
   async function ask(f) {
     const h = H(); if (!h || S.busy) return;
-    S.busy = true; face(); await painted();
+    S.busy = true; S.hint = null; face(); await painted();
     let g = null;
     try { g = f(h); } catch (e) { g = null; }
     S.busy = false;
@@ -96,7 +101,7 @@
   function newBoard() {
     const h = H(); if (!h) return;
     const [rows, cols, mines] = LEVELS[S.level];
-    S.game = h.fresh(rows, cols, mines); Object.assign(S, { laid: false, started: 0, ended: 0 });
+    S.game = h.fresh(rows, cols, mines); Object.assign(S, { laid: false, started: 0, ended: 0, hint: null });
     save(); draw();
   }
   function tapCell(r, c, flagIt) {
@@ -141,10 +146,37 @@
     if (flagFs) flagFs.setAttribute("aria-pressed", String(on));
   };
   $("flagmode").addEventListener("click", () => flagModeSet(!S.flagMode));
+  // 💡 the hint: Hazel's sure move (Hint.sure), shown on the board and said under it; no move is made for you
+  const HINT_TITLE = "Hint: a sure move, and the number that shows it";
+  let hintFs = null;
+  function hintAble() {
+    const off = !H() || !S.game || !!S.game.over || S.busy;
+    $("hint").disabled = off; if (hintFs) hintFs.disabled = off;
+  }
+  const hintSays = (k, n) => k === 1 ? `💡 Safe to open: the ${n} beside it already has its ${n === 1 ? "mine" : n + " mines"}.`
+    : k === 2 ? `💡 A mine, sure: the ${n} beside it has nowhere else for ${n === 1 ? "its mine" : "its mines"}. Flag it.`
+    : k === 3 ? `💡 This flag is on a safe cell: the ${n} beside it already has its ${n === 1 ? "mine" : n + " mines"}. Take the flag off.`
+    : "💡 No number shows a sure move by itself: time for a guess.";
+  async function hint() {
+    const h = H(), g = S.game; if (!h || !g || g.over || S.busy || typeof h.sure !== "function") return;
+    if (!S.laid) { S.hint = { at: -1, why: -1, text: "💡 Tap any cell: the first tap is never a mine, nor beside one." }; info(); return; }
+    S.busy = true; face(); hintAble(); await painted();
+    let m = null;
+    try { m = h.sure(g); } catch (e) { m = null; }
+    S.busy = false;
+    if (!m) { draw(); return; }
+    const why = m.why >= 0 ? g.grid[Math.floor(m.why / g.cols)][m.why % g.cols] : null;
+    S.hint = { at: m.kind ? m.at : -1, why: m.why, text: hintSays(m.kind, why ? why.near : 0) };
+    draw();
+    // (in full screen with the controls hidden the line under the board is away too: the 💡 there says "no sure move" itself)
+    if (!m.kind && hintFs) { hintFs.textContent = "🤷"; hintFs.title = "No sure move: time for a guess"; setTimeout(() => { hintFs.textContent = "💡"; hintFs.title = HINT_TITLE; }, 2200); }
+  }
+  $("hint").addEventListener("click", hint);
   if (window.OracleFs) window.OracleFs.offer({ label: "💣 New board", title: "A new board, at the level chosen", cast: newBoard });
   if (window.OracleFs && window.OracleFs.tool) {
     flagFs = window.OracleFs.tool({ label: "🚩", title: "Flag mode: taps flag instead of open", click: () => flagModeSet(!S.flagMode) });
     flagFs.setAttribute("aria-pressed", "false");
+    hintFs = window.OracleFs.tool({ label: "💡", title: HINT_TITLE, click: hint });
   }
 
   // ---- Hazel: its library, the program built from the listings, and the status line
@@ -193,7 +225,7 @@
   if (window.OracleAdvanced) window.OracleAdvanced.panel({
     holder: $("advanced"), name: "Minesweeper", built: () => S.built, libAt: () => S.libAt, keysIn: null,
     mode: () => ({ asked: "interpreted", error: null }),
-    about: "a beginner board's mines laid and its first tap, twenty taps after it, and ten drawings of the board",
+    about: "a beginner board's mines laid and its first tap, twenty taps after it, five hints, and ten drawings of the board",
     work: async say => {
       const h = H(); if (!h) return { data: { hazel: false }, text: ["Hazel was not ready, so nothing was timed in it"] };
       const time = f => { const t = performance.now(); const v = f(); return [performance.now() - t, v]; };
@@ -202,14 +234,16 @@
       const [firstMs, g1] = time(() => h.reveal(g0, 4, 4));
       const taps = []; let g = g1;
       for (let r = 0; r < 9 && taps.length < 20; r++) for (let c = 0; c < 9 && taps.length < 20; c++) if (!g.grid[r][c].open && !g.grid[r][c].mine) { const [t, g2] = time(() => h.reveal(g, r, c)); taps.push(t); g = g2; }
+      const hints = [];
+      if (typeof h.sure === "function") for (let i = 0; i < 5; i++) { const [t] = time(() => h.sure(g1)); hints.push(t); }
       say("🧪 measuring: drawing the board…");
       const keepState = { game: S.game, level: S.level }, draws = [];
       Object.assign(S, { game: g1, level: "beginner" });
       for (let i = 0; i < 10; i++) { const t = performance.now(); draw(); await window.OracleAdvanced.painted(); draws.push(performance.now() - t); }
       Object.assign(S, keepState); draw();
-      const st = window.OracleAdvanced.stats, tp = st(taps), dr = st(draws);
-      return { data: { lay: Math.round(layMs), first: Math.round(firstMs), tap: tp, draw: dr },
-               text: [`through Hazel: the mines laid ${Math.round(layMs)} ms, the first tap ${Math.round(firstMs)} ms, a tap ${tp.median} ms (worst ${tp.worst})`,
+      const st = window.OracleAdvanced.stats, tp = st(taps), dr = st(draws), hn = hints.length ? st(hints) : null;
+      return { data: { lay: Math.round(layMs), first: Math.round(firstMs), tap: tp, hint: hn, draw: dr },
+               text: [`through Hazel: the mines laid ${Math.round(layMs)} ms, the first tap ${Math.round(firstMs)} ms, a tap ${tp.median} ms (worst ${tp.worst})` + (hn ? `, a 💡 hint ${hn.median} ms (worst ${hn.worst})` : ""),
                       `drawing the board, to the next frame: ${dr.median} ms`] };
     },
   });

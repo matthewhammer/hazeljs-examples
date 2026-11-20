@@ -11,7 +11,8 @@
     "tarot": "node node/tarot.mjs",
     "astrology": "node node/astrology.mjs",
     "solitaire": "node node/solitaire.mjs",
-    "minesweeper": "node node/minesweeper.mjs"
+    "minesweeper": "node node/minesweeper.mjs",
+    "minesweeper-hint": "node node/minesweeper-hint.mjs"
   },
   "dependencies": {
     "hazeljs": "0.0.4"

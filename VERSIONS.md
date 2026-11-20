@@ -4,6 +4,13 @@ Each version lists what the apps do as of that version. The newest version is fi
 
 ## Unreleased
 
+## 0.0.28 (2026-11-19)
+
+Everything in 0.0.27, plus:
+
+- **Minesweeper's 💡 hint, worked out in Hazel** (Matthew's ask). **💡 Hint**, beside 🚩 Flag mode, and under ☰ in full screen, asks a new Hazel module, `Hint`, shown with the others, for a sure move: a cell that is safe to open, a mine to flag, or a flag on a safe cell. It reasons only from what the board shows, the open numbers, never from the mines under the closed cells, nor from the flags, which may be wrong. The cell is outlined in yellow, as Solitaire's hint is; the number that shows it, in dashed blue; and the line under the board says why ("Safe to open: the 1 beside it already has its mine"). When no single number shows a sure move, it says it is time for a guess. No move is made for you, and the marks go at the next move. A hint takes about 0.15 s on a beginner board, 0.35 s on intermediate and 0.7 s on expert.
+- **In Node:** `npm run minesweeper-hint` plays boards by hints alone, from the first tap, and checks every hint against the mines: a cell called safe has no mine, a mine is a mine, a flag called wrong is on a safe cell, and the number given as the reason is open. One wrong flag is planted on each board, for the hint to find.
+
 ## 0.0.27 (2026-11-19)
 
 Everything in 0.0.26, plus:
