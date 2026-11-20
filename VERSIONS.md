@@ -4,6 +4,13 @@ Each version lists what the apps do as of that version. The newest version is fi
 
 ## Unreleased
 
+## 0.0.30 (2026-11-19)
+
+Everything in 0.0.29, plus:
+
+- **Checkers, the second Hazel AI opponent,** at https://matthewhammer.org/hazeljs-examples/checkers/: English draughts, you black from the bottom, Hazel white. The moves, the jumps (compulsory, and going on while they can), the kings (a man crowned on the far row stops there, and a king moves backward too), the end (whoever cannot move loses; 80 moves with no piece taken and no man moving, a draw), and Hazel's choice of move are a Hazel program. Hazel looks ahead as far as you choose, 1 to 4 moves (its own, your answer, and so on), weighing each position by its pieces, a king more than a man and a man more as it comes on, and cutting off lines that cannot matter; looking 3 ahead it takes about half a second a move. Tap a piece, then where it goes; when you must jump, the pieces that can are outlined. ↶ Undo takes back your move and Hazel's reply. Wins kept on this device, for each look-ahead; offline with its own icon.
+- **In Node:** `npm run checkers` plays random games and checks Hazel's moves at every position against a move generator written in JavaScript (the same moves, no more, no fewer), then times Hazel looking 1 to 4 moves ahead and plays it against random moves.
+
 ## 0.0.29 (2026-11-19)
 
 Everything in 0.0.28, plus:

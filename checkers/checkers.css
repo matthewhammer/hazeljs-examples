@@ -1,0 +1,19 @@
+/* hazeljs-examples, Checkers: the bar (your side, whose turn, Hazel's side) and the board, an SVG that fills its column */
+.ck-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; max-width: 520px; margin: 10px 0 6px; font-variant-numeric: tabular-nums; }
+.ck-bar .side { font-weight: 700; padding: 2px 10px; border-radius: 6px; white-space: nowrap; }
+.ck-bar .side.black { background: #1f2328; color: #f3f4f6; }
+.ck-bar .side.white { background: #f6f0e2; color: #1f2328; border: 1px solid #c9b48e; }
+.ck-bar .side.now { box-shadow: 0 0 0 3px #f59e0b; }
+.ck-bar .turn { text-align: center; font-size: 0.95em; }
+.ck-wrap { max-width: 520px; }
+.ck-board svg { display: block; width: 100%; height: auto; user-select: none; -webkit-user-select: none; touch-action: manipulation; }
+.ck-board .sq { cursor: pointer; }
+.ck-board.busy .sq, .ck-board.over .sq { cursor: default; }
+/* a square tapped where nothing can go flashes red for a moment */
+.ck-board .nope { animation: ck-nope 0.7s; }
+@keyframes ck-nope { 0%, 55% { fill: rgba(220, 38, 38, 0.55); } 100% { fill: transparent; } }
+/* full screen: the controls on the left (hidden in landscape until ☰), the bar above the board in the rest, the board as large as fits */
+html.oracle-fs .ck-ui { grid-template-columns: minmax(200px, 0.55fr) minmax(0, 3fr); grid-template-rows: auto minmax(0, 1fr); }
+html.oracle-fs .ck-ui > .ck-bar { grid-column: 2; grid-row: 1; justify-self: center; width: min(520px, 100%); margin: 0 0 8px; }
+html.oracle-fs .ck-ui > .ck-wrap { grid-column: 2; grid-row: 2; justify-self: center; align-self: start; width: min(100%, calc(100vh - 110px)); max-width: none; }
+html.oracle-fs .ck-ui > .fs-cast { grid-row: 1 / -1; }
