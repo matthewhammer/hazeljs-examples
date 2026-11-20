@@ -73,6 +73,9 @@
     $("score").textContent = g ? g.score.toLocaleString() : "0";
     $("balls").textContent = g ? (g.over ? "game over" : "⚪".repeat(Math.max(0, g.balls)) + " balls") : "";
     $("info").textContent = `${NAMES[S.board]}: best ${best.toLocaleString()} on this device`;
+    // (0.0.36; Matthew: "the new game button obscures the running game") full screen's 🎱 New game, over the table only
+    // while no game runs, as Go's and Minesweeper's
+    if (window.OracleFs) window.OracleFs.empty(!g || !!g.over);
     const ms = S.stepMs.length ? [...S.stepMs].sort((a, b) => a - b)[S.stepMs.length >> 1] : 0;
     $("fps").textContent = !S.stepMs.length ? "" : `a frame of Hazel: ${ms < 0.1 ? "under 0.1" : ms < 1 ? ms.toFixed(2) : ms.toFixed(0)} ms`;   // (a compiled step is about 0.03 ms: under the clock's 0.1 ms)
   }

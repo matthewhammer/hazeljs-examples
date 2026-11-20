@@ -7,8 +7,52 @@
 .pb-pad { display: grid; grid-template-columns: 1fr 1.2fr 1fr; gap: 10px; max-width: 420px; margin: 10px auto 0; }
 .pb-pad button { font: inherit; font-size: 1.3em; padding: 14px 0; border-radius: 12px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); touch-action: none; user-select: none; }
 .pb-pad button.held { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 20%, var(--paper)); }
-html.oracle-fs .pb-ui > .pb-wrap { grid-column: 2; grid-row: 1; align-self: stretch; }
-html.oracle-fs .pb-ui .pb-wrap canvas { max-width: none; height: 100%; width: auto; }
+/* (0.0.36; Matthew, a screenshot: "full screen looks wrong") Full screen: the controls, status and notes in the left column
+   (shared/fullscreen.js; hidden behind ☰ on a landscape screen), and in the middle the score, the table as tall as the
+   window, and the flipper and launch buttons under it */
+html.oracle-fs .pb-ui { grid-template-columns: minmax(200px, 0.55fr) minmax(0, 3fr); grid-template-rows: auto minmax(0, 1fr) auto; }
+html.oracle-fs .pb-ui > .pb-bar { grid-column: 2; grid-row: 1; justify-self: center; margin: 0 0 6px; }
+html.oracle-fs .pb-ui > .pb-wrap { grid-column: 2; grid-row: 2; align-self: stretch; min-height: 0; container-type: size; align-items: center; }
+/* (the table keeps its shape, 600 by 1000, as large as its cell allows either way: a phone's is narrow, a laptop's short) */
+html.oracle-fs .pb-ui .pb-wrap canvas { width: min(100cqw, 60cqh); height: auto; max-width: none; }
+html.oracle-fs .pb-ui > .pb-pad { grid-column: 2; grid-row: 3; justify-self: center; width: min(420px, 100%); margin: 8px 0 0; }
+html.oracle-fs .pb-ui > .fs-cast { grid-row: 1 / -1; }
+/* (Matthew: "full screen should center the board") On a landscape screen the table stands in the middle of the window:
+   with the controls shown, a column as wide as theirs on the right too; with them hidden behind ☰, the same margin each side */
+@media (orientation: landscape) and (min-width: 901px) {
+  html.oracle-fs:not(.fs-left-hidden) .pb-ui { grid-template-columns: minmax(200px, 0.55fr) minmax(0, 3fr) minmax(200px, 0.55fr); }
+  html.oracle-fs.fs-left-hidden .pb-ui { grid-template-columns: 0 minmax(0, 1fr) !important; column-gap: 0; padding-left: 20px; padding-right: 20px; }
+}
+/* (Matthew: "let's optimize for a phone, or a tablet in portrait mode for full screen mode in pin ball") Full screen on a
+   portrait screen, one column: the controls along the top, the score with ✕ beside it, the table as large as the window
+   allows, and under it the flipper and launch buttons, wide and tall for thumbs. The status shows only while the rules load
+   or fail, and the best score stays on the page. The full screen button shows on a phone too (the oracles keep it for two
+   columns). */
+@media (max-width: 900px) { html:not(.oracle-fs) .pb-ui .fs-bar { display: flex; } }
+/* (the oracles' full screen turns into one scrolling column under 901 px; the table keeps its grid, sized to the window) */
+html.oracle-fs .oracle-ui.pb-ui { display: grid; overflow: hidden; }
+html.oracle-fs .oracle-ui.pb-ui > .fs-bar { position: absolute; }
+html.oracle-fs .oracle-ui.pb-ui > .fs-cast:not([hidden]) { display: block; margin: 0; align-self: center; justify-self: center; }
+@media (orientation: portrait) {
+  html.oracle-fs .pb-ui { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto minmax(0, 1fr) auto; column-gap: 0;
+    padding: max(8px, env(safe-area-inset-top)) 10px max(10px, env(safe-area-inset-bottom)); }
+  html.oracle-fs .pb-ui > .fs-left { grid-column: 1; grid-row: 1; align-self: start; overflow: visible; padding: 0; }
+  html.oracle-fs .pb-ui .fs-left .controls { flex-wrap: wrap; gap: 6px 8px; margin: 0; justify-content: center; }
+  html.oracle-fs .pb-ui .fs-left .status.ok, html.oracle-fs .pb-ui .fs-left #info { display: none; }
+  html.oracle-fs .oracle-ui.pb-ui > .fs-bar { position: static; grid-column: 1; grid-row: 2; justify-self: end; align-self: center; }
+  html.oracle-fs .pb-ui > .pb-bar { grid-column: 1; grid-row: 2; justify-self: start; align-self: center; margin: 4px 0; }
+  html.oracle-fs .pb-ui > .pb-wrap { grid-column: 1; grid-row: 3; }
+  html.oracle-fs .pb-ui > .pb-pad { grid-column: 1; grid-row: 4; width: min(560px, 100%); max-width: none; margin: 8px 0 0; }
+  html.oracle-fs .pb-ui > .pb-pad button { padding: 18px 0; font-size: 1.45em; }
+  html.oracle-fs .pb-ui > .fs-cast { grid-column: 1; grid-row: 1 / -1; }
+}
+@media (orientation: portrait) and (max-width: 520px) {
+  html.oracle-fs .pb-ui #fps { display: none; }
+  /* (the word "Board" goes, so the controls fit one row on a phone; the menu says which board) */
+  html.oracle-fs .pb-ui .board-pick { font-size: 0; }
+  html.oracle-fs .pb-ui .board-pick select { font-size: 1rem; max-width: 132px; }
+  html.oracle-fs .pb-ui .fs-left .controls { gap: 6px; }
+}
 /* (🎵 and 🔊: on, lit; off, dim and struck through) */
 .pb-toggle { font-size: 1.15em; padding: 2px 8px; }
 .pb-toggle[aria-pressed="false"] { opacity: 0.45; text-decoration: line-through; }
