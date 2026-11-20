@@ -23,13 +23,13 @@
   const painted = () => new Promise(r => { let done = false; const go = () => { if (!done) { done = true; r(); } }; requestAnimationFrame(() => setTimeout(go, 0)); setTimeout(go, 60); });
 
   // ---- the state: Hazel's program, the board size, the game (a Hazel value), the moves to undo, the score once it is over
-  const S = { built: null, libAt: 0, libFailed: false, size: kept("size", 9), game: null, undo: [], score: null, busy: false, note: "", thinkMs: 0, compiledError: "" };
+  const S = { built: null, libAt: 0, libFailed: false, size: kept("size", 9), game: null, undo: [], score: null, busy: false, note: "", thinkMs: 0, compiledError: "", auto: false, touched: false, looping: false };
   if (!SIZES.includes(S.size)) S.size = 9;
   const saved = kept("game", null);
-  if (saved && saved.game && Array.isArray(saved.game.board) && saved.game.size === S.size) Object.assign(S, { game: saved.game, undo: saved.undo || [], score: saved.score || null });
+  if (saved && saved.game && Array.isArray(saved.game.board) && saved.game.size === S.size) Object.assign(S, { game: saved.game, undo: saved.undo || [], score: saved.score || null, touched: !!saved.touched });
   const stats = kept("stats", {});
   const H = () => S.built && S.built.ok ? S.built.value : null;
-  const save = () => keep("game", S.game ? { game: S.game, undo: S.undo.slice(-30), score: S.score } : null);
+  const save = () => keep("game", S.game ? { game: S.game, undo: S.undo.slice(-30), score: S.score, touched: S.touched } : null);
   const at = (g, p) => g.board[Math.floor(p / g.size)][p % g.size];
 
   // ---- the board, drawn as an SVG: the wood, the lines, the star points, the stones, the last move, and at the end who owns each point
@@ -67,11 +67,11 @@
   }
   function bar() {
     const g = S.game;
-    $("you").textContent = "⚫ You" + (g && g.black_took ? ` · took ${g.black_took}` : "");
+    $("you").textContent = (S.auto ? "⚫ Hazel, for you" : "⚫ You") + (g && g.black_took ? ` · took ${g.black_took}` : "");
     $("hazel").textContent = "⚪ Hazel" + (g && g.white_took ? ` · took ${g.white_took}` : "");
-    $("you").classList.toggle("now", !!g && !g.over && g.turn === 1 && !S.busy);
-    $("hazel").classList.toggle("now", !!g && !g.over && (g.turn === 2 || S.busy));
-    $("turn").textContent = !g ? "" : g.over ? "Game over" : S.busy ? "🤔 Hazel is thinking…" : g.turn === 1 ? "Your move" : "Hazel's move";
+    $("you").classList.toggle("now", !!g && !g.over && g.turn === 1 && (!S.busy || S.auto));
+    $("hazel").classList.toggle("now", !!g && !g.over && (g.turn === 2 || (S.busy && !S.auto)));
+    $("turn").textContent = !g ? "" : g.over ? "Game over" : S.auto ? (g.turn === 1 ? "⚫ Hazel's move, for you" : "⚪ Hazel's move") : S.busy ? "🤔 Hazel is thinking…" : g.turn === 1 ? "Your move" : "Hazel's move";
   }
   function info() {
     const st = stats[S.size] || { played: 0, won: 0 };
@@ -80,14 +80,16 @@
     if (S.game && S.game.over && S.score) {
       const b = S.score.black, w = S.score.white + S.score.komi;
       const g = S.game, owned = (S.score.owners || []).filter((o, p) => o && !at(g, p)).length;
-      line = `Black ${S.score.black}, White ${S.score.white} + ${S.score.komi} komi = ${w}: ` + (b > w ? `🎉 you win by ${b - w}.` : b < w ? `Hazel wins by ${w - b}.` : "a draw.") +
+      line = `Black ${S.score.black}, White ${S.score.white} + ${S.score.komi} komi = ${w}: ` + (S.touched ? outcome() + "." : b > w ? `🎉 you win by ${b - w}.` : b < w ? `Hazel wins by ${w - b}.` : "a draw.") +
         (owned ? " A small square marks an empty point only one side's stones reach." : " No empty point is reached by one side's stones alone.");
     }
-    $("info").textContent = (line ? line + " · " : "") + tally;
+    $("info").textContent = (line ? line + " · " : "") + tally + (S.touched ? " (games Hazel played for you are not counted)" : "");
   }
+  const outcome = () => { if (!S.score) return "Game over"; const b = S.score.black, w = S.score.white + S.score.komi;
+    return b > w ? `⚫ Hazel, playing for you, wins by ${b - w}` : b < w ? `⚪ Hazel wins by ${w - b}` : "A draw"; };
   function able() {
-    const g = S.game, mine = !!H() && !!g && !g.over && !S.busy && g.turn === 1;
-    $("pass").disabled = !mine; $("undo").disabled = S.busy || !S.undo.length || !H();
+    const g = S.game, mine = !!H() && !!g && !g.over && !S.busy && !S.auto && g.turn === 1;
+    $("pass").disabled = !mine; $("undo").disabled = S.busy || S.auto || !S.undo.length || !H();
     if (passFs) passFs.disabled = !mine;
   }
 
@@ -98,7 +100,7 @@
     return "Not allowed: that stone would have no empty point beside it, and would take nothing.";
   }
   function tap(p) {
-    const h = H(), g = S.game; if (!h || !g || g.over || S.busy || g.turn !== 1) return;
+    const h = H(), g = S.game; if (!h || !g || g.over || S.busy || S.auto || g.turn !== 1) return;
     let g2 = null;
     try { g2 = h.play(g, p); } catch (e) { g2 = null; }
     if (!g2) return;
@@ -122,9 +124,10 @@
     S.note = w < 0 && !g.over ? "Hazel passes: play on, or pass too to end the game." : "";
     if (g.over) finish();
     save(); draw(); drawStatus();
+    if (S.auto) autoplay();
   }
   function pass() {
-    const h = H(), g = S.game; if (!h || !g || g.over || S.busy || g.turn !== 1) return;
+    const h = H(), g = S.game; if (!h || !g || g.over || S.busy || S.auto || g.turn !== 1) return;
     S.undo.push(g); S.game = h.pass(g); S.note = "";
     if (S.game.over) finish();
     save(); draw();
@@ -134,17 +137,59 @@
     const h = H(); if (!h) return;
     try { S.score = h.score(S.game); } catch (e) { S.score = null; }
     if (!S.score) return;
+    if (S.touched) { W.end(outcome()); return; }
     const st = stats[S.size] || { played: 0, won: 0 }; st.played++;
     if (S.score.black > S.score.white + S.score.komi) st.won++;
     stats[S.size] = st; keep("stats", stats);
   }
   function newGame() {
     const h = H(); if (!h || S.busy) return;
-    S.game = h.fresh(S.size); Object.assign(S, { undo: [], score: null, note: "" });
+    S.game = h.fresh(S.size); Object.assign(S, { undo: [], score: null, note: "", touched: S.auto });
+    if (S.auto) W.start(0);
     save(); draw();
+    if (S.auto) autoplay();
   }
+  // ---- 🤖 Hazel plays for you (0.0.34, ticket 796): Hazel plays both sides to the end, at the pace chosen, and the clock
+  // times it. Each side passes when Hazel's choice is to pass; two passes end the game. A game that runs past four moves a
+  // point (a ko fight can go round) is ended by both passing. At full speed the moves follow at once.
+  async function autoplay() {
+    if (S.looping) return; S.looping = true;
+    while (S.busy) await new Promise(r => setTimeout(r, 30));
+    S.busy = true; draw();
+    try {
+      while (S.auto && S.game && !S.game.over && H()) {
+        const h = H(), g = S.game, side = g.turn, n = g.size;
+        const rs = Array.from({ length: n * n }, () => Math.floor(Math.random() * 20));
+        const t = performance.now(); let w = -1, g2 = null;
+        const long = S.undo.length >= 4 * n * n;
+        try { w = long ? -1 : h.choose(g, rs); g2 = w < 0 ? h.pass(g) : h.play(g, w); } catch (e) { g2 = null; }
+        const ms = performance.now() - t;
+        if (!g2) { S.note = "Hazel's rules stopped here."; break; }
+        if (w >= 0 && g2.turn === g.turn) { g2 = h.pass(g); } // (a choice the rules then refused: a pass instead)
+        W.think(side === 1 ? 0 : 1, ms); S.thinkMs = ms;
+        S.undo.push(g); S.game = g2; S.touched = true;
+        S.note = long ? `Both pass: ${S.undo.length} moves, past four a point.` : w < 0 && !g2.over ? (side === 1 ? "⚫ Hazel, for you, passes." : "⚪ Hazel passes.") : "";
+        if (g2.over) break;
+        await W.between(() => { draw(); });
+      }
+    } finally { S.busy = false; S.looping = false; }
+    if (S.game && S.game.over) finish();
+    save(); draw(); drawStatus();
+    // (the switch turned off mid-game: the game goes on as before, Hazel answering your moves)
+    if (!S.auto && S.game && !S.game.over && S.game.turn === 2) reply();
+  }
+  const W = window.HazelAutoplay.make({
+    after: $("new").parentElement, key: KEY, sides: ["⚫", "⚪"],
+    onChange: on => {
+      S.auto = on;
+      if (!on) { W.stop(); draw(); return; }
+      if (!H()) { draw(); return; }
+      if (!S.game || S.game.over) { newGame(); return; }
+      S.touched = true; W.start(S.undo.length); autoplay();
+    },
+  });
   function undo() {
-    if (S.busy || !S.undo.length) return;
+    if (S.busy || S.auto || !S.undo.length) return;
     S.game = S.undo.pop(); S.score = null; S.note = ""; save(); draw();
   }
   board.addEventListener("click", e => { const t = e.target.closest("[data-p]"); if (t) tap(+t.dataset.p); });

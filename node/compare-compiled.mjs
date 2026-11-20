@@ -20,6 +20,8 @@ import Hazel from "hazeljs";
 import { readFileSync } from "node:fs";
 
 const APP = process.argv[2] || "i-ching";
+// (ticket 794) the games take a cap on the turns or steps of each game as a second number, to keep a run on a laptop short
+const CAP = Number(process.argv[4] || 0);
 const SETUP = {
   "i-ching": { modules: ["Lines", "Casting", "Book", "Reading"], tail: "(cast = Casting.cast, reading = Reading.reading)" },
   "tarot": { modules: ["Deck", "Spreads", "Reading"], tail: "(deal = Reading.deal)" },
@@ -75,7 +77,7 @@ if (APP === "checkers") {
   let turns = 0;
   for (let n = 0; n < games; n++) {
     let g = C.fresh(9);
-    for (let i = 0; i < 120 && !g.over; i++) {
+    for (let i = 0; i < (CAP || 120) && !g.over; i++) {
       turns++;
       const rs = Array.from({ length: 81 }, () => Math.floor(draw() * 20));
       const w = C.choose(g, rs); check(`game ${n + 1} turn ${i + 1}: choose`, H.choose(g, rs), w);
@@ -102,7 +104,7 @@ if (APP === "checkers") {
     const r0 = Math.floor(draw() * rows), c0 = Math.floor(draw() * cols);
     let g = C.lay(rows, cols, mines, us, r0, c0); check(`board ${n + 1}: lay`, H.lay(rows, cols, mines, us, r0, c0), g);
     let g1 = C.reveal(g, r0, c0); check(`board ${n + 1}: the first tap`, H.reveal(g, r0, c0), g1); g = g1;
-    for (let i = 0; i < 400 && !g.over; i++) {
+    for (let i = 0; i < (CAP || 400) && !g.over; i++) {
       positions++;
       const m = C.sure(g); check(`board ${n + 1} step ${i + 1}: sure`, H.sure(g), m);
       const rr = Math.floor(draw() * rows), rc = Math.floor(draw() * cols);
@@ -125,8 +127,8 @@ if (APP === "checkers") {
       `a hint hazeljs ${time(() => H.sure(g), 5).toFixed(0)} ms, compiled ${time(() => C.sure(g), 50).toFixed(2)} ms`);
   }
 } else if (APP === "mahjong") {
-  // (ticket 794) whole hands: you discarding a random tile and passing every claim, as the page's timing does; at every step
-  // the options and the step, both ways, then the next hand
+  // (ticket 794) whole hands: you discarding a random tile and passing every claim, as the page's timing does (every other
+  // hand, Hazel playing your seat: ticket 796); at every step the options and the step, both ways, then the next hand
   const hands = Number(process.argv[3] || 3);
   const NONE = { kind: 0, tile: -1 };
   const waiting = o => !!o && (o.discard || o.win || o.pung || o.kong || o.chows.length > 0 || o.kongs.length > 0);
@@ -138,7 +140,8 @@ if (APP === "checkers") {
       steps++;
       const o = C.options(g); check(`hand ${n + 1} step ${i + 1}: options`, H.options(g), o);
       const hand = g.seats[0].hand;
-      const a = o.discard ? { kind: 1, tile: hand[Math.floor(draw() * hand.length)] } : waiting(o) ? { kind: 4, tile: -1 } : NONE;
+      // (ticket 796) the second hand, and every other, Hazel plays your seat too (kind 9)
+      const a = n % 2 === 1 && waiting(o) ? { kind: 9, tile: -1 } : o.discard ? { kind: 1, tile: hand[Math.floor(draw() * hand.length)] } : waiting(o) ? { kind: 4, tile: -1 } : NONE;
       const g1 = C.step(g, a); check(`hand ${n + 1} step ${i + 1}: step ${JSON.stringify(a)}`, H.step(g, a), g1); g = g1;
     }
     if (n + 1 < hands) { const r = rs(); const g1 = C.next_hand(g, r); check(`hand ${n + 2}: next_hand`, H.next_hand(g, r), g1); g = g1; }
@@ -156,7 +159,7 @@ if (APP === "checkers") {
   for (let n = 0; n < deals; n++) {
     const us = Array.from({ length: 52 }, draw), dr = n % 2 ? 3 : 1;
     let g = C.deal(us, dr); check(`deal ${n + 1}`, H.deal(us, dr), g);
-    for (let i = 0; i < 200; i++) {
+    for (let i = 0; i < (CAP || 200); i++) {
       positions++;
       const ms = C.moves(g); check(`deal ${n + 1} move ${i + 1}: moves`, H.moves(g), ms);
       const froms = [{ tag: "FromWaste" }, ...g.piles.map((p, j) => ({ tag: "FromPile", value: { pile: j, count: Math.max(1, p.up.length) } })), ...[0, 1, 2, 3].map(k => ({ tag: "FromFoundation", value: k }))];

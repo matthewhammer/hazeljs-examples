@@ -56,12 +56,12 @@
   }
 
   // ---- the state: Hazel's program, the game (a Hazel value), what you may do now, the tile you chose, how fast Hazel plays
-  const S = { built: null, libAt: 0, libFailed: false, game: null, opts: null, sel: -1, pace: kept("pace", 450), peek: kept("peek", false), running: 0, note: "", stepMs: 0, compiledError: "" };
+  const S = { built: null, libAt: 0, libFailed: false, game: null, opts: null, sel: -1, pace: kept("pace", 450), peek: kept("peek", false), running: 0, note: "", stepMs: 0, compiledError: "", auto: false, touched: kept("touched", false) };
   const saved = kept("game", null);
   if (saved && Array.isArray(saved.seats) && saved.seats.length === 4) S.game = saved;
   const stats = kept("stats", { played: 0, won: 0 });
   const H = () => S.built && S.built.ok ? S.built.value : null;
-  const save = () => keep("game", S.game);
+  const save = () => { keep("game", S.game); keep("touched", S.touched); };
   const waiting = o => !!o && (o.discard || o.win || o.pung || o.kong || o.chows.length > 0 || o.kongs.length > 0);
   function refresh() { const h = H(); S.opts = null; if (h && S.game) { try { S.opts = h.options(S.game); } catch (e) { S.opts = null; } } }
 
@@ -115,6 +115,7 @@
       for (const c of o.chows) h += b(5, c, `Chow ${[0, 1, 2].map(i => tile(c + i)).join("")}`);
       h += b(4, -1, "Pass");
     } else h = `<span class="say">${S.note || "Hazel is playing…"}</span>`;
+    if (S.auto && g.phase !== 3) h = `<span class="say">${S.note || "🤖 Hazel is playing your seat too…"}</span>`;
     el.innerHTML = h;
   }
   function end() {
@@ -126,18 +127,18 @@
     if (g.winner < 0) h = `<b>The wall is empty: no one wins this hand.</b> ${who(g, g.dealer)} deal${g.dealer ? "s" : ""} again.`;
     else {
       const f = Math.min(13, g.items.reduce((a, i) => a + i.faan, 0)), p = 2 ** Math.min(10, f);
-      h = `<b>${g.winner === 0 ? "🎉 You win" : who(g, g.winner) + " wins"}, ${ev.what === 7 ? "drawing " + tile(ev.tile, "sm") : "on " + who(g, g.from).replace("You", "your") + (g.from === 0 ? "" : "'s") + " discard " + tile(ev.tile, "sm")}.</b>` +
+      h = `<b>${g.winner === 0 ? (S.touched ? "🎉 Hazel, playing for you, wins" : "🎉 You win") : who(g, g.winner) + " wins"}, ${ev.what === 7 ? "drawing " + tile(ev.tile, "sm") : "on " + who(g, g.from).replace("You", "your") + (g.from === 0 ? "" : "'s") + " discard " + tile(ev.tile, "sm")}.</b>` +
         `<table>${g.items.length ? g.items.map(i => `<tr><td>${FAAN[i.code] || i.code}</td><td>${i.faan} faan</td></tr>`).join("") : `<tr><td>No faan: a chicken hand, which still wins here</td><td>0 faan</td></tr>`}` +
         `<tr><td><b>In all</b></td><td><b>${f} faan${f === 13 ? " (the limit)" : ""}: ${p} point${p > 1 ? "s" : ""}</b></td></tr></table>` +
         `<div class="muted">${ev.what === 7 ? `Drawn by the winner: each other player pays twice the points.` : `Won on a discard: its thrower pays twice the points, the other two once.`}</div>`;
     }
-    h += `<div>${g.seats.map((s, i) => `${who(g, i)} ${g.pays[i] > 0 ? "+" : ""}${g.pays[i]}`).join(" · ")}</div><div class="muted">You have won ${stats.won} of ${stats.played} hands on this device.</div>`;
+    h += `<div>${g.seats.map((s, i) => `${who(g, i)} ${g.pays[i] > 0 ? "+" : ""}${g.pays[i]}`).join(" · ")}</div><div class="muted">You have won ${stats.won} of ${stats.played} hands on this device${S.touched ? " (hands Hazel played for you are not counted)" : ""}.</div>`;
     el.innerHTML = h;
   }
 
   // ---- moves: yours, then Hazel's, a step at a time, at the pace chosen
   function act(a) {
-    const h = H(); if (!h || !S.game || S.running) return;
+    const h = H(); if (!h || !S.game || S.running || S.auto) return;
     let g2 = null;
     try { g2 = h.step(S.game, a); } catch (e) { S.note = "Hazel's rules stopped on that move: " + (e && e.message || e); draw(); return; }
     S.game = g2; S.sel = -1; S.note = ""; settle(); refresh(); save(); draw(); run();
@@ -147,18 +148,24 @@
     const g = S.game; if (!g || g.phase !== 3) return;
     const key = g.hand_no + ":" + g.events.length + ":" + g.winner + ":" + g.pays.join(",") + ":" + g.seats.map(s => s.points).join(",");
     if (kept("counted", "") === key) return;
+    if (S.touched) { keep("counted", key); W.end(g.winner === 0 ? "Hazel, playing for you, wins the hand" : g.winner < 0 ? "The wall is empty, no one wins" : who(g, g.winner) + " wins the hand"); return; }
     keep("counted", key); stats.played++; if (g.winner === 0) stats.won++; keep("stats", stats);
   }
   async function run() {
     const h = H(); if (!h || S.running) return;
     const token = S.running = Date.now();
     refresh();
-    while (S.game && S.game.phase !== 3 && !waiting(S.opts) && S.running === token) {
-      draw(); await sleep(S.pace); await painted();
+    // (🤖 Hazel plays for you, 0.0.34, ticket 796: your seat's moves are asked of Hazel too, as kind 9, and the table goes on
+    // to the hand's end; at full speed the steps follow at once, the table drawn every 50 ms)
+    while (S.game && S.game.phase !== 3 && (S.auto || !waiting(S.opts)) && S.running === token) {
+      if (S.auto) await W.between(draw); else { draw(); await sleep(S.pace); await painted(); }
       if (S.running !== token) return;
+      const g = S.game, yours = S.auto && waiting(S.opts);
       const t = performance.now();
-      try { S.game = h.step(S.game, NONE); } catch (e) { S.note = "Hazel's rules stopped: " + (e && e.message || e); break; }
+      try { S.game = h.step(g, yours ? AUTO : NONE); } catch (e) { S.note = "Hazel's rules stopped: " + (e && e.message || e); break; }
       S.stepMs = performance.now() - t;
+      if (S.auto) { W.think(yours ? 0 : 1, S.stepMs); S.touched = true; }
+      if (yours && JSON.stringify(S.game) === JSON.stringify(g)) { S.note = "These rules have no move for Hazel to make in your seat (kind 9): edit them back, or turn 🤖 off."; S.auto = false; W.set(false); W.stop(); refresh(); break; }
       refresh(); settle(); save();
     }
     if (S.running === token) S.running = 0;
@@ -168,10 +175,24 @@
     const h = H(); if (!h) return;
     S.running = 0;
     S.game = first || !S.game ? h.start(rs()) : h.next_hand(S.game, rs());
-    S.sel = -1; S.note = ""; refresh(); save(); draw(); run();
+    S.sel = -1; S.note = ""; S.touched = S.auto; if (S.auto) W.start(0);
+    refresh(); save(); draw(); run();
   }
+  // ---- 🤖 Hazel plays for you (0.0.34, ticket 796): your seat played as the Hazel players play theirs (the step's kind 9),
+  // each hand to its end at the pace chosen (with "at full speed" added), and the clock times the hand
+  const AUTO = { kind: 9, tile: -1 };
+  const W = window.HazelAutoplay.make({
+    after: $("next").parentElement, key: KEY, sides: ["your seat", "the other three"], pace: { get: () => S.pace },
+    onChange: on => {
+      S.auto = on; S.sel = -1; S.note = "";
+      if (!on) { W.stop(); S.running = 0; refresh(); draw(); run(); return; }
+      if (!H()) { draw(); return; }
+      if (!S.game || S.game.phase === 3) { newHand(!S.game); return; }
+      S.touched = true; W.start(S.game.events.length); S.running = 0; run();
+    },
+  });
   $("table").addEventListener("click", e => {
-    const t = e.target.closest(".hand .tile"); if (!t || !S.opts || !S.opts.discard || S.running) return;
+    const t = e.target.closest(".hand .tile"); if (!t || !S.opts || !S.opts.discard || S.running || S.auto) return;
     const i = +t.dataset.i;
     if (S.sel === i) act({ kind: 1, tile: +t.dataset.t }); else { S.sel = i; draw(); }
   });

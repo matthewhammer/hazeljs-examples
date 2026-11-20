@@ -28,7 +28,7 @@
   const last = m => m.path.length ? m.path[m.path.length - 1] : m.from;
 
   // ---- the state: Hazel's program, how far it looks, the game (a Hazel value), the moves to undo, the piece chosen
-  const S = { built: null, libAt: 0, libFailed: false, depth: kept("depth", 3), game: null, undo: [], legal: [], sel: -1, busy: false, note: "", thinkMs: 0, compiledError: "" };
+  const S = { built: null, libAt: 0, libFailed: false, depth: kept("depth", 3), game: null, undo: [], legal: [], sel: -1, busy: false, note: "", thinkMs: 0, compiledError: "", auto: false, touched: false, looping: false };
   if (![1, 2, 3, 4].concat(COMPILED ? [5, 6] : []).includes(S.depth)) S.depth = 3;
   // (0.0.34) compiled, Hazel looks further: 5 ahead in about 13 ms and 6 in about 50 (node/compare-compiled.mjs), where
   // hazeljs took 11 s for 4; interpreted, 5 and 6 fall back to 4
@@ -37,11 +37,11 @@
     for (const d of [5, 6]) { const o = document.createElement("option"); o.value = String(d); o.textContent = `${d} moves ahead (compiled)`; $("depth").append(o); }
   }
   const saved = kept("game", null);
-  if (saved && saved.game && typeof saved.game.black === "number") Object.assign(S, { game: saved.game, undo: saved.undo || [] });
+  if (saved && saved.game && typeof saved.game.black === "number") Object.assign(S, { game: saved.game, undo: saved.undo || [], touched: !!saved.touched });
   const stats = kept("stats", {});
   const H = () => S.built && S.built.ok ? S.built.value : null;
-  const save = () => keep("game", S.game ? { game: S.game, undo: S.undo.slice(-30) } : null);
-  const mine = () => !!S.game && !S.game.over && !S.busy && S.game.turn === 1;
+  const save = () => keep("game", S.game ? { game: S.game, undo: S.undo.slice(-30), touched: S.touched } : null);
+  const mine = () => !!S.game && !S.game.over && !S.busy && !S.auto && S.game.turn === 1;
   function refresh() {
     const h = H(); S.legal = [];
     if (h && mine()) { try { S.legal = h.moves(S.game) || []; } catch (e) { S.legal = []; } }
@@ -84,21 +84,23 @@
   function bar() {
     const g = S.game;
     const tookB = g ? 12 - count(g.white) : 0, tookW = g ? 12 - count(g.black) : 0;
-    $("you").textContent = "⚫ You" + (tookB ? ` · took ${tookB}` : "");
+    $("you").textContent = (S.auto ? "⚫ Hazel, for you" : "⚫ You") + (tookB ? ` · took ${tookB}` : "");
     $("hazel").textContent = "⚪ Hazel" + (tookW ? ` · took ${tookW}` : "");
-    $("you").classList.toggle("now", mine());
-    $("hazel").classList.toggle("now", !!g && !g.over && (g.turn === 2 || S.busy));
-    $("turn").textContent = !g ? "" : g.over ? "Game over" : S.busy ? "🤔 Hazel is thinking…" : g.turn === 1 ? (S.legal.some(m => m.took.length) ? "Your move: you must jump" : "Your move") : "Hazel's move";
+    $("you").classList.toggle("now", mine() || (S.auto && !!g && !g.over && g.turn === 1));
+    $("hazel").classList.toggle("now", !!g && !g.over && (g.turn === 2 || (S.busy && !S.auto)));
+    $("turn").textContent = !g ? "" : g.over ? "Game over" : S.auto ? (g.turn === 1 ? "⚫ Hazel's move, for you" : "⚪ Hazel's move") : S.busy ? "🤔 Hazel is thinking…" : g.turn === 1 ? (S.legal.some(m => m.took.length) ? "Your move: you must jump" : "Your move") : "Hazel's move";
   }
   function info() {
     const st = stats[S.depth] || { played: 0, won: 0 };
     const tally = `against Hazel looking ${S.depth} ahead: you won ${st.won} of ${st.played} on this device`;
     let line = S.note;
     const g = S.game;
-    if (g && g.over) line = g.winner === 1 ? "🎉 You win: Hazel has no move left." : g.winner === 2 ? "Hazel wins: you have no move left." : "A draw: 80 moves with no piece taken and no man moving.";
-    $("info").textContent = (line ? line + " · " : "") + tally;
+    if (g && g.over) line = S.touched ? outcome(g) + (g.winner ? ": the other side has no move left." : ": 80 moves with no piece taken and no man moving.")
+      : g.winner === 1 ? "🎉 You win: Hazel has no move left." : g.winner === 2 ? "Hazel wins: you have no move left." : "A draw: 80 moves with no piece taken and no man moving.";
+    $("info").textContent = (line ? line + " · " : "") + tally + (S.touched ? " (games Hazel played for you are not counted)" : "");
   }
-  function able() { $("undo").disabled = S.busy || !S.undo.length || !H(); }
+  function able() { $("undo").disabled = S.busy || S.auto || !S.undo.length || !H(); }
+  const outcome = g => g.winner === 1 ? "⚫ Hazel, playing for you, wins" : g.winner === 2 ? "⚪ Hazel wins" : "A draw";
 
   // ---- a move: yours (a piece, then where it goes), then Hazel's, chosen by Hazel
   function tap(s) {
@@ -136,19 +138,59 @@
     if (m && m.took && m.took.length > 1) S.note = `Hazel took ${m.took.length} in one move.`;
     if (g.over) finish();
     refresh(); save(); draw(); drawStatus();
+    if (S.auto) autoplay();
   }
   function finish() {
+    if (S.touched) { W.end(outcome(S.game)); return; }
     const st = stats[S.depth] || { played: 0, won: 0 }; st.played++;
     if (S.game.winner === 1) st.won++;
     stats[S.depth] = st; keep("stats", stats);
   }
   function newGame() {
     const h = H(); if (!h || S.busy) return;
-    S.game = h.start; Object.assign(S, { undo: [], sel: -1, note: "" });
+    S.game = h.start; Object.assign(S, { undo: [], sel: -1, note: "", touched: S.auto });
+    if (S.auto) W.start(0);
     refresh(); save(); draw();
+    if (S.auto) autoplay();
   }
+  // ---- 🤖 Hazel plays for you (0.0.34, ticket 796): Hazel plays both sides to the end, at the pace chosen, and the clock
+  // times it. Each side looks as far ahead as chosen above. At full speed the moves follow at once, the board drawn once a
+  // frame at most.
+  async function autoplay() {
+    if (S.looping) return; S.looping = true;
+    while (S.busy) await new Promise(r => setTimeout(r, 30));
+    S.busy = true; refresh(); draw();
+    try {
+      while (S.auto && S.game && !S.game.over && H()) {
+        const h = H(), g = S.game, side = g.turn;
+        const rs = Array.from({ length: 48 }, () => Math.floor(Math.random() * 1000));
+        const t = performance.now(); let m = null, g2 = null;
+        try { m = h.choose(g, S.built.compiled ? S.depth : Math.min(S.depth, 4), rs); if (m && m.from >= 0) g2 = h.apply(g, m); } catch (e) { g2 = null; }
+        const ms = performance.now() - t;
+        if (!g2) { S.note = "Hazel found no move here."; break; }
+        W.think(side === 1 ? 0 : 1, ms); S.thinkMs = ms;
+        S.undo.push(g); S.game = g2; S.touched = true;
+        if (g2.over) break;
+        await W.between(() => { draw(); });
+      }
+    } finally { S.busy = false; S.looping = false; }
+    if (S.game && S.game.over) finish();
+    refresh(); save(); draw(); drawStatus();
+    // (the switch turned off mid-game: the game goes on as before, Hazel answering your moves)
+    if (!S.auto && S.game && !S.game.over && S.game.turn === 2) reply();
+  }
+  const W = window.HazelAutoplay.make({
+    after: document.querySelector(".checkers-ui .controls") || $("new").parentElement, key: KEY, sides: ["⚫", "⚪"],
+    onChange: on => {
+      S.auto = on; S.sel = -1;
+      if (!on) { W.stop(); refresh(); draw(); return; }
+      if (!H()) { draw(); return; }
+      if (!S.game || S.game.over) { newGame(); return; }
+      S.touched = true; W.start(S.undo.length); autoplay();
+    },
+  });
   function undo() {
-    if (S.busy || !S.undo.length) return;
+    if (S.busy || S.auto || !S.undo.length) return;
     S.game = S.undo.pop(); S.sel = -1; S.note = ""; refresh(); save(); draw();
   }
   board.addEventListener("click", e => { const t = e.target.closest("[data-s]"); if (t) tap(+t.dataset.s); });

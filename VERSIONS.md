@@ -4,6 +4,14 @@ Each version lists what the apps do as of that version. The newest version is fi
 
 ## Unreleased
 
+## 0.0.34 (2026-11-20)
+
+Everything in 0.0.33, plus:
+
+- **The games run compiled ahead of time** (Matthew: "similar --- let's look over the other games to see if hazel-jit will help", then "Pipeline on Checkers first"). Solitaire, Minesweeper, Go, Checkers and Mahjong now run their Hazel rules as JavaScript compiled by hazel-jit (each game's `compiled.js`), as the I Ching, the Tarot and astrology do: a page no longer loads hazeljs (2.8 MB) or builds its program, and opens ready. In Node, compiled and interpreted give the same answers on every check (Checkers 469, Solitaire 722, Minesweeper 373, Go 157, Mahjong 488, none different), and the compiled rules are about a thousand times as fast: Checkers looking 4 moves ahead 5 ms where hazeljs took 11 s, Go's choice of move 0.24 ms where it took 0.44 s, an expert Minesweeper hint well under a millisecond where it took 0.6 s. `?interpreted=1` runs the rules with hazeljs as before, and editing the rules loads hazeljs and runs the edited rules; ⚙️ Advanced says which is running and links to the other.
+- **Checkers' Hazel looks further ahead.** Running compiled, Hazel can look 5 or 6 moves ahead (6 takes about 50 ms a move); interpreted, those fall back to 4.
+- **🤖 Hazel plays for you** (Matthew: "For each one-player game with AI opponents, please add a mode as a toggle switch where the AI for that game plays for the interactive user "you", so that the game becomes a 0 player activity to watch and to time", then: "Let's ensure there's a "full speed" mode where the AI players go as fast as the hazel logic will permit"). Go, Checkers and Mahjong have a switch under their buttons: on, Hazel plays your side as it plays its own, to the end of the game (in Mahjong, of the hand), at the pace you choose: slowly, at a walk, briskly, or at full speed, where the moves follow each other at once and the board is drawn every 50 ms. A clock under the switch times it: the moves, the time on the clock, each side's thinking, its share of the clock, and the slowest move. A game Hazel played for you is kept out of your tally. Turned off mid-game, the game goes on with you. In Mahjong, your seat is played by the step's new kind 9 (`step(game, (kind = 9, tile = -1))`), the same choices the Hazel players make for theirs.
+
 ## 0.0.33 (2026-11-20)
 
 Everything in 0.0.32, plus:

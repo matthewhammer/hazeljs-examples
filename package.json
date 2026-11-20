@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "i-ching": "node node/i-ching.mjs",
-    "compare-compiled": "node node/compare-compiled.mjs i-ching && node node/compare-compiled.mjs tarot && node node/compare-compiled.mjs astrology",
+    "compare-compiled": "node node/compare-compiled.mjs i-ching && node node/compare-compiled.mjs tarot && node node/compare-compiled.mjs astrology && node node/compare-compiled.mjs checkers 1 && node node/compare-compiled.mjs solitaire 2 60 && node node/compare-compiled.mjs minesweeper 9 25 && node node/compare-compiled.mjs go 1 50 && node node/compare-compiled.mjs mahjong 2",
     "serve": "python3 -m http.server 8000 --bind 127.0.0.1",
     "tarot": "node node/tarot.mjs",
     "astrology": "node node/astrology.mjs",

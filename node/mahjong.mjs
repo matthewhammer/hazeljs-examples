@@ -1,6 +1,7 @@
 // hazeljs-examples, Mahjong in Node: the same Hazel module as the page (mahjong/rules/Mahjong.hz), run through hazeljs. It
 // checks the faan of hands worked out by hand, then plays hands at a table of the three Hazel players and a simple player in
-// your seat (it wins when it can, claims a pung now and then, and discards at random), and checks every step: all 136 tiles
+// your seat (it wins when it can, claims a pung now and then, and discards at random; every third hand, Hazel plays your seat
+// as it plays its own, by the step's kind 9: ticket 796), and checks every step: all 136 tiles
 // are somewhere, each seat holds as many as it should, every win is a winning hand by a test written here in JavaScript,
 // and the points paid add up to nothing. Then it times a step.
 //
@@ -69,7 +70,8 @@ for (let h = 0; h < HANDS; h++) {
   for (let k = 0; k < 400 && g.phase !== 3; k++) {
     const o = M.options(g);
     let a = NONE;
-    if (o.discard) a = o.win ? { kind: 2, tile: -1 } : o.kongs.length && rnd() < 0.5 ? { kind: 3, tile: o.kongs[0] } : { kind: 1, tile: g.seats[0].hand[Math.floor(rnd() * g.seats[0].hand.length)] };
+    if (h % 3 === 2) a = o.discard || o.win || o.pung || o.kong || o.chows.length || o.kongs.length ? { kind: 9, tile: -1 } : NONE;
+    else if (o.discard) a = o.win ? { kind: 2, tile: -1 } : o.kongs.length && rnd() < 0.5 ? { kind: 3, tile: o.kongs[0] } : { kind: 1, tile: g.seats[0].hand[Math.floor(rnd() * g.seats[0].hand.length)] };
     else if (o.win) a = { kind: 8, tile: g.tile };
     else if (o.pung || o.kong || o.chows.length) a = o.pung && rnd() < 0.3 ? { kind: 6, tile: g.tile } : o.chows.length && rnd() < 0.2 ? { kind: 5, tile: o.chows[0] } : { kind: 4, tile: -1 };
     const t = performance.now(); const g2 = M.step(g, a); ms.push(performance.now() - t); steps++;
