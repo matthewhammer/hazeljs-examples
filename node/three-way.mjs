@@ -15,6 +15,8 @@ import { execSync } from "node:child_process";
 import os from "node:os";
 
 const QUICK = process.argv.includes("--quick");
+// (--no-hazeljs: the compiled and plain ways only, for a quick look on a laptop)
+const NOHAZEL = process.argv.includes("--no-hazeljs");
 const args = process.argv.slice(2).filter(a => !a.startsWith("--"));
 const GAME = args[0], OUT = args[1];
 const SETUP = {
@@ -28,14 +30,26 @@ if (!SETUP) { console.log("usage: node node/three-way.mjs checkers|go|minesweepe
 
 // ---- the three: hazeljs builds the rules as the page does; compiled.js and plain.js are classic scripts, run as modules
 const file = f => readFileSync(new URL(`../${GAME}/${f}`, import.meta.url), "utf8");
-const script = f => { const b = { exports: {} }; new Function("module", "window", file(f))(b, undefined); return b.exports; };
+const run = text => { const b = { exports: {} }; new Function("module", "window", text)(b, undefined); return b.exports; };
+const script = f => run(file(f));
+// (where hazel-jit's time goes: two variants of compiled.js, for timing only. The step budget: every compiled function
+// starts by counting a step and, every 16384 steps, reading the clock, so a run can be stopped as the interpreter's is.
+// Exact integers: every +, -, * and / goes through the runtime, which keeps Hazel's Ints exact past 2^53 (a BigInt there);
+// these games' numbers never get near it, so plain number arithmetic gives the same answers here, as each row checks)
+const BUDGET = /if \(--\$R\.fuel < 0 \|\| \(\(\$R\.fuel & 16383\) === 0 && performance\.now\(\) > \$R\.deadline\)\) \$R\.out\(\); /g;
+const jitText = file("compiled.js"), budgets = (jitText.match(BUDGET) || []).length;
+const noBudget = jitText.replace(BUDGET, "");
+const ANCHOR = "  const P = (function ($R) {";
+if (!budgets || !noBudget.includes(ANCHOR)) { console.log("compiled.js is not as expected: the variants cannot be made"); process.exit(1); }
+const numbers = noBudget.replace(ANCHOR, "  $R.iadd = (a, b) => a + b; $R.isub = (a, b) => a - b; $R.imul = (a, b) => a * b; $R.idiv = (a, b) => (a - a % b) / b; $R.ineg = a => -a;\n" + ANCHOR);
 const read = m => file(`rules/${m}.hz`).replace(/\s+$/, "");
 const t0 = performance.now();
 const built = Hazel.runProgram({ preamble: read("preamble"), modules: SETUP.modules.map(name => ({ name, text: read(name) })), tail: SETUP.tail });
 const buildMs = performance.now() - t0;
 if (!built.ok) { console.log("hazeljs did not build the rules", built.errors); process.exit(1); }
-const WAYS = [["hazeljs", built.value], ["hazel-jit", script("compiled.js")], ["plain JS", script("plain.js")]];
-const [H, C, J] = WAYS.map(([, v]) => v);
+const WAYS = [["hazeljs", built.value], ["hazel-jit", script("compiled.js")], ["hazel-jit, no step budget", run(noBudget)],
+              ["hazel-jit, no budget, plain numbers", run(numbers)], ["plain JS", script("plain.js")]];
+const [H, C] = WAYS.map(([, v]) => v);
 
 // ---- the clock
 const median = xs => { const s = [...xs].sort((a, b) => a - b); return s.length % 2 ? s[(s.length - 1) / 2] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2; };
@@ -62,20 +76,20 @@ function op(name, where, call, opts = {}) {
   const row = { name, where };
   const answers = [];
   for (const [way, impl] of WAYS) {
-    if (way === "hazeljs" && opts.skipHazel) { row[way] = null; continue; }
+    if (way === "hazeljs" && (opts.skipHazel || NOHAZEL)) { row[way] = null; continue; }
     answers.push(call(impl));
     row[way] = clock(() => call(impl), way === "hazeljs");
   }
   row.same = answers.every(a => same(a, answers[0]));
   ops.push(row);
   const f = x => x ? (x.ms < 0.01 ? x.ms.toFixed(5) : x.ms < 1 ? x.ms.toFixed(4) : x.ms.toFixed(1)) + " ms" : "not timed";
-  console.log(`${name} (${where}): hazeljs ${f(row.hazeljs)}, hazel-jit ${f(row["hazel-jit"])}, plain JS ${f(row["plain JS"])}${row.same ? "" : "  ANSWERS DIFFER"}`);
+  console.log(`${name} (${where}): ` + WAYS.map(([w]) => `${w} ${f(row[w])}`).join(", ") + (row.same ? "" : "  ANSWERS DIFFER"));
 }
 // the page boundary by itself: hazel-jit's game converted from hazeljs's shapes into its own and back (compiled.js's
 // $convert), which every call through the page's functions pays; hazeljs pays its own, inside its times
 function edge(where, g) {
   const cv = C.$convert; if (!cv) return;
-  const row = { name: "the page boundary: the game in and out", where, hazeljs: null, "hazel-jit": clock(() => cv.gameOut(cv.gameIn(g)), false), "plain JS": null, same: true, boundary: true };
+  const row = { name: "the page boundary: the game in and out", where, "hazel-jit": clock(() => cv.gameOut(cv.gameIn(g)), false), same: true, boundary: true };
   ops.push(row);
   console.log(`${row.name} (${where}): hazel-jit ${row["hazel-jit"].ms.toFixed(5)} ms`);
 }
@@ -83,7 +97,7 @@ function whole(name, play, opts = {}) {
   const row = { name };
   const ends = [];
   for (const [way, impl] of WAYS) {
-    if (way === "hazeljs" && opts.skipHazel) { row[way] = null; continue; }
+    if (way === "hazeljs" && (opts.skipHazel || NOHAZEL)) { row[way] = null; continue; }
     const s0 = seed; const t = performance.now(); const r = play(impl); const ms = performance.now() - t; seed = s0;
     ends.push(r.end); row[way] = { ms, moves: r.moves };
   }
@@ -91,7 +105,7 @@ function whole(name, play, opts = {}) {
   row.same = ends.every(e => same(e, ends[0]));
   games.push(row);
   const f = x => x ? `${x.ms < 1000 ? x.ms.toFixed(1) + " ms" : (x.ms / 1000).toFixed(2) + " s"} (${x.moves} moves)` : "not played";
-  console.log(`whole: ${name}: hazeljs ${f(row.hazeljs)}, hazel-jit ${f(row["hazel-jit"])}, plain JS ${f(row["plain JS"])}${row.same ? "" : "  ENDS DIFFER"}`);
+  console.log(`whole: ${name}: ` + WAYS.map(([w]) => `${w} ${f(row[w])}`).join(", ") + (row.same ? "" : "  ENDS DIFFER"));
 }
 
 if (GAME === "checkers") {
@@ -190,7 +204,7 @@ const result = {
   machine: { cpu: (os.cpus()[0] || {}).model, cpus: os.cpus().length, node: process.version, platform: `${os.platform()} ${os.release()}`, runner: process.env.RUNNER_NAME || null, ci: !!process.env.GITHUB_ACTIONS },
   builds: { "hazeljs": JSON.parse(readFileSync(new URL("../node_modules/hazeljs/package.json", import.meta.url), "utf8")).version,
             "hazel-jit": C.made, "plain JS": git("git log -1 --format=%h -- " + GAME + "/plain.js"), examples: git("git rev-parse --short HEAD") },
-  hazeljsBuildMs: buildMs, ops, games,
+  ways: WAYS.map(([w]) => w), budgetChecks: budgets, hazeljsBuildMs: buildMs, ops, games,
 };
 console.log(`hazeljs built the rules in ${buildMs.toFixed(0)} ms; hazel-jit ${result.builds["hazel-jit"]}; node ${process.version} on ${result.machine.cpu}`);
 if (OUT) writeFileSync(OUT, JSON.stringify(result, null, 1));
