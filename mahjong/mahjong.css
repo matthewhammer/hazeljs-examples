@@ -1,0 +1,40 @@
+/* hazeljs-examples, Mahjong: the table (you at the bottom, Hazel to the right, across and to the left), the tiles, your moves, the end of a hand */
+.mj-table { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) minmax(0, 1fr); grid-template-areas: "s3 s2 s1" "s3 mid s1" "s0 s0 s0";
+  gap: 8px; background: radial-gradient(circle at 50% 40%, #1f7a52, #11553a 65%, #083423); border-radius: 12px; padding: 10px; color: #f3f4f6; margin: 10px 0 6px; }
+.mj-table .s2 { grid-area: s2; } .mj-table .s3 { grid-area: s3; } .mj-table .s1 { grid-area: s1; } .mj-table .s0 { grid-area: s0; } .mj-mid { grid-area: mid; }
+.seat { background: rgba(0, 0, 0, 0.18); border-radius: 8px; padding: 6px; min-width: 0; }
+.seat.now { box-shadow: 0 0 0 3px #f59e0b; }
+.seat .who { font-weight: 700; font-size: 0.9em; display: flex; justify-content: space-between; gap: 6px; margin-bottom: 4px; }
+.seat .who .pts { font-variant-numeric: tabular-nums; opacity: 0.9; }
+.seat .row { display: flex; flex-wrap: wrap; gap: 2px; align-items: flex-end; margin: 2px 0; }
+.seat .row.melds:empty, .seat .row.river:empty { display: none; }
+.seat .row.melds .set { display: inline-flex; gap: 1px; margin-right: 6px; }
+.mj-mid { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 4px; font-size: 0.9em; min-height: 90px; }
+.mj-mid .big { font-size: 1.15em; font-weight: 700; }
+/* a tile: a number and its suit's character, or an honour's character; a back is plain green */
+.tile { --w: 26px; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; width: var(--w); height: calc(var(--w) * 1.36);
+  background: linear-gradient(145deg, #fffdf6, #ece4cc); border: 1px solid #c9bf9f; border-bottom: 3px solid #2f7d5b; border-radius: 4px; color: #1f2937;
+  font: 700 calc(var(--w) * 0.62) / 1 system-ui, "Noto Sans CJK SC", "PingFang SC", "Microsoft YaHei", sans-serif; user-select: none; -webkit-user-select: none; padding: 0; }
+.tile .s { font-size: 0.55em; font-weight: 600; margin-top: 1px; }
+.tile.dots { color: #1d4ed8; } .tile.bamboo { color: #15803d; } .tile.chars { color: #b91c1c; }
+.tile.wind { color: #111827; } .tile.red { color: #c81e1e; } .tile.green { color: #15803d; } .tile.white { color: #3b5b9a; }
+.tile.back { background: linear-gradient(145deg, #2f9a6d, #1f6e4c); border-color: #145a3c; color: transparent; }
+.tile.sm { --w: 19px; } .tile.lg { --w: clamp(24px, 6.2vw, 40px); }
+.tile.last { box-shadow: 0 0 0 2px #fbbf24; }
+.s0 .hand { gap: 3px; }
+.s0 .hand .tile { cursor: pointer; transition: transform 0.08s; }
+.s0 .hand .tile.drawn { margin-left: 10px; }
+.s0 .hand .tile.up { transform: translateY(-8px); box-shadow: 0 0 0 2px #fbbf24; }
+.s0 .hand.off .tile { cursor: default; }
+.mj-acts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; min-height: 38px; margin: 4px 0; }
+.mj-acts .say { color: var(--muted); }
+.mj-acts button.win { background: #c81e1e; color: #fff; border-color: #8b1414; font-weight: 700; }
+.mj-acts button .tile { --w: 18px; vertical-align: middle; margin: 0 1px; }
+.mj-end { background: var(--paper); color: var(--ink); border: 1px solid var(--line); border-left: 4px solid #c81e1e; border-radius: 8px; padding: 8px 12px; margin: 6px 0; }
+.mj-end table { border-collapse: collapse; margin: 4px 0; } .mj-end td { padding: 1px 10px 1px 0; }
+.mj-log { font-size: 0.88em; color: var(--muted); max-height: 9.5em; overflow: auto; margin: 4px 0; padding-left: 1.4em; }
+@media (max-width: 560px) { .mj-table { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr); padding: 6px; gap: 5px; } .tile.sm { --w: 15px; } .tile { --w: 22px; } }
+/* full screen: the controls on the left (hidden in landscape until ☰), the table in the rest */
+html.oracle-fs .mj-ui { grid-template-columns: minmax(200px, 0.55fr) minmax(0, 3fr); }
+html.oracle-fs .mj-ui > .mj-table, html.oracle-fs .mj-ui > .mj-acts, html.oracle-fs .mj-ui > .mj-end, html.oracle-fs .mj-ui > .mj-log { grid-column: 2; }
+html.oracle-fs .mj-ui > .fs-cast { grid-row: 1 / -1; }

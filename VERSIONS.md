@@ -4,6 +4,13 @@ Each version lists what the apps do as of that version. The newest version is fi
 
 ## Unreleased
 
+## 0.0.32 (2026-11-20)
+
+Everything in 0.0.31, plus:
+
+- **Mahjong, the third Hazel AI opponent** (Matthew's pick: Hong Kong rules, you against three Hazel players), at https://matthewhammer.org/hazeljs-examples/mahjong/. The three Hazel players sit in turn order to your right, across and to your left. A winning hand is four sets (chows, pungs, kongs) and a pair, or thirteen orphans. On your turn you discard (tap a tile, then tap it again), and may win or declare a kong; when another player discards, the claims you may make come up as buttons: a win, a pung, a kong, or a chow if you are next, and a win comes before a pung or kong, which comes before a chow. A kong draws again. The faan: self-drawn, a concealed hand, all chows, all pungs, mixed and pure one suit, dragon pungs, seat and round wind pungs, small and big three dragons, all honours, thirteen orphans, the last tile; a hand with no faan still wins here. The points are 2 to the faan (to 10): won on a discard, its thrower pays twice and the others once; drawn by the winner, each pays twice. The dealer stays after a win or an empty wall, else the deal moves on, and the round's wind with it. The deal, every step of the table, the winning hands, the faan, the points, and what the Hazel players discard and claim are a Hazel program: each keeps the tiles that help its hand most, and claims a pung of an honour or of a pair with few neighbours, or the next seat's chow that breaks no pair. Hazel plays slowly, at a walk or briskly, as you choose, and 👀 shows its tiles if you like. The points are kept over the hands on this device; New game puts them back to 0. Offline with its own icon.
+- **In Node:** `npm run mahjong` checks the faan of hands worked out by hand, then plays hands at the table with a simple player in your seat and checks every step: all 136 tiles are somewhere, each seat holds as many as it should, every win is a winning hand by a test written in JavaScript, and the points paid add up to nothing.
+
 ## 0.0.31 (2026-11-19)
 
 Everything in 0.0.30, plus:

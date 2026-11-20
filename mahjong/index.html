@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mahjong, against Hazel</title>
+<meta name="description" content="Mahjong by Hong Kong rules against three Hazel players: the deal, the turns, the claims and their order, the winning hands, the faan and the points, and what each Hazel player discards and claims, are a Hazel program run by hazeljs, shown beside the table. One of the Hazel AI opponents, an example for hazeljs.">
+<link rel="stylesheet" href="../shared/style.css?v=0.0.14">
+<link rel="stylesheet" href="../shared/oracles.css?v=0.0.27">
+<link rel="stylesheet" href="mahjong.css?v=0.0.32">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="icon" href="icons/icon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="theme-color" content="#11553a">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Mahjong">
+</head>
+<body><main class="oracle">
+<div class="app-head">
+<h1>Mahjong, against Hazel</h1>
+<span class="app-links"><a href="../">Hazel activities</a> › <a href="../#opponents">Hazel AI opponents</a> · <a href="https://github.com/matthewhammer/hazeljs-examples">source on GitHub</a> · <a href="https://www.npmjs.com/package/hazeljs">hazeljs on npm</a></span>
+</div>
+<p class="sub">Hong Kong rules: you against three Hazel players, who sit in turn order to your right, across and to your left. Make a winning hand of four sets and a pair: a set is a chow (three in a row of one suit), a pung (three alike) or a kong (four alike). On your turn you draw (the page does it) and discard: tap a tile, then tap it again. When another player discards, you may claim the tile, to win or to make a pung or a kong, or a chow if you are next. A win counts its faan, and the faan make the points. The deal, the turns, the claims and which comes first, the winning hands, the faan and the points, and what each Hazel player discards and claims, are a <a href="https://hazel.org">Hazel</a> program, shown beside the table.</p>
+
+<div class="oracle-grid">
+<section class="oracle-ui mj-ui" aria-label="The table">
+  <div class="controls">
+    <button type="button" id="next" class="primary">Next hand</button>
+    <label class="pace-pick">Hazel plays <select id="pace"><option value="900">slowly</option><option value="450">at a walk</option><option value="120">briskly</option></select></label>
+    <label class="peek"><input type="checkbox" id="peek"> 👀 Show Hazel's tiles</label>
+    <button type="button" id="new" title="Every point back to 0, and a new first hand">New game</button>
+  </div>
+  <div class="status wait" id="status">⏳ Loading Hazel (hazeljs from jsDelivr), whose rules deal, play and score.</div>
+  <div class="mj-table" id="table" aria-label="The table">
+    <div class="seat s2" id="seat2"></div>
+    <div class="seat s3" id="seat3"></div>
+    <div class="mj-mid" id="mid"></div>
+    <div class="seat s1" id="seat1"></div>
+    <div class="seat s0" id="seat0"></div>
+  </div>
+  <div class="mj-acts" id="acts" aria-live="polite"></div>
+  <div class="mj-end" id="end" hidden></div>
+  <ol class="mj-log" id="log"></ol>
+  <p class="nojs muted">This app needs JavaScript, and a page served over http (python3 -m http.server, then localhost).</p>
+</section>
+<section class="oracle-code" aria-label="The rules, in Hazel">
+  <p class="muted" style="margin-top:0">The vocabulary the module sees (<code>mahjong/rules/preamble.hz</code>): a tile is a number from 0 to 33. The listings are text, highlighted, until <b>Edit in Hazel</b> opens each in Hazel's own editor; an edit changes the next step of the game.</p>
+  <pre class="code hazel" data-program="mahjong">loading preamble.hz…</pre>
+  <div class="ed"><div class="ed-head"><b>Mahjong</b> <span class="muted">the deal (the tiles shuffled by the page's random numbers), a turn, the claims on a discard and which comes first, the ways a hand makes a pair and sets, the faan and the points, and the Hazel players: each keeps the tiles that help its hand most, and claims a pung of an honour or of a pair with few neighbours, or the next seat's chow that breaks no pair. The page calls <code>(start, step, options, next_hand)</code>.</span></div><pre class="code hazel" data-program="mahjong" data-module="Mahjong">loading Mahjong.hz…</pre></div>
+  <p><button type="button" id="reset-rules">Put the program back as it was</button></p>
+</section>
+</div>
+
+<div id="advanced" class="advanced-holder"></div>
+<p class="app-foot" id="app-foot">hazeljs-examples · <a href="../VERSIONS.md">versions</a> · Apache 2.0 (code), CC BY 4.0 (words, the icon) · by Matthew Hammer · an example for <a href="https://github.com/hazelgrove/hazeljs">hazeljs</a></p>
+</main>
+<script src="../shared/divider.js?v=0.0.8"></script>
+<script src="../shared/fullscreen.js?v=0.0.27"></script>
+<script src="../shared/offline.js?v=0.0.27"></script>
+<script src="../shared/advanced.js?v=0.0.27"></script>
+<script src="app.js?v=0.0.32"></script>
+</body>
+</html>

@@ -14,6 +14,7 @@ APPS = {
   "solitaire": ("Solitaire", "a one-player game, its rules in Hazel", ["Klondike: the deal,", "every legal move, and", "the win, all in Hazel;", "drag or tap to play"]),
   "minesweeper": ("Minesweeper", "a one-player game, its rules in Hazel", ["the mines laid after", "the first tap, the counts,", "the empty cells flooding", "open, flags and chords"]),
   "go": ("Go", "against an opponent written in Hazel", ["7 by 7 or 9 by 9: the", "captures, the ko and", "the score in Hazel, and", "Hazel's choice of move"]),
+  "mahjong": ("Mahjong", "against three players written in Hazel", ["Hong Kong rules: the", "claims, the winning hands,", "the faan, and what each", "Hazel player discards"]),
   "petri-net": ("Petri nets", "an automaton, its rules in Hazel", ["places, tokens and", "transitions; the firing", "rule and the net in Hazel,", "edited while it runs"]),
   "checkers": ("Checkers", "against an opponent written in Hazel", ["the moves, the jumps", "(compulsory, and on while", "they can), the kings, and", "Hazel's look-ahead"]),
 }
