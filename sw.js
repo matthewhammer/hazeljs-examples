@@ -5,7 +5,7 @@
 // jsDelivr. Every request goes to the network first, so a page that is online always gets the newest files; with no
 // network, the saved copy answers, its ?v= query ignored. Hazel's editor frames come from build.hazel.org, which this
 // worker cannot answer for: with no connection, the listings stay text.
-const VERSION = "0.0.28";
+const VERSION = "0.0.29";
 const CACHE = "hazeljs-examples-" + VERSION;
 // (files a page saves on request, the Tarot's woodcut faces, and every face a page has shown: kept across versions)
 const EXTRA = "hazeljs-examples-extra";
@@ -92,6 +92,18 @@ const PRECACHE = [
   "minesweeper/rules/Board.hz",
   "minesweeper/rules/Play.hz",
   "minesweeper/rules/Hint.hz",
+  "go/",
+  "go/index.html",
+  "go/app.js",
+  "go/go.css",
+  "go/manifest.webmanifest",
+  "go/icons/icon.svg",
+  "go/icons/icon-192.png",
+  "go/icons/icon-512.png",
+  "go/icons/icon-32.png",
+  "go/icons/apple-touch-icon.png",
+  "go/rules/preamble.hz",
+  "go/rules/Go.hz",
   "minesweeper/rules/preamble.hz",
   "solitaire/",
   "solitaire/index.html",

@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Go, against Hazel</title>
+<meta name="description" content="Go against an opponent written in Hazel: the board, a move and its captures, the ko, the score, and the opponent's choice of move are a Hazel program run by hazeljs, shown beside the board. The first of the Hazel AI opponents, an example for hazeljs.">
+<link rel="stylesheet" href="../shared/style.css?v=0.0.14">
+<link rel="stylesheet" href="../shared/oracles.css?v=0.0.27">
+<link rel="stylesheet" href="go.css?v=0.0.29">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="icon" href="icons/icon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="theme-color" content="#3a2a14">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Go">
+</head>
+<body><main class="oracle">
+<div class="app-head">
+<h1>Go, against Hazel</h1>
+<span class="app-links"><a href="../">Hazel activities</a> › <a href="../#opponents">Hazel AI opponents</a> · <a href="https://github.com/matthewhammer/hazeljs-examples">source on GitHub</a> · <a href="https://www.npmjs.com/package/hazeljs">hazeljs on npm</a></span>
+</div>
+<p class="sub">You play black, Hazel plays white. Put a stone on a point; stones left with no empty point beside them are taken. Two passes in a row end the game, scored by area (Tromp and Taylor's rules): your stones and the empty points only your stones reach, against Hazel's, plus komi for white, who moves second. Every stone on the board counts as alive at the end, so take stones that cannot live before you pass. The board, the moves, the score and Hazel's choice of move are a <a href="https://hazel.org">Hazel</a> program, shown beside the board. Hazel looks one move ahead: a beginner's opponent.</p>
+
+<div class="oracle-grid">
+<section class="oracle-ui go-ui" aria-label="The game">
+  <div class="controls">
+    <label class="size-pick">Board <select id="size"><option value="7">7 by 7, komi 9</option><option value="9">9 by 9, komi 7</option></select></label>
+    <button type="button" id="new" class="primary">New game</button>
+    <button type="button" id="pass" title="Pass: two passes in a row end the game">Pass</button>
+    <button type="button" id="undo" title="Take back your last move, and Hazel's reply">↶ Undo</button>
+  </div>
+  <div class="status wait" id="status">⏳ Loading Hazel (hazeljs from jsDelivr), whose rules play and score.</div>
+  <div class="go-bar"><span class="side black" id="you">⚫ You</span><span class="turn" id="turn"></span><span class="side white" id="hazel">⚪ Hazel</span></div>
+  <div class="goban-wrap"><div class="goban" id="board" aria-label="The board"></div></div>
+  <p class="sol-info" id="info"></p>
+  <p class="nojs muted">This app needs JavaScript, and a page served over http (python3 -m http.server, then localhost).</p>
+</section>
+<section class="oracle-code" aria-label="The rules, in Hazel">
+  <p class="muted" style="margin-top:0">The vocabulary the module sees (<code>go/rules/preamble.hz</code>). The listings are text, highlighted, until <b>Edit in Hazel</b> opens each in Hazel's own editor; an edit changes the next move.</p>
+  <pre class="code hazel" data-program="go">loading preamble.hz…</pre>
+  <div class="ed"><div class="ed-head"><b>Go</b> <span class="muted">the board (a group of stones and its liberties), a move (its captures, never one that leaves its own stones without a liberty, the ko), a pass, the score, and the opponent: every empty point tried, each worth what it takes, saves, threatens and risks, and where it is. The page calls <code>(fresh, play, pass, score, choose)</code>.</span></div><pre class="code hazel" data-program="go" data-module="Go">loading Go.hz…</pre></div>
+  <p><button type="button" id="reset-rules">Put the program back as it was</button></p>
+</section>
+</div>
+
+<div id="advanced" class="advanced-holder"></div>
+<p class="app-foot" id="app-foot">hazeljs-examples · <a href="../VERSIONS.md">versions</a> · Apache 2.0 (code), CC BY 4.0 (words, the icon) · by Matthew Hammer · an example for <a href="https://github.com/hazelgrove/hazeljs">hazeljs</a></p>
+</main>
+<script src="../shared/divider.js?v=0.0.8"></script>
+<script src="../shared/fullscreen.js?v=0.0.27"></script>
+<script src="../shared/offline.js?v=0.0.27"></script>
+<script src="../shared/advanced.js?v=0.0.27"></script>
+<script src="app.js?v=0.0.29"></script>
+</body>
+</html>

@@ -4,6 +4,14 @@ Each version lists what the apps do as of that version. The newest version is fi
 
 ## Unreleased
 
+## 0.0.29 (2026-11-19)
+
+Everything in 0.0.28, plus:
+
+- **Hazel AI opponents, a new part of the front page** (`#opponents`, Matthew's ask): games against an opponent whose choice of move is a Hazel program too, shown beside the board with the rules.
+- **Go, the first of them,** at https://matthewhammer.org/hazeljs-examples/go/: on a 7 by 7 board (komi 9) or 9 by 9 (komi 7), you play black and Hazel plays white. The board, a move and the stones it takes, the ko, a pass, and the score by area (Tromp and Taylor's rules: your stones and the empty points only your stones reach) are Hazel, and so is Hazel's move: it tries every empty point and weighs what each takes, saves, threatens and risks, its liberties and its distance from the edge, with a little chance; it passes when it is ahead and you have passed. It looks one move ahead: a beginner's opponent, about 0.4 s a move on 7 by 7 and up to a second on 9 by 9. A move that is not allowed is refused with its reason; ↶ Undo takes back your move and Hazel's reply; at the end, small squares show who owns each empty point. Wins kept on this device; offline with its own icon.
+- **In Node:** `npm run go` checks a capture, a suicide refused and a ko by hand, then plays Hazel against random moves on both boards and checks every position: each group on the board has a liberty, the stones on the board and those taken add up to the stones played, a ko point cannot be taken back at once, and the score covers every point.
+
 ## 0.0.28 (2026-11-19)
 
 Everything in 0.0.27, plus:

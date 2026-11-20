@@ -13,6 +13,7 @@ APPS = {
   "astrology": ("Astrology", "an ancient oracle, charted in Hazel", ["a birth chart: the Sun,", "the Moon and the planets,", "the rising sign, the houses;", "today's sky against it"]),
   "solitaire": ("Solitaire", "a one-player game, its rules in Hazel", ["Klondike: the deal,", "every legal move, and", "the win, all in Hazel;", "drag or tap to play"]),
   "minesweeper": ("Minesweeper", "a one-player game, its rules in Hazel", ["the mines laid after", "the first tap, the counts,", "the empty cells flooding", "open, flags and chords"]),
+  "go": ("Go", "against an opponent written in Hazel", ["7 by 7 or 9 by 9: the", "captures, the ko and", "the score in Hazel, and", "Hazel's choice of move"]),
 }
 LIGHT = ".h{fill:#1f2328;font:700 15px system-ui,sans-serif}.m{fill:#5b6470;font:10px system-ui,sans-serif}.k{fill:#1f2328;font:11px system-ui,sans-serif}"
 DARK = ".h{fill:#e8e6e3}.m{fill:#a2a9b3}.k{fill:#e8e6e3}"
