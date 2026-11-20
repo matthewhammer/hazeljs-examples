@@ -23,6 +23,8 @@
     const s = document.createElement("style");
     s.textContent = `
 .autoplay { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; margin: 8px 0 0; }
+.controls > .autoplay, .controls > .auto-clock { flex: 1 1 100%; min-width: 0; }
+.controls > .autoplay { margin: 2px 0 0; }
 .autoplay .switch { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; }
 .autoplay .switch input { position: absolute; opacity: 0; width: 1px; height: 1px; }
 .autoplay .knob { position: relative; flex: none; width: 38px; height: 22px; border-radius: 11px; background: var(--line); border: 1px solid var(--line); transition: background 0.15s; }
@@ -31,17 +33,19 @@
 .autoplay .switch input:checked + .knob::after { left: 18px; }
 .autoplay .switch input:focus-visible + .knob { outline: 2px solid var(--accent); outline-offset: 2px; }
 .autoplay .auto-pace select { font: inherit; }
-.auto-clock { margin: 6px 0 0; font-size: 0.92em; font-variant-numeric: tabular-nums; color: var(--ink); }
+.auto-clock { margin: 0; font-size: 0.92em; font-variant-numeric: tabular-nums; color: var(--ink); overflow-wrap: anywhere; }
+.fs-tool[aria-pressed="true"] { border-color: var(--accent) !important; background: color-mix(in srgb, var(--accent) 22%, var(--paper)) !important; }
 .auto-clock[hidden] { display: none; }
 @media (prefers-reduced-motion: reduce) { .autoplay .knob, .autoplay .knob::after { transition: none; } }`;
     document.head.append(s);
   }
 
-  // make({ after, key, sides, pace, onChange }): after, the element the switch goes after; key, the page's localStorage
+  // make({ into, key, sides, pace, onChange }): into, the page's .controls, which the switch and the clock join (so in full
+  // screen they go to the left column with the buttons; a 🤖 under ☰ flips the switch while that column is hidden); key, the page's localStorage
   // prefix (the pace is kept, the switch is not: a page opens with you playing); sides, the two sides' names for the clock
   // (["⚫", "⚪"]); pace, the page's own pace ({ get }) when it has one (Mahjong's), else the switch brings its own select;
   // onChange(on), called when the switch is flipped
-  function make({ after, key, sides, pace, onChange }) {
+  function make({ into, key, sides, pace, onChange }) {
     style();
     const box = document.createElement("div"); box.className = "autoplay";
     const sw = document.createElement("label"); sw.className = "switch";
@@ -61,7 +65,7 @@
       l.append(select); box.append(l);
     }
     const clock = document.createElement("p"); clock.className = "auto-clock"; clock.hidden = true; clock.setAttribute("aria-live", "polite");
-    after.after(box, clock);
+    into.append(box, clock);
 
     // ---- the clock: from the switch (or a new game) to the game's end; each side's thinking, the moves, the slowest move
     let t0 = 0, moves = 0, think = [0, 0], slowest = 0, from = 0, endText = "", running = false, lastPaint = 0, paceAtStart = 0;
@@ -94,9 +98,13 @@
         if (p > 0) { draw(); W.show(); await painted(); await sleep(p); lastPaint = performance.now(); return; }
         if (performance.now() - lastPaint >= 50) { draw(); W.show(); await painted(); lastPaint = performance.now(); }
       },
-      set(on) { input.checked = !!on; },
+      set(on) { input.checked = !!on; mirror(); },
     };
-    input.addEventListener("change", () => { if (onChange) onChange(input.checked); });
+    // (full screen, the left column hidden: the switch as a button under ☰)
+    const tool = window.OracleFs && window.OracleFs.tool ? window.OracleFs.tool({ label: "🤖", title: "Hazel plays for you: on or off", click: () => { input.checked = !input.checked; input.dispatchEvent(new Event("change")); } }) : null;
+    const mirror = () => { if (tool) tool.setAttribute("aria-pressed", String(input.checked)); };
+    mirror();
+    input.addEventListener("change", () => { mirror(); if (onChange) onChange(input.checked); });
     return W;
   }
   window.HazelAutoplay = { make, PACES, secs };

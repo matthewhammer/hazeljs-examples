@@ -180,7 +180,7 @@
     if (!S.auto && S.game && !S.game.over && S.game.turn === 2) reply();
   }
   const W = window.HazelAutoplay.make({
-    after: document.querySelector(".checkers-ui .controls") || $("new").parentElement, key: KEY, sides: ["⚫", "⚪"],
+    into: $("new").parentElement, key: KEY, sides: ["⚫", "⚪"],
     onChange: on => {
       S.auto = on; S.sel = -1;
       if (!on) { W.stop(); refresh(); draw(); return; }

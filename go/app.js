@@ -179,7 +179,7 @@
     if (!S.auto && S.game && !S.game.over && S.game.turn === 2) reply();
   }
   const W = window.HazelAutoplay.make({
-    after: $("new").parentElement, key: KEY, sides: ["⚫", "⚪"],
+    into: $("new").parentElement, key: KEY, sides: ["⚫", "⚪"],
     onChange: on => {
       S.auto = on;
       if (!on) { W.stop(); draw(); return; }

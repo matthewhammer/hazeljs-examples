@@ -37,7 +37,8 @@
     return `<span class="set" title="${["", "a chow", "a pung", "a kong"][m.kind]}${m.shown ? "" : ", concealed"}">${ts.map((t, i) => m.kind === 3 && !m.shown && (i === 0 || i === 3) ? back(size) : tile(t, size)).join("")}</span>`; };
   const WINDS = ["East", "South", "West", "North"];
   const seatWind = (g, s) => (s - g.dealer + 4) % 4;
-  const who = (g, s) => s === 0 ? "You" : `Hazel (${WINDS[seatWind(g, s)]})`;
+  // (0.0.34) your seat, while 🤖 Hazel plays it: "You (🤖)"
+  const who = (g, s) => s === 0 ? (S.touched ? "You (🤖)" : "You") : `Hazel (${WINDS[seatWind(g, s)]})`;
   const FAAN = { 1: "Self-drawn", 2: "Concealed hand", 3: "All chows", 4: "All pungs", 5: "Mixed one suit", 6: "Pure one suit", 7: "Dragon pungs",
     8: "Seat wind pung", 9: "Round wind pung", 10: "Small three dragons", 11: "Big three dragons", 12: "All honours", 13: "Thirteen orphans", 14: "The last tile" };
   function said(g, e) {
@@ -182,7 +183,7 @@
   // each hand to its end at the pace chosen (with "at full speed" added), and the clock times the hand
   const AUTO = { kind: 9, tile: -1 };
   const W = window.HazelAutoplay.make({
-    after: $("next").parentElement, key: KEY, sides: ["your seat", "the other three"], pace: { get: () => S.pace },
+    into: $("next").parentElement, key: KEY, sides: ["your seat", "the other three"], pace: { get: () => S.pace },
     onChange: on => {
       S.auto = on; S.sel = -1; S.note = "";
       if (!on) { W.stop(); S.running = 0; refresh(); draw(); run(); return; }
