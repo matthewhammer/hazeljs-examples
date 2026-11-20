@@ -127,8 +127,16 @@
   const plungeUp = () => { if (S.pullAt) { S.launch = Math.max(1, Math.min(100, Math.round((performance.now() - S.pullAt) / 12))); S.pullAt = 0; } $("launch").classList.remove("held"); };
   const flip = (side, on) => { if (on && SND && !(side < 0 ? S.left : S.right)) SND.flip();
     if (side < 0) S.left = on; else S.right = on; $(side < 0 ? "flipL" : "flipR").classList.toggle("held", on); };
+  // (0.0.36; Matthew: "for desktop use, please map the paddles to L and R arrow keys") ← and → were mapped, but went to the
+  // board menu while it had the focus, as it keeps after a board is chosen: → turned the Starfield into the Volcano. Now the
+  // game's keys play whatever has the focus, the menu and the buttons too (the focus let go, so the space bar does not press
+  // the button last clicked); only typing, in a field or in Hazel's editor, keeps them
+  const GAME_KEYS = ["z", "Z", "/", " ", "ArrowLeft", "ArrowRight", "ArrowDown"];
   addEventListener("keydown", e => {
-    if (e.target.closest && e.target.closest("input, textarea, select, .hazel-listing, [contenteditable]")) return;
+    if (e.target.closest && e.target.closest("input, textarea, .hazel-listing, [contenteditable]")) return;
+    if (!GAME_KEYS.includes(e.key) || e.ctrlKey || e.metaKey || e.altKey) return;
+    const f = document.activeElement;
+    if (f && f !== document.body && f.matches && f.matches("select, button")) f.blur();
     if (["z", "Z", "ArrowLeft"].includes(e.key)) { flip(-1, true); e.preventDefault(); }
     else if (["/", "ArrowRight"].includes(e.key)) { flip(1, true); e.preventDefault(); }
     else if ([" ", "ArrowDown"].includes(e.key)) { plungeDown(); e.preventDefault(); }

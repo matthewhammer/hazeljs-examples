@@ -22,7 +22,7 @@
 <h1>Pinball, its physics in Hazel</h1>
 <span class="app-links"><a href="../">Hazel activities</a> › <a href="../#physics">Physics simulation</a> · <a href="https://github.com/matthewhammer/hazeljs-examples">source on GitHub</a> · <a href="https://www.npmjs.com/package/hazeljs">hazeljs on npm</a></span>
 </div>
-<p class="sub">Ten boards, each a piece of Hazel data: its walls, bumpers, flippers and portals. Every frame, a Hazel program moves the ball: gravity, then the walls, the bumpers and the flippers it meets, and the portals it falls into. Hold <b>🚀 Launch</b> (or the space bar) to pull the plunger, and let go to launch the ball; the longer you hold, the harder it goes. The flippers are <b>⬅️</b> and <b>➡️</b> (or Z and /, or the arrow keys, or the two sides of the board). Three balls a game.</p>
+<p class="sub">Ten boards, each a piece of Hazel data: its walls, bumpers, flippers and portals. Every frame, a Hazel program moves the ball: gravity, then the walls, the bumpers and the flippers it meets, and the portals it falls into. Hold <b>🚀 Launch</b> (or the space bar) to pull the plunger, and let go to launch the ball; the longer you hold, the harder it goes. The flippers are <b>⬅️</b> and <b>➡️</b>, or the <b>←</b> and <b>→</b> keys (or Z and /), or a tap on the table: on a paddle, or anywhere on its side. Three balls a game.</p>
 
 <div class="oracle-grid">
 <section class="oracle-ui pb-ui" aria-label="The game">
@@ -35,7 +35,7 @@
   <div class="status wait" id="status">⏳ Loading the rules…</div>
   <div class="pb-bar"><span id="score">0</span><span id="balls"></span><span id="fps" class="muted"></span></div>
   <div class="pb-wrap"><canvas id="board" width="600" height="1000" aria-label="The pinball table"></canvas></div>
-  <div class="pb-pad"><button type="button" id="flipL" aria-label="Left flipper">⬅️</button><button type="button" id="launch">🚀 Launch</button><button type="button" id="flipR" aria-label="Right flipper">➡️</button></div>
+  <div class="pb-pad"><button type="button" id="flipL" aria-label="Left flipper" title="Left flipper (the ← key)">⬅️</button><button type="button" id="launch" title="Hold to pull the plunger, let go to launch (the space bar)">🚀 Launch</button><button type="button" id="flipR" aria-label="Right flipper" title="Right flipper (the → key)">➡️</button></div>
   <p class="sol-info" id="info"></p>
   <p class="nojs muted">This app needs JavaScript, and a page served over http (python3 -m http.server, then localhost).</p>
 </section>

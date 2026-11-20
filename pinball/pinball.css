@@ -4,6 +4,10 @@
 .pb-bar #score { font-size: 1.6em; font-weight: 700; }
 .pb-wrap { display: flex; justify-content: center; }
 .pb-wrap canvas { width: min(100%, 420px, calc((100vh - 120px) * 0.6)); height: auto; aspect-ratio: 600 / 1000; border-radius: 14px; touch-action: none; box-shadow: 0 2px 12px rgb(0 0 0 / 0.35); }
+/* (0.0.36; Matthew: "for tablet/phone, permit tap on the paddles themselves too") a tap anywhere on the table's left half is
+   the left paddle, the right half the right one, the lane's foot the plunger: held there, a phone or tablet shows no callout,
+   selection or tap flash */
+.pb-wrap canvas, .pb-pad button { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
 .pb-pad { display: grid; grid-template-columns: 1fr 1.2fr 1fr; gap: 10px; max-width: 420px; margin: 10px auto 0; }
 .pb-pad button { font: inherit; font-size: 1.3em; padding: 14px 0; border-radius: 12px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); touch-action: none; user-select: none; }
 .pb-pad button.held { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 20%, var(--paper)); }
