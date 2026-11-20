@@ -29,7 +29,13 @@
 
   // ---- the state: Hazel's program, how far it looks, the game (a Hazel value), the moves to undo, the piece chosen
   const S = { built: null, libAt: 0, libFailed: false, depth: kept("depth", 3), game: null, undo: [], legal: [], sel: -1, busy: false, note: "", thinkMs: 0, compiledError: "" };
-  if (![1, 2, 3, 4].includes(S.depth)) S.depth = 3;
+  if (![1, 2, 3, 4].concat(COMPILED ? [5, 6] : []).includes(S.depth)) S.depth = 3;
+  // (0.0.34) compiled, Hazel looks further: 5 ahead in about 13 ms and 6 in about 50 (node/compare-compiled.mjs), where
+  // hazeljs took 11 s for 4; interpreted, 5 and 6 fall back to 4
+  if (COMPILED && $("depth")) {
+    const four = $("depth").querySelector('option[value="4"]'); if (four) four.textContent = "4 moves ahead";
+    for (const d of [5, 6]) { const o = document.createElement("option"); o.value = String(d); o.textContent = `${d} moves ahead (compiled)`; $("depth").append(o); }
+  }
   const saved = kept("game", null);
   if (saved && saved.game && typeof saved.game.black === "number") Object.assign(S, { game: saved.game, undo: saved.undo || [] });
   const stats = kept("stats", {});
@@ -123,7 +129,7 @@
     S.busy = true; refresh(); draw(); await painted();
     const rs = Array.from({ length: 48 }, () => Math.floor(Math.random() * 1000));
     const t = performance.now(); let m = null;
-    try { m = h.choose(g, S.depth, rs); } catch (e) { m = null; }
+    try { m = h.choose(g, S.built.compiled ? S.depth : Math.min(S.depth, 4), rs); } catch (e) { m = null; }
     S.thinkMs = performance.now() - t;
     if (m && m.from >= 0) { try { g = h.apply(g, m); } catch (e) { /* the game as it was */ } }
     S.busy = false; S.game = g;
