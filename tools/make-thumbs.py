@@ -17,7 +17,7 @@ APPS = {
   "mahjong": ("Mahjong", "against three players written in Hazel", ["Hong Kong rules: the", "claims, the winning hands,", "the faan, and what each", "Hazel player discards"]),
   "petri-net": ("Petri nets", "an automaton, its rules in Hazel", ["places, tokens and", "transitions; the firing", "rule and the net in Hazel,", "edited while it runs"]),
   "checkers": ("Checkers", "against an opponent written in Hazel", ["the moves, the jumps", "(compulsory, and on while", "they can), the kings, and", "Hazel's look-ahead"]),
-  "pinball": ("Pinball", "a physics simulation in Hazel", ["ten tables as Hazel data:", "walls, bumpers, flippers", "and portals; each frame's", "physics in Hazel, compiled"]),
+  "pinball": ("Pinball", "a physics simulation in Hazel", ["ten tables as Hazel data,", "chambers and flippers,", "bumpers on tracks; every", "frame's physics in Hazel"]),
 }
 LIGHT = ".h{fill:#1f2328;font:700 15px system-ui,sans-serif}.m{fill:#5b6470;font:10px system-ui,sans-serif}.k{fill:#1f2328;font:11px system-ui,sans-serif}"
 DARK = ".h{fill:#e8e6e3}.m{fill:#a2a9b3}.k{fill:#e8e6e3}"

@@ -103,18 +103,49 @@
         x += w; }
     },
   };
+  // (round three; Matthew: "for at least 3 boards, let's put two or three of the round bumpers into an animation loop, with \"a
+  // track\" that's printed as part of the background, as if it's being automated mechanically behind the board") where a bumper
+  // is at step t, as the rules place it; its track printed under the board as a groove with rails and sleepers (a straight
+  // stroke with a pulley at each end), and each frame a gear turning at an oval's middle with an arm out to each bumper on it
+  const TAU = 6.283185307179586;
+  const spot = (b, q, t) => { if (!(q.track >= 0)) return [q.x, q.y, 0];
+    const tr = (b.tracks || [])[q.track] || { cx: 0, cy: 0, rx: 0, ry: 0, period: 1 }, th = TAU / tr.period * t + TAU * q.phase / 1000;
+    return [tr.cx + tr.rx * Math.cos(th), tr.cy + tr.ry * Math.sin(th), th]; };
+  function trackLayer(c, b) {
+    for (const tr of b.tracks || []) {
+      c.save(); c.lineCap = "round";
+      if (tr.rx > 0 && tr.ry > 0) {
+        c.globalAlpha = 0.5; c.strokeStyle = "rgba(0,0,0,0.55)"; c.lineWidth = 18; c.beginPath(); c.ellipse(tr.cx, tr.cy, tr.rx, tr.ry, 0, 0, TAU); c.stroke();
+        c.globalAlpha = 0.4; c.strokeStyle = b.ink; c.lineWidth = 1.5;
+        for (const d of [-6, 6]) { c.beginPath(); c.ellipse(tr.cx, tr.cy, tr.rx + d, tr.ry + d, 0, 0, TAU); c.stroke(); }
+        c.globalAlpha = 0.25; const n = Math.round((tr.rx + tr.ry) * Math.PI / 14);
+        for (let k = 0; k < n; k++) { const a = k * TAU / n, x = tr.cx + tr.rx * Math.cos(a), y = tr.cy + tr.ry * Math.sin(a), nx = tr.ry * Math.cos(a), ny = tr.rx * Math.sin(a), m = Math.hypot(nx, ny) || 1;
+          c.beginPath(); c.moveTo(x - 8 * nx / m, y - 8 * ny / m); c.lineTo(x + 8 * nx / m, y + 8 * ny / m); c.stroke(); }
+      } else {
+        const x0 = tr.cx - tr.rx, y0 = tr.cy - tr.ry, x1 = tr.cx + tr.rx, y1 = tr.cy + tr.ry, ux = (x1 - x0) / (Math.hypot(x1 - x0, y1 - y0) || 1), uy = (y1 - y0) / (Math.hypot(x1 - x0, y1 - y0) || 1);
+        c.globalAlpha = 0.5; c.strokeStyle = "rgba(0,0,0,0.55)"; c.lineWidth = 18; c.beginPath(); c.moveTo(x0, y0); c.lineTo(x1, y1); c.stroke();
+        c.globalAlpha = 0.4; c.strokeStyle = b.ink; c.lineWidth = 1.5;
+        for (const d of [-6, 6]) { c.beginPath(); c.moveTo(x0 - uy * d, y0 + ux * d); c.lineTo(x1 - uy * d, y1 + ux * d); c.stroke(); }
+        c.globalAlpha = 0.25; const len = Math.hypot(x1 - x0, y1 - y0);
+        for (let k = 0; k <= len; k += 14) { const x = x0 + ux * k, y = y0 + uy * k; c.beginPath(); c.moveTo(x - uy * 8, y + ux * 8); c.lineTo(x + uy * 8, y - ux * 8); c.stroke(); }
+        for (const [x, y] of [[x0 - ux * 22, y0 - uy * 22], [x1 + ux * 22, y1 + uy * 22]]) { c.globalAlpha = 0.35; c.lineWidth = 2; c.beginPath(); c.arc(x, y, 11, 0, TAU); c.stroke(); c.beginPath(); c.arc(x, y, 3, 0, TAU); c.fill(); }
+      }
+      c.restore();
+    }
+  }
   function boardLayer(b) {
     const L = document.createElement("canvas"); L.width = 600; L.height = 1000;
     const c = L.getContext("2d");
     c.fillStyle = b.bg; c.fillRect(0, 0, 600, 1000);
     if (PATTERNS[b.pattern]) { c.save(); PATTERNS[b.pattern](c, seeded(7 + 31 * S.board), b.ink, b.glow); c.restore(); c.globalAlpha = 1; c.lineWidth = 1; }
+    c.fillStyle = b.ink; trackLayer(c, b); c.globalAlpha = 1; c.lineWidth = 1;
     c.strokeStyle = b.ink; c.lineWidth = 5; c.lineCap = "round";
     for (const w of b.walls) { c.beginPath(); c.moveTo(w.ax, w.ay); c.lineTo(w.bx, w.by); c.lineWidth = w.kick > 0 ? 8 : 5; c.strokeStyle = w.kick > 0 ? b.glow : b.ink; c.stroke(); }
     for (const p of b.portals) {
       for (let i = 0; i < 3; i++) { c.beginPath(); c.arc(p.x, p.y, p.r - i * 6, 0, 2 * Math.PI); c.strokeStyle = i % 2 ? b.ink : b.glow; c.lineWidth = 3; c.stroke(); }
       c.beginPath(); c.arc(p.tx, p.ty, 8, 0, 2 * Math.PI); c.strokeStyle = b.glow; c.setLineDash([4, 4]); c.stroke(); c.setLineDash([]);
     }
-    for (const q of b.bumpers) { c.beginPath(); c.arc(q.x, q.y, q.r, 0, 2 * Math.PI); c.fillStyle = b.ink; c.globalAlpha = 0.25; c.fill(); c.globalAlpha = 1; c.lineWidth = 4; c.strokeStyle = b.ink; c.stroke(); }
+    for (const q of b.bumpers) { if (q.track >= 0) continue; c.beginPath(); c.arc(q.x, q.y, q.r, 0, 2 * Math.PI); c.fillStyle = b.ink; c.globalAlpha = 0.25; c.fill(); c.globalAlpha = 1; c.lineWidth = 4; c.strokeStyle = b.ink; c.stroke(); }
     // (its name in the corner under the left slope, out of play: the foot of the table is the save light's, and some boards' post)
     c.fillStyle = b.ink; c.font = "bold 20px system-ui, sans-serif"; c.textAlign = "left"; c.globalAlpha = 0.5; c.fillText(b.name, 26, 985); c.globalAlpha = 1;
     return L;
@@ -144,11 +175,30 @@
     for (const [grp, t] of S.rowBlink) if (now - t >= 900) { S.rowBlink.delete(grp); (b.lights || []).forEach((l, k) => { if (l.group === grp) S.lit.delete(k); }); }
     cx.globalAlpha = 1;
     // (Matthew: "more flashes/changes when we hit bumbers in the board", "bumpers or other things that collide with the ball")
+    // the machine behind the board: a gear turning at each oval track's middle, an arm out to each bumper riding it, a cable
+    // up from each lift; then the riding bumpers themselves
+    const T = g ? g.t || 0 : 0;
+    (b.tracks || []).forEach((tr, k) => {
+      const riders = b.bumpers.filter(q => q.track === k);
+      if (tr.rx > 0 && tr.ry > 0) {
+        const th = TAU / tr.period * T; cx.save(); cx.translate(tr.cx, tr.cy); cx.rotate(th); cx.globalAlpha = 0.35; cx.strokeStyle = b.ink; cx.lineWidth = 2;
+        cx.beginPath(); for (let i = 0; i < 24; i++) { const a0 = i * TAU / 24, r0 = i % 2 ? 30 : 36; cx.lineTo(r0 * Math.cos(a0), r0 * Math.sin(a0)); cx.lineTo(r0 * Math.cos(a0 + TAU / 24), r0 * Math.sin(a0 + TAU / 24)); } cx.closePath(); cx.stroke();
+        cx.beginPath(); cx.arc(0, 0, 9, 0, TAU); cx.stroke(); cx.restore();
+        for (const q of riders) { const [x, y] = spot(b, q, T); cx.globalAlpha = 0.3; cx.strokeStyle = b.ink; cx.lineWidth = 3; cx.beginPath(); cx.moveTo(tr.cx, tr.cy); cx.lineTo(x, y); cx.stroke(); }
+      } else for (const q of riders) {
+        const [x, y] = spot(b, q, T), top = [tr.cx - tr.rx - (tr.rx ? 0 : 0), tr.cy - tr.ry - 22];
+        cx.globalAlpha = 0.4; cx.strokeStyle = b.ink; cx.lineWidth = 1.5; cx.beginPath(); cx.moveTo(top[0], top[1]); cx.lineTo(x, y - q.r); cx.stroke();
+      }
+    });
+    cx.globalAlpha = 1;
+    b.bumpers.forEach(q => { if (!(q.track >= 0)) return; const [x, y] = spot(b, q, T);
+      cx.fillStyle = b.bg; cx.beginPath(); cx.arc(x, y, q.r, 0, TAU); cx.fill(); cx.globalAlpha = 0.25; cx.fillStyle = b.ink; cx.fill(); cx.globalAlpha = 1; cx.lineWidth = 4; cx.strokeStyle = b.ink; cx.stroke();
+      cx.globalAlpha = 0.6; cx.lineWidth = 1.5; cx.beginPath(); cx.arc(x, y, q.r * 0.5, 0, TAU); cx.stroke(); cx.globalAlpha = 1; });
     // each bumper warms with its hits, from the board's ink toward its glow, and cools; a hit flashes it white
     b.bumpers.forEach((q, i) => {
-      const h = S.heat[i] || 0, t = S.flash.get(i);
-      if (h > 0.02) { cx.globalAlpha = 0.25 + 0.6 * h; cx.fillStyle = b.glow; cx.beginPath(); cx.arc(q.x, q.y, q.r - 3, 0, 7); cx.fill(); S.heat[i] = h * 0.985; }
-      if (t && now - t < 180) { const u = (now - t) / 180; cx.globalAlpha = 1 - u; cx.fillStyle = "#ffffff"; cx.beginPath(); cx.arc(q.x, q.y, q.r + 6 * (1 - u), 0, 7); cx.fill(); }
+      const h = S.heat[i] || 0, t = S.flash.get(i), [qx, qy] = spot(b, q, T);
+      if (h > 0.02) { cx.globalAlpha = 0.25 + 0.6 * h; cx.fillStyle = b.glow; cx.beginPath(); cx.arc(qx, qy, q.r - 3, 0, 7); cx.fill(); S.heat[i] = h * 0.985; }
+      if (t && now - t < 180) { const u = (now - t) / 180; cx.globalAlpha = 1 - u; cx.fillStyle = "#ffffff"; cx.beginPath(); cx.arc(qx, qy, q.r + 6 * (1 - u), 0, 7); cx.fill(); }
     });
     // the walls that kicked, lit along their length
     for (const [j, t] of S.wallFlash) { const u = (now - t) / 240; if (u >= 1) { S.wallFlash.delete(j); continue; } const w = b.walls[j]; if (!w) continue;
@@ -264,9 +314,9 @@
     for (const h of g2.hits || []) {
       if (h === 2000) { S.banner = { text: "🛟 Ball saved!", t: now }; continue; }
       if (h >= 1000) { const w = b.walls[h - 1000]; if (!w) continue; S.wallFlash.set(h - 1000, now); S.rings.push({ x, y, r: 6, t: now, col: "#ffffff" }); S.pops.push({ x, y: y - 14, text: "+10", t: now }); continue; }
-      const q = b.bumpers[h]; if (!q) continue;
+      const q = b.bumpers[h]; if (!q) continue; const [qx, qy] = spot(b, q, g.t || 0);
       S.flash.set(h, now); S.heat[h] = Math.min(1, (S.heat[h] || 0) + 0.34); S.tableFlash = now;
-      S.rings.push({ x: q.x, y: q.y, r: q.r, t: now }); S.pops.push({ x: q.x, y: q.y - q.r - 6, text: "+" + q.points, t: now, col: b.glow });
+      S.rings.push({ x: qx, y: qy, r: q.r, t: now }); S.pops.push({ x: qx, y: qy - q.r - 6, text: "+" + q.points, t: now, col: b.glow });
     }
     if (g2.warp > 0 && !(g.warp > 0)) { const p = b.portals[g2.gate]; if (p) { S.rings.push({ x: p.x, y: p.y, r: p.r, t: now }); S.pops.push({ x: p.x, y: p.y - p.r - 8, text: "+25", t: now, col: b.glow }); } }
     if (g.warp === 1 && g2.warp === 0) { S.rings.push({ x, y, r: 10, t: now, col: "#ffffff" }); S.tableFlash = now; }
@@ -382,7 +432,7 @@
   }
   function loadCompiled() {
     const c = document.createElement("script");
-    c.src = "compiled.js?v=0.0.37"; c.async = true;
+    c.src = "compiled.js?v=0.0.38"; c.async = true;
     c.onload = () => { const v = window.PinballCompiled;
       if (v && !S.built) { S.built = { key: "compiled", ok: true, compiled: true, made: v.made, value: v, errors: [], threw: "", ms: 0, at: performance.now() }; drawStatus(); newGame(); }
       else if (!v) { S.compiledError = "it ran, but gave no Pinball"; loadLib(); } };

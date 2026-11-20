@@ -67,8 +67,32 @@ const through2 = (b, ps) => {
   for (let i = 0; i < ps.length; i++) { const p = ps[i], dx = b.x - p.x, dy = b.y - p.y; if (dx * dx + dy * dy < p.r * p.r) return [{ x: p.tx, y: p.ty, vx: b.vx * 0.8, vy: b.vy * 0.8 }, i]; }
   return [b, -1];
 };
+// ---- round three (ticket 805): bumpers that ride tracks, placed by the game's step count t; a bumper moving into the ball kicks
+// it that much harder
+const TAU = 6.283185307179586;
+export const spot = (ts, p, t) => {
+  if (p.track < 0) return [p.x, p.y, 0, 0];
+  const tr = ts[p.track] || { cx: 0, cy: 0, rx: 0, ry: 0, period: 1 }, w = TAU / tr.period, th = w * t + TAU * p.phase / 1000;
+  return [tr.cx + tr.rx * Math.cos(th), tr.cy + tr.ry * Math.sin(th), 0 - tr.rx * w * Math.sin(th), tr.ry * w * Math.cos(th)];
+};
+const bumps3 = (b, bs, ts, t, score, hits) => {
+  bs.forEach((p, i) => {
+    const [px, py, ux, uy] = spot(ts, p, t), d = Math.sqrt((b.x - px) * (b.x - px) + (b.y - py) * (b.y - py)), reach = p.r + 12;
+    if (d >= reach || d < 0.0001) return;
+    const nx = (b.x - px) / d, ny = (b.y - py) / d, vn = b.vx * nx + b.vy * ny, push = ux * nx + uy * ny, out = (vn < 0 ? 0 - vn : vn) + 6 + (push > 0 ? push : 0);
+    b = { x: px + nx * reach, y: py + ny * reach, vx: b.vx - vn * nx + out * nx, vy: b.vy - vn * ny + out * ny };
+    score += p.points; hits = [i, ...hits];
+  });
+  return [b, score, hits];
+};
+export function start3(bo) { return { ...start2(bo), t: 0 }; }
+export function step3(bo, g, left, right, launch) {
+  if (g.over) return g;
+  const R = { bumps: (b, bs, score, hits) => bumps3(b, bs, bo.tracks || [], g.t, score, hits) };
+  return { ...step2(bo, g, left, right, launch, R), t: g.t + 1 };
+}
 export function start2(bo) { return { ...start(bo), warp: 0, gate: -1, save: 0 }; }
-export function step2(bo, g, left, right, launch) {
+export function step2(bo, g, left, right, launch, R2 = RULES.v1) {
   if (g.over) return g;
   const a1s = turn(bo.flippers, g.flips, left, right);
   if (g.warp > 0) return { ...g, flips: a1s, warp: g.warp - 1, gate: g.warp > 1 ? g.gate : -1, hits: [] };
@@ -78,7 +102,7 @@ export function step2(bo, g, left, right, launch) {
     const vy = b.vy + gr / 4;
     const moved = cap({ x: b.x + b.vx / 4, y: b.y + vy / 4, vx: b.vx, vy });
     let b1; [b1, score, hits] = wallsHit2(moved, bo.walls, score, hits);
-    let b2; [b2, score, hits] = RULES.v1.bumps(b1, bo.bumpers, score, hits);
+    let b2; [b2, score, hits] = R2.bumps(b1, bo.bumpers, score, hits);
     const b3 = flipsHit(b2, bo.flippers, g.flips, a1s, (k + 1) / 4);
     [b, gate] = through2(cap(b3), bo.portals);
   }
@@ -137,9 +161,9 @@ if (cmd === "check") {
   const P = box.exports; let bad = 0, steps = 0;
   for (let i = 0; i < 10; i++) {
     // (round two: the compiled rules against the mirror's round-two step, start2 and step2; `step` and `start` above are round one's)
-    const bo = P.board(i); let g = P.start(i), m = start2(bo); const st = { pull: 10 + 9 * i, L: 0, R: 0 };
+    const bo = P.board(i); let g = P.start(i), m = start3(bo); const st = { pull: 10 + 9 * i, L: 0, R: 0 };
     for (let n = 0; n < 4000 && !g.over; n++) {
-      const [l, r, la] = bot(bo, g, st); g = P.step(i, g, l, r, la); m = step2(bo, m, l, r, la); steps++;
+      const [l, r, la] = bot(bo, g, st); g = P.step(i, g, l, r, la); m = step3(bo, m, l, r, la); steps++;
       if (JSON.stringify(g) !== JSON.stringify(m)) { bad++; console.log(bo.name, "step", n, "differs:", JSON.stringify(g).slice(0, 160), "|", JSON.stringify(m).slice(0, 160)); break; }
     }
   }
@@ -157,9 +181,9 @@ async function play(NB, MAX, only) {
     if (only !== undefined && i !== only) return;
     const lives = [], lamp = bo.lights.map(() => 0); let saves = 0, mid = 0, side = 0, kept = 0, stuck = 0, upper = 0, total = 0, bumps = 0, kicks = 0, warps = 0;
     for (let n = 0; n < NB; n++) {
-      let g = start2(bo); const st = { pull: 20 + Math.floor(rnd() * 80), L: 0, R: 0, lag: LAG, miss: MISS, rnd }; let s = 0, still = 0; const seen = new Set();
+      let g = start3(bo); const st = { pull: 20 + Math.floor(rnd() * 80), L: 0, R: 0, lag: LAG, miss: MISS, rnd }; let s = 0, still = 0; const seen = new Set();
       for (; s < MAX; s++) {
-        const [l, r, la] = bot(bo, g, st), g2 = step2(bo, g, l, r, la);
+        const [l, r, la] = bot(bo, g, st), g2 = step3(bo, g, l, r, la);
         for (const h of g2.hits) if (h === 2000) saves++; else if (h >= 1000) kicks++; else bumps++;
         if (g2.gate >= 0 && g.gate < 0) warps++;
         const x = g2.x / 1000, y = g2.y / 1000;
@@ -184,8 +208,8 @@ async function heat(i, NB, MAX) {
   const { BOARDS } = await import(new URL("../pinball/rules/boards.mjs", here));
   const bo = BOARDS[i], C = 30, R = 50, grid = Array.from({ length: R }, () => new Array(C).fill(0));
   let seed = 5; const rnd = () => (seed = seed * 16807 % 2147483647) / 2147483647;
-  for (let n = 0; n < NB; n++) { let g = start2(bo); const st = { pull: 20 + Math.floor(rnd() * 80), L: 0, R: 0 };
-    for (let s = 0; s < MAX; s++) { const [l, r, la] = bot(bo, g, st), g2 = step2(bo, g, l, r, la); if (g2.balls < g.balls || g2.over) break; g = g2;
+  for (let n = 0; n < NB; n++) { let g = start3(bo); const st = { pull: 20 + Math.floor(rnd() * 80), L: 0, R: 0 };
+    for (let s = 0; s < MAX; s++) { const [l, r, la] = bot(bo, g, st), g2 = step3(bo, g, l, r, la); if (g2.balls < g.balls || g2.over) break; g = g2;
       const cx = Math.floor(g.x / 1000 / 20), cy = Math.floor(g.y / 1000 / 20); if (cx >= 0 && cx < C && cy >= 0 && cy < R) grid[cy][cx]++; } }
   const mx = Math.max(...grid.flat()), ch = " .:-=+*#%@";
   console.log(bo.name + " (each character 20 units; the busier, the darker)");
@@ -212,9 +236,9 @@ if (cmd === "hazelcheck") {
     const fl = mine.flippers.length; if (fl > 2) starts.push({ x: mine.flippers[2].x * 1000 + 30000, y: mine.flippers[2].y * 1000 - 40000, vx: 0, vy: 5000 });
     for (const s0 of starts) {
       const { launch: la0 = 0, ...g0 } = s0, sv = g0.save ?? 200;
-      let a = { ...start2(mine), ...g0, save: sv }, b = { ...norm(P.start(i)), ...g0, save: sv };
+      let a = { ...start3(mine), ...g0, save: sv }, b = { ...norm(P.start(i)), ...g0, save: sv };
       for (let n = 0; n < N; n++) {
-        const l = n % 6 < 3, rr = n % 5 < 2; const la = n === 0 ? la0 : 0; a = step2(mine, a, l, rr, la); b = norm(P.step(i, b, l, rr, la)); steps++;
+        const l = n % 6 < 3, rr = n % 5 < 2; const la = n === 0 ? la0 : 0; a = step3(mine, a, l, rr, la); b = norm(P.step(i, b, l, rr, la)); steps++;
         if (JSON.stringify(a) !== JSON.stringify(b)) { bad++; console.log(mine.name, "from", JSON.stringify(s0), "step", n, "differs:\n  lab  ", JSON.stringify(a).slice(0, 220), "\n  hazel", JSON.stringify(b).slice(0, 220)); break; }
       }
     }

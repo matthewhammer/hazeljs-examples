@@ -14,7 +14,13 @@ export const w = (ax, ay, bx, by) => tag({ ax, ay, bx, by, bounce: 50, kick: 0 }
 export const sling = (ax, ay, bx, by) => tag({ ax, ay, bx, by, bounce: 60, kick: 55 }, `sling(${ax}, ${ay}, ${bx}, ${by})`);
 // a kicker: a wall that kicks harder (in tenths of a unit a step): a kickback at an outlane's foot, a trampoline under a gap
 export const kicker = (ax, ay, bx, by, kick) => tag({ ax, ay, bx, by, bounce: 60, kick }, `kicker(${ax}, ${ay}, ${bx}, ${by}, ${kick})`);
-export const bp = (x, y, r, points) => tag({ x, y, r, points }, `bp(${x}, ${y}, ${r}, ${points})`);
+export const bp = (x, y, r, points) => tag({ x, y, r, points, track: -1, phase: 0 }, `bp(${x}, ${y}, ${r}, ${points})`);
+// (round three; Matthew: "for at least 3 boards, let's put two or three of the round bumpers into an animation loop, with \"a
+// track\" that's printed as part of the background, as if it's being automated mechanically behind the board") a bumper that
+// rides track number k of its board, starting phase thousandths of the way round; and a track: an oval round (cx, cy), rx
+// across and ry down (one of them 0: a straight stroke, as a crank drives it), once round in period steps
+export const mover = (k, phase, r, points) => tag({ x: 0, y: 0, r, points, track: k, phase }, `mover(${k}, ${phase}, ${r}, ${points})`);
+export const loop = (cx, cy, rx, ry, period) => tag({ cx, cy, rx, ry, period }, `loop(${cx}, ${cy}, ${rx}, ${ry}, ${period})`);
 const neg = n => n < 0 ? `0 - ${-n}` : String(n);
 export const fl = (x, y, len, side) => tag({ x, y, len, side }, `fl(${x}, ${y}, ${len}, ${neg(side)})`);
 export const gate = (x, y, r, tx, ty) => tag({ x, y, r, tx, ty }, `gate(${x}, ${y}, ${r}, ${tx}, ${ty})`);
@@ -73,13 +79,13 @@ const deck = (y, lx, rx, lgap, rgap, flen = 68, rise = 60) => ({
 
 // ---- a board: name, colours, pattern; its walls, bumpers, flippers, portals, lamps; its gravity (thousandths of a unit a step²)
 export function bd(name, bg, ink, glow, pattern, parts, gravity) {
-  const walls = many(parts.walls || [], "w"), bumpers = many(parts.bumpers || []), flippers = many(parts.flippers || []),
+  const walls = many(parts.walls || [], "w"), bumpers = many(parts.bumpers || []), tracks = many(parts.tracks || []), flippers = many(parts.flippers || []),
     portals = many(parts.portals || []), lights = many(parts.lights || [], "l");
-  const b = { name, bg, ink, glow, pattern, walls: [...SHELL, ...walls], bumpers, flippers, portals, lights, sx: 562, sy: 940, svx: 0, svy: -300, gravity };
+  const b = { name, bg, ink, glow, pattern, walls: [...SHELL, ...walls], bumpers, tracks, flippers, portals, lights, sx: 562, sy: 940, svx: 0, svy: -300, gravity };
   return tag(b, `bd(${JSON.stringify(name)}, ${JSON.stringify(bg)}, ${JSON.stringify(ink)}, ${JSON.stringify(glow)}, ${JSON.stringify(pattern)},\n     ` +
-    [walls, bumpers, flippers, portals, lights].map(hzOf).join(",\n     ") + `, ${gravity})`);
+    [walls, bumpers, tracks, flippers, portals, lights].map(hzOf).join(",\n     ") + `, ${gravity})`);
 }
-const join = (...xs) => ({ walls: xs.flatMap(x => x.walls || []), bumpers: xs.flatMap(x => x.bumpers || []), flippers: xs.flatMap(x => x.flippers || []),
+const join = (...xs) => ({ walls: xs.flatMap(x => x.walls || []), bumpers: xs.flatMap(x => x.bumpers || []), tracks: xs.flatMap(x => x.tracks || []), flippers: xs.flatMap(x => x.flippers || []),
   portals: xs.flatMap(x => x.portals || []), lights: xs.flatMap(x => x.lights || []) });
 
 // ---- the ten boards
@@ -87,7 +93,8 @@ export const BOARDS = [
   // Starfield: three rollover lanes under the arch, an orbit up the left side round to the top; the classic bottom
   bd("🌌 Starfield", "#0b1030", "#7dd3fc", "#f0abfc", "stars", join(classic(), {
     walls: [w(240, 80, 240, 135), w(300, 70, 300, 125), w(360, 80, 360, 135), arc(300, 300, 226, 3142, 3950, 6), w(74, 300, 74, 430)],
-    bumpers: [bp(225, 290, 28, 100), bp(375, 290, 28, 100), bp(300, 390, 28, 100), bp(300, 200, 10, 250)],
+    bumpers: [bp(300, 330, 28, 100), mover(0, 0, 16, 150), mover(0, 500, 16, 150), bp(300, 200, 10, 250)],
+    tracks: [loop(300, 330, 140, 70, 420)],   // (two planets round the sun, once in 7 seconds)
     lights: [lamps(47, 430, 47, 310, 4, 0), lamps(210, 115, 390, 115, 4, 1), lamps(45, 812, 165, 872, 4, 2), lamps(520, 812, 435, 855, 4, 3)] }), 260),
   // Volcano: the crater, an upper chamber with its own flippers; lava tubes up each side; a post under the gap
   bd("🌋 Volcano", "#2a0a05", "#fb923c", "#fde047", "basalt", join(post(), deck(470, 215, 385, 80, 500), {
@@ -97,7 +104,9 @@ export const BOARDS = [
   bd("🌊 Ocean", "#03243a", "#5eead4", "#93c5fd", "waves", join(buoys(), {
     walls: [arc(200, 470, 120, 3500, 4600, 6), arc(400, 470, 120, 4825, 5900, 6)],   // (each current ends clear of the side: the right one once made a pocket with the lane's wall)
     bumpers: [bp(200, 135, 9, 20), bp(260, 112, 9, 20), bp(340, 112, 9, 20), bp(400, 135, 9, 20),
-      bp(300, 260, 18, 40), bp(240, 340, 18, 40), bp(360, 340, 18, 40), bp(300, 420, 18, 40)],
+      bp(300, 260, 18, 40), bp(240, 340, 18, 40), bp(360, 340, 18, 40), bp(300, 420, 18, 40),
+      mover(0, 0, 14, 40), mover(0, 333, 14, 40), mover(0, 667, 14, 40)],
+    tracks: [loop(300, 570, 150, 45, 480)],   // (three fish swimming a loop, once in 8 seconds)
     flippers: [fl(20, 610, 60, 1), fl(545, 610, 60, -1)],
     lights: [lamps(70, 440, 120, 370, 3, 0), lamps(530, 440, 480, 370, 3, 1), lamps(230, 160, 370, 160, 3, 2), lamps(40, 760, 40, 660, 3, 3), lamps(525, 760, 525, 660, 3, 4)] }), 250),
   // Mushroom forest: a burrow on each side, a chamber with a flipper of its own; mushrooms between
@@ -119,7 +128,8 @@ export const BOARDS = [
   // Funfair ring: the big wheel, three booths along the top, a trampoline under the gap
   bd("🎡 Funfair ring", "#1a0b2e", "#fde047", "#f472b6", "diamonds", join(trampoline(), {
     walls: [arc(300, 380, 120, 0, 1350, 4), arc(300, 380, 120, 1800, 5400, 8), w(220, 75, 220, 125), w(300, 62, 300, 112), w(380, 75, 380, 125)],   // (the wheel open at its foot too: a ball inside once came to rest there)
-    bumpers: [bp(300, 380, 30, 80), bp(150, 600, 22, 40), bp(450, 600, 22, 40)],
+    bumpers: [bp(300, 380, 24, 80), mover(0, 0, 10, 60), mover(0, 333, 10, 60), mover(0, 667, 10, 60), bp(150, 600, 22, 40), bp(450, 600, 22, 40)],
+    tracks: [loop(300, 380, 62, 62, 300)],   // (three cars round the wheel's hub, once in 5 seconds)
     lights: [lamps(190, 110, 410, 110, 4, 0), lamps(185, 380, 300, 265, 4, 1), lamps(300, 495, 415, 380, 4, 2), lamps(45, 812, 165, 872, 4, 3)] }), 250),
   // Moon: low gravity, the lander's deck with its own flippers, craters above; long flippers below
   bd("🌙 Moon, low gravity", "#0f172a", "#e2e8f0", "#93c5fd", "craters", join(classic(100), deck(530, 220, 380, 70, 530, 64), {
@@ -132,7 +142,8 @@ export const BOARDS = [
     lights: [lamps(60, 300, 190, 325, 4, 0), lamps(540, 300, 410, 325, 4, 1), lamps(110, 520, 470, 520, 5, 2), lamps(45, 812, 165, 872, 4, 3)] }), 250),
   // City: the upper deck between the towers, its own flippers; the street below
   bd("🏙️ City, two levels", "#1f1a14", "#fdba74", "#93c5fd", "windows", join(classic(), deck(480, 215, 385, 70, 505), {
-    bumpers: [bp(220, 270, 24, 70), bp(380, 270, 24, 70), bp(300, 190, 20, 70), bp(300, 640, 24, 70)],
+    bumpers: [bp(220, 270, 24, 70), bp(380, 270, 24, 70), bp(300, 190, 20, 70), bp(300, 640, 24, 70), mover(0, 0, 16, 70), mover(1, 500, 16, 70)],
+    tracks: [loop(200, 630, 0, 70, 360), loop(400, 630, 0, 70, 360)],   // (two lifts, up and down beside the street, each once in 6 seconds)
     lights: [lamps(85, 432, 200, 470, 4, 0), lamps(495, 432, 400, 470, 4, 1), lamps(45, 600, 45, 440, 4, 2), lamps(525, 600, 525, 440, 4, 3)] }), 260),
 ];
 // (the lab's zones, for counting where the ball spends its time: each board's chambers, by height; not in the Hazel)
