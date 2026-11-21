@@ -8,6 +8,9 @@
 //   node tools/checkers-lab.mjs share [games, 4] [depth, 6]   a memo table of positions searched (a transposition table), kept for one
 //                                                              move, for one player's whole game, or shared by both: the work saved,
 //                                                              and whether every move chosen stays the same
+//   node tools/checkers-lab.mjs tree [games, 4] [depth, 6]    (^report(62)) one tree of boards both players share, grown as it is asked
+//                                                              for, its answers ranges, found by a partial order; finish lines lined up
+//                                                              between the players; deepening a step at a time: the work, by side
 //
 // A position is the pieces (black's, white's, which are kings) and whose turn; searched with d moves still to look ahead. Hazel's
 // search: negamax with alpha-beta (walk), every root move with the whole window (pick), so the root's values are exact.
@@ -38,7 +41,9 @@ function jumpsIn(who, king, all, them, s, took, ds) {
   }
   return out;
 }
+let legalCalls = 0, valueCalls = 0;   // (how often the moves are worked out, and a position valued: the tree mode's counts)
 function legal(g) {
+  legalCalls++;
   if (g.over) return [];
   const who = g.turn, all = g.black + g.white, ss = squares(side(g, who)), them = side(g, 3 - who), caps = [];
   for (const s of ss) { const k = has(g.kings, s); for (const [ls, ts] of jumpsIn(who, k, drop(all, s), them, s, [], dirs(who, k))) caps.push({ from: s, path: ls, took: ts }); }
@@ -60,7 +65,7 @@ function apply(g, m) {
 }
 const START = { black: 4293918720, white: 4095, kings: 0, turn: 1, quiet: 0, over: false, winner: 0, last: [] };
 const worth = (who, kings, ss) => ss.reduce((a, s) => a + (has(kings, s) ? 160 : 100 + 2 * (who === 1 ? 7 - Math.floor(s / 4) : Math.floor(s / 4))), 0);
-const value = g => worth(g.turn, g.kings, squares(side(g, g.turn))) - worth(3 - g.turn, g.kings, squares(side(g, 3 - g.turn)));
+const value = g => (valueCalls++, worth(g.turn, g.kings, squares(side(g, g.turn))) - worth(3 - g.turn, g.kings, squares(side(g, 3 - g.turn))));
 
 // ---- the search, as Checkers.hz has it, with a watcher (seen) and, for `share`, a table (tt) ----
 // seen(key, d): a position looked at with d moves still to look ahead (d = 0: only its value read). tt: a Map from (key, d) to
@@ -216,6 +221,138 @@ if (mode === "share") {
     }
     tt = null; DEEPER = false;
     out.push(row(name, performance.now() - t0, differ, size));
+  }
+  if (process.env.OUT) (await import("node:fs")).writeFileSync(process.env.OUT, JSON.stringify({ games: GAMES, depth: DEPTH, moves, rows: out }, null, 1));
+}
+
+if (mode === "tree") {
+  // (^report(62), Matthew 2026-11-21: "we want a memo policy that does not match exactly, but instead uses a partial ordering", "a
+  // way of asking for a shallow depth, getting a full match, and then separately asking for a deeper match that reuses that entire
+  // shallow match, without redoing it", "we need a way to treat the matches as streams, whose heads can be reused") One tree of
+  // boards, a node a board (the pieces and whose turn: the same node whoever asks, its answers from the side to move, the same for
+  // both players). Each node keeps its moves, worked out the first time they are asked for (kidsOf: the tree grown on demand), its
+  // value at the edge, once read, and what is known of its value for each look-ahead: a range, lo to hi (the answers stream). A
+  // question (look ahead d, in the window a to b) is answered by any entry the partial order puts at or above it: an entry for the
+  // same d whose range settles the window, or (DEEP) one for a further look-ahead. Each board's best move found so far is tried
+  // first (the head of the last answer, reused by the next, deeper question). Finish lines (the policy): Black looks DEPTH ahead,
+  // White DEPTH + 1 ("6/7") or DEPTH - 1 ("6/5"), so the two players' searches end on the same move and ask the same questions,
+  // or both DEPTH ("6/6": Hazel's, the players never meeting). The games are Hazel's own (6/6, no table), recorded, and each way
+  // searches those same positions again in the same order; the moves each way chooses are compared with the same policy's plain
+  // search (no table, no tree): only a further look-ahead answering for a nearer one should change any.
+  const POLICY = { "6/6": t => DEPTH, "6/7": t => t === 1 ? DEPTH : DEPTH + 1, "6/5": t => t === 1 ? DEPTH : DEPTH - 1 };
+  const games = [];
+  for (let i = 0; i < GAMES; i++) {
+    seed = Number(process.env.SEED || 5) + i * 7919;
+    const steps = []; let g = START, n = 0;
+    while (!g.over && n < 400) { const rs = rsFor(), m = choose(g, DEPTH, rs); steps.push({ g, rs, m }); g = apply(g, m); n++; }
+    games.push(steps);
+  }
+  const moves = games.reduce((a, st) => a + st.length, 0);
+  // ---- the shared tree ----
+  // (a node a board searched past the edge: its moves (ms) worked out once, its children (kn) made as each is first visited; a
+  // board at the edge only valued, never kept (valuing one costs less than finding it); boards not visited in the last two
+  // searches let go once more than CAP are kept, so the tree holds what is near the game, as it goes on)
+  let nodes = null, DEEP = false, ORDER = true, searchNo = 0, evictions = 0;
+  const CAP = Number(process.env.CAP || 300000);
+  const nodeOf = g => { const k = keyOf(g); let n = nodes.get(k); if (!n) { n = { g, ms: null, kn: null, e: new Map(), best: -1, used: searchNo }; nodes.set(k, n); } return n; };
+  const msOf = n => n.ms || (n.ms = legal(n.g), n.kn = new Array(n.ms.length), n.ms);
+  function evict() {
+    const keep = new Map();
+    for (const [k, n] of nodes) if (n.used >= searchNo - 1) keep.set(k, n);
+    for (const n of keep.values()) if (n.kn) for (let i = 0; i < n.kn.length; i++) if (n.kn[i] && n.kn[i].used < searchNo - 1) n.kn[i] = undefined;
+    nodes = keep; evictions++;
+  }
+  function tchild(n, d, alpha, beta) {   // (d >= 1)
+    n.used = searchNo;
+    const ms = msOf(n);
+    if (!ms.length) return 10000 + d + 1;
+    interior++;
+    const a = -beta, b = -alpha;
+    // (the partial order: any entry for this look-ahead, or (DEEP) a further one, whose range settles the question)
+    for (const [ed, e] of n.e) if (ed === d || (DEEP && ed > d)) {
+      if (e.lo === e.hi || e.lo >= b) { ttHits++; return -e.lo; }
+      if (e.hi <= a) { ttHits++; return -a; }
+    }
+    const r = twalk(n, ms, d, a, b);
+    let e = n.e.get(d); if (!e) { e = { lo: -Infinity, hi: Infinity }; n.e.set(d, e); }
+    if (r <= a) e.hi = Math.min(e.hi, a); else if (r >= b) e.lo = Math.max(e.lo, r); else { e.lo = r; e.hi = r; }
+    return -r;
+  }
+  // a child's value to the side that moved into it: at the edge, valued; else its node, made the first time it is visited
+  const tkid = (n, i, d, alpha, beta) => {
+    if (d <= 0) { leaves++; return -value(after(n.g, n.ms[i])); }
+    let c = n.kn[i]; if (!c) c = n.kn[i] = nodeOf(after(n.g, n.ms[i]));
+    return tchild(c, d, alpha, beta);
+  };
+  function twalk(n, ms, depth, alpha, beta) {
+    // (the best move found here before, first; then the rest in the rules' order)
+    const first = ORDER ? n.best : -1;
+    for (let j = first >= 0 ? -1 : 0; j < ms.length; j++) {
+      const i = j < 0 ? first : j;
+      if (j >= 0 && i === first) continue;
+      const v = tkid(n, i, depth - 1, alpha, beta);
+      if (v > alpha) n.best = i;
+      const a = v > alpha ? v : alpha;
+      if (a >= beta) return a;
+      alpha = a;
+    }
+    return alpha;
+  }
+  function tchoose(g, depth, rs, deepen) {
+    searchNo++;
+    if (nodes.size > CAP) evict();
+    const root = nodeOf(g), ms = msOf(root); root.used = searchNo;
+    // (deepening: each look-ahead from 2 up to the one asked for, in turn, every root move with the whole window)
+    if (deepen) for (let dd = 2; dd < depth; dd++) for (let i = 0; i < ms.length; i++) tkid(root, i, dd - 1, -1000000, 1000000);
+    let best = { from: -1, path: [], took: [] }, bv = -1000000, br = -1;
+    ms.forEach((m, i) => {
+      const r = i < rs.length ? rs[i] : 0, v = tkid(root, i, depth - 1, -1000000, 1000000);
+      if (v > bv || (v === bv && r > br)) { best = m; bv = v; br = r; }
+    });
+    return best;
+  }
+  // ---- the ways ----
+  const ways = [
+    ["6/6", "plain", "Hazel now: 6 and 6, no table"], ["6/6", "player", "6 and 6, a table each, kept"], ["6/6", "shared", "6 and 6, one table shared"],
+    ["6/6", "tree", "6 and 6, the shared tree"],
+    ["6/7", "plain", "6 and 7, no table"], ["6/7", "player", "6 and 7, a table each, kept"], ["6/7", "shared", "6 and 7, one table shared"],
+    ["6/7", "tree-hazel-order", "6 and 7, the shared tree, the rules' order"], ["6/7", "tree", "6 and 7, the shared tree"],
+    ["6/7", "tree-deepen", "6 and 7, the shared tree, deepening"], ["6/7", "tree-deep", "6 and 7, the shared tree, further answers nearer"],
+    ["6/5", "plain", "6 and 5, no table"], ["6/5", "player", "6 and 5, a table each, kept"], ["6/5", "shared", "6 and 5, one table shared"], ["6/5", "tree", "6 and 5, the shared tree"],
+  ].filter(([pol, how]) => !process.env.ONLY || process.env.ONLY.split(",").includes(pol + ":" + how));
+  const ref = {}, out = [];
+  for (let [pol, how, name] of ways) {
+    const depthOf = POLICY[pol];
+    const by = { 1: { interior: 0, leaves: 0, expanded: 0, valued: 0, hits: 0, ms: 0, moves: 0 }, 2: { interior: 0, leaves: 0, expanded: 0, valued: 0, hits: 0, ms: 0, moves: 0 } };
+    let differ = 0, nodesMost = 0, heapMost = 0, mi = 0; evictions = 0;
+    for (const steps of games) {
+      const tabs = { 1: new Map(), 2: new Map() }, shared = new Map();
+      nodes = new Map(); searchNo = 0; DEEP = how === "tree-deep"; ORDER = how !== "tree-hazel-order";
+      for (const { g, rs } of steps) {
+        const S = by[g.turn], d = depthOf(g.turn);
+        interior = 0; leaves = 0; ttHits = 0; legalCalls = 0; valueCalls = 0;
+        const t = performance.now();
+        let c;
+        if (how === "plain") { tt = null; c = choose(g, d, rs); }
+        else if (how === "player" || how === "shared") { tt = how === "player" ? tabs[g.turn] : shared; c = choose(g, d, rs); }
+        else c = tchoose(g, d, rs, how === "tree-deepen");
+        S.ms += performance.now() - t; S.moves++;
+        S.interior += interior; S.leaves += leaves; S.expanded += legalCalls; S.valued += valueCalls; S.hits += ttHits;
+        const k = pol + ":" + mi;
+        if (how === "plain") ref[k] = c; else if (ref[k] && !same(ref[k], c)) differ++;
+        mi++;
+      }
+      nodesMost = Math.max(nodesMost, nodes.size, shared.size, tabs[1].size + tabs[2].size);
+      if (global.gc) global.gc();   // (what the way keeps, measured after a collection: node --expose-gc)
+      heapMost = Math.max(heapMost, process.memoryUsage().heapUsed);
+      nodes = null; tt = null;
+    }
+    const both = k => by[1][k] + by[2][k];
+    name = name.replace(/\b6 and (\d)\b/, (_, x) => `${DEPTH} and ${DEPTH + Number(x) - 6}`).replace("Hazel now: 6 and 6", `Hazel now: ${DEPTH} and ${DEPTH}`);
+    say(`${name.padEnd(46)} ${(both("ms") / moves).toFixed(2).padStart(6)} ms a move (black ${(by[1].ms / by[1].moves).toFixed(2)}, white ${(by[2].ms / by[2].moves).toFixed(2)}); ` +
+        `moves worked out ${both("expanded")}, valued ${both("valued")}, searched ${both("interior")}, answered ${both("hits")}; ${differ} moves differ; ` +
+        `kept at most ${nodesMost}, heap ${(heapMost / 1e6).toFixed(0)} MB${how.startsWith("tree") ? `, ${evictions} sweeps` : ""}`);
+    out.push({ name, policy: pol, how, by, differ, sweeps: how.startsWith("tree") ? evictions : 0, kept: nodesMost, heapMB: Math.round(heapMost / 1e6), msPerMove: both("ms") / moves, moves });
   }
   if (process.env.OUT) (await import("node:fs")).writeFileSync(process.env.OUT, JSON.stringify({ games: GAMES, depth: DEPTH, moves, rows: out }, null, 1));
 }
