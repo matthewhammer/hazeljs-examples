@@ -201,6 +201,11 @@ h2[id] { scroll-margin-top: 12px; }
 .wheel .cusp { stroke: var(--muted); stroke-width: 0.25; }
 .wheel .axis { stroke: var(--ink); stroke-width: 0.45; }
 .wheel .axis-name { font: 600 3.2px ui-sans-serif, system-ui, sans-serif; fill: var(--muted); }
+/* (Matthew 2026-11-21: "can we label the houses by number and label?") each house's number and word, on a halo over the aspect lines */
+.wheel .house text { paint-order: stroke; stroke: var(--bg, #fff); stroke-width: 0.7px; stroke-linejoin: round; }
+.wheel .house-num { font: 700 2.7px ui-sans-serif, system-ui, sans-serif; fill: var(--ink); }
+.wheel .house-word { font: 500 2px ui-sans-serif, system-ui, sans-serif; fill: var(--muted); }
+.wheel .house.hot .house-num, .wheel .house.hot .house-word { fill: var(--accent); }
 .wheel .aspect { stroke-width: 0.35; opacity: 0.85; }
 .wheel .aspect.soft { stroke: var(--link); }
 .wheel .aspect.hard { stroke: var(--bad); }

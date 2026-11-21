@@ -343,6 +343,13 @@
   const SIGNS = Object.keys(GLYPH);
   const where = lon => { const l = ((lon % 360) + 360) % 360; return `${Math.floor(l % 30)}° ${SIGNS[Math.floor(l / 30)]}`; };
   const HARD = { Square: 1, Opposition: 1 };
+  // (Matthew 2026-11-21: "can we label the houses by number and label?") what each house holds, as Reading.hz's house_word has it,
+  // and the word each house's label on the wheel shows (the first of them)
+  const HOUSE_HOLDS = ["the self, and how you meet the world", "money, things, and what you value", "talk, learning, siblings and short trips", "home, family and roots",
+    "pleasure, romance, children and making things", "work, health and daily habits", "partners, close and contracted", "what is shared, debts, and deep change",
+    "far travel, beliefs and higher learning", "career, standing and aims", "friends, groups and hopes", "what is hidden, rest and retreat"];
+  const HOUSE_WORD = ["self", "money", "talk", "home", "pleasure", "work", "partners", "shared", "travel", "career", "friends", "hidden"];
+  const HOUSE_R = 22.8;   // (just inside the birth's ring, at 27)
   function drawWheel(v) {
     const w = $("wheel"), c = (r, cls) => sv("circle", { cx: 50, cy: 50, r, class: cls });
     const line = (l, cls) => sv("line", { x1: l.x1, y1: l.y1, x2: l.x2, y2: l.y2, class: cls });
@@ -367,6 +374,17 @@
     const out = (l, k) => ({ x: 50 + (l.x1 - 50) * k, y: 50 + (l.y1 - 50) * k });
     const a = out(v.wheel.axes[0], 1.1), m = out(v.wheel.axes[1], 1.1);
     w.append(label(a.x, a.y, "Asc"), label(m.x, m.y, "MC"));
+    // each house (whole-sign: a sign each, counted from the rising sign): its number and its word, in line with its sign, just
+    // inside the birth's ring, on a halo over the aspect lines; hovered, what it holds, and its notes lit
+    const ascSign = Math.floor((((v.chart.ascendant % 360) + 360) % 360) / 30);
+    for (const s of v.wheel.signs) {
+      const h = ((SIGNS.indexOf(s.sign.tag) - ascSign + 12) % 12) + 1, ang = Math.atan2(s.y - 50, s.x - 50);
+      const x = 50 + HOUSE_R * Math.cos(ang), y = 50 + HOUSE_R * Math.sin(ang);
+      const t = (dy, cls, str) => { const e = sv("text", { x, y: y + dy, class: cls, "text-anchor": "middle", "dominant-baseline": "middle" }); e.textContent = str; return e; };
+      const g = sv("g", { class: "house", "aria-label": `${ord(h)} house: ${HOUSE_WORD[h - 1]}` }); g.dataset.k = "house:" + h;
+      g.append(sv("circle", { cx: x, cy: y, r: 3.2, class: "hit" }), t(-1.3, "house-num", String(h)), t(1.5, "house-word", HOUSE_WORD[h - 1]));
+      w.append(g);
+    }
   }
   // (0.0.23) today's sky, with its time: "November 19, 2026 at 9:14 AM"
   const fmtDay = t => new Date(t).toLocaleString(undefined, { year: "numeric", month: "long", day: "numeric", hour: "numeric", minute: "2-digit" });
@@ -453,6 +471,11 @@
       return { title: `The start of ${SIGNS[i]}, and of your ${ord(h)} house`,
         text: sentence(new RegExp("The " + ord(h) + " house holds [^.]*\\.")) || "With whole-sign houses, each sign is a house, counted from the rising sign.", lights: ["house:" + h] };
     }
+    if (kind === "house") {   // (a house's label: what it holds, in the reading's words where a note has them)
+      const h = Number(a), i = (ascSign + h - 1) % 12;
+      return { title: `Your ${ord(h)} house: ${SIGNS[i]}`, text: sentence(new RegExp("The " + ord(h) + " house holds [^.]*\\.")) || `The ${ord(h)} house holds ${HOUSE_HOLDS[h - 1]}.`,
+        lights: ["house:" + h] };
+    }
     if (kind === "axis" && a === "asc") return { title: `The ascendant: ${where(v.chart.ascendant)}`,
       text: "The degree of the zodiac rising in the east at the moment of birth. Its sign is the rising sign, and your 1st house.", lights: ["axis:asc"] };
     if (kind === "axis" && a === "mc") return { title: `The midheaven: ${where(v.chart.midheaven)}`,
@@ -509,7 +532,7 @@
   let fromNotes = null;
   function wheelKeysOf(refs, v) {
     const ascSign = Math.floor((((v.chart.ascendant % 360) + 360) % 360) / 30);
-    return refs.map(r => { const [k, a] = r.split(":"); return k === "house" ? "cusp:" + ((ascSign + Number(a) - 1) % 12) : r; });
+    return refs.flatMap(r => { const [k, a] = r.split(":"); return k === "house" ? ["cusp:" + ((ascSign + Number(a) - 1) % 12), r] : [r]; });   // (a house: the line where it begins, and its label)
   }
   function lightFromNotes(key, p) {
     const id = key ? key + (p ? "@" + p.dataset.refs : "") : p ? "note:" + p.dataset.refs + ":" + p.textContent.length : null;

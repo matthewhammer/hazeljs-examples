@@ -2,6 +2,10 @@
 
 Each version lists what the apps do as of that version. The newest version is first.
 
+## 0.0.44 (2026-11-21)
+
+- **Astrology: the houses labelled on the wheel** (Matthew: "can we label the houses by number and label?"). Each house has its number and a word for what it holds, just inside the birth's ring, in line with its sign (whole-sign houses, counted from the rising sign): 1 self, 2 money, 3 talk, 4 home, 5 pleasure, 6 work, 7 partners, 8 shared, 9 travel, 10 career, 11 friends, 12 hidden. Hovered, a house says what it holds, in the reading's words, and lights its notes; a note about a house lights its label too.
+
 ## 0.0.43 (2026-11-21)
 
 - **Minesweeper: Hazel guesses as well as it can, and wins** (ticket 809, Matthew: "I'd like to revisit the minesweeper AI logic --- it seems quite likely for the largest board that it fails every time (or most times)"). It did: 🤖 won 2 expert games in 100. When no number alone shows a sure move, the page used to open a closed cell at random. Now Hazel picks (a new module, **Guess**): the numbers' closed cells fall into groups that share none; in each, every way the mines can lie that meets all its numbers is counted (up to a limit), by how many mines it uses; the groups put together, each way weighted by how many ways the mines left over can lie in the closed cells no number touches. A cell's odds of a mine are the weight of the ways with one there; the pick is the least likely cell (a corner, then an edge, when the untouched cells are as good). A group too big to count falls back to each cell's worst share, and the cells two numbers together show safe. A cell with no way to be a mine is sure: 🤖 opens it as a sure move, and 💡 shows it too ("the numbers around it, taken together, leave no way for a mine here"); else 💡 shows the best guess and its odds. Won over 200 games each: beginner 96% (was 82%), intermediate 89% (was 52%), expert 47% (was 2%). A pick takes 4 ms on average in the compiled rules, 77 ms at the slowest.
