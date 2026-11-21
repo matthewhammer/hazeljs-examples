@@ -18,6 +18,7 @@
     "petri-net": "node petri-net/node/petri.mjs",
     "mahjong": "node node/mahjong.mjs",
     "pinball": "node node/pinball.mjs",
+    "mahjong-solitaire": "node node/mahjong-solitaire.mjs",
     "pinball-lab": "node tools/pinball-lab.mjs play"
   },
   "dependencies": {

@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mahjong solitaire, its rules in Hazel</title>
+<meta name="description" content="Mahjong solitaire, as on 1990s computers: 144 tiles stacked in layers, and you take away matching pairs of free tiles until the stacks are gone. The layouts are Hazel data, and the rules are a Hazel program: which tiles are free, a deal that can always be won, a clue, a shuffle, and Hazel's own play. An example for hazeljs.">
+<link rel="stylesheet" href="../shared/style.css?v=0.0.14">
+<link rel="stylesheet" href="../shared/oracles.css?v=0.0.39">
+<link rel="stylesheet" href="ms.css?v=0.0.39">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="icon" href="icons/icon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="theme-color" content="#0f3d2e">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Mahjong">
+</head>
+<body><main class="oracle">
+<div class="app-head">
+<h1>Mahjong solitaire, its rules in Hazel</h1>
+<span class="app-links"><a href="../">Hazel activities</a> › <a href="../#games">One-player games</a> · <a href="https://github.com/matthewhammer/hazeljs-examples">source on GitHub</a> · <a href="https://www.npmjs.com/package/hazeljs">hazeljs on npm</a></span>
+</div>
+<p class="sub">144 tiles stacked in layers. Take away two tiles that match, as long as each is <b>free</b>: nothing on top of it, and nothing beside it on its left or on its right. Two tiles match when their faces are the same; any flower matches any flower, and any season any season. Clear the table to win. Every deal can be won: Hazel makes it by playing it. Stuck? <b>↩️</b> takes a pair back, <b>🔀</b> shuffles the tiles still out (and keeps the game winnable), <b>❓</b> shows a pair Hazel would take.</p>
+
+<div class="oracle-grid">
+<section class="oracle-ui ms-ui" aria-label="The game">
+  <div class="controls">
+    <label class="layout-pick">Layout <select id="layoutpick"></select></label>
+    <button type="button" id="new" class="primary">New game</button>
+    <button type="button" id="undo" title="Take the last pair back">↩️</button>
+    <button type="button" id="clue" title="A pair Hazel would take">❓</button>
+    <button type="button" id="shuffle" title="Shuffle the tiles still out (the game stays winnable)">🔀</button>
+    <button type="button" id="lit" class="ms-toggle" aria-pressed="false" title="Light the free tiles, dim the others">💡</button>
+    <button type="button" id="sfx" class="ms-toggle" aria-pressed="true" title="Sounds">🔊</button>
+  </div>
+  <div class="status wait" id="status">⏳ Loading the rules…</div>
+  <div class="ms-bar"><span id="time">0:00</span><span id="moves">0 moves</span><span id="left">144 tiles</span><span id="pairs" class="muted"></span></div>
+  <div class="ms-wrap"><canvas id="board" aria-label="The tiles, stacked"></canvas></div>
+  <p class="sol-info" id="info"></p>
+  <p class="nojs muted">This app needs JavaScript, and a page served over http (python3 -m http.server, then localhost).</p>
+</section>
+<section class="oracle-code" aria-label="The rules, in Hazel">
+  <p class="muted" style="margin-top:0">The vocabulary the module sees (<code>mahjong-solitaire/rules/preamble.hz</code>). The listings are text, highlighted, until <b>Edit in Hazel</b> opens each in Hazel's own editor; an edit changes the next deal and move (interpreted, so slower: a deal takes Hazel's interpreter about 20 seconds).</p>
+  <pre class="code hazel" data-program="mahjong-solitaire">loading preamble.hz…</pre>
+  <div class="ed"><div class="ed-head"><b>MahjongSolitaire</b> <span class="muted">the layouts as data, which tiles are free, a deal that can always be won, a match, a shuffle, and Hazel's choice of a pair</span></div>
+  <pre class="code hazel" data-program="mahjong-solitaire" data-module="MahjongSolitaire">loading MahjongSolitaire.hz…</pre></div>
+  <p><button type="button" id="reset-rules">Put the program back as it was</button></p>
+</section>
+</div>
+
+<div id="advanced" class="advanced-holder"></div>
+<p class="app-foot" id="app-foot">hazeljs-examples · <a href="../VERSIONS.md">versions</a> · Apache 2.0 (code), CC BY 4.0 (words, the tile art, the icon) · by Matthew Hammer · an example for <a href="https://github.com/hazelgrove/hazeljs">hazeljs</a></p>
+</main>
+<script src="../shared/divider.js?v=0.0.8"></script>
+<script src="../shared/fullscreen.js?v=0.0.39"></script>
+<script src="../shared/offline.js?v=0.0.27"></script>
+<script src="../shared/advanced.js?v=0.0.27"></script>
+<script src="../shared/autoplay.js?v=0.0.37"></script>
+<script src="tiles.js?v=0.0.39"></script>
+<script src="app.js?v=0.0.39"></script>
+</body>
+</html>

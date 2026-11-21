@@ -36,6 +36,7 @@ const SETUP = {
   "mahjong": { modules: ["Mahjong"], tail: "(start = Mahjong.start, step = Mahjong.step, options = Mahjong.options, next_hand = Mahjong.next_hand)" },
   "solitaire": { modules: ["Cards", "Deal", "Moves"], tail: "(deal = Deal.deal, moves = Moves.moves, moves_from = Moves.moves_from, apply = Moves.apply, won = Moves.won)" },
   "pinball": { modules: ["Pinball"], tail: "(start = Pinball.start, step = Pinball.step, board = Pinball.board)" },
+  "mahjong-solitaire": { modules: ["MahjongSolitaire"], tail: "(deal = MahjongSolitaire.deal, take = MahjongSolitaire.take, frees = MahjongSolitaire.free_places, pairs = MahjongSolitaire.pairs, best = MahjongSolitaire.best, shuffle = MahjongSolitaire.shuffle, places = MahjongSolitaire.layout, won = MahjongSolitaire.won)" },
   "astrology": { modules: ["Zodiac", "Aspects", "Chart", "Orbit", "MoonOrbit", "Planets", "Outer", "PlutoOrbit", "Sky", "Wheel", "Reading"], tail: null },
 }[APP];
 // (compiled.js is a classic script for the page; the package is "type": "module", so it is run here as one)
@@ -221,6 +222,24 @@ if (APP === "checkers") {
   const g = C.step(0, C.start(0), false, false, 60);
   console.log(`a step: ${HN} ${time(() => H.step(0, g, true, false, 0), 10).toFixed(1)} ms, compiled ${time(() => C.step(0, g, true, false, 0), 500).toFixed(3)} ms`);
   console.log(`a board: ${HN} ${time(() => H.board(4), 10).toFixed(1)} ms, compiled ${time(() => C.board(4), 500).toFixed(3)} ms`);
+} else if (APP === "mahjong-solitaire") {
+  // (ticket 803) each layout's places both ways; a deal both ways from the same seed; from that game the free places, the pairs,
+  // Hazel's choice, the game after taking it, a shuffle of that, and whether it is won, each both ways (hazeljs is slow here:
+  // a deal takes it about 20 seconds; the second number is how many layouts to deal, 3 by default)
+  const deals = Number(process.argv[3] || 3);
+  for (let k = 0; k < 3; k++) check(`places ${k}`, H.places(k), C.places(k));
+  for (let k = 0; k < deals; k++) {
+    const seed = 1000 + 77 * k, gC = C.deal(k, seed);
+    check(`deal ${k} from ${seed}`, H.deal(k, seed), gC);
+    check(`frees ${k}`, H.frees(gC), C.frees(gC)); check(`pairs ${k}`, H.pairs(gC), C.pairs(gC));
+    const p = C.best(gC); check(`best ${k}`, H.best(gC), p);
+    const t = C.take(gC, p.a, p.b); check(`take ${k}`, H.take(gC, p.a, p.b), t);
+    check(`shuffle ${k}`, H.shuffle(t, 4242), C.shuffle(t, 4242)); check(`won ${k}`, H.won(t), C.won(t));
+  }
+  console.log(`${checked} answers compared: 3 layouts' places, ${deals} deals and the play from each, ${differ} differ`);
+  const g = C.deal(0, 31337);
+  console.log(`a deal: ${HN} ${time(() => H.deal(0, 31337), 1).toFixed(0)} ms, compiled ${time(() => C.deal(0, 31337), 20).toFixed(2)} ms`);
+  console.log(`Hazel's choice: ${HN} ${time(() => H.best(g), 1).toFixed(0)} ms, compiled ${time(() => C.best(g), 50).toFixed(2)} ms`);
 } else if (APP === "i-ching") {
   for (const tag of ["Coins", "Yarrow"]) for (let i = 0; i < 2000; i++) { const u = [draw(), draw(), draw()]; check(`${tag} ${u}`, H.cast({ tag }, ...u), C.cast({ tag }, ...u)); }
   const TAGS = ["YoungYin", "YoungYang", "OldYin", "OldYang"];

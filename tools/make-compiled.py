@@ -21,7 +21,7 @@ labeled tuple as an object; hazel-jit's code has {c}, a chain of {h, t} cells, a
 import argparse, os, subprocess
 
 ap = argparse.ArgumentParser()
-ap.add_argument("--app", default="i-ching", choices=["i-ching", "tarot", "astrology", "checkers", "go", "minesweeper", "mahjong", "solitaire", "pinball"])
+ap.add_argument("--app", default="i-ching", choices=["i-ching", "tarot", "astrology", "checkers", "go", "minesweeper", "mahjong", "solitaire", "pinball", "mahjong-solitaire"])
 ap.add_argument("--hazel", required=True, help="a checkout of hazelgrove/hazel with the commit")
 ap.add_argument("--commit", required=True, help="the commit whose hazel-jit compiled the program")
 ap.add_argument("--branch", default="trial/765-iching-aot", help="the branch whose test printed it")
@@ -190,18 +190,19 @@ ADAPTERS = {
   const api = { deal, moves, moves_from, apply, won, made };"""),
   "pinball": ("PinballCompiled", """
   // (ticket 793; round two, ticket 805) Game = (x = Int, y = Int, vx = Int, vy = Int, flips = [Int], score = Int, balls = Int,
-  // over = Bool, hits = [Int], warp = Int, gate = Int, save = Int, t = Int); Board = (name, bg, ink, glow, pattern = String,
+  // over = Bool, hits = [Int], warp = Int, gate = Int, save = Int, t = Int, lv = Int); Board = (name, bg, ink, glow, pattern = String,
   // walls = [Wall], bumpers = [Bumper], tracks = [Track], flippers = [Flipper], portals = [Portal], lights = [Light], sx = Int, sy = Int, svx = Int, svy = Int,
   // gravity = Int), its pieces records of Ints
   const ints = l => array(l).map(int);
-  const G = ["x", "y", "vx", "vy", "flips", "score", "balls", "over", "hits", "warp", "gate", "save", "t"];
-  const gameIn = g => $R.tup([g.x, g.y, g.vx, g.vy, list(g.flips), g.score, g.balls, g.over, list(g.hits), g.warp, g.gate, g.save, g.t], G);
+  const G = ["x", "y", "vx", "vy", "flips", "score", "balls", "over", "hits", "warp", "gate", "save", "t", "lv"];
+  const gameIn = g => $R.tup([g.x, g.y, g.vx, g.vy, list(g.flips), g.score, g.balls, g.over, list(g.hits), g.warp, g.gate, g.save, g.t, g.lv], G);
   const gameOut = r => ({ x: int(r.x), y: int(r.y), vx: int(r.vx), vy: int(r.vy), flips: ints(r.flips), score: int(r.score),
-                          balls: int(r.balls), over: r.over, hits: ints(r.hits), warp: int(r.warp), gate: int(r.gate), save: int(r.save), t: int(r.t) });
+                          balls: int(r.balls), over: r.over, hits: ints(r.hits), warp: int(r.warp), gate: int(r.gate), save: int(r.save), t: int(r.t), lv: int(r.lv) });
   const rec = (r, ks) => Object.fromEntries(ks.map(k => [k, int(r[k])]));
   const boardOut = r => ({ name: r.name, bg: r.bg, ink: r.ink, glow: r.glow, pattern: r.pattern,
-    walls: array(r.walls).map(w => rec(w, ["ax", "ay", "bx", "by", "bounce", "kick"])), bumpers: array(r.bumpers).map(b => rec(b, ["x", "y", "r", "points", "track", "phase"])), tracks: array(r.tracks).map(t => rec(t, ["cx", "cy", "rx", "ry", "period"])),
-    flippers: array(r.flippers).map(f => rec(f, ["x", "y", "len", "side"])), portals: array(r.portals).map(q => rec(q, ["x", "y", "r", "tx", "ty"])), lights: array(r.lights).map(l => rec(l, ["x", "y", "group"])),
+    walls: array(r.walls).map(w => rec(w, ["ax", "ay", "bx", "by", "bounce", "kick", "level"])), bumpers: array(r.bumpers).map(b => rec(b, ["x", "y", "r", "points", "track", "phase", "level"])), tracks: array(r.tracks).map(t => rec(t, ["cx", "cy", "rx", "ry", "period"])),
+    flippers: array(r.flippers).map(f => rec(f, ["x", "y", "len", "side", "level"])),
+    portals: array(r.portals).map(q => ({ ...rec(q, ["x", "y", "r", "tx", "ty", "from", "to", "kind", "need", "hold", "ex", "ey"]), path: ints(q.path) })), lights: array(r.lights).map(l => rec(l, ["x", "y", "group", "level"])), glass: ints(r.glass),
     sx: int(r.sx), sy: int(r.sy), svx: int(r.svx), svy: int(r.svy), gravity: int(r.gravity) });
   // board : Int -> Board; start : Int -> Game; step : (Int, Game, Bool, Bool, Int) -> Game (the board, the game, the left and
   // right flippers held, the plunger's launch 0 to 100)
@@ -209,10 +210,33 @@ ADAPTERS = {
   const start = i => gameOut(P.start(i));
   const step = (i, g, left, right, launch) => gameOut(P.step([i, gameIn(g), left, right, launch]));
   const api = { board, start, step, made };"""),
+  "mahjong-solitaire": ("MahjongSolitaireCompiled", """
+  // (ticket 803) Game = (layout = Int, slots = [Slot], near = [Near], plan = [Pair]); Slot = (face, up, lf, rt = Int); Near = (above, below,
+  // left, right = [Int]); Pair = (a, b = Int); Place = (x, y, z = Int). A game out keeps hazel-jit's own value beside the
+  // page's (its $raw, not enumerable), so a game going back in is not built again
+  const ints = l => array(l).map(int);
+  const slotOut = s => ({ face: int(s.face), up: int(s.up), lf: int(s.lf), rt: int(s.rt) });
+  const nearOut = n => ({ above: ints(n.above), below: ints(n.below), left: ints(n.left), right: ints(n.right) });
+  const pairOut = p => ({ a: int(p.a), b: int(p.b) });
+  const gameOut = r => { const g = { layout: int(r.layout), slots: array(r.slots).map(slotOut), near: array(r.near).map(nearOut), plan: array(r.plan).map(pairOut) }; Object.defineProperty(g, "$raw", { value: r }); return g; };
+  const gameIn = g => g.$raw || $R.tup([g.layout, list(g.slots.map(s => $R.tup([s.face, s.up, s.lf, s.rt], ["face", "up", "lf", "rt"]))),
+    list(g.near.map(n => $R.tup([list(n.above), list(n.below), list(n.left), list(n.right)], ["above", "below", "left", "right"]))),
+    list(g.plan.map(p => $R.tup([p.a, p.b], ["a", "b"])))], ["layout", "slots", "near", "plan"]);
+  // deal : (Int, Int) -> Game (the layout, a seed); take : (Game, Int, Int) -> Game; frees, pairs, best : Game -> ...;
+  // shuffle : (Game, Int) -> Game; places : Int -> [Place]; won : Game -> Bool
+  const deal = (k, seed) => gameOut(P.deal([k, seed]));
+  const take = (g, a, b) => gameOut(P.take([gameIn(g), a, b]));
+  const frees = g => ints(P.frees(gameIn(g)));
+  const pairs = g => array(P.pairs(gameIn(g))).map(pairOut);
+  const best = g => pairOut(P.best(gameIn(g)));
+  const shuffle = (g, seed) => gameOut(P.shuffle([gameIn(g), seed]));
+  const places = k => array(P.places(k)).map(q => ({ x: int(q.x), y: int(q.y), z: int(q.z) }));
+  const won = g => P.won(gameIn(g));
+  const api = { deal, take, frees, pairs, best, shuffle, places, won, made };"""),
 }
 GLOBAL, ADAPT = ADAPTERS[a.app]
-TITLE = {"i-ching": "the I Ching", "tarot": "the Tarot", "astrology": "astrology", "checkers": "Checkers", "go": "Go", "minesweeper": "Minesweeper", "mahjong": "Mahjong", "solitaire": "Solitaire", "pinball": "Pinball"}[a.app]
-TICKET = {"i-ching": "765", "tarot": "765", "astrology": "768", "checkers": "794", "go": "794", "minesweeper": "794", "mahjong": "794", "solitaire": "794", "pinball": "793"}[a.app]
+TITLE = {"i-ching": "the I Ching", "tarot": "the Tarot", "astrology": "astrology", "checkers": "Checkers", "go": "Go", "minesweeper": "Minesweeper", "mahjong": "Mahjong", "solitaire": "Solitaire", "pinball": "Pinball", "mahjong-solitaire": "Mahjong solitaire"}[a.app]
+TICKET = {"i-ching": "765", "tarot": "765", "astrology": "768", "checkers": "794", "go": "794", "minesweeper": "794", "mahjong": "794", "solitaire": "794", "pinball": "793", "mahjong-solitaire": "803"}[a.app]
 
 jit = subprocess.run(["git", "-C", a.hazel, "show", f"{a.commit}:src/language/dynamics/HazelJit.re"], capture_output=True, text=True, check=True).stdout
 i = jit.index("let source = {|") + len("let source = {|")
