@@ -4,7 +4,7 @@
 .go-bar .side.black { background: #1f2328; color: #f3f4f6; }
 .go-bar .side.white { background: #f3f4f6; color: #1f2328; border: 1px solid #c9ccd1; }
 .go-bar .side.now { box-shadow: 0 0 0 3px #f59e0b; }
-.go-bar .turn { text-align: center; font-size: 0.95em; }
+.go-bar .turn { flex: 1 1 0; min-width: 0; text-align: center; font-size: 0.95em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }   /* (one line always: a longer turn's words never wrap and move the board) */
 .goban-wrap { max-width: 520px; }
 .goban svg { display: block; width: 100%; height: auto; user-select: none; -webkit-user-select: none; touch-action: manipulation; }
 .goban .pt { fill: transparent; cursor: pointer; }
@@ -16,7 +16,7 @@
 @keyframes go-nope { 0%, 55% { fill: rgba(220, 38, 38, 0.45); } 100% { fill: transparent; } }
 /* full screen: the controls on the left (hidden in landscape until ☰), the bar above the board in the rest, the board as large as fits */
 html.oracle-fs .go-ui { grid-template-columns: minmax(200px, 0.55fr) minmax(0, 3fr); grid-template-rows: auto minmax(0, 1fr); }
-html.oracle-fs .go-ui > .go-bar { grid-column: 2; grid-row: 1; justify-self: center; width: min(520px, 100%); margin: 0 0 8px; }
+html.oracle-fs .go-ui > .go-bar { grid-column: 2; grid-row: 1; justify-self: center; width: min(100%, calc(100vh - 110px)); margin: 0 0 8px; }   /* (as wide as the board) */
 html.oracle-fs .go-ui > .goban-wrap { grid-column: 2; grid-row: 2; justify-self: center; align-self: start; width: min(100%, calc(100vh - 110px)); max-width: none; }
 html.oracle-fs .go-ui > .fs-cast { grid-row: 1 / -1; }
 

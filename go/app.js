@@ -77,7 +77,7 @@
     $("hazel").textContent = "⚪ Hazel" + (g && g.white_took ? ` · took ${g.white_took}` : "");
     $("you").classList.toggle("now", !!g && !g.over && g.turn === 1 && (!S.busy || S.auto));
     $("hazel").classList.toggle("now", !!g && !g.over && (g.turn === 2 || (S.busy && !S.auto)));
-    $("turn").textContent = !g ? "" : g.over ? "Game over" : S.auto ? (g.turn === 1 ? "⚫ Hazel's move, for you" : "⚪ Hazel's move") : S.busy ? "🤔 Hazel is thinking…" : g.turn === 1 ? "Your move" : "Hazel's move";
+    $("turn").textContent = !g ? "" : g.over ? "Game over" : S.auto ? (g.turn === 1 ? "⚫ Hazel's move, for you" : "⚪ Hazel's move") : S.busy ? "🤔 Hazel is thinking…" : g.turn === 1 ? "Your move" : "Hazel's move"; $("turn").title = $("turn").textContent;
   }
   function info() {
     const st = stats[S.size] || { played: 0, won: 0 };
