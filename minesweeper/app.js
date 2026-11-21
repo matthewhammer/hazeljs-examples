@@ -6,8 +6,8 @@
 (async () => {
   "use strict";
   const LIB = "https://cdn.jsdelivr.net/npm/hazeljs@0.0.4/hazel-lib.js";
-  const PROGRAM = "minesweeper", MODULES = ["Board", "Play", "Hint"];
-  const TAIL = "(fresh = Board.fresh, lay = Board.lay_mines, reveal = Play.reveal, flag = Play.flag, chord = Play.chord, flags = Play.flags, sure = Hint.sure)";
+  const PROGRAM = "minesweeper", MODULES = ["Board", "Play", "Hint", "Guess"];
+  const TAIL = "(fresh = Board.fresh, lay = Board.lay_mines, reveal = Play.reveal, flag = Play.flag, chord = Play.chord, flags = Play.flags, sure = Hint.sure, pick = Guess.pick)";
   const KEY = "hazeljs-examples/minesweeper/";
   // (0.0.34, ticket 794, as the oracles since 0.0.13 and Checkers in 0.0.34) the rules run compiled ahead of time to JavaScript
   // by hazel-jit (compiled.js), without loading hazeljs or building the program, unless the address asks for interpreted
@@ -164,14 +164,19 @@
     : k === 2 ? `💡 A mine, sure: the ${n} beside it has nowhere else for ${n === 1 ? "its mine" : "its mines"}. Flag it.`
     : k === 3 ? `💡 This flag is on a safe cell: the ${n} beside it already has its ${n === 1 ? "mine" : n + " mines"}. Take the flag off.`
     : "💡 No number shows a sure move by itself: time for a guess.";
+  // (ticket 809) no number alone shows a sure move: Hazel's pick (Guess.pick), sure all the same when the numbers taken together leave
+  // no way for a mine there (risk 0), else the cell least likely to be a mine
+  const pickSays = (p, robot) => p.risk === 0 ? `${robot ? "🤖" : "💡"} Safe to open: no number shows it alone, but the numbers around it, taken together, leave no way for a mine here.`
+    : `${robot ? "🎲" : "💡"} No number shows a sure move: ${robot ? "a guess," : "the best guess is"} the cell least likely to be a mine (${p.risk < 10 ? (p.risk / 10).toFixed(1) : Math.round(p.risk / 10)}% by the numbers' odds)`;
   async function hint() {
     const h = H(), g = S.game; if (!h || !g || g.over || S.busy || S.auto || typeof h.sure !== "function") return;
     if (!S.laid) { S.hint = { at: -1, why: -1, text: "💡 Tap any cell: the first tap is never a mine, nor beside one." }; info(); return; }
     S.busy = true; face(); hintAble(); await painted();
-    let m = null;
-    try { m = h.sure(g); } catch (e) { m = null; }
+    let m = null, p = null;
+    try { m = h.sure(g); if (m && !m.kind && typeof h.pick === "function") p = h.pick(g); } catch (e) { m = null; }
     S.busy = false;
     if (!m) { draw(); return; }
+    if (p && p.at >= 0) { S.hint = { at: p.at, why: -1, text: pickSays(p, false) + (p.risk === 0 ? "" : ".") }; draw(); return; }
     const why = m.why >= 0 ? g.grid[Math.floor(m.why / g.cols)][m.why % g.cols] : null;
     S.hint = { at: m.kind ? m.at : -1, why: m.why, text: hintSays(m.kind, why ? why.near : 0) };
     draw();
@@ -189,7 +194,8 @@
   // ---- 🤖 Hazel plays for you (0.0.35, Matthew: "also do AI mode for minesweeper --- so that it runs automatically as an
   // animation with controls like the others"): the first tap in the middle (never a mine, nor beside one), then Hazel's sure
   // move (Hint.sure: a safe cell opened, a mine flagged, a wrong flag taken off) again and again; when no number shows a sure
-  // move, a guess: a closed cell picked at random by the page, not by Hazel (its rules have no guessing). The cell played
+  // move, Hazel's pick (Guess.pick, ticket 809: the cell least likely to be a mine, by the numbers' odds; a cell picked at random by
+  // the page only with rules that have no Guess). The cell played
   // shows in yellow and the number that showed it in blue, at the pace chosen; the clock times the board.
   const flagsOf = g => g.grid.reduce((n, row) => n + row.filter(x => x.flag).length, 0);
   async function autoplay() {
@@ -213,11 +219,17 @@
               g2 = m.kind === 1 ? h.reveal(g, r, c) : h.flag(g, r, c);
               hint = { at: m.at, why: m.why, text: "🤖 " + hintSays(m.kind, why ? why.near : 0).replace(/^💡 /, "").replace(/ (Flag it|Take the flag off)\.$/, "") };
             } else {
-              const closed = [];
-              g.grid.forEach((row, r) => row.forEach((x, c) => { if (!x.open && !x.flag) closed.push(r * g.cols + c); }));
-              const p = closed[Math.floor(Math.random() * closed.length)];
-              g2 = h.reveal(g, Math.floor(p / g.cols), p % g.cols); S.guesses++;
-              hint = { at: p, why: -1, text: `🎲 No number shows a sure move: a guess, picked at random by the page (guess ${S.guesses}).` };
+              const q = typeof h.pick === "function" ? h.pick(g) : null;
+              if (q && q.at >= 0) {
+                g2 = h.reveal(g, Math.floor(q.at / g.cols), q.at % g.cols); if (q.risk > 0) S.guesses++;
+                hint = { at: q.at, why: -1, text: pickSays(q, true) + (q.risk > 0 ? ` (guess ${S.guesses}).` : "") };
+              } else {
+                const closed = [];
+                g.grid.forEach((row, r) => row.forEach((x, c) => { if (!x.open && !x.flag) closed.push(r * g.cols + c); }));
+                const p = closed[Math.floor(Math.random() * closed.length)];
+                g2 = h.reveal(g, Math.floor(p / g.cols), p % g.cols); S.guesses++;
+                hint = { at: p, why: -1, text: `🎲 No number shows a sure move: a guess, picked at random by the page (guess ${S.guesses}).` };
+              }
             }
           }
         } catch (e) { g2 = null; }
@@ -234,7 +246,7 @@
   }
   const W = window.HazelAutoplay.make({
     into: $("new").parentElement, key: KEY, sides: ["Hazel"],
-    more: () => S.guesses ? `; ${S.guesses} guess${S.guesses === 1 ? "" : "es"}, picked at random by the page` : "; no guesses",
+    more: () => S.guesses ? `; ${S.guesses} guess${S.guesses === 1 ? "" : "es"}, each the cell least likely to be a mine` : "; no guesses",
     onChange: on => {
       S.auto = on;
       if (!on) { W.stop(); S.hint = null; draw(); return; }
@@ -270,7 +282,7 @@
   function loadCompiled() {
     addEventListener("error", e => { if (/compiled\.js/.test(e.filename || "")) S.compiledError = String(e.message || e.error || "an error"); });
     const c = document.createElement("script");
-    c.src = "compiled.js?v=0.0.34"; c.async = true;
+    c.src = "compiled.js?v=0.0.43"; c.async = true;
     c.onload = () => {
       const v = window.MinesweeperCompiled;
       if (v && !S.built) {

@@ -44,6 +44,7 @@
   <div class="ed"><div class="ed-head"><b>Board</b> <span class="muted">a fresh board, the mines laid after the first tap (never beside it), and each cell's count</span></div><pre class="code hazel" data-program="minesweeper" data-module="Board">loading Board.hz…</pre></div>
   <div class="ed"><div class="ed-head"><b>Play</b> <span class="muted">a cell opened (an empty region floods open), a flag, a chord, and the end. The page calls <code>(fresh, lay, reveal, flag, chord, flags)</code>.</span></div><pre class="code hazel" data-program="minesweeper" data-module="Play">loading Play.hz…</pre></div>
   <div class="ed"><div class="ed-head"><b>Hint</b> <span class="muted">the 💡 hint: a sure move worked out from the open numbers alone (a safe cell, a mine to flag, or a flag on a safe cell) and the number that shows it. The page calls <code>sure</code>.</span></div><pre class="code hazel" data-program="minesweeper" data-module="Hint">loading Hint.hz…</pre></div>
+  <div class="ed"><div class="ed-head"><b>Guess</b> <span class="muted">when no number alone shows a sure move: the odds of a mine in each closed cell, from every way the mines can lie that meets all the numbers, and the cell least likely to be one (🤖's guess, and 💡's when there is no sure move). The page calls <code>pick</code>.</span></div><pre class="code hazel" data-program="minesweeper" data-module="Guess">loading Guess.hz…</pre></div>
   <p><button type="button" id="reset-rules">Put the program back as it was</button></p>
 </section>
 </div>
@@ -56,6 +57,6 @@
 <script src="../shared/offline.js?v=0.0.27"></script>
 <script src="../shared/advanced.js?v=0.0.27"></script>
 <script src="../shared/autoplay.js?v=0.0.35"></script>
-<script src="app.js?v=0.0.35"></script>
+<script src="app.js?v=0.0.43"></script>
 </body>
 </html>

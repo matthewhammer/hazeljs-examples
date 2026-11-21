@@ -32,7 +32,7 @@ const SETUP = {
   "tarot": { modules: ["Deck", "Spreads", "Reading"], tail: "(deal = Reading.deal)" },
   "checkers": { modules: ["Checkers"], tail: "(start = Checkers.start, moves = Checkers.moves, apply = Checkers.apply, choose = Checkers.choose)" },
   "go": { modules: ["Go"], tail: "(fresh = Go.fresh, play = Go.play, pass = Go.pass, score = Go.score, choose = Go.choose)" },
-  "minesweeper": { modules: ["Board", "Play", "Hint"], tail: "(fresh = Board.fresh, lay = Board.lay_mines, reveal = Play.reveal, flag = Play.flag, chord = Play.chord, flags = Play.flags, sure = Hint.sure)" },
+  "minesweeper": { modules: ["Board", "Play", "Hint", "Guess"], tail: "(fresh = Board.fresh, lay = Board.lay_mines, reveal = Play.reveal, flag = Play.flag, chord = Play.chord, flags = Play.flags, sure = Hint.sure, pick = Guess.pick)" },
   "mahjong": { modules: ["Mahjong"], tail: "(start = Mahjong.start, step = Mahjong.step, options = Mahjong.options, next_hand = Mahjong.next_hand)" },
   "solitaire": { modules: ["Cards", "Deal", "Moves"], tail: "(deal = Deal.deal, moves = Moves.moves, moves_from = Moves.moves_from, apply = Moves.apply, won = Moves.won)" },
   "pinball": { modules: ["Pinball"], tail: "(start = Pinball.start, step = Pinball.step, board = Pinball.board)" },
@@ -118,6 +118,7 @@ if (APP === "checkers") {
     for (let i = 0; i < (CAP || 400) && !g.over; i++) {
       positions++;
       const m = C.sure(g); check(`board ${n + 1} step ${i + 1}: sure`, H.sure(g), m); kinds[m.kind]++;
+      if (!m.kind && C.pick) check(`board ${n + 1} step ${i + 1}: pick`, H.pick(g), C.pick(g));   // (ticket 809)
       const rr = Math.floor(draw() * rows), rc = Math.floor(draw() * cols);
       if (i % 5 === 0) { check(`board ${n + 1} step ${i + 1}: flag`, H.flag(g, rr, rc), C.flag(g, rr, rc)); check(`board ${n + 1} step ${i + 1}: chord`, H.chord(g, rr, rc), C.chord(g, rr, rc)); }
       if (i % 10 === 0) check(`board ${n + 1} step ${i + 1}: flags`, H.flags(g), C.flags(g));

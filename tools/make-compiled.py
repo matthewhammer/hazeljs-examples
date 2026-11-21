@@ -123,7 +123,7 @@ ADAPTERS = {
   const gameOut = r => ({ rows: int(r.rows), cols: int(r.cols), mines: int(r.mines), grid: array(r.grid).map(row => array(row).map(cellOut)),
                           left: int(r.left), over: r.over, won: r.won, boom: int(r.boom) });
   // fresh : (Int, Int, Int) -> Game; lay : (Int, Int, Int, [Float], Int, Int) -> Game; reveal, flag, chord : (Game, Int, Int)
-  // -> Game; flags : Game -> Int; sure : Game -> (kind = Int, at = Int, why = Int)
+  // -> Game; flags : Game -> Int; sure : Game -> (kind = Int, at = Int, why = Int); pick : Game -> (at = Int, risk = Int)
   const fresh = (rows, cols, mines) => gameOut(P.fresh([rows, cols, mines]));
   const lay = (rows, cols, mines, us, r0, c0) => gameOut(P.lay([rows, cols, mines, list(us), r0, c0]));
   const reveal = (g, r, c) => gameOut(P.reveal([gameIn(g), r, c]));
@@ -131,7 +131,9 @@ ADAPTERS = {
   const chord = (g, r, c) => gameOut(P.chord([gameIn(g), r, c]));
   const flags = g => int(P.flags(gameIn(g)));
   const sure = g => { const r = P.sure(gameIn(g)); return { kind: int(r.kind), at: int(r.at), why: int(r.why) }; };
-  const api = { fresh, lay, reveal, flag, chord, flags, sure, made };"""),
+  // (ticket 809) pick : Game -> (at = Int, risk = Int): the closed cell least likely to be a mine, its chance in thousandths
+  const pick = g => { const r = P.pick(gameIn(g)); return { at: int(r.at), risk: int(r.risk) }; };
+  const api = { fresh, lay, reveal, flag, chord, flags, sure, pick, made };"""),
   "mahjong": ("MahjongCompiled", """
   // (ticket 794) Meld = (kind = Int, tile = Int, shown = Bool), Seat = (hand = [Int], melds = [Meld], river = [Int], points = Int),
   // Item = (code = Int, faan = Int), Event = (who = Int, what = Int, tile = Int), Game = (wall = [Int], seats = [Seat],
