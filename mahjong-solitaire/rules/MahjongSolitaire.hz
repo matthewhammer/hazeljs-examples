@@ -128,26 +128,48 @@ let deal : (Int, Int) -> Game = fun (k, seed) ->
   (layout = k, slots = with_faces(ss, out), near = near, plan = plan);
 # ---- Playing #
 let faces_of : [Slot] -> [Int] = fun ss -> case ss | [] => [] | x :: rest => x.face :: faces_of(rest) end;
-# the plan after a and b are taken. A pair of the plan: dropped. Two tiles of two pairs (they match, so their partners match each other): both pairs dropped, and the partners made a pair where the later of the two was (each was free by then, and taking tiles only frees others, so the plan still clears the table) #
-let replan : ([Pair], Int, Int) -> [Pair] = fun (plan, a, b) ->
+# the plan after a and b are taken (ss the slots after, near the neighbours). A pair of the plan: dropped. Two tiles of two pairs (they match, so their partners match each other): both pairs dropped, and the partners made a pair. The pairs are then played through as a set, not in their order: each turn the first of them whose two tiles are both free. Taking tiles only frees others, so if any order of these pairs clears the table, this one does, and the order it finds is the plan. Stuck, the two pairs of a face are paired the other two ways, a face at a time, each played through; the first that clears the table is the plan. If none does there is no plan, and Hazel chooses for itself #
+let replan : ([Pair], [Slot], [Near], Int, Int) -> [Pair] = fun (plan, ss, near, a, b) ->
   let partner : ([Pair], Int) -> Int = fun (ps, x) -> case ps | [] => 0 - 1 | p :: rest => if p.a == x then p.b else if p.b == x then p.a else partner(rest, x) end in
-  let pa = partner(plan, a) in
-  let pb = partner(plan, b) in
-  let go : ([Pair], Int) -> [Pair] = fun (ps, seen) ->
+  let hit : Pair -> Bool = fun p -> p.a == a || p.b == a || p.a == b || p.b == b in
+  let base : [Pair] -> [Pair] = fun ps -> case ps | [] => [] | p :: rest => if hit(p) then base(rest) else p :: base(rest) end in
+  let stuck : Pair = (a = 0 - 1, b = 0 - 1) in
+  let pick : ([Int], [Pair]) -> Pair = fun (fr, ps) -> case ps | [] => stuck | p :: rest => if has(fr, p.a) && has(fr, p.b) then p else pick(fr, rest) end in
+  let less : ([Pair], Pair) -> [Pair] = fun (ps, q) -> case ps | [] => [] | p :: rest => if p.a == q.a && p.b == q.b then rest else p :: less(rest, q) end in
+  let play : ([Slot], [Pair]) -> [Pair] = fun (xs, ps) ->
     case ps
     | [] => []
-    | p :: rest =>
-      if !(p.a == a || p.b == a || p.a == b || p.b == b) then p :: go(rest, seen)
-      else if pa == b || seen == 1 then (if pa == b || pa < 0 || pb < 0 then rest else (a = pa, b = pb) :: rest)
-      else go(rest, 1)
+    | _ => (let p = pick(frees(xs), ps) in if p.a < 0 then [stuck] else p :: play(lift2(xs, near, p.a, p.b), less(ps, p)))
     end in
-  go(plan, 0);
+  let clears : [Pair] -> Bool = fun ps -> case ps | [] => true | p :: rest => p.a >= 0 && clears(rest) end in
+  let face : Int -> Int = fun i -> key(slot_at(ss, i).face) in
+  let pa = partner(plan, a) in
+  let pb = partner(plan, b) in
+  if pa == b || pa < 0 || pb < 0 then base(plan) else
+  let all = (a = pa, b = pb) :: base(plan) in
+  let first = play(ss, all) in
+  if clears(first) then first else
+  let pair_up : (Pair, Int, [Pair]) -> [Pair] = fun (p, k, qs) ->
+    case qs
+    | [] => [stuck]
+    | q :: rest =>
+      if face(q.a) == k then
+        (let os = less(less(all, p), q) in
+         let r1 = play(ss, (a = p.a, b = q.a) :: (a = p.b, b = q.b) :: os) in
+         if clears(r1) then r1 else
+         (let r2 = play(ss, (a = p.a, b = q.b) :: (a = p.b, b = q.a) :: os) in
+          if clears(r2) then r2 else pair_up(p, k, rest)))
+      else pair_up(p, k, rest)
+    end in
+  let each : [Pair] -> [Pair] = fun ps -> case ps | [] => [stuck] | p :: rest => (let r = pair_up(p, face(p.a), rest) in if clears(r) then r else each(rest)) end in
+  let found = each(all) in
+  if clears(found) then found else [];
 # take the tiles at places a and b, if both are free and they match; else the game as it was #
 let take : (Game, Int, Int) -> Game = fun (g, a, b) ->
   let sa = slot_at(g.slots, a) in
   let sb = slot_at(g.slots, b) in
   if !(a == b) && is_free(sa) && is_free(sb) && sa.face >= 0 && sb.face >= 0 && key(sa.face) == key(sb.face)
-  then (layout = g.layout, slots = lift2(g.slots, g.near, a, b), near = g.near, plan = replan(g.plan, a, b)) else g;
+  then (let s2 = lift2(g.slots, g.near, a, b) in (layout = g.layout, slots = s2, near = g.near, plan = replan(g.plan, s2, g.near, a, b))) else g;
 let free_places : Game -> [Int] = fun g -> frees(g.slots);
 let pairs : Game -> [Pair] = fun g -> pairs_of(g.slots);
 let won : Game -> Bool = fun g -> case drop(faces_of(g.slots), 0 - 1) | [] => true | _ => false end;

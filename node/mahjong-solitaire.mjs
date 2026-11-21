@@ -36,3 +36,11 @@ if (process.argv[4] !== "noplay") {
   if (!M.won(g)) bad("not cleared");
 }
 console.log(`${fail} failures`);
+// (0.0.42) a person's own pairs first (the free pairs taken at random), then Hazel's play: by the plan as repaired, with no shuffle
+if (process.argv[4] !== "noplay") {
+  let t0 = performance.now(), g = M.deal(0, 777), seed = 9, mine = 0;
+  for (; mine < 12; mine++) { const ps = M.pairs(g); if (!ps.length) break; seed = seed * 16807 % 2147483647; const p = ps[seed % ps.length]; g = M.take(g, p.a, p.b); }
+  let moves = 0, shuffles = 0;
+  while (!M.won(g) && moves < 80) { const p = M.best(g); if (p.a < 0) { shuffles++; if (shuffles > 5) break; g = M.shuffle(g, 1000 + moves); continue; } g = M.take(g, p.a, p.b); moves++; }
+  console.log(`after ${mine} pairs of a person's, Hazel ${M.won(g) ? "cleared" : "did NOT clear"} the turtle in ${moves} moves, ${shuffles} shuffles, ${((performance.now() - t0) / 1000).toFixed(0)} s`);
+}

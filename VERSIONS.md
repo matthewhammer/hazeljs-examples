@@ -2,6 +2,10 @@
 
 Each version lists what the apps do as of that version. The newest version is first.
 
+## 0.0.42 (2026-11-21)
+
+- **Mahjong solitaire: Hazel's plan survives your own pairs** (ticket 807, the follow-up of ticket 803's measure: after twenty pairs taken at random, Hazel's play needed shuffles in most games). Hazel's plan is a pairing of the tiles, and an order to take them in. When you take two tiles that the plan had paired with others, their partners must pair with each other, and the plan has to change. 0.0.41 tried the new pair at four places in the old order; that hardly helped (with no shuffle, 29 of 60 games cleared after twenty random pairs, as before). Now the plan's pairs are played through as a set, not in their order: each turn, the first of them whose two tiles are both free. Taking tiles only ever frees others, so if any order of those pairs clears the table, this one does, and the order it finds is the new plan. When it gets stuck, the two pairs of one face are paired the other two ways, a face at a time, until one clears the table. After twenty random pairs, Hazel now clears 16 turtles, 17 pyramids and 9 fortresses of 20 with no shuffle (it was 9, 13 and 7); a solver finds at least 14, at least 16 and 10 of those positions winnable at all, so the shuffles left are mostly for games the random pairs had already lost. A take off the plan costs 8.5 ms on average in the compiled rules, 204 ms at the slowest (when no pairing works and every face is tried); a planned pair, 0.1 ms.
+
 ## 0.0.41 (2026-11-21)
 
 - **Checkers and Go: whose turn, on one line** (Matthew: "for checkers -- minor layout issue where there's a linewrap sometimes in the text that alternates between \"your move\" and the other text."). The words between the two sides (\"Your move\", \"🤔 Hazel is thinking…\", \"Your move: you must jump\") never wrap now: one line always, cut short with … where there is no room (the whole words on hover), so the bar keeps its height and the board no longer jumps as the turn changes. In full screen the bar is as wide as the board, so the words fit. The same in Go, whose bar is built the same way.
