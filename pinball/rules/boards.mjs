@@ -10,32 +10,48 @@
 const H = Symbol("hazel");
 const tag = (o, text) => Object.defineProperty(o, H, { value: text, enumerable: false });
 const hzOf = o => o[H];
-export const w = (ax, ay, bx, by) => tag({ ax, ay, bx, by, bounce: 50, kick: 0 }, `w(${ax}, ${ay}, ${bx}, ${by})`);
-export const sling = (ax, ay, bx, by) => tag({ ax, ay, bx, by, bounce: 60, kick: 55 }, `sling(${ax}, ${ay}, ${bx}, ${by})`);
+export const w = (ax, ay, bx, by) => tag({ ax, ay, bx, by, bounce: 50, kick: 0, level: 0 }, `w(${ax}, ${ay}, ${bx}, ${by})`);
+export const sling = (ax, ay, bx, by) => tag({ ax, ay, bx, by, bounce: 60, kick: 55, level: 0 }, `sling(${ax}, ${ay}, ${bx}, ${by})`);
 // a kicker: a wall that kicks harder (in tenths of a unit a step): a kickback at an outlane's foot, a trampoline under a gap
-export const kicker = (ax, ay, bx, by, kick) => tag({ ax, ay, bx, by, bounce: 60, kick }, `kicker(${ax}, ${ay}, ${bx}, ${by}, ${kick})`);
-export const bp = (x, y, r, points) => tag({ x, y, r, points, track: -1, phase: 0 }, `bp(${x}, ${y}, ${r}, ${points})`);
+export const kicker = (ax, ay, bx, by, kick) => tag({ ax, ay, bx, by, bounce: 60, kick, level: 0 }, `kicker(${ax}, ${ay}, ${bx}, ${by}, ${kick})`);
+export const bp = (x, y, r, points) => tag({ x, y, r, points, track: -1, phase: 0, level: 0 }, `bp(${x}, ${y}, ${r}, ${points})`);
 // (round three; Matthew: "for at least 3 boards, let's put two or three of the round bumpers into an animation loop, with \"a
 // track\" that's printed as part of the background, as if it's being automated mechanically behind the board") a bumper that
 // rides track number k of its board, starting phase thousandths of the way round; and a track: an oval round (cx, cy), rx
 // across and ry down (one of them 0: a straight stroke, as a crank drives it), once round in period steps
-export const mover = (k, phase, r, points) => tag({ x: 0, y: 0, r, points, track: k, phase }, `mover(${k}, ${phase}, ${r}, ${points})`);
+export const mover = (k, phase, r, points) => tag({ x: 0, y: 0, r, points, track: k, phase, level: 0 }, `mover(${k}, ${phase}, ${r}, ${points})`);
 export const loop = (cx, cy, rx, ry, period) => tag({ cx, cy, rx, ry, period }, `loop(${cx}, ${cy}, ${rx}, ${ry}, ${period})`);
 const neg = n => n < 0 ? `0 - ${-n}` : String(n);
-export const fl = (x, y, len, side) => tag({ x, y, len, side }, `fl(${x}, ${y}, ${len}, ${neg(side)})`);
-export const gate = (x, y, r, tx, ty) => tag({ x, y, r, tx, ty }, `gate(${x}, ${y}, ${r}, ${tx}, ${ty})`);
+export const fl = (x, y, len, side) => tag({ x, y, len, side, level: 0 }, `fl(${x}, ${y}, ${len}, ${neg(side)})`);
+export const gate = (x, y, r, tx, ty) => tag({ x, y, r, tx, ty, from: 0, to: 0, kind: 0, need: 0, hold: 40, ex: 0, ey: 0, path: [] }, `gate(${x}, ${y}, ${r}, ${tx}, ${ty})`);
 // an arc of n walls round (cx, cy), radius r, from angle a0 to a1 (thousandths of a radian; y down), as Hazel's: Ints cut
 export const arc = (cx, cy, r, a0, a1, n) => {
   const ang = i => (a0 + Math.trunc((a1 - a0) * i / n)) / 1000;   // (Hazel: a0 + (a1 - a0) * i / n, an Int division)
   const px = i => cx + Math.trunc(r * Math.cos(ang(i))), py = i => cy + Math.trunc(r * Math.sin(ang(i)));
-  const out = []; for (let i = 0; i < n; i++) out.push({ ax: px(i), ay: py(i), bx: px(i + 1), by: py(i + 1), bounce: 50, kick: 0 });
+  const out = []; for (let i = 0; i < n; i++) out.push({ ax: px(i), ay: py(i), bx: px(i + 1), by: py(i + 1), bounce: 50, kick: 0, level: 0 });
   return tag(out, `arc(${cx}, ${cy}, ${r}, ${a0}, ${a1}, ${n})`);
 };
 // a row of n lamps from (x0, y0) to (x1, y1), group g: lit as the ball passes (the page's; the rules never look at them)
 export const lamps = (x0, y0, x1, y1, n, g) => {
-  const out = []; for (let i = 0; i < n; i++) out.push({ x: x0 + Math.trunc((x1 - x0) * i / (n - 1)), y: y0 + Math.trunc((y1 - y0) * i / (n - 1)), group: g });
+  const out = []; for (let i = 0; i < n; i++) out.push({ x: x0 + Math.trunc((x1 - x0) * i / (n - 1)), y: y0 + Math.trunc((y1 - y0) * i / (n - 1)), group: g, level: 0 });
   return tag(out, `lamps(${x0}, ${y0}, ${x1}, ${y1}, ${n}, ${g})`);
 };
+// (round four; Matthew: "add a mezzanine level, that's transparent but apparently one level above the back half of the board",
+// "a metal cage tube that acts as a ramp up to and down from those levels", "\"elevators\" that grab the ball and lift it, or
+// holes that lower it") pieces on the mezzanine, level 1: a wall, a bumper, a flipper, a row of lamps
+export const dw = (ax, ay, bx, by) => tag({ ax, ay, bx, by, bounce: 50, kick: 0, level: 1 }, `dw(${ax}, ${ay}, ${bx}, ${by})`);
+export const dbp = (x, y, r, points) => tag({ x, y, r, points, track: -1, phase: 0, level: 1 }, `dbp(${x}, ${y}, ${r}, ${points})`);
+export const dfl = (x, y, len, side) => tag({ x, y, len, side, level: 1 }, `dfl(${x}, ${y}, ${len}, ${neg(side)})`);
+export const dlamps = (x0, y0, x1, y1, n, g) => { const ls = lamps(x0, y0, x1, y1, n, g).map(l => ({ ...l, level: 1 })); return tag(ls, `dlamps(${x0}, ${y0}, ${x1}, ${y1}, ${n}, ${g})`); };
+// a link between levels: kind 1 a wire ramp, 2 a lift, 3 a hole; from level to level; at (x, y) radius r, out at (tx, ty); taken
+// only by a ball moving up faster than need (tenths of a unit a step; 0: any); held hold steps on the way (its path, for the page
+// to draw the wire and show the trip: x, y, x, y...); sent on at (ex, ey) tenths a step
+export const link = (kind, from, to, x, y, r, tx, ty, need, hold, ex, ey, path) => tag({ x, y, r, tx, ty, from, to, kind, need, hold, ex, ey, path },
+  `link(${kind}, ${from}, ${to}, ${x}, ${y}, ${r}, ${tx}, ${ty}, ${need}, ${hold}, ${neg(ex)}, ${neg(ey)}, [${path.join(", ")}])`);
+export const rampUp = (x, y, tx, ty, ex, ey, path, hold = 46) => link(1, 0, 1, x, y, 22, tx, ty, 60, hold, ex, ey, path);
+export const rampDown = (x, y, tx, ty, ex, ey, path, hold = 54) => link(1, 1, 0, x, y, 14, tx, ty, 0, hold, ex, ey, path);
+export const lift = (x, y, tx, ty, ex, ey, path, hold = 60) => link(2, 0, 1, x, y, 16, tx, ty, 0, hold, ex, ey, path);
+export const hole = (x, y, r, tx, ty, ex, ey, path, hold = 40) => link(3, 1, 0, x, y, r, tx, ty, 0, hold, ex, ey, path);
 // a board's list of pieces: single pieces and whole lists (an arc, a row of lamps), flattened; in Hazel, cat_w([[a, b], arc(...)])
 // for walls, cat_l([lamps(...), ...]) for lamps, a plain list for the rest
 const many = (items, kind) => {
@@ -80,13 +96,28 @@ const deck = (y, lx, rx, lgap, rgap, flen = 68, rise = 60) => ({
 // ---- a board: name, colours, pattern; its walls, bumpers, flippers, portals, lamps; its gravity (thousandths of a unit a step²)
 export function bd(name, bg, ink, glow, pattern, parts, gravity) {
   const walls = many(parts.walls || [], "w"), bumpers = many(parts.bumpers || []), tracks = many(parts.tracks || []), flippers = many(parts.flippers || []),
-    portals = many(parts.portals || []), lights = many(parts.lights || [], "l");
-  const b = { name, bg, ink, glow, pattern, walls: [...SHELL, ...walls], bumpers, tracks, flippers, portals, lights, sx: 562, sy: 940, svx: 0, svy: -300, gravity };
+    portals = many(parts.portals || []), lights = many(parts.lights || [], "l"), glass = parts.glass || [];
+  const b = { name, bg, ink, glow, pattern, walls: [...SHELL, ...walls], bumpers, tracks, flippers, portals, lights, glass, sx: 562, sy: 940, svx: 0, svy: -300, gravity };
   return tag(b, `bd(${JSON.stringify(name)}, ${JSON.stringify(bg)}, ${JSON.stringify(ink)}, ${JSON.stringify(glow)}, ${JSON.stringify(pattern)},\n     ` +
-    [walls, bumpers, tracks, flippers, portals, lights].map(hzOf).join(",\n     ") + `, ${gravity})`);
+    [walls, bumpers, tracks, flippers, portals, lights].map(hzOf).join(",\n     ") + `,\n     [${glass.join(", ")}], ${gravity})`);
 }
 const join = (...xs) => ({ walls: xs.flatMap(x => x.walls || []), bumpers: xs.flatMap(x => x.bumpers || []), tracks: xs.flatMap(x => x.tracks || []), flippers: xs.flatMap(x => x.flippers || []),
-  portals: xs.flatMap(x => x.portals || []), lights: xs.flatMap(x => x.lights || []) });
+  portals: xs.flatMap(x => x.portals || []), lights: xs.flatMap(x => x.lights || []), glass: xs.flatMap(x => x.glass || []) });
+// ---- a mezzanine: a glass deck over the back half, on level 1, from (x0, y0) to (x1, y1): its rim (the top corners cut), its
+// front sloping to two small flippers, and under them a hole (a little floor of two walls leads into it) that drops the ball
+// down a tunnel to `out`, (x, y, ex, ey): an inlane's channel, moving onto its slope (a ball dropped straight down fell between the
+// bottom flippers); the glass's outline, for the page
+const mezz = ({ x0 = 110, y0 = 80, x1 = 490, y1 = 290, front = 60, gap = 60, flen = 42, out }) => {
+  const py = y1 + front, lp = 300 - gap, rp = 300 + gap, c = 36;
+  return {
+    walls: [dw(x0, y0 + c, x0 + c, y0), dw(x0 + c, y0, x1 - c, y0), dw(x1 - c, y0, x1, y0 + c), dw(x0, y0 + c, x0, y1), dw(x1, y0 + c, x1, y1),
+      dw(x0, y1, lp, py - 8), dw(x1, y1, rp, py - 8), dw(lp - 14, py + 34, 300, py + 58), dw(rp + 14, py + 34, 300, py + 58)],
+    flippers: [dfl(lp, py, flen, 1), dfl(rp, py, flen, -1)],
+    portals: [hole(300, py + 40, 26, out[0], out[1], out[2], out[3], [300, py + 40, out[0] < 300 ? 70 : 530, py + 120, out[0], out[1]])],
+    glass: [x0 - 12, y0 + c - 6, x0 + c - 6, y0 - 12, x1 - c + 6, y0 - 12, x1 + 12, y0 + c - 6, x1 + 12, y1 + 6, rp + 34, py + 66, lp - 34, py + 66, x0 - 12, y1 + 6] };
+};
+// the common ways up and down: a wire ramp from each side of the table (its mouth takes a ball going up), landing it at a top
+// corner of the deck moving in; a wire down from a lane at the deck's top middle to the left inlane
 
 // ---- the ten boards
 export const BOARDS = [
@@ -95,10 +126,16 @@ export const BOARDS = [
     walls: [w(240, 80, 240, 135), w(300, 70, 300, 125), w(360, 80, 360, 135), arc(300, 300, 226, 3142, 3950, 6), w(74, 300, 74, 430)],
     bumpers: [bp(300, 330, 28, 100), mover(0, 0, 16, 150), mover(0, 500, 16, 150), bp(300, 200, 10, 250)],
     tracks: [loop(300, 330, 140, 70, 420)],   // (two planets round the sun, once in 7 seconds)
-    lights: [lamps(47, 430, 47, 310, 4, 0), lamps(210, 115, 390, 115, 4, 1), lamps(45, 812, 165, 872, 4, 2), lamps(520, 812, 435, 855, 4, 3)] }), 260),
+    lights: [lamps(47, 430, 47, 310, 4, 0), lamps(210, 115, 390, 115, 4, 1), lamps(45, 812, 165, 872, 4, 2), lamps(520, 812, 435, 855, 4, 3)] },
+    // (round four) the space station: a deck over the back half, a wire ramp up from each side, a wire down to the left inlane
+    mezz({ out: [527, 760, -10, 20] }), {
+    bumpers: [dbp(220, 170, 16, 150), dbp(380, 170, 16, 150), dbp(300, 235, 14, 200)],
+    portals: [rampUp(100, 560, 160, 120, 50, 10, [100, 560, 80, 470, 78, 360, 92, 250, 120, 170, 160, 120]), rampUp(500, 560, 440, 120, -50, 10, [500, 560, 522, 470, 524, 360, 510, 250, 480, 170, 440, 120]), rampDown(300, 92, 55, 760, 10, 20, [300, 92, 250, 62, 150, 72, 72, 140, 42, 260, 36, 420, 38, 600, 46, 700, 55, 760])],
+    lights: [dlamps(160, 128, 440, 128, 6, 10), dlamps(250, 300, 350, 300, 3, 11)] }), 260),
   // Volcano: the crater, an upper chamber with its own flippers; lava tubes up each side; a post under the gap
   bd("🌋 Volcano", "#2a0a05", "#fb923c", "#fde047", "basalt", join(post(), deck(470, 215, 385, 80, 500), {
-    bumpers: [bp(300, 250, 26, 50), bp(205, 195, 20, 50), bp(395, 195, 20, 50), bp(235, 345, 18, 50), bp(365, 345, 18, 50), bp(300, 640, 22, 30)],
+    bumpers: [bp(300, 250, 26, 50), mover(0, 0, 18, 50), mover(0, 500, 18, 50), bp(235, 345, 18, 50), bp(365, 345, 18, 50), bp(300, 640, 22, 30)],
+    tracks: [loop(300, 250, 95, 55, 400)],   // (round four: two lava bombs round the crater's heart, once in 6.7 seconds)
     lights: [lamps(95, 392, 200, 442, 4, 0), lamps(505, 392, 400, 442, 4, 1), lamps(50, 600, 50, 450, 4, 2), lamps(522, 600, 522, 450, 4, 3)] }), 280),
   // Ocean: two currents, kelp along the top, fins on the side walls; buoys over the slopes instead of slingshots
   bd("🌊 Ocean", "#03243a", "#5eead4", "#93c5fd", "waves", join(buoys(), {
@@ -108,32 +145,54 @@ export const BOARDS = [
       mover(0, 0, 14, 40), mover(0, 333, 14, 40), mover(0, 667, 14, 40)],
     tracks: [loop(300, 570, 150, 45, 480)],   // (three fish swimming a loop, once in 8 seconds)
     flippers: [fl(20, 610, 60, 1), fl(545, 610, 60, -1)],
-    lights: [lamps(70, 440, 120, 370, 3, 0), lamps(530, 440, 480, 370, 3, 1), lamps(230, 160, 370, 160, 3, 2), lamps(40, 760, 40, 660, 3, 3), lamps(525, 760, 525, 660, 3, 4)] }), 250),
+    lights: [lamps(70, 440, 120, 370, 3, 0), lamps(530, 440, 480, 370, 3, 1), lamps(230, 160, 370, 160, 3, 2), lamps(40, 760, 40, 660, 3, 3), lamps(525, 760, 525, 660, 3, 4)] },
+    // (round four) the pier: a deck over the back half, a wire ramp up from the left, the lighthouse's lift up on the right, a wire down to the right inlane
+    mezz({ y1: 280, out: [140, 845, 20, 10] }), {
+    bumpers: [dbp(210, 180, 14, 60), dbp(390, 180, 14, 60), dbp(300, 140, 12, 80)],
+    portals: [rampUp(100, 560, 160, 120, 50, 10, [100, 560, 80, 470, 78, 360, 92, 250, 120, 170, 160, 120]), lift(505, 520, 440, 130, -40, 0, [505, 520, 505, 130, 440, 130]), rampDown(300, 92, 450, 850, -20, 10, [300, 92, 360, 62, 450, 72, 520, 150, 538, 300, 538, 500, 530, 700, 470, 800, 450, 850])],
+    lights: [dlamps(170, 120, 430, 120, 5, 10), dlamps(250, 290, 350, 290, 3, 11)] }), 250),
   // Mushroom forest: a burrow on each side, a chamber with a flipper of its own; mushrooms between
   bd("🍄 Mushroom forest", "#14261a", "#86efac", "#fca5a5", "leaves", join(classic(), {
     walls: [w(140, 400, 140, 500), w(20, 537, 55, 552), w(425, 400, 425, 500), w(545, 537, 510, 552)],
     bumpers: [bp(220, 230, 16, 30), bp(300, 190, 16, 30), bp(380, 230, 16, 30), bp(255, 315, 16, 30), bp(345, 315, 16, 30), bp(300, 410, 16, 30), bp(300, 600, 14, 30)],
     flippers: [fl(55, 560, 64, 1), fl(510, 560, 64, -1)],
-    lights: [lamps(80, 420, 80, 520, 3, 0), lamps(485, 420, 485, 520, 3, 1), lamps(200, 140, 400, 140, 5, 2), lamps(45, 812, 165, 872, 4, 3)] }), 260),
+    lights: [lamps(80, 420, 80, 520, 3, 0), lamps(485, 420, 485, 520, 3, 1), lamps(200, 140, 400, 140, 5, 2), lamps(45, 812, 165, 872, 4, 3)] },
+    // (round four) the canopy: a deck over the back half, a lift up a hollow in the tree, a wire ramp up from the left, a wire down to the right inlane
+    mezz({ y1: 280, out: [55, 760, 10, 20] }), {
+    bumpers: [dbp(220, 175, 15, 50), dbp(380, 175, 15, 50), dbp(300, 240, 13, 80)],
+    portals: [lift(390, 480, 300, 120, 0, 10, [390, 480, 390, 300, 340, 150, 300, 120]), rampUp(215, 640, 160, 120, 50, 10, [215, 640, 170, 560, 150, 450, 140, 300, 150, 180, 160, 120]), rampDown(300, 92, 527, 760, -10, 20, [300, 92, 360, 62, 450, 72, 520, 150, 538, 300, 538, 500, 533, 680, 527, 760])],
+    lights: [dlamps(170, 125, 430, 125, 5, 10), dlamps(250, 290, 350, 290, 3, 11)] }), 260),
   // Castle: the top floor behind the battlements, its own flippers; a portal up from the ground floor; kickbacks in the outlanes
   bd("🏰 Castle, two floors", "#1e1033", "#c4b5fd", "#fcd34d", "bricks", join(kickback(), deck(320, 215, 385, 26, 500, 68, 70), {
-    bumpers: [bp(160, 150, 22, 200), bp(300, 105, 22, 200), bp(440, 150, 22, 200), bp(300, 480, 30, 50), bp(175, 570, 16, 40), bp(425, 570, 16, 40)],
+    bumpers: [bp(160, 150, 22, 200), bp(300, 105, 22, 200), bp(440, 150, 22, 200), bp(300, 480, 30, 50), bp(175, 570, 16, 40), bp(425, 570, 16, 40), mover(0, 0, 15, 60), mover(1, 250, 15, 60)],
+    tracks: [loop(300, 650, 110, 0, 400), loop(300, 400, 150, 0, 520)],   // (round four: two guards on patrol, across the courtyard and before the gate)
     portals: [gate(70, 640, 22, 300, 190)],
     lights: [lamps(60, 262, 200, 305, 4, 0), lamps(495, 262, 400, 305, 4, 1), lamps(45, 700, 45, 880, 4, 2), lamps(525, 700, 525, 880, 4, 3)] }), 260),
   // Cat face: ears up top, eyes and a nose, whiskers that kick; the classic bottom
   bd("🐱 Cat face", "#2b1030", "#f9a8d4", "#5eead4", "paws", join(classic(), {
     walls: [w(170, 200, 210, 120), w(210, 120, 250, 200), w(350, 200, 390, 120), w(390, 120, 430, 200), sling(140, 430, 230, 415), sling(460, 430, 370, 415)],
     bumpers: [bp(240, 300, 26, 150), bp(360, 300, 26, 150), bp(300, 385, 16, 300), bp(300, 160, 12, 100)],
-    lights: [lamps(180, 230, 240, 230, 2, 0), lamps(360, 230, 420, 230, 2, 1), lamps(150, 470, 450, 470, 6, 2), lamps(45, 812, 165, 872, 4, 3)] }), 260),
+    lights: [lamps(180, 230, 240, 230, 2, 0), lamps(360, 230, 420, 230, 2, 1), lamps(150, 470, 450, 470, 6, 2), lamps(45, 812, 165, 872, 4, 3)] },
+    // (round four) the shelf over the cat's head: a deck over the back half, a wire ramp up from each side, a wire down to the left inlane
+    mezz({ y0: 90, y1: 270, out: [527, 760, -10, 20] }), {
+    bumpers: [dbp(220, 170, 15, 120), dbp(380, 170, 15, 120), dbp(300, 150, 12, 200)],
+    portals: [rampUp(100, 560, 160, 130, 50, 10, [100, 560, 80, 470, 78, 360, 92, 250, 120, 170, 160, 130]), rampUp(500, 560, 440, 130, -50, 10, [500, 560, 522, 470, 524, 360, 510, 250, 480, 170, 440, 130]), rampDown(300, 102, 55, 760, 10, 20, [300, 102, 250, 62, 150, 72, 72, 140, 42, 260, 36, 420, 38, 600, 46, 700, 55, 760])],
+    lights: [dlamps(170, 135, 430, 135, 5, 10), dlamps(250, 280, 350, 280, 3, 11)] }), 260),
   // Funfair ring: the big wheel, three booths along the top, a trampoline under the gap
   bd("🎡 Funfair ring", "#1a0b2e", "#fde047", "#f472b6", "diamonds", join(trampoline(), {
     walls: [arc(300, 380, 120, 0, 1350, 4), arc(300, 380, 120, 1800, 5400, 8), w(220, 75, 220, 125), w(300, 62, 300, 112), w(380, 75, 380, 125)],   // (the wheel open at its foot too: a ball inside once came to rest there)
     bumpers: [bp(300, 380, 24, 80), mover(0, 0, 10, 60), mover(0, 333, 10, 60), mover(0, 667, 10, 60), bp(150, 600, 22, 40), bp(450, 600, 22, 40)],
     tracks: [loop(300, 380, 62, 62, 300)],   // (three cars round the wheel's hub, once in 5 seconds)
-    lights: [lamps(190, 110, 410, 110, 4, 0), lamps(185, 380, 300, 265, 4, 1), lamps(300, 495, 415, 380, 4, 2), lamps(45, 812, 165, 872, 4, 3)] }), 250),
+    lights: [lamps(190, 110, 410, 110, 4, 0), lamps(185, 380, 300, 265, 4, 1), lamps(300, 495, 415, 380, 4, 2), lamps(45, 812, 165, 872, 4, 3)] },
+    // (round four) the coaster's platform: a deck along the top, its chain lift up on the right, a wire ramp up from the left, a wire down to the left inlane; its hole lowers the ball to the right inlane
+    mezz({ y0: 60, y1: 170, front: 50, out: [527, 760, -10, 20] }), {
+    bumpers: [dbp(220, 115, 12, 60), dbp(380, 115, 12, 60)],
+    portals: [lift(480, 470, 440, 100, -40, 0, [480, 470, 480, 140, 440, 100]), rampUp(100, 560, 160, 100, 50, 10, [100, 560, 80, 470, 78, 360, 92, 250, 120, 160, 160, 100]), rampDown(300, 72, 55, 760, 10, 20, [300, 72, 250, 50, 150, 72, 72, 140, 42, 260, 36, 420, 38, 600, 46, 700, 55, 760])],
+    lights: [dlamps(170, 100, 430, 100, 5, 10)] }), 250),
   // Moon: low gravity, the lander's deck with its own flippers, craters above; long flippers below
   bd("🌙 Moon, low gravity", "#0f172a", "#e2e8f0", "#93c5fd", "craters", join(classic(100), deck(530, 220, 380, 70, 530, 64), {
-    bumpers: [bp(200, 290, 30, 60), bp(400, 290, 30, 60), bp(300, 190, 22, 60), bp(300, 690, 24, 40)],
+    bumpers: [bp(200, 290, 30, 60), bp(400, 290, 30, 60), bp(300, 190, 22, 60), bp(300, 690, 24, 40), mover(0, 0, 12, 80), mover(0, 500, 12, 80)],
+    tracks: [loop(300, 310, 175, 80, 540)],   // (round four: two satellites in orbit, once in 9 seconds)
     lights: [lamps(85, 485, 205, 520, 4, 0), lamps(515, 485, 395, 520, 4, 1), lamps(150, 200, 450, 200, 4, 2)] }), 170),
   // Portals: the sky chamber over the top, reached by portals; a portal under the gap that saves a ball dropping through the middle
   bd("🌀 Portals", "#0a0008", "#ff2bd6", "#ffffff", "rings", join(classic(), deck(340, 210, 390, 26, 545, 75, 50), {

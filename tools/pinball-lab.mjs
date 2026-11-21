@@ -86,6 +86,51 @@ const bumps3 = (b, bs, ts, t, score, hits) => {
   return [b, score, hits];
 };
 export function start3(bo) { return { ...start2(bo), t: 0 }; }
+// ---- round four (ticket 806): two levels. Every wall, bumper and flipper is on a level (0 the table, 1 a mezzanine, a glass deck
+// over the back half); the ball is on one, and meets only its own level's pieces (every flipper turns with its button). A
+// portal becomes a link: kind 0 a portal (as before), 1 a wire ramp, 2 a lift, 3 a hole; from one level to another; taken
+// only by a ball moving up faster than need (tenths of a unit a step; 0: any ball); holding it hold steps (the page shows the
+// trip along its path), and sending it on at (ex, ey) tenths a step (a portal keeps most of its speed instead); worth 25, 100,
+// 50 or 25 points
+const LINK_POINTS = [25, 100, 50, 25];
+const lvl = p => p.level || 0;
+export function start4(bo) { return { ...start3(bo), lv: 0 }; }
+export function step4(bo, g, left, right, launch) {
+  if (g.over) return g;
+  const a1s = turn(bo.flippers, g.flips, left, right);
+  if (g.warp > 0) return { ...g, flips: a1s, warp: g.warp - 1, gate: g.warp > 1 ? g.gate : -1, hits: [], t: g.t + 1 };
+  let b = { x: g.x / 1000, y: g.y / 1000, vx: g.vx / 1000, vy: g.vy / 1000 }, score = g.score, hits = [], gate = -1;
+  const gr = bo.gravity / 1000, lv = g.lv, ts = bo.tracks || [];
+  for (let k = 0; k < 4 && gate < 0; k++) {
+    const vy = b.vy + gr / 4;
+    b = cap({ x: b.x + b.vx / 4, y: b.y + vy / 4, vx: b.vx, vy });
+    bo.walls.forEach((v, j) => { if (lvl(v) !== lv) return; const [b2, hit] = offSeg(b, v.ax, v.ay, v.bx, v.by, 0, v.bounce / 100, v.kick / 10, 0, 0); b = b2; if (hit && v.kick > 0) { score += 10; hits = [1000 + j, ...hits]; } });
+    bo.bumpers.forEach((p, i) => { if (lvl(p) !== lv) return;
+      const [px, py, ux, uy] = spot(ts, p, g.t), d = Math.sqrt((b.x - px) * (b.x - px) + (b.y - py) * (b.y - py)), reach = p.r + 12;
+      if (d >= reach || d < 0.0001) return;
+      const nx = (b.x - px) / d, ny = (b.y - py) / d, vn = b.vx * nx + b.vy * ny, push = ux * nx + uy * ny, out = (vn < 0 ? 0 - vn : vn) + 6 + (push > 0 ? push : 0);
+      b = { x: px + nx * reach, y: py + ny * reach, vx: b.vx - vn * nx + out * nx, vy: b.vy - vn * ny + out * ny }; score += p.points; hits = [i, ...hits]; });
+    bo.flippers.forEach((f, i) => { if (lvl(f) !== lv) return;
+      const a0 = g.flips[i], a1 = a1s[i], a = (a0 + (a1 - a0) * ((k + 1) / 4)) / 1000;
+      const [tx, ty] = tip(f, a), [ox, oy] = tip(f, a0 / 1000), [nx, ny] = tip(f, a1 / 1000);
+      b = offSeg(b, f.x, f.y, tx, ty, 8, 0.3, 0, nx - ox, ny - oy)[0]; });
+    b = cap(b);
+    for (let i = 0; i < bo.portals.length; i++) { const p = bo.portals[i]; if ((p.from || 0) !== lv) continue;
+      const dx = b.x - p.x, dy = b.y - p.y;
+      if (dx * dx + dy * dy < p.r * p.r && ((p.need || 0) === 0 || 0 - b.vy * 10 > p.need)) {
+        b = (p.kind || 0) === 0 ? { x: p.tx, y: p.ty, vx: b.vx * 0.8, vy: b.vy * 0.8 } : { x: p.tx, y: p.ty, vx: p.ex / 10, vy: p.ey / 10 }; gate = i; break; } }
+  }
+  const save = g.save > 0 ? g.save - 1 : g.save;
+  if (gate >= 0) { const p = bo.portals[gate];
+    return { x: ml(b.x), y: ml(b.y), vx: ml(b.vx), vy: ml(b.vy), flips: a1s, score: score + LINK_POINTS[p.kind || 0], balls: g.balls, over: false, hits, warp: p.hold ?? WARP, gate, save, t: g.t + 1, lv: p.to || 0 }; }
+  if (b.y > 1030) return g.save > 0 ? { x: bo.sx * 1000, y: bo.sy * 1000, vx: 0, vy: 0, flips: a1s, score, balls: g.balls, over: false, hits: [2000, ...hits], warp: 0, gate: -1, save: -1, t: g.t + 1, lv: 0 }
+    : g.balls <= 1 ? { x: g.x, y: g.y, vx: 0, vy: 0, flips: a1s, score, balls: 0, over: true, hits, warp: 0, gate: -1, save: 0, t: g.t + 1, lv: 0 }
+    : { x: bo.sx * 1000, y: bo.sy * 1000, vx: 0, vy: 0, flips: a1s, score, balls: g.balls - 1, over: false, hits, warp: 0, gate: -1, save: 0, t: g.t + 1, lv: 0 };
+  const waiting = b.x > 545 && b.y > 920 && b.vy > -1 && b.vy < 2;
+  const vmin = Math.sqrt(2 * gr * 700), v = vmin + (32 - vmin) * (launch > 100 ? 100 : launch) / 100, push = 0 - Math.trunc(v * 1000);
+  return { x: ml(b.x), y: ml(b.y), vx: ml(b.vx), vy: waiting ? (launch > 0 ? push : 0) : ml(b.vy), flips: a1s, score, balls: g.balls, over: false, hits, warp: 0, gate: -1,
+    save: waiting && launch > 0 && save === 0 ? SAVE : save, t: g.t + 1, lv };
+}
 export function step3(bo, g, left, right, launch) {
   if (g.over) return g;
   const R = { bumps: (b, bs, score, hits) => bumps3(b, bs, bo.tracks || [], g.t, score, hits) };
@@ -161,9 +206,9 @@ if (cmd === "check") {
   const P = box.exports; let bad = 0, steps = 0;
   for (let i = 0; i < 10; i++) {
     // (round two: the compiled rules against the mirror's round-two step, start2 and step2; `step` and `start` above are round one's)
-    const bo = P.board(i); let g = P.start(i), m = start3(bo); const st = { pull: 10 + 9 * i, L: 0, R: 0 };
+    const bo = P.board(i); let g = P.start(i), m = start4(bo); const st = { pull: 10 + 9 * i, L: 0, R: 0 };
     for (let n = 0; n < 4000 && !g.over; n++) {
-      const [l, r, la] = bot(bo, g, st); g = P.step(i, g, l, r, la); m = step3(bo, m, l, r, la); steps++;
+      const [l, r, la] = bot(bo, g, st); g = P.step(i, g, l, r, la); m = step4(bo, m, l, r, la); steps++;
       if (JSON.stringify(g) !== JSON.stringify(m)) { bad++; console.log(bo.name, "step", n, "differs:", JSON.stringify(g).slice(0, 160), "|", JSON.stringify(m).slice(0, 160)); break; }
     }
   }
@@ -179,13 +224,14 @@ async function play(NB, MAX, only) {
   const rows = [];
   BOARDS.forEach((bo, i) => {
     if (only !== undefined && i !== only) return;
-    const lives = [], lamp = bo.lights.map(() => 0); let saves = 0, mid = 0, side = 0, kept = 0, stuck = 0, upper = 0, total = 0, bumps = 0, kicks = 0, warps = 0;
+    const lives = [], lamp = bo.lights.map(() => 0); let deckT = 0, kinds = [0, 0, 0, 0], saves = 0, mid = 0, side = 0, kept = 0, stuck = 0, upper = 0, total = 0, bumps = 0, kicks = 0, warps = 0;
     for (let n = 0; n < NB; n++) {
-      let g = start3(bo); const st = { pull: 20 + Math.floor(rnd() * 80), L: 0, R: 0, lag: LAG, miss: MISS, rnd }; let s = 0, still = 0; const seen = new Set();
+      let g = start4(bo); const st = { pull: 20 + Math.floor(rnd() * 80), L: 0, R: 0, lag: LAG, miss: MISS, rnd }; let s = 0, still = 0; const seen = new Set();
       for (; s < MAX; s++) {
-        const [l, r, la] = bot(bo, g, st), g2 = step3(bo, g, l, r, la);
+        const [l, r, la] = bot(bo, g, st), g2 = step4(bo, g, l, r, la);
         for (const h of g2.hits) if (h === 2000) saves++; else if (h >= 1000) kicks++; else bumps++;
-        if (g2.gate >= 0 && g.gate < 0) warps++;
+        if (g2.gate >= 0 && g.gate < 0) { warps++; kinds[bo.portals[g2.gate].kind || 0]++; }
+        if (g2.lv === 1) deckT++;
         const x = g2.x / 1000, y = g2.y / 1000;
         if (g2.balls < g.balls || g2.over) { const lx = g.x / 1000; if (lx > 270 && lx < 330) mid++; else side++; break; }
         if (!(x > 545 && y > 900)) { total++; if (ZONES[i] && y < ZONES[i]) upper++; }
@@ -199,7 +245,7 @@ async function play(NB, MAX, only) {
     }
     lives.sort((a, c) => a - c);
     rows.push({ board: bo.name, life_s: +(lives[lives.length >> 1] / 60).toFixed(1), under_10s: lives.filter(x => x < 600).length, kept, stuck, drains: `${mid} mid ${side} side`,
-      upper: ZONES[i] ? Math.round(100 * upper / Math.max(1, total)) + "%" : "", bumps: Math.round(bumps / NB), kicks: Math.round(kicks / NB), warps: Math.round(warps / NB), saves,
+      upper: ZONES[i] ? Math.round(100 * upper / Math.max(1, total)) + "%" : "", bumps: Math.round(bumps / NB), kicks: Math.round(kicks / NB), deck: bo.glass && bo.glass.length ? Math.round(100 * deckT / Math.max(1, total)) + "%" : "", ups: `${(kinds[1] / NB).toFixed(1)}r ${(kinds[2] / NB).toFixed(1)}l ${(kinds[3] / NB).toFixed(1)}h`, saves,
       dark_lamps: lamp.map((c, k) => c / NB < 0.25 ? k : null).filter(k => k !== null).join(" ") });
   });
   console.table(rows);
@@ -208,8 +254,8 @@ async function heat(i, NB, MAX) {
   const { BOARDS } = await import(new URL("../pinball/rules/boards.mjs", here));
   const bo = BOARDS[i], C = 30, R = 50, grid = Array.from({ length: R }, () => new Array(C).fill(0));
   let seed = 5; const rnd = () => (seed = seed * 16807 % 2147483647) / 2147483647;
-  for (let n = 0; n < NB; n++) { let g = start3(bo); const st = { pull: 20 + Math.floor(rnd() * 80), L: 0, R: 0 };
-    for (let s = 0; s < MAX; s++) { const [l, r, la] = bot(bo, g, st), g2 = step3(bo, g, l, r, la); if (g2.balls < g.balls || g2.over) break; g = g2;
+  for (let n = 0; n < NB; n++) { let g = start4(bo); const st = { pull: 20 + Math.floor(rnd() * 80), L: 0, R: 0 };
+    for (let s = 0; s < MAX; s++) { const [l, r, la] = bot(bo, g, st), g2 = step4(bo, g, l, r, la); if (g2.balls < g.balls || g2.over) break; g = g2;
       const cx = Math.floor(g.x / 1000 / 20), cy = Math.floor(g.y / 1000 / 20); if (cx >= 0 && cx < C && cy >= 0 && cy < R) grid[cy][cx]++; } }
   const mx = Math.max(...grid.flat()), ch = " .:-=+*#%@";
   console.log(bo.name + " (each character 20 units; the busier, the darker)");
@@ -233,12 +279,15 @@ if (cmd === "hazelcheck") {
     const starts = [{ x: 300000, y: 140000, vx: 3000, vy: 2000 }, { x: 230000, y: 860000, vx: 1000, vy: 9000 }, { x: 150000, y: 700000, vx: -6000, vy: 4000 }];
     starts.push({ x: 562000, y: 940000, vx: 0, vy: 0, launch: 37 }, { x: 562000, y: 940000, vx: 0, vy: 0, launch: 100 }, { x: 300000, y: 1020000, vx: 0, vy: 9000 }, { x: 300000, y: 1020000, vx: 0, vy: 9000, save: 0 }, { x: 300000, y: 1020000, vx: 0, vy: 9000, save: -1, balls: 1 });
     if (mine.portals.length) starts.push({ x: mine.portals[0].x * 1000, y: mine.portals[0].y * 1000 - 30000, vx: 0, vy: 6000 });
+    // (round four) on the deck; at each link's mouth, a ramp's moving up fast, a deck's on the deck
+    if (mine.glass && mine.glass.length) starts.push({ x: 300000, y: 150000, vx: 2000, vy: 3000, lv: 1 }, { x: 260000, y: 330000, vx: 1000, vy: 6000, lv: 1 });
+    for (const q of mine.portals) if (q.kind) starts.push({ x: q.x * 1000, y: (q.y + (q.need ? 30 : -20)) * 1000, vx: 0, vy: q.need ? -14000 : 5000, lv: q.from });
     const fl = mine.flippers.length; if (fl > 2) starts.push({ x: mine.flippers[2].x * 1000 + 30000, y: mine.flippers[2].y * 1000 - 40000, vx: 0, vy: 5000 });
     for (const s0 of starts) {
       const { launch: la0 = 0, ...g0 } = s0, sv = g0.save ?? 200;
-      let a = { ...start3(mine), ...g0, save: sv }, b = { ...norm(P.start(i)), ...g0, save: sv };
+      let a = { ...start4(mine), ...g0, save: sv }, b = { ...norm(P.start(i)), ...g0, save: sv };
       for (let n = 0; n < N; n++) {
-        const l = n % 6 < 3, rr = n % 5 < 2; const la = n === 0 ? la0 : 0; a = step3(mine, a, l, rr, la); b = norm(P.step(i, b, l, rr, la)); steps++;
+        const l = n % 6 < 3, rr = n % 5 < 2; const la = n === 0 ? la0 : 0; a = step4(mine, a, l, rr, la); b = norm(P.step(i, b, l, rr, la)); steps++;
         if (JSON.stringify(a) !== JSON.stringify(b)) { bad++; console.log(mine.name, "from", JSON.stringify(s0), "step", n, "differs:\n  lab  ", JSON.stringify(a).slice(0, 220), "\n  hazel", JSON.stringify(b).slice(0, 220)); break; }
       }
     }

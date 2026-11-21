@@ -62,12 +62,33 @@
       for (let k = 0; k < 10; k++) { const x = 40 + r() * 520, y = 60 + r() * 880, s = 10 + 10 * r(), d = r() < 0.5 ? 1 : -1; c.globalAlpha = 0.1;
         c.beginPath(); c.ellipse(x, y, s, s * 0.45, 0, 0, 7); c.fill(); c.beginPath(); c.moveTo(x - d * s * 0.8, y); c.lineTo(x - d * s * 1.5, y - s * 0.5); c.lineTo(x - d * s * 1.5, y + s * 0.5); c.closePath(); c.fill(); }
     },
-    leaves(c, r, ink, glow) {   // leaves and little flowers on the forest floor
-      for (let k = 0; k < 80; k++) { const x = r() * 600, y = r() * 1000, s = 9 + 14 * r(), t = r() * Math.PI * 2;
-        c.save(); c.translate(x, y); c.rotate(t); c.globalAlpha = 0.07 + 0.05 * r(); c.fillStyle = ink; c.beginPath(); c.ellipse(0, 0, s, s * 0.42, 0, 0, 7); c.fill();
-        c.globalAlpha = 0.1; c.strokeStyle = glow; c.lineWidth = 1; c.beginPath(); c.moveTo(-s, 0); c.lineTo(s, 0); c.stroke(); c.restore(); }
-      c.fillStyle = glow;
-      for (let k = 0; k < 22; k++) { const x = r() * 600, y = r() * 1000; c.globalAlpha = 0.1; for (let p = 0; p < 5; p++) { const a = p * 2 * Math.PI / 5; c.beginPath(); c.arc(x + 5 * Math.cos(a), y + 5 * Math.sin(a), 3.4, 0, 7); c.fill(); } }
+    leaves(c, r, ink, glow) {   // (round four; Matthew: "let's enhance the details of the backgrounds, especially the leaves") a forest
+      // floor: leaves of four kinds, each with its veins (a long leaf, a midrib and side veins; an oak leaf, lobed; a maple leaf,
+      // five-pointed and toothed; a ginkgo fan), fern fronds (a curving stem, leaflets along it, each a little frond of its
+      // own), small spotted mushrooms, flowers, and moss
+      const leaf = (x, y, s, t, kind, col) => { c.save(); c.translate(x, y); c.rotate(t); c.fillStyle = col; c.strokeStyle = col; c.beginPath();
+        if (kind === 0) { c.moveTo(-s, 0); c.quadraticCurveTo(0, -s * 0.45, s, 0); c.quadraticCurveTo(0, s * 0.45, -s, 0); }
+        else if (kind === 1) { for (let k = 0; k <= 48; k++) { const u = k / 48, a = u * Math.PI * 2, w = Math.sin(a) * s * 0.42 * (0.72 + 0.28 * Math.cos(u * 14 * Math.PI)); if (k) c.lineTo(Math.cos(a) * s, w); else c.moveTo(Math.cos(a) * s, w); } }
+        else if (kind === 2) { for (let k = 0; k <= 80; k++) { const a = k / 80 * Math.PI * 2 - Math.PI / 2, lobe = Math.abs(Math.cos(a * 2.5 + Math.PI * 1.25)), rr = s * (0.42 + 0.58 * Math.pow(lobe, 3)) * (1 + 0.07 * Math.sin(a * 34)); if (k) c.lineTo(Math.cos(a) * rr, Math.sin(a) * rr); else c.moveTo(Math.cos(a) * rr, Math.sin(a) * rr); } }
+        else { c.moveTo(0, s * 0.6); c.lineTo(-s * 0.78, -s * 0.32); c.quadraticCurveTo(0, -s * 0.9, s * 0.78, -s * 0.32); }
+        c.closePath(); c.globalAlpha = 0.08; c.fill(); c.globalAlpha = 0.13; c.lineWidth = 0.8; c.stroke();
+        c.globalAlpha = 0.15; c.lineWidth = 0.7; c.beginPath();
+        if (kind < 2) { c.moveTo(-s, 0); c.lineTo(s * 0.95, 0); for (let k = 1; k < 6; k++) { const u = -s + k * s / 3; c.moveTo(u, 0); c.lineTo(u + s * 0.24, -s * 0.27); c.moveTo(u, 0); c.lineTo(u + s * 0.24, s * 0.27); } }
+        else if (kind === 2) { for (let k = 0; k < 5; k++) { const a = -Math.PI / 2 + k * Math.PI * 2 / 5; c.moveTo(0, s * 0.1); c.lineTo(Math.cos(a) * s * 0.85, Math.sin(a) * s * 0.85); } c.moveTo(0, s * 0.1); c.lineTo(0, s * 0.75); }
+        else for (let k = -3; k <= 3; k++) { c.moveTo(0, s * 0.55); c.lineTo(Math.sin(k * 0.32) * s * 0.78, -Math.cos(k * 0.32) * s * 0.6 + s * 0.05); }
+        c.stroke(); c.restore(); };
+      const fern = (x, y, len, t, d) => { c.save(); c.translate(x, y); c.rotate(t); c.globalAlpha = 0.1; c.strokeStyle = ink; c.lineWidth = d ? 1 : 0.6;
+        c.beginPath(); c.moveTo(0, 0); c.quadraticCurveTo(len * 0.5, -len * 0.14, len, 0); c.stroke();
+        for (let k = 1; k < 10; k++) { const u = k / 10, px = len * u, py = -len * 0.14 * 2 * u * (1 - u), l2 = len * 0.34 * (1 - u * 0.75);
+          for (const sd of [-1, 1]) { if (d) fern(px, py, l2, sd * 1.05, d - 1); else { c.globalAlpha = 0.1; c.fillStyle = glow; c.beginPath(); c.ellipse(px, py, l2 * 0.55, l2 * 0.17, sd * 1.05, 0, 7); c.fill(); } } }
+        c.restore(); };
+      for (let k = 0; k < 12; k++) fern(r() * 600, r() * 1000, 55 + 45 * r(), r() * 7, 1);
+      for (let k = 0; k < 72; k++) leaf(r() * 600, r() * 1000, 9 + 16 * r(), r() * 7, Math.floor(r() * 4), r() < 0.25 ? glow : ink);
+      for (let k = 0; k < 16; k++) { const x = r() * 600, y = r() * 1000, sz = 4 + 6 * r(); c.globalAlpha = 0.1; c.fillStyle = ink; c.fillRect(x - sz * 0.18, y, sz * 0.36, sz * 0.9);
+        c.fillStyle = glow; c.beginPath(); c.ellipse(x, y, sz, sz * 0.62, 0, Math.PI, 0); c.fill(); c.globalAlpha = 0.16; c.fillStyle = "#ffffff"; for (let d = 0; d < 3; d++) { c.beginPath(); c.arc(x - sz * 0.5 + d * sz * 0.5, y - sz * 0.3, sz * 0.11, 0, 7); c.fill(); } }
+      for (let k = 0; k < 22; k++) { const x = r() * 600, y = r() * 1000; c.globalAlpha = 0.1; c.fillStyle = glow; for (let q = 0; q < 5; q++) { const a = q * 2 * Math.PI / 5; c.beginPath(); c.arc(x + 5 * Math.cos(a), y + 5 * Math.sin(a), 3.4, 0, 7); c.fill(); }
+        c.fillStyle = "#facc15"; c.globalAlpha = 0.14; c.beginPath(); c.arc(x, y, 2, 0, 7); c.fill(); }
+      for (let k = 0; k < 280; k++) { c.globalAlpha = 0.05 + 0.06 * r(); c.fillStyle = r() < 0.5 ? ink : glow; c.beginPath(); c.arc(r() * 600, r() * 1000, 0.8 + 1.4 * r(), 0, 7); c.fill(); }
     },
     bricks(c, r, ink, glow) {   // the castle's stones
       for (let row = 0; row * 26 < 1000; row++) for (let col = -1; col * 62 < 620; col++) { const x = col * 62 + (row % 2 ? 31 : 0), y = row * 26;
@@ -133,28 +154,143 @@
       c.restore();
     }
   }
+  // ---- (round four; Matthew: "let's enhance the details of the other game elements that are active, like the bumpers and the
+  // side walls, making them more fractalized for effect (but not in game geometry, which stays smooth)") a wall drawn smooth,
+  // as the rules have it, with a fringe beside it: a lightning line each side (the segment's midpoints pushed out at random,
+  // the push halving each time) and frost branching off it every so often (each branch splitting in two, twice)
+  function fringe(c, w, col, seed) {
+    const r = seeded(seed), dx = w.bx - w.ax, dy = w.by - w.ay, L = Math.hypot(dx, dy); if (L < 8) return;
+    const nx = -dy / L, ny = dx / L;
+    c.save(); c.strokeStyle = col; c.lineCap = "round";
+    for (const side of [-1, 1]) {
+      let pts = [[0, 0], [1, 0]], amp = Math.min(7, L / 9);
+      for (let it = 0; it < 4; it++) { const out = []; for (let k = 0; k < pts.length - 1; k++) out.push(pts[k], [(pts[k][0] + pts[k + 1][0]) / 2, (pts[k][1] + pts[k + 1][1]) / 2 + (r() - 0.5) * amp]); out.push(pts[pts.length - 1]); pts = out; amp /= 2; }
+      c.beginPath(); pts.forEach(([u, o], k) => { const x = w.ax + dx * u + nx * (side * 6 + o), y = w.ay + dy * u + ny * (side * 6 + o); if (k) c.lineTo(x, y); else c.moveTo(x, y); });
+      c.globalAlpha = 0.32; c.lineWidth = 1; c.stroke();
+    }
+    const branch = (x, y, a, len, d) => { const x2 = x + Math.cos(a) * len, y2 = y + Math.sin(a) * len; c.beginPath(); c.moveTo(x, y); c.lineTo(x2, y2); c.stroke(); if (d) { branch(x2, y2, a - 0.65, len * 0.62, d - 1); branch(x2, y2, a + 0.65, len * 0.62, d - 1); } };
+    c.globalAlpha = 0.2; c.lineWidth = 0.8;
+    for (let u = 14; u < L - 8; u += 28) { const side = r() < 0.5 ? -1 : 1, x = w.ax + dx * u / L + nx * side * 6, y = w.ay + dy * u / L + ny * side * 6; branch(x, y, Math.atan2(ny * side, nx * side), 7, 2); }
+    c.restore();
+  }
+  // each bumper from a sprite of its own (twice the pixels, sharp on a phone), turned a little each frame: a rim of spikes on
+  // spikes (a Koch star: each edge of a twelve-sided figure breaks into a spike, twice over), a glassy body, and circles round
+  // circles inside it (six round the middle one, six round each of those)
+  const sprites = new Map();
+  function sprite(r, ink, glow) {
+    const key = `${r}|${ink}|${glow}`; if (sprites.has(key)) return sprites.get(key);
+    const s = Math.ceil(2 * r + 22), C = document.createElement("canvas"); C.width = C.height = 2 * s;
+    const c = C.getContext("2d"); c.scale(2, 2); c.translate(s / 2, s / 2);
+    let pts = []; for (let k = 0; k < 12; k++) pts.push([Math.cos(k * Math.PI / 6) * (r + 2), Math.sin(k * Math.PI / 6) * (r + 2)]);
+    for (let it = 0; it < 2; it++) { const out = [];
+      for (let k = 0; k < pts.length; k++) { const [ax, ay] = pts[k], [bx, by] = pts[(k + 1) % pts.length], dx = bx - ax, dy = by - ay, mx = ax + dx / 2, my = ay + dy / 2;
+        let nx = dy, ny = -dx; if (nx * mx + ny * my < 0) { nx = -nx; ny = -ny; } const h = it ? 0.24 : 0.32;
+        out.push([ax, ay], [ax + dx / 3, ay + dy / 3], [mx + nx * h, my + ny * h], [ax + 2 * dx / 3, ay + 2 * dy / 3]); }
+      pts = out; }
+    c.beginPath(); pts.forEach(([x, y], k) => k ? c.lineTo(x, y) : c.moveTo(x, y)); c.closePath();
+    c.globalAlpha = 0.3; c.fillStyle = glow; c.fill(); c.globalAlpha = 0.85; c.strokeStyle = glow; c.lineWidth = 1; c.stroke();
+    const body = c.createRadialGradient(-r * 0.3, -r * 0.35, r * 0.08, 0, 0, r); body.addColorStop(0, "#ffffff"); body.addColorStop(0.3, glow); body.addColorStop(1, ink);
+    c.globalAlpha = 0.8; c.beginPath(); c.arc(0, 0, r, 0, TAU); c.fillStyle = body; c.fill();
+    c.save(); c.beginPath(); c.arc(0, 0, r - 1, 0, TAU); c.clip();
+    const ring = (x, y, rr, d) => { c.beginPath(); c.arc(x, y, rr, 0, TAU); c.stroke(); if (d) for (let k = 0; k < 6; k++) { const a = k * Math.PI / 3; ring(x + Math.cos(a) * rr, y + Math.sin(a) * rr, rr / 2.7, d - 1); } };
+    c.globalAlpha = 0.45; c.strokeStyle = ink; c.lineWidth = 0.7; ring(0, 0, r * 0.4, 2); c.restore();
+    c.globalAlpha = 1; c.lineWidth = 2.5; c.strokeStyle = ink; c.beginPath(); c.arc(0, 0, r, 0, TAU); c.stroke();
+    const out = { C, s }; sprites.set(key, out); return out;
+  }
+  // a path of a link (x, y, x, y...): its point a share v of the way along
+  function along(path, v) {
+    if (!path || path.length < 4) return null;
+    const segs = []; let total = 0; for (let k = 0; k + 3 < path.length; k += 2) { const l = Math.hypot(path[k + 2] - path[k], path[k + 3] - path[k + 1]); segs.push(l); total += l; }
+    let d = Math.max(0, Math.min(1, v)) * total;
+    for (let k = 0, i = 0; k + 3 < path.length; k += 2, i++) { if (d <= segs[i] || i === segs.length - 1) { const u = segs[i] ? Math.min(1, d / segs[i]) : 0; return [path[k] + (path[k + 2] - path[k]) * u, path[k + 1] + (path[k + 3] - path[k + 1]) * u]; } d -= segs[i]; }
+    return [path[path.length - 2], path[path.length - 1]];
+  }
+  function polyline(c, path) { c.beginPath(); for (let k = 0; k + 1 < path.length; k += 2) if (k) c.lineTo(path[k], path[k + 1]); else c.moveTo(path[k], path[k + 1]); }
+  // the table's layer: the pattern, the tracks, the hidden tunnels (dotted, under the board), the table's walls (smooth, their
+  // fringe beside them), its portals and the mouths of its ramps and lifts; the bumpers are drawn each frame (they turn)
+  // (round four) a detail more on each of the other patterns: nebulas among the stars, cracks through the basalt, foam on the
+  // water, moss on the stones, fish bones among the paw prints, confetti over the diamonds, rays from the craters, a spiral in
+  // the rings, aerials and stars over the towers
+  const DETAILS = {
+    stars(c, r, ink, glow) { for (let k = 0; k < 4; k++) { const x = r() * 600, y = r() * 1000, rr = 120 + 120 * r(), g2 = c.createRadialGradient(x, y, 4, x, y, rr); g2.addColorStop(0, k % 2 ? glow : ink); g2.addColorStop(1, "rgba(0,0,0,0)"); c.globalAlpha = 0.07; c.fillStyle = g2; c.fillRect(x - rr, y - rr, 2 * rr, 2 * rr); } },
+    basalt(c, r, ink) { c.strokeStyle = ink; c.lineWidth = 1; for (let k = 0; k < 14; k++) { let x = r() * 600, y = r() * 1000; c.globalAlpha = 0.1; c.beginPath(); c.moveTo(x, y); for (let j = 0; j < 7; j++) { x += (r() - 0.5) * 50; y += 10 + r() * 30; c.lineTo(x, y); } c.stroke(); } },
+    waves(c, r, ink, glow) { c.fillStyle = "#ffffff"; for (let k = 0; k < 160; k++) { c.globalAlpha = 0.05 + 0.06 * r(); c.beginPath(); c.arc(r() * 600, r() * 1000, 0.8 + 1.8 * r(), 0, 7); c.fill(); } },
+    bricks(c, r, ink, glow) { for (let k = 0; k < 40; k++) { const x = r() * 600, y = r() * 1000; c.globalAlpha = 0.08; c.fillStyle = "#4ade80"; for (let j = 0; j < 7; j++) { c.beginPath(); c.arc(x + (r() - 0.5) * 18, y + (r() - 0.5) * 8, 2 + 3 * r(), 0, 7); c.fill(); } } },
+    paws(c, r, ink, glow) { c.strokeStyle = glow; c.lineWidth = 1.5; for (let k = 0; k < 6; k++) { const x = r() * 600, y = r() * 1000, t = r() * 7; c.save(); c.translate(x, y); c.rotate(t); c.globalAlpha = 0.1;
+      c.beginPath(); c.moveTo(-18, 0); c.lineTo(16, 0); for (let j = -2; j <= 2; j++) { c.moveTo(j * 6, -6); c.lineTo(j * 6, 6); } c.moveTo(16, 0); c.lineTo(24, -7); c.moveTo(16, 0); c.lineTo(24, 7); c.stroke(); c.beginPath(); c.arc(-22, 0, 4, 0, 7); c.stroke(); c.restore(); } },
+    diamonds(c, r, ink, glow) { for (let k = 0; k < 120; k++) { c.save(); c.translate(r() * 600, r() * 1000); c.rotate(r() * 7); c.globalAlpha = 0.1; c.fillStyle = [ink, glow, "#38bdf8", "#4ade80"][k % 4]; c.fillRect(-3, -1.5, 6, 3); c.restore(); } },
+    craters(c, r, ink, glow) { c.strokeStyle = glow; c.lineWidth = 1; for (let k = 0; k < 4; k++) { const x = r() * 600, y = r() * 1000; for (let j = 0; j < 12; j++) { const a = j * Math.PI / 6 + r() * 0.3, l = 60 + 80 * r(); c.globalAlpha = 0.06; c.beginPath(); c.moveTo(x + Math.cos(a) * 20, y + Math.sin(a) * 20); c.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l); c.stroke(); } } },
+    rings(c, r, ink, glow) { c.strokeStyle = glow; c.lineWidth = 1.5; c.globalAlpha = 0.07; c.beginPath(); for (let k = 0; k < 900; k++) { const a = k * 0.06, rr = 4 + k * 0.5; const x = 300 + Math.cos(a) * rr, y = 500 + Math.sin(a) * rr; if (k) c.lineTo(x, y); else c.moveTo(x, y); } c.stroke(); },
+    windows(c, r, ink, glow) { c.strokeStyle = ink; c.lineWidth = 1; for (let k = 0; k < 9; k++) { const x = 20 + r() * 560, y = 130 + r() * 300; c.globalAlpha = 0.1; c.beginPath(); c.moveTo(x, y); c.lineTo(x, y - 30 - 30 * r()); c.stroke(); }
+      c.fillStyle = glow; for (let k = 0; k < 40; k++) { c.globalAlpha = 0.08 + 0.08 * r(); c.beginPath(); c.arc(r() * 600, r() * 200, 0.8 + r(), 0, 7); c.fill(); } },
+  };
   function boardLayer(b) {
     const L = document.createElement("canvas"); L.width = 600; L.height = 1000;
     const c = L.getContext("2d");
     c.fillStyle = b.bg; c.fillRect(0, 0, 600, 1000);
     if (PATTERNS[b.pattern]) { c.save(); PATTERNS[b.pattern](c, seeded(7 + 31 * S.board), b.ink, b.glow); c.restore(); c.globalAlpha = 1; c.lineWidth = 1; }
+    if (DETAILS[b.pattern]) { c.save(); DETAILS[b.pattern](c, seeded(71 + 31 * S.board), b.ink, b.glow); c.restore(); c.globalAlpha = 1; c.lineWidth = 1; }
     c.fillStyle = b.ink; trackLayer(c, b); c.globalAlpha = 1; c.lineWidth = 1;
-    c.strokeStyle = b.ink; c.lineWidth = 5; c.lineCap = "round";
-    for (const w of b.walls) { c.beginPath(); c.moveTo(w.ax, w.ay); c.lineTo(w.bx, w.by); c.lineWidth = w.kick > 0 ? 8 : 5; c.strokeStyle = w.kick > 0 ? b.glow : b.ink; c.stroke(); }
+    for (const p of b.portals) if (p.kind === 3) { c.save(); c.setLineDash([3, 7]); c.globalAlpha = 0.35; c.strokeStyle = b.glow; c.lineWidth = 3; polyline(c, p.path); c.stroke(); c.restore(); }
+    b.walls.forEach((w, j) => { if (w.level) return; fringe(c, w, w.kick > 0 ? b.glow : b.ink, 101 + 7 * j); });
+    c.lineCap = "round";
+    for (const w of b.walls) { if (w.level) continue; c.beginPath(); c.moveTo(w.ax, w.ay); c.lineTo(w.bx, w.by); c.lineWidth = w.kick > 0 ? 8 : 5; c.strokeStyle = w.kick > 0 ? b.glow : b.ink; c.stroke(); }
     for (const p of b.portals) {
-      for (let i = 0; i < 3; i++) { c.beginPath(); c.arc(p.x, p.y, p.r - i * 6, 0, 2 * Math.PI); c.strokeStyle = i % 2 ? b.ink : b.glow; c.lineWidth = 3; c.stroke(); }
-      c.beginPath(); c.arc(p.tx, p.ty, 8, 0, 2 * Math.PI); c.strokeStyle = b.glow; c.setLineDash([4, 4]); c.stroke(); c.setLineDash([]);
+      if ((p.from || 0) !== 0) continue;
+      if (!p.kind) { for (let i = 0; i < 3; i++) { c.beginPath(); c.arc(p.x, p.y, p.r - i * 6, 0, TAU); c.strokeStyle = i % 2 ? b.ink : b.glow; c.lineWidth = 3; c.stroke(); }
+        c.beginPath(); c.arc(p.tx, p.ty, 8, 0, TAU); c.strokeStyle = b.glow; c.setLineDash([4, 4]); c.stroke(); c.setLineDash([]); continue; }
+      // a ramp's mouth: a metal arch over the way in, chevrons pointing up it; a lift's: a ring and an arrow up
+      c.save(); c.translate(p.x, p.y); c.strokeStyle = "#e2e8f0"; c.lineWidth = 2.5; c.globalAlpha = 0.85;
+      if (p.kind === 1) { c.beginPath(); c.arc(0, 4, p.r, Math.PI, TAU); c.stroke(); c.beginPath(); c.moveTo(-p.r, 4); c.lineTo(-p.r, 16); c.moveTo(p.r, 4); c.lineTo(p.r, 16); c.stroke();
+        c.strokeStyle = b.glow; for (const yy of [2, 12]) { c.beginPath(); c.moveTo(-8, yy + 6); c.lineTo(0, yy); c.lineTo(8, yy + 6); c.stroke(); } }
+      else { c.beginPath(); c.arc(0, 0, p.r, 0, TAU); c.stroke(); c.strokeStyle = b.glow; c.beginPath(); c.moveTo(0, 8); c.lineTo(0, -8); c.moveTo(-6, -2); c.lineTo(0, -8); c.lineTo(6, -2); c.stroke(); }
+      c.restore();
     }
-    for (const q of b.bumpers) { if (q.track >= 0) continue; c.beginPath(); c.arc(q.x, q.y, q.r, 0, 2 * Math.PI); c.fillStyle = b.ink; c.globalAlpha = 0.25; c.fill(); c.globalAlpha = 1; c.lineWidth = 4; c.strokeStyle = b.ink; c.stroke(); }
     // (its name in the corner under the left slope, out of play: the foot of the table is the save light's, and some boards' post)
     c.fillStyle = b.ink; c.font = "bold 20px system-ui, sans-serif"; c.textAlign = "left"; c.globalAlpha = 0.5; c.fillText(b.name, 26, 985); c.globalAlpha = 1;
+    return L;
+  }
+  // (round four; Matthew: "add a mezzanine level, that's transparent but apparently one level above the back half of the board")
+  // the mezzanine's layer: its glass (the outline the board gives), lit along its edge, light streaking across it; its walls;
+  // its holes
+  function deckLayer(b) {
+    if (!b.glass || b.glass.length < 6) return null;
+    const L = document.createElement("canvas"); L.width = 600; L.height = 1000; const c = L.getContext("2d");
+    polyline(c, b.glass); c.closePath();
+    const gl = c.createLinearGradient(0, 40, 600, 420); gl.addColorStop(0, "rgba(255,255,255,0.16)"); gl.addColorStop(0.5, "rgba(255,255,255,0.05)"); gl.addColorStop(1, "rgba(255,255,255,0.12)");
+    c.fillStyle = gl; c.fill(); c.globalAlpha = 0.75; c.strokeStyle = b.glow; c.lineWidth = 2; c.stroke();
+    c.save(); c.clip(); c.globalAlpha = 0.08; c.strokeStyle = "#ffffff"; c.lineWidth = 14; for (let k = -2; k < 6; k++) { c.beginPath(); c.moveTo(k * 140, 0); c.lineTo(k * 140 + 260, 460); c.stroke(); } c.restore();
+    b.walls.forEach((w, j) => { if (!w.level) return; fringe(c, w, b.glow, 301 + 7 * j); });
+    c.globalAlpha = 1; c.lineCap = "round";
+    for (const w of b.walls) { if (!w.level) continue; c.beginPath(); c.moveTo(w.ax, w.ay); c.lineTo(w.bx, w.by); c.lineWidth = 5; c.strokeStyle = b.ink; c.stroke(); c.lineWidth = 1.5; c.strokeStyle = "#ffffff"; c.globalAlpha = 0.5; c.stroke(); c.globalAlpha = 1; }
+    for (const p of b.portals) { if (p.from !== 1 || p.kind === 1) continue;
+      const hg = c.createRadialGradient(p.x, p.y, 2, p.x, p.y, p.r); hg.addColorStop(0, "#000000"); hg.addColorStop(0.8, "rgba(0,0,0,0.85)"); hg.addColorStop(1, b.glow);
+      c.beginPath(); c.arc(p.x, p.y, p.r, 0, TAU); c.fillStyle = hg; c.fill(); }
+    for (const p of b.portals) { if (p.from !== 1 || p.kind !== 1) continue; c.save(); c.translate(p.x, p.y); c.strokeStyle = "#e2e8f0"; c.lineWidth = 2; c.beginPath(); c.arc(0, -2, p.r, 0, Math.PI); c.stroke(); c.restore(); }
+    return L;
+  }
+  // the wires over everything: each ramp a tube of four wires with rings round them; each lift a cage of two rails with rungs
+  function wireLayer(b) {
+    const ws = b.portals.filter(p => (p.kind === 1 || p.kind === 2) && p.path && p.path.length >= 4); if (!ws.length) return null;
+    const L = document.createElement("canvas"); L.width = 600; L.height = 1000; const c = L.getContext("2d"); c.lineCap = "round"; c.lineJoin = "round";
+    for (const p of ws) {
+      const path = p.path, offs = p.kind === 1 ? [-7, -2.5, 2.5, 7] : [-8, 8];
+      c.globalAlpha = 0.25; c.strokeStyle = "#000000"; c.lineWidth = 18; c.save(); c.translate(6, 9); polyline(c, path); c.stroke(); c.restore();
+      for (let k = 0; k + 3 < path.length; k += 2) {
+        const ax = path[k], ay = path[k + 1], bx = path[k + 2], by = path[k + 3], l = Math.hypot(bx - ax, by - ay) || 1, nx = -(by - ay) / l, ny = (bx - ax) / l;
+        offs.forEach((o, i) => { c.globalAlpha = 0.85; c.strokeStyle = i % 2 ? "#94a3b8" : "#e2e8f0"; c.lineWidth = 1.6; c.beginPath(); c.moveTo(ax + nx * o, ay + ny * o); c.lineTo(bx + nx * o, by + ny * o); c.stroke(); });
+        const step = p.kind === 1 ? 16 : 10;
+        for (let u = 0; u < l; u += step) { const x = ax + (bx - ax) * u / l, y = ay + (by - ay) * u / l; c.globalAlpha = 0.7; c.strokeStyle = "#cbd5e1"; c.lineWidth = p.kind === 1 ? 1.2 : 1.6;
+          c.beginPath(); c.moveTo(x + nx * offs[0], y + ny * offs[0]); c.lineTo(x + nx * offs[offs.length - 1], y + ny * offs[offs.length - 1]); c.stroke(); }
+      }
+    }
     return L;
   }
   function draw() {
     const b = S.boardData, g = S.game;
     if (!b) { cx.fillStyle = "#0b1030"; cx.fillRect(0, 0, 600, 1000); return; }
     cx.drawImage(S.layer, 0, 0);
-    const now = performance.now();
+    const now = performance.now(), T = g ? g.t || 0 : 0, lvOf = p => p.level || 0;
     // (Matthew: "let's have the backgrounds animate/flash, etc, to make the game more excting") a slow glow wandering over the
     // pattern; the whole table flashing at a hit, and a ring spreading from it
     const gx = 300 + 210 * Math.sin(now / 2900), gy = 500 + 330 * Math.cos(now / 4100), amb = cx.createRadialGradient(gx, gy, 10, gx, gy, 420);
@@ -163,52 +299,51 @@
     S.rings = S.rings.filter(q => now - q.t < 420);
     for (const q of S.rings) { const u = (now - q.t) / 420; cx.globalAlpha = 0.55 * (1 - u); cx.strokeStyle = q.col || b.glow; cx.lineWidth = 4 * (1 - u) + 1; cx.beginPath(); cx.arc(q.x, q.y, q.r + 150 * u, 0, 7); cx.stroke(); }
     cx.globalAlpha = 1;
-    // (Matthew: "\"light arrays\" along the paths that are most likey for the ball to travel, with flashes/color changes and
-    // sounds") the lamps: dark rings with a slow chase running through them, lit as the ball passes, a row all lit blinking
-    (b.lights || []).forEach((l, k) => {
-      const blink = S.rowBlink.get(l.group), on = S.lit.has(k) || (blink && now - blink < 900 && Math.floor((now - blink) / 110) % 2 === 0);
-      if (on) { cx.globalAlpha = 0.3; cx.fillStyle = b.glow; cx.beginPath(); cx.arc(l.x, l.y, 13, 0, 7); cx.fill(); cx.globalAlpha = 1; cx.beginPath(); cx.arc(l.x, l.y, 6.5, 0, 7); cx.fill();
-        cx.fillStyle = "#ffffff"; cx.globalAlpha = 0.8; cx.beginPath(); cx.arc(l.x - 1.5, l.y - 1.5, 2.2, 0, 7); cx.fill(); }
-      else { const chase = 0.5 + 0.5 * Math.sin(now / 180 - k * 0.9); cx.globalAlpha = 0.25 + 0.25 * chase; cx.strokeStyle = b.glow; cx.lineWidth = 2; cx.beginPath(); cx.arc(l.x, l.y, 6.5, 0, 7); cx.stroke();
-        cx.globalAlpha = 0.08 + 0.12 * chase; cx.fillStyle = b.glow; cx.fill(); }
-    });
     for (const [grp, t] of S.rowBlink) if (now - t >= 900) { S.rowBlink.delete(grp); (b.lights || []).forEach((l, k) => { if (l.group === grp) S.lit.delete(k); }); }
-    cx.globalAlpha = 1;
-    // (Matthew: "more flashes/changes when we hit bumbers in the board", "bumpers or other things that collide with the ball")
-    // the machine behind the board: a gear turning at each oval track's middle, an arm out to each bumper riding it, a cable
-    // up from each lift; then the riding bumpers themselves
-    const T = g ? g.t || 0 : 0;
-    (b.tracks || []).forEach((tr, k) => {
-      const riders = b.bumpers.filter(q => q.track === k);
-      if (tr.rx > 0 && tr.ry > 0) {
-        const th = TAU / tr.period * T; cx.save(); cx.translate(tr.cx, tr.cy); cx.rotate(th); cx.globalAlpha = 0.35; cx.strokeStyle = b.ink; cx.lineWidth = 2;
-        cx.beginPath(); for (let i = 0; i < 24; i++) { const a0 = i * TAU / 24, r0 = i % 2 ? 30 : 36; cx.lineTo(r0 * Math.cos(a0), r0 * Math.sin(a0)); cx.lineTo(r0 * Math.cos(a0 + TAU / 24), r0 * Math.sin(a0 + TAU / 24)); } cx.closePath(); cx.stroke();
-        cx.beginPath(); cx.arc(0, 0, 9, 0, TAU); cx.stroke(); cx.restore();
-        for (const q of riders) { const [x, y] = spot(b, q, T); cx.globalAlpha = 0.3; cx.strokeStyle = b.ink; cx.lineWidth = 3; cx.beginPath(); cx.moveTo(tr.cx, tr.cy); cx.lineTo(x, y); cx.stroke(); }
-      } else for (const q of riders) {
-        const [x, y] = spot(b, q, T), top = [tr.cx - tr.rx - (tr.rx ? 0 : 0), tr.cy - tr.ry - 22];
-        cx.globalAlpha = 0.4; cx.strokeStyle = b.ink; cx.lineWidth = 1.5; cx.beginPath(); cx.moveTo(top[0], top[1]); cx.lineTo(x, y - q.r); cx.stroke();
-      }
-    });
-    cx.globalAlpha = 1;
-    b.bumpers.forEach(q => { if (!(q.track >= 0)) return; const [x, y] = spot(b, q, T);
-      cx.fillStyle = b.bg; cx.beginPath(); cx.arc(x, y, q.r, 0, TAU); cx.fill(); cx.globalAlpha = 0.25; cx.fillStyle = b.ink; cx.fill(); cx.globalAlpha = 1; cx.lineWidth = 4; cx.strokeStyle = b.ink; cx.stroke();
-      cx.globalAlpha = 0.6; cx.lineWidth = 1.5; cx.beginPath(); cx.arc(x, y, q.r * 0.5, 0, TAU); cx.stroke(); cx.globalAlpha = 1; });
-    // each bumper warms with its hits, from the board's ink toward its glow, and cools; a hit flashes it white
-    b.bumpers.forEach((q, i) => {
-      const h = S.heat[i] || 0, t = S.flash.get(i), [qx, qy] = spot(b, q, T);
-      if (h > 0.02) { cx.globalAlpha = 0.25 + 0.6 * h; cx.fillStyle = b.glow; cx.beginPath(); cx.arc(qx, qy, q.r - 3, 0, 7); cx.fill(); S.heat[i] = h * 0.985; }
-      if (t && now - t < 180) { const u = (now - t) / 180; cx.globalAlpha = 1 - u; cx.fillStyle = "#ffffff"; cx.beginPath(); cx.arc(qx, qy, q.r + 6 * (1 - u), 0, 7); cx.fill(); }
-    });
-    // the walls that kicked, lit along their length
-    for (const [j, t] of S.wallFlash) { const u = (now - t) / 240; if (u >= 1) { S.wallFlash.delete(j); continue; } const w = b.walls[j]; if (!w) continue;
-      cx.globalAlpha = 1 - u; cx.strokeStyle = "#ffffff"; cx.lineWidth = 12 - 6 * u; cx.lineCap = "round"; cx.beginPath(); cx.moveTo(w.ax, w.ay); cx.lineTo(w.bx, w.by); cx.stroke(); }
-    cx.globalAlpha = 1;
+    const ball = (bx, by, r) => { const grad = cx.createRadialGradient(bx - r / 3, by - r / 3, 1, bx, by, r); grad.addColorStop(0, "#ffffff"); grad.addColorStop(1, "#9ca3af");
+      cx.beginPath(); cx.arc(bx, by, r, 0, TAU); cx.fillStyle = grad; cx.fill(); };
+    // one level's moving things: (Matthew: "\"light arrays\" along the paths that are most likey for the ball to travel") the
+    // lamps, a slow chase in the dark ones; the machine behind the tracks; the bumpers, turning, warming with their hits, a hit
+    // flashing white; the walls that kicked, lit along their length; the flippers; and the ball, if it is on this level
+    function level(lv) {
+      (b.lights || []).forEach((l, k) => { if (lvOf(l) !== lv) return;
+        const blink = S.rowBlink.get(l.group), on = S.lit.has(k) || (blink && now - blink < 900 && Math.floor((now - blink) / 110) % 2 === 0);
+        if (on) { cx.globalAlpha = 0.3; cx.fillStyle = b.glow; cx.beginPath(); cx.arc(l.x, l.y, 13, 0, 7); cx.fill(); cx.globalAlpha = 1; cx.beginPath(); cx.arc(l.x, l.y, 6.5, 0, 7); cx.fill();
+          cx.fillStyle = "#ffffff"; cx.globalAlpha = 0.8; cx.beginPath(); cx.arc(l.x - 1.5, l.y - 1.5, 2.2, 0, 7); cx.fill(); }
+        else { const chase = 0.5 + 0.5 * Math.sin(now / 180 - k * 0.9); cx.globalAlpha = 0.25 + 0.25 * chase; cx.strokeStyle = b.glow; cx.lineWidth = 2; cx.beginPath(); cx.arc(l.x, l.y, 6.5, 0, 7); cx.stroke();
+          cx.globalAlpha = 0.08 + 0.12 * chase; cx.fillStyle = b.glow; cx.fill(); } });
+      cx.globalAlpha = 1;
+      if (lv === 0) (b.tracks || []).forEach((tr, k) => {
+        const riders = b.bumpers.filter(q => q.track === k);
+        if (tr.rx > 0 && tr.ry > 0) {
+          const th = TAU / tr.period * T; cx.save(); cx.translate(tr.cx, tr.cy); cx.rotate(th); cx.globalAlpha = 0.35; cx.strokeStyle = b.ink; cx.lineWidth = 2;
+          cx.beginPath(); for (let i = 0; i < 24; i++) { const a0 = i * TAU / 24, r0 = i % 2 ? 30 : 36; cx.lineTo(r0 * Math.cos(a0), r0 * Math.sin(a0)); cx.lineTo(r0 * Math.cos(a0 + TAU / 24), r0 * Math.sin(a0 + TAU / 24)); } cx.closePath(); cx.stroke();
+          cx.beginPath(); cx.arc(0, 0, 9, 0, TAU); cx.stroke(); cx.restore();
+          for (const q of riders) { const [x, y] = spot(b, q, T); cx.globalAlpha = 0.3; cx.strokeStyle = b.ink; cx.lineWidth = 3; cx.beginPath(); cx.moveTo(tr.cx, tr.cy); cx.lineTo(x, y); cx.stroke(); }
+        } else for (const q of riders) { const [x, y] = spot(b, q, T); cx.globalAlpha = 0.4; cx.strokeStyle = b.ink; cx.lineWidth = 1.5; cx.beginPath(); cx.moveTo(tr.cx - tr.rx, tr.cy - tr.ry - 22); cx.lineTo(x, y - q.r); cx.stroke(); }
+      });
+      cx.globalAlpha = 1;
+      b.bumpers.forEach((q, i) => { if (lvOf(q) !== lv) return;
+        const [qx, qy] = spot(b, q, T), h = S.heat[i] || 0, t = S.flash.get(i), sp = sprite(q.r, b.ink, b.glow);
+        cx.save(); cx.translate(qx, qy); cx.rotate(now / 3000 * (1 + 4 * h) + i); cx.drawImage(sp.C, -sp.s / 2, -sp.s / 2, sp.s, sp.s); cx.restore();
+        if (h > 0.02) { cx.globalAlpha = 0.2 + 0.55 * h; cx.fillStyle = b.glow; cx.beginPath(); cx.arc(qx, qy, q.r - 3, 0, 7); cx.fill(); S.heat[i] = h * 0.985; }
+        if (t && now - t < 180) { const u = (now - t) / 180; cx.globalAlpha = 1 - u; cx.fillStyle = "#ffffff"; cx.beginPath(); cx.arc(qx, qy, q.r + 6 * (1 - u), 0, 7); cx.fill(); }
+        cx.globalAlpha = 1; });
+      for (const [j, t] of S.wallFlash) { const w = b.walls[j]; if (!w || lvOf(w) !== lv) continue; const u = (now - t) / 240; if (u >= 1) { S.wallFlash.delete(j); continue; }
+        cx.globalAlpha = 1 - u; cx.strokeStyle = "#ffffff"; cx.lineWidth = 12 - 6 * u; cx.lineCap = "round"; cx.beginPath(); cx.moveTo(w.ax, w.ay); cx.lineTo(w.bx, w.by); cx.stroke(); }
+      cx.globalAlpha = 1;
+      if (!g) return;
+      b.flippers.forEach((f, i) => { if (lvOf(f) !== lv) return; const a = (g.flips[i] ?? 500) / 1000, tx = f.x + f.side * f.len * Math.cos(a), ty = f.y + f.len * Math.sin(a);
+        cx.beginPath(); cx.moveTo(f.x, f.y); cx.lineTo(tx, ty); cx.strokeStyle = b.glow; cx.lineWidth = lv ? 13 : 16; cx.lineCap = "round"; cx.stroke();
+        cx.globalAlpha = 0.5; cx.strokeStyle = "#ffffff"; cx.lineWidth = 2; cx.stroke(); cx.globalAlpha = 1;
+        cx.beginPath(); cx.arc(f.x, f.y, lv ? 5 : 6, 0, TAU); cx.fillStyle = b.bg; cx.fill(); });
+      if (!(g.warp > 0) && (g.lv || 0) === lv) { const x = g.x / 1000, y = g.y / 1000;
+        if (lv) { cx.globalAlpha = 0.3; cx.fillStyle = "#000000"; cx.beginPath(); cx.arc(x + 10, y + 14, 12, 0, TAU); cx.fill(); cx.globalAlpha = 1; ball(x, y, 13.5); } else ball(x, y, 12); }
+    }
+    level(0);
+    if (S.deck) { cx.save(); cx.globalAlpha = 0.28; cx.fillStyle = "#000000"; cx.translate(10, 14); polyline(cx, b.glass); cx.closePath(); cx.fill(); cx.restore(); cx.globalAlpha = 1; cx.drawImage(S.deck, 0, 0); level(1); }
+    if (S.wires) cx.drawImage(S.wires, 0, 0);
     if (!g) return;
-    // the flippers, at the angles the rules turned them to
-    b.flippers.forEach((f, i) => { const a = (g.flips[i] ?? 500) / 1000, tx = f.x + f.side * f.len * Math.cos(a), ty = f.y + f.len * Math.sin(a);
-      cx.beginPath(); cx.moveTo(f.x, f.y); cx.lineTo(tx, ty); cx.strokeStyle = b.glow; cx.lineWidth = 16; cx.lineCap = "round"; cx.stroke();
-      cx.beginPath(); cx.arc(f.x, f.y, 6, 0, 2 * Math.PI); cx.fillStyle = b.bg; cx.fill(); });
     // the plunger, pulled down as the launch is held
     const pull = S.pullAt ? Math.min(1, (now - S.pullAt) / 1200) : 0;
     cx.fillStyle = b.ink; cx.fillRect(551, 968 + pull * 22, 24, 10);
@@ -216,24 +351,33 @@
     if (pull > 0) { cx.globalAlpha = 0.35; cx.fillStyle = b.ink; cx.fillRect(586, 700, 10, 260); cx.globalAlpha = 1; cx.fillStyle = pull > 0.85 ? "#ffffff" : b.glow; cx.fillRect(586, 960 - 260 * pull, 10, 260 * pull); }
     // the ball save's light at the foot of the table while it lasts (blinking in its last two seconds)
     if (g.save > 0 && !(g.save < 120 && Math.floor(now / 150) % 2)) { cx.globalAlpha = 0.85; cx.fillStyle = b.glow; cx.font = "bold 20px system-ui, sans-serif"; cx.textAlign = "center"; cx.fillText("🛟 save", 300, 993); cx.globalAlpha = 1; }
-    // (Matthew: "for the portals on the portals board, let's delay the portal transport to be non-instant, and animate it in some
-    // interesting way") while the rules hold the ball in a portal (40 steps), it spirals into the hole, flies over as a comet on
-    // a curve, its trail sparkling, and bursts out at the far end; else the ball
-    const x = g.x / 1000, y = g.y / 1000;
-    const ball = (bx, by, r) => { const grad = cx.createRadialGradient(bx - r / 3, by - r / 3, 1, bx, by, r); grad.addColorStop(0, "#ffffff"); grad.addColorStop(1, "#9ca3af");
-      cx.beginPath(); cx.arc(bx, by, r, 0, 2 * Math.PI); cx.fillStyle = grad; cx.fill(); };
+    // a trip through a link, while the rules hold the ball (Matthew: "delay the portal transport to be non-instant, and animate it
+    // in some interesting way"): a portal's, a spiral in, a comet over on a curve, a burst out; a wire ramp's, the ball rolling
+    // along its tube; a lift's, the ball on a platform going up its cage; a hole's, the ball sinking in, a glow down the tunnel
+    // under the board, and the ball rolling out onto the inlane
     const p = g.warp > 0 && g.gate >= 0 ? b.portals[g.gate] : null;
     if (p) {
-      const u = (40 - g.warp) / 40, sx = p.x, sy = p.y, tx = p.tx, ty = p.ty, mx = (sx + tx) / 2 + (ty - sy) * 0.35, my = (sy + ty) / 2 - (tx - sx) * 0.35;
-      const at = v => [(1 - v) * (1 - v) * sx + 2 * (1 - v) * v * mx + v * v * tx, (1 - v) * (1 - v) * sy + 2 * (1 - v) * v * my + v * v * ty];
-      for (const [qx, qy, k] of [[sx, sy, 1 - u], [tx, ty, u]]) { cx.globalAlpha = 0.25 + 0.5 * k; cx.strokeStyle = b.glow; cx.lineWidth = 3; for (let i = 0; i < 3; i++) { cx.beginPath(); cx.arc(qx, qy, (p.r + 6) * (0.4 + ((now / 400 + i / 3) % 1)), 0, 7); cx.stroke(); } }
-      if (u < 0.3) { const v = u / 0.3, a = v * 9, rr = (1 - v) * 16; ball(sx + rr * Math.cos(a), sy + rr * Math.sin(a), 12 * (1 - v) + 2); }
-      else if (u < 0.85) { const v = (u - 0.3) / 0.55;
-        for (let k = 0; k < 14; k++) { const w = Math.max(0, v - k * 0.025), [qx, qy] = at(w); cx.globalAlpha = 0.6 * (1 - k / 14); cx.fillStyle = k % 3 ? b.glow : "#ffffff"; cx.beginPath(); cx.arc(qx + Math.sin(now / 37 + k) * 3, qy + Math.cos(now / 41 + k) * 3, 6 * (1 - k / 14) + 1, 0, 7); cx.fill(); }
-        const [qx, qy] = at(v); cx.globalAlpha = 1; ball(qx, qy, 7); }
-      else { const v = (u - 0.85) / 0.15; ball(tx, ty, 4 + 8 * v); cx.globalAlpha = 1 - v; cx.strokeStyle = "#ffffff"; cx.lineWidth = 3; cx.beginPath(); cx.arc(tx, ty, 14 + 40 * v, 0, 7); cx.stroke(); }
+      const hold = p.hold || 40, u = (hold - g.warp) / hold, sx = p.x, sy = p.y, tx = p.tx, ty = p.ty;
+      if (!p.kind) {
+        const mx = (sx + tx) / 2 + (ty - sy) * 0.35, my = (sy + ty) / 2 - (tx - sx) * 0.35, at = v => [(1 - v) * (1 - v) * sx + 2 * (1 - v) * v * mx + v * v * tx, (1 - v) * (1 - v) * sy + 2 * (1 - v) * v * my + v * v * ty];
+        for (const [qx, qy, k] of [[sx, sy, 1 - u], [tx, ty, u]]) { cx.globalAlpha = 0.25 + 0.5 * k; cx.strokeStyle = b.glow; cx.lineWidth = 3; for (let i = 0; i < 3; i++) { cx.beginPath(); cx.arc(qx, qy, (p.r + 6) * (0.4 + ((now / 400 + i / 3) % 1)), 0, 7); cx.stroke(); } }
+        if (u < 0.3) { const v = u / 0.3, a = v * 9, rr = (1 - v) * 16; ball(sx + rr * Math.cos(a), sy + rr * Math.sin(a), 12 * (1 - v) + 2); }
+        else if (u < 0.85) { const v = (u - 0.3) / 0.55;
+          for (let k = 0; k < 14; k++) { const w = Math.max(0, v - k * 0.025), [qx, qy] = at(w); cx.globalAlpha = 0.6 * (1 - k / 14); cx.fillStyle = k % 3 ? b.glow : "#ffffff"; cx.beginPath(); cx.arc(qx + Math.sin(now / 37 + k) * 3, qy + Math.cos(now / 41 + k) * 3, 6 * (1 - k / 14) + 1, 0, 7); cx.fill(); }
+          const [qx, qy] = at(v); cx.globalAlpha = 1; ball(qx, qy, 7); }
+        else { const v = (u - 0.85) / 0.15; ball(tx, ty, 4 + 8 * v); cx.globalAlpha = 1 - v; cx.strokeStyle = "#ffffff"; cx.lineWidth = 3; cx.beginPath(); cx.arc(tx, ty, 14 + 40 * v, 0, 7); cx.stroke(); }
+      } else if (p.kind === 3) {
+        if (u < 0.22) { const v = u / 0.22; ball(sx, sy, 13.5 * (1 - v) + 2); }
+        else if (u < 0.86) { const [qx, qy] = along(p.path, (u - 0.22) / 0.64) || [tx, ty]; cx.globalAlpha = 0.45; cx.fillStyle = b.glow; cx.beginPath(); cx.arc(qx, qy, 9, 0, TAU); cx.fill(); cx.globalAlpha = 1; }
+        else { const v = (u - 0.86) / 0.14; ball(tx, ty, 3 + 9 * v); cx.globalAlpha = 1 - v; cx.strokeStyle = b.glow; cx.lineWidth = 3; cx.beginPath(); cx.arc(tx, ty, 12 + 26 * v, 0, TAU); cx.stroke(); }
+      } else {
+        const [qx, qy] = along(p.path, u) || [tx, ty], r = p.to === 1 ? 12 + 1.5 * u : 13.5 - 1.5 * u;
+        if (p.kind === 2) { cx.globalAlpha = 0.9; cx.fillStyle = "#94a3b8"; cx.fillRect(qx - 14, qy + r - 1, 28, 4); }
+        for (let k = 1; k < 6; k++) { const [px2, py2] = along(p.path, Math.max(0, u - k * 0.018)) || [qx, qy]; cx.globalAlpha = 0.25 * (1 - k / 6); cx.fillStyle = "#ffffff"; cx.beginPath(); cx.arc(px2, py2, r * (1 - k / 8), 0, TAU); cx.fill(); }
+        cx.globalAlpha = 1; ball(qx, qy, r);
+      }
       cx.globalAlpha = 1;
-    } else ball(x, y, 12);
+    }
     // points floating up from each hit, and a banner
     S.pops = S.pops.filter(q => now - q.t < 750);
     cx.textAlign = "center"; cx.font = "bold 22px system-ui, sans-serif";
@@ -261,7 +405,7 @@
   // ---- the game: a new one on the board chosen, and every frame a step of the rules
   function newGame() {
     const h = H(); if (!h) return;
-    S.boardData = h.board(S.board); S.layer = boardLayer(S.boardData);
+    S.boardData = h.board(S.board); S.layer = boardLayer(S.boardData); S.deck = deckLayer(S.boardData); S.wires = wireLayer(S.boardData);
     S.game = h.start(S.board); S.flash.clear(); S.pullAt = 0; S.launch = 0;
     S.heat = []; S.wallFlash.clear(); S.rings = []; S.pops = []; S.lit.clear(); S.rowBlink.clear(); S.banner = null; S.robot = {};
     if (W && W.on) W.start(0);
@@ -322,7 +466,7 @@
     if (g.warp === 1 && g2.warp === 0) { S.rings.push({ x, y, r: 10, t: now, col: "#ffffff" }); S.tableFlash = now; }
     if (g2.warp > 0) return;
     (b.lights || []).forEach((l, k) => {
-      if (S.lit.has(k) || S.rowBlink.has(l.group) || (l.x - x) * (l.x - x) + (l.y - y) * (l.y - y) > 26 * 26) return;
+      if (S.lit.has(k) || S.rowBlink.has(l.group) || (l.level || 0) !== (g2.lv || 0) || (l.x - x) * (l.x - x) + (l.y - y) * (l.y - y) > 26 * 26) return;
       S.lit.add(k); const row = b.lights.filter(m => m.group === l.group), n = row.filter(m => S.lit.has(b.lights.indexOf(m))).length;
       if (SND && SND.lamp) SND.lamp(n);
       if (n === row.length) { S.rowBlink.set(l.group, now); S.tableFlash = now; S.pops.push({ x: l.x, y: l.y - 18, text: "★ row lit", t: now, col: "#ffffff" }); if (SND && SND.row) SND.row(); }
@@ -432,7 +576,7 @@
   }
   function loadCompiled() {
     const c = document.createElement("script");
-    c.src = "compiled.js?v=0.0.38"; c.async = true;
+    c.src = "compiled.js?v=0.0.40"; c.async = true;
     c.onload = () => { const v = window.PinballCompiled;
       if (v && !S.built) { S.built = { key: "compiled", ok: true, compiled: true, made: v.made, value: v, errors: [], threw: "", ms: 0, at: performance.now() }; drawStatus(); newGame(); }
       else if (!v) { S.compiledError = "it ran, but gave no Pinball"; loadLib(); } };
