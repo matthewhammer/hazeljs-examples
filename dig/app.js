@@ -23,7 +23,7 @@
   const W_ = 14, H_ = 16, TOP = 3;   // (0.0.64: three rows of sky above the game's ground, for the trees)
   const S = { built: null, libAt: 0, libFailed: false, compiledError: "", game: null, best: kept("best", 0),
               dir: -1, keys: [], flash: false, pops: [], stepMs: [], restartAt: 0, banner: null, swipe: null, startSeed: 1, scene: null, sceneKey: "", layers: null,
-              land: null, landKey: "", landAt: 0, drops: new Map(), dug: null, restarts: 0, works: new Map(), worksN: 0 };
+              land: null, landKey: "", landAt: 0, drops: new Map(), dug: null, restarts: 0, works: new Map(), worksN: 0, scared: new Map(), puffs: [], pewAt: 0 };
   const H = () => S.built && S.built.ok ? S.built.value : null;
   const SND = window.DigSound || null;   // (0.0.68, sound.js: the music, a tune each level, and the ground's sounds)
 
@@ -41,7 +41,7 @@
   // trimmed with fur; a round nose, eyes under bushy brows, a moustache and a long white beard; your lantern held out the way
   // you face (bright when ready, dim while it charges). Facing up, his back; facing left, him the other way round; bobbing as
   // he walks or digs. Drawn in a cell 40 units square, its middle at 0, 0
-  function gnome(c, x, y, u, d, ready, moving, now, diving) {
+  function gnome(c, x, y, u, d, ready, moving, now, diving, loves) {
     const back = d === 0, flip = d === 3 ? -1 : 1, side = d === 1 || d === 3, step = moving ? Math.sin(now / 70) : 0, bob = moving ? -Math.abs(step) * 1.4 : 0;
     c.save(); c.translate(x, y); c.scale(flip * u / 40, u / 40); c.translate(0, bob);
     const E = (cx, cy, rx, ry, col, rot = 0) => { c.fillStyle = col; c.beginPath(); c.ellipse(cx, cy, rx, ry, rot, 0, 7); c.fill(); };
@@ -64,6 +64,7 @@
     c.strokeStyle = "#3b5bab"; c.lineWidth = 4.5; c.lineCap = "round";
     c.beginPath(); c.moveTo(-8, -1); c.lineTo(-11, 7); c.moveTo(8, -1); c.lineTo(lx - 2, ly); c.stroke();
     E(-11, 8, 2.4, 2.4, "#f2c9a0"); E(lx - 1.5, ly + 0.5, 2.4, 2.4, "#f2c9a0");
+    if (loves && !back) { c.save(); c.translate(-12, 9); loverAt(c, 0, 0, 26, now, false); c.restore(); }   // (0.0.71: the love shooter in his other hand)
     // (the lantern: a handle, a dark frame, its glass lit when it is ready)
     if (ready) { const gl = c.createRadialGradient(lx + 1, ly + 7, 0, lx + 1, ly + 7, 12); gl.addColorStop(0, "rgba(254, 240, 138, 0.75)"); gl.addColorStop(1, "rgba(254, 240, 138, 0)"); c.fillStyle = gl; c.beginPath(); c.arc(lx + 1, ly + 7, 12, 0, 7); c.fill(); }
     c.strokeStyle = "#1f2937"; c.lineWidth = 1.2; c.beginPath(); c.arc(lx + 1, ly + 2.5, 2.2, Math.PI, 0); c.stroke();
@@ -565,6 +566,7 @@
     }
     if (L) { c.drawImage(dugLayer(g, L, u), 0, 0); creatures(c, u, now); }   // (the dug squares, two layers deep; then the creatures)
     if (g.gear >= 0) gearAt(c, (g.gear % W_ + 0.5) * u, (Math.floor(g.gear / W_) + 0.5) * u, u, now);
+    if (g.lover >= 0) loverAt(c, (g.lover % W_ + 0.5) * u, (Math.floor(g.lover / W_) + 0.5) * u, u, now, true);
     for (const b of g.rocks) {
       const shake = !b.falling && b.wob >= 0 ? Math.sin(now / 30) * u * 0.05 : 0, fallBy = b.falling ? (4 - b.wob) / 4 * u : 0;
       const x = (b.c + 0.5) * u + shake, y = (b.r + 0.5) * u + fallBy;
@@ -572,8 +574,11 @@
       c.fillStyle = "#a8a29e"; c.beginPath(); c.ellipse(x - u * 0.12, y - u * 0.12, u * 0.18, u * 0.12, -0.4, 0, 7); c.fill();
     }
     for (const m of g.mons) {
-      const x = (m.c + 0.5) * u, y = (m.r + 0.5) * u, bob = Math.sin(now / 160 + m.c) * u * 0.04;
-      c.fillStyle = m.stun > 0 ? "#c4b5fd" : "#ef4444"; c.beginPath(); c.arc(x, y + bob, u * 0.38, Math.PI, 0); c.lineTo(x + u * 0.38, y + u * 0.36);
+      // (0.0.70; Matthew: "let's show the ghosts with a scared face when they run, and an exclamation point") one running from the
+      // sunlight or (0.0.71) from your love shooter: paler, trembling, eyes wide, its mouth an O, a "!" over it
+      const k = m.r * W_ + m.c, scared = m.stun <= 0 && ((S.litC && S.litC.has(k)) || (S.scared.get(k) || 0) > now || (g.loves && Math.abs(m.c - g.px) + Math.abs(m.r - g.py) <= 3));
+      const x = (m.c + 0.5) * u + (scared ? Math.sin(now / 25) * u * 0.025 : 0), y = (m.r + 0.5) * u, bob = Math.sin(now / 160 + m.c) * u * 0.04;
+      c.fillStyle = m.stun > 0 ? "#c4b5fd" : scared ? "#fca5a5" : "#ef4444"; c.beginPath(); c.arc(x, y + bob, u * 0.38, Math.PI, 0); c.lineTo(x + u * 0.38, y + u * 0.36);
       for (let i = 3; i >= -3; i -= 2) c.lineTo(x + i * u * 0.11, y + u * (i % 4 === 1 || i % 4 === -3 ? 0.26 : 0.36)); c.closePath(); c.fill();
       c.fillStyle = "#fff"; c.beginPath(); c.arc(x - u * 0.13, y - u * 0.05 + bob, u * 0.1, 0, 7); c.arc(x + u * 0.13, y - u * 0.05 + bob, u * 0.1, 0, 7); c.fill();
       if (m.stun > 0) {   // (0.0.61, as on the icon: stunned, crossed eyes and three gold stars going round over it)
@@ -582,10 +587,24 @@
         c.stroke(); c.fillStyle = "#fde047";
         for (let i = 0; i < 3; i++) { const a = now / 260 + i * 2.094, sx = x + Math.cos(a) * u * 0.3, sy = y - u * 0.52 + Math.sin(a) * u * 0.08, z = u * 0.08;
           c.beginPath(); c.moveTo(sx, sy - z); c.lineTo(sx + z * 0.3, sy - z * 0.3); c.lineTo(sx + z, sy); c.lineTo(sx + z * 0.3, sy + z * 0.3); c.lineTo(sx, sy + z); c.lineTo(sx - z * 0.3, sy + z * 0.3); c.lineTo(sx - z, sy); c.lineTo(sx - z * 0.3, sy - z * 0.3); c.closePath(); c.fill(); }
+      } else if (scared) {
+        c.fillStyle = "#fff"; c.beginPath(); c.arc(x - u * 0.13, y - u * 0.07 + bob, u * 0.12, 0, 7); c.arc(x + u * 0.13, y - u * 0.07 + bob, u * 0.12, 0, 7); c.fill();
+        c.fillStyle = "#111827"; c.beginPath(); c.arc(x - u * 0.13, y - u * 0.07 + bob, u * 0.035, 0, 7); c.arc(x + u * 0.13, y - u * 0.07 + bob, u * 0.035, 0, 7); c.fill();
+        c.beginPath(); c.ellipse(x, y + u * 0.13 + bob, u * 0.06, u * 0.08, 0, 0, 7); c.fill();
+        c.strokeStyle = "#7f1d1d"; c.lineWidth = u * 0.03; c.lineCap = "round"; c.beginPath(); c.moveTo(x - u * 0.24, y - u * 0.27 + bob); c.lineTo(x - u * 0.06, y - u * 0.22 + bob); c.moveTo(x + u * 0.24, y - u * 0.27 + bob); c.lineTo(x + u * 0.06, y - u * 0.22 + bob); c.stroke();
+        const ey = y - u * 0.72 + bob + Math.sin(now / 90) * u * 0.03;
+        c.fillStyle = "#fef08a"; c.beginPath(); c.ellipse(x, ey, u * 0.15, u * 0.2, 0, 0, 7); c.fill(); c.strokeStyle = "#a16207"; c.lineWidth = u * 0.025; c.stroke();
+        c.fillStyle = "#b91c1c"; c.font = `900 ${Math.round(u * 0.32)}px system-ui`; c.textAlign = "center"; c.textBaseline = "middle"; c.fillText("!", x, ey + u * 0.01); c.textBaseline = "alphabetic";
       } else { c.fillStyle = "#111827"; c.beginPath(); c.arc(x - u * 0.11, y - u * 0.04 + bob, u * 0.05, 0, 7); c.arc(x + u * 0.15, y - u * 0.04 + bob, u * 0.05, 0, 7); c.fill(); }
     }
-    if (g.dead === 0 || Math.floor(now / 120) % 2) gnome(c, (g.px + 0.5) * u, (g.py + 0.5) * u, u, g.pd, g.flash <= 0, g.pwait > 0, now, g.diving);
+    if (g.dead === 0 || Math.floor(now / 120) % 2) gnome(c, (g.px + 0.5) * u, (g.py + 0.5) * u, u, g.pd, g.flash <= 0, g.pwait > 0, now, g.diving, g.loves);
+    if (g.loves && g.dead === 0) hearts(c, g, u, now);
     if (L && S.dug && S.dug.front) c.drawImage(S.dug.front, 0, 0);   // (the roots in front of all of it)
+    S.puffs = S.puffs.filter(p => now - p.t < 900);
+    for (const p of S.puffs) { const q = (now - p.t) / 900, x = (p.c + 0.5) * u, y = (p.r + 0.5) * u;   // (a ghost burnt up: smoke rising, sparks flying)
+      c.globalAlpha = 1 - q; c.fillStyle = "rgba(120, 113, 108, 0.8)"; for (let i = 0; i < 4; i++) { c.beginPath(); c.arc(x + (i - 1.5) * u * 0.15, y - q * u * 0.8 - i % 2 * u * 0.1, u * (0.15 + q * 0.25), 0, 7); c.fill(); }
+      c.fillStyle = "#fb923c"; for (let i = 0; i < 8; i++) { const a = i * 0.785; c.beginPath(); c.arc(x + Math.cos(a) * q * u * 0.7, y + Math.sin(a) * q * u * 0.7, u * 0.05, 0, 7); c.fill(); }
+      c.globalAlpha = 1; }
     if (g.wt < H_) { water(c, g, u, now); if (g.py >= g.wt && g.dead === 0) bubbles(c, g, u, now); }
     if (L && S.dug && S.dug.light) { c.save(); c.globalCompositeOperation = "screen"; c.globalAlpha = 0.85 + 0.15 * Math.sin(now / 1700); c.drawImage(S.dug.light, 0, 0); c.restore(); }   // (the sunlight in the holes, over all in them)
     if (S.lit && now - S.lit.t < 450) {
@@ -641,6 +660,32 @@
     }
     c.restore();
   }
+  // (0.0.71; Matthew: "let's also have a love shooter --- another item in some levels") the love shooter: a pink blaster with a heart
+  // on it and a heart-shaped muzzle; lying in the ground, glowing pink so it can be found through the earth
+  function loverAt(c, x, y, u, now, glow) {
+    if (glow) { const gl = 0.5 + 0.5 * Math.sin(now / 280), rg = c.createRadialGradient(x, y, 0, x, y, u * 0.6);
+      rg.addColorStop(0, `rgba(249, 168, 212, ${0.35 + 0.3 * gl})`); rg.addColorStop(1, "rgba(249, 168, 212, 0)"); c.fillStyle = rg; c.fillRect(x - u * 0.6, y - u * 0.6, u * 1.2, u * 1.2); }
+    c.fillStyle = "#db2777"; c.beginPath(); c.roundRect(x - u * 0.3, y - u * 0.12, u * 0.46, u * 0.2, u * 0.08); c.fill();   // (the body)
+    c.fillStyle = "#be185d"; c.beginPath(); c.roundRect(x - u * 0.24, y + u * 0.02, u * 0.13, u * 0.24, u * 0.05); c.fill();   // (the grip)
+    heart(c, x + u * 0.22, y - u * 0.02, u * 0.14, "#f472b6");   // (the muzzle)
+    heart(c, x - u * 0.08, y - u * 0.03, u * 0.07, "#fdf2f8");   // (the heart on its side)
+  }
+  // a heart, its middle at x, y, s across
+  function heart(c, x, y, s, col) {
+    c.fillStyle = col; c.beginPath(); c.moveTo(x, y + s * 0.45);
+    c.bezierCurveTo(x - s * 0.95, y - s * 0.15, x - s * 0.45, y - s * 0.8, x, y - s * 0.3);
+    c.bezierCurveTo(x + s * 0.45, y - s * 0.8, x + s * 0.95, y - s * 0.15, x, y + s * 0.45); c.fill();
+  }
+  // with the love shooter: hearts flying from it to every awake ghost within three cells (the rules send those away)
+  function hearts(c, g, u, now) {
+    const x0 = (g.px + 0.5) * u, y0 = (g.py + 0.5) * u;
+    for (const m of g.mons) { if (m.stun > 0 || Math.abs(m.c - g.px) + Math.abs(m.r - g.py) > 3) continue;
+      const x1 = (m.c + 0.5) * u, y1 = (m.r + 0.5) * u;
+      for (let i = 0; i < 3; i++) { const q = (now / 450 + i / 3) % 1;
+        c.globalAlpha = Math.min(1, (1 - q) * 2); heart(c, x0 + (x1 - x0) * q, y0 + (y1 - y0) * q - Math.sin(q * Math.PI) * u * 0.3, u * (0.16 + 0.06 * Math.sin(now / 120 + i)), i % 2 ? "#f472b6" : "#ec4899"); }
+      c.globalAlpha = 1;
+      if (SND && now - S.pewAt > 700) { S.pewAt = now; SND.pew(); } }
+  }
   // the diving gear where it lies, glowing so it can be found through the earth: a yellow air tank, a mask with its strap
   function gearAt(c, x, y, u, now) {
     const gl = 0.5 + 0.5 * Math.sin(now / 300), rg = c.createRadialGradient(x, y, 0, x, y, u * 0.6);
@@ -682,7 +727,7 @@
     if (SND) {   // (0.0.68: the sounds of a step)
       const same = g2.level === g.level && g2.hit !== 3 && g2.hit !== 8, k = g2.py * W_ + g2.px;
       if (same && g2.hit !== 1 && (g2.px !== g.px || g2.py !== g.py) && g.cells[k] !== 0 && g2.cells[k] === 0) SND.dig();
-      const hits = { 1: "gem", 2: "caught", 4: "caught_mon", 5: "squash", 6: "land", 7: "flash", 8: "crushed", 9: "drowned", 10: "gear" };
+      const hits = { 1: "gem", 2: "caught", 4: "caught_mon", 5: "squash", 6: "land", 7: "flash", 8: "crushed", 9: "drowned", 10: "gear", 11: "burn", 12: "love" };
       if (hits[g2.hit]) SND[hits[g2.hit]]();
       if (same && g2.rocks.some(x => !x.falling && x.wob === 40)) SND.wobble();
       if (same && g2.animals && g.animals && g2.animals.some(a => a.fall === 4 && (g.animals.find(b => b.kind === a.kind) || {}).fall === -1)) SND.letgo();
@@ -701,6 +746,19 @@
     if (g2.hit === 8) { S.restarts++; const a = g.animals.find(a2 => g.rocks.some(x => x.falling && x.c === a2.c && x.r + 1 === a2.r));
       S.banner = { text: `💔 The boulder fell on the ${({ 15: "mole", 17: "rabbit", 19: "badger" })[a ? a.kind : 15]}!`, sub: g2.over ? "" : `Level ${g2.level + 1} begins again`, t: now, long: true }; }
     if (g2.hit === 9) S.banner = { text: g2.lives > 0 ? "🫧 Out of breath!" : "", t: now };
+    // (0.0.70) a ghost that moved from a sunlit cell, or (0.0.71) away from you with the love shooter, looks scared for a while;
+    // one burnt up leaves a puff of smoke and sparks where it was
+    if (g2.level === g.level && g2.hit !== 8) {
+      const gone = g.mons.filter(m => !g2.mons.some(m2 => Math.abs(m2.c - m.c) + Math.abs(m2.r - m.r) <= 1));
+      if (g2.hit === 11) for (const m of gone.slice(0, Math.max(1, g.mons.length - g2.mons.length))) S.puffs.push({ c: m.c, r: m.r, t: now });
+      for (const m2 of g2.mons) { const m = g.mons.find(m1 => Math.abs(m2.c - m1.c) + Math.abs(m2.r - m1.r) === 1);
+        if (!m) continue;
+        const fromSun = S.litC && S.litC.has(m.r * W_ + m.c), fromLove = g2.loves && Math.abs(m2.c - g2.px) + Math.abs(m2.r - g2.py) > Math.abs(m.c - g2.px) + Math.abs(m.r - g2.py);
+        if (fromSun || fromLove) S.scared.set(m2.r * W_ + m2.c, now + 1400); }
+      if (S.scared.size > 40) for (const [k, t] of S.scared) if (t < now) S.scared.delete(k);
+    }
+    if (g2.hit === 11) { S.pops.push({ c: g2.px, r: g2.py, text: "+150", t: now, col: "#fde68a" }); S.banner = { text: "☀️ A ghost burned up in the sunlight!", t: now }; }
+    if (g2.hit === 12) { S.pops.push({ c: g2.px, r: g2.py, text: "💘", t: now, col: "#f9a8d4" }); S.banner = { text: "💘 The love shooter!", sub: "Ghosts near you run away", t: now, long: true }; }
     if (g2.hit === 10) { S.pops.push({ c: g2.px, r: g2.py, text: "🤿", t: now, col: "#7dd3fc" }); S.banner = { text: "🤿 The diving gear!", sub: "Now you can stay under the water", t: now, long: true }; }
     if ((g2.hit === 3 || g2.hit === 8) && !g2.over && g2.wt < H_) S.banner = { ...S.banner, sub: "💧 Ground water: find the diving gear 🤿", t: now, long: true };
     // (0.0.60: the lantern lights every cell within three of you, whatever is between: the monsters there are stunned)
@@ -816,7 +874,7 @@
   }
   function loadCompiled() {
     const c = document.createElement("script");
-    c.src = "compiled.js?v=0.0.69"; c.async = true;
+    c.src = "compiled.js?v=0.0.70"; c.async = true;
     c.onload = () => { const v = window.DigCompiled;
       if (v && !S.built) { S.built = { key: "compiled", ok: true, compiled: true, made: v.made, value: v, errors: [], threw: "", ms: 0, at: performance.now() }; drawStatus(); newGame(); }
       else if (!v) { S.compiledError = "it ran, but gave no Gnome dig"; loadLib(); } };

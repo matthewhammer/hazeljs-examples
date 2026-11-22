@@ -456,6 +456,12 @@ html.oracle-fs.fs-hud-on .fs-hud > :not(.fs-hud-top):not(.fs-tools) { background
 html.oracle-fs.fs-hud-on .fs-hud .muted { color: #cbd5e1; }
 html.oracle-fs.fs-hud-on .fs-hud-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 html.oracle-fs.fs-hud-on .fs-hud-top > .fs-bar { position: static !important; margin: 0 !important; }
+/* (0.0.70; Matthew: "should be a way to hide this HUD") ☰ hides the HUD but itself; ⓘ beside ✕ shows the status and the notes */
+html.oracle-fs.fs-hud-on.fs-hud-hidden .fs-hud > :not(.fs-hud-top), html.oracle-fs.fs-hud-on.fs-hud-hidden .fs-hud-top > :not(.fs-left-toggle) { display: none !important; }
+html.oracle-fs.fs-hud-on.fs-hud-hidden .fs-hud-top > .fs-left-toggle { opacity: 0.75; }
+html.oracle-fs.fs-hud-on .fs-info-toggle { width: 36px; height: 36px; padding: 0; font-size: 19px; line-height: 1; border-radius: 9px; border: 1px solid var(--line);
+  background: var(--paper); color: var(--ink); cursor: pointer; }
+html.oracle-fs.fs-hud-on .fs-info-toggle[aria-pressed="true"] { border-color: var(--accent); }
 html.oracle-fs.fs-hud-on .fs-hud-top > .fs-left-toggle { display: flex; position: static; width: 40px; height: 40px; padding: 0; align-items: center;
   justify-content: center; font-size: 20px; line-height: 1; border-radius: 10px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25); }
 html.oracle-fs.fs-hud-on .fs-hud > .controls { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; }
@@ -471,12 +477,14 @@ html.oracle-fs.fs-hud-on .mj-ui > .mj-end { position: absolute; left: calc(50% +
 html.oracle-fs.fs-hud-on .oracle-ui > .fs-cast:not([hidden]) { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 6; margin: 0; }
 /* (on a tall screen, a phone: the HUD above the field, not over it; the field all the height left; its buttons under it) */
 @media (orientation: portrait) {
-  html.oracle-fs.fs-hud-on .oracle-ui { display: flex !important; flex-direction: column; }
+  html.oracle-fs.fs-hud-on .oracle-ui { display: flex !important; flex-direction: column !important; align-items: stretch !important; }
   html.oracle-fs.fs-hud-on .fs-hud { position: static; order: 0; flex: none; max-width: none; max-height: none; padding: 8px 8px 4px; }
   html.oracle-fs.fs-hud-on .fs-hud > .fs-left { max-height: 38vh; width: auto; }
-  html.oracle-fs.fs-hud-on .fs-play { position: relative !important; inset: auto !important; order: 1; flex: 1 1 0; }
+  html.oracle-fs.fs-hud-on .fs-play { position: relative !important; inset: auto !important; order: 1 !important; flex: 1 1 0 !important; min-height: 0 !important; }
+  html.oracle-fs.fs-hud-on .fs-hud { order: 0 !important; }
+  html.oracle-fs.fs-hud-on .fs-hud .controls > *, html.oracle-fs.fs-hud-on .fs-hud > .fs-left * { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
   html.oracle-fs.fs-hud-on .fs-play.fit-self { left: auto !important; }
-  html.oracle-fs.fs-hud-on .fs-pad { position: static !important; order: 2; flex: none; transform: none; margin: 6px auto 10px !important; width: min(340px, 86vw) !important; }
+  html.oracle-fs.fs-hud-on .fs-pad { position: static !important; order: 2 !important; flex: none !important; transform: none; margin: 6px auto 10px !important; width: min(340px, 86vw) !important; }
   html.oracle-fs.fs-hud-on .mj-ui > .mj-acts.fs-pad { transform: none; }
   html.oracle-fs.fs-hud-on .mj-ui > .mj-end { left: 50%; }
 }

@@ -98,11 +98,11 @@
     // the controls)
     const move = (e, into) => { if (!e) return; const mark = document.createComment("hud"); e.replaceWith(mark); into.append(e); hudMoved.push([e, mark]); };
     const top = document.createElement("div"); top.className = "fs-hud-top";
-    move(leftBtn, top); move(bar, top); hud.append(top);
+    move(leftBtn, top); move(bar, top); top.append(infoBtn); infoBtn.setAttribute("aria-pressed", String(leftShown)); hud.append(top);
     for (const sel of [score, ".controls"]) move(sel && ui.querySelector(":scope > " + sel), hud);
     move(toolBox, hud);
     ui.append(hud);
-    root.classList.add("fs-hud-on");
+    root.classList.add("fs-hud-on"); root.classList.toggle("fs-hud-hidden", hudHidden); hudLabel();
   };
   const hudOff = () => {
     if (!hudMoved.length) return;
@@ -111,7 +111,8 @@
     for (const [e, cls] of hudTagged) e.classList.remove(cls);
     ui.style.removeProperty("--fs-ar");
     hudMoved = []; hudTagged = []; hud.remove();
-    root.classList.remove("fs-hud-on", "fs-hud-canvas", "fs-hud-square", "fs-hud-self");
+    infoBtn.remove();
+    root.classList.remove("fs-hud-on", "fs-hud-canvas", "fs-hud-square", "fs-hud-self", "fs-hud-hidden"); leftLabel();
   };
   // ---- (0.0.24) one button in the picture's place, in full screen while no reading is cast: each app offers its cast
   // (OracleFs.offer({ label, title, cast })) and says, as its reading changes, whether it is empty (OracleFs.empty(bool))
@@ -143,12 +144,30 @@
     leftBtn.title = leftShown ? "Hide the controls, for more room" : "Show the controls";
     leftBtn.setAttribute("aria-label", leftBtn.title);
   };
-  leftBtn.addEventListener("click", () => {
+  const toggleLeft = () => {
     leftShown = !leftShown;
     try { localStorage.setItem(LEFT_KEY, leftShown ? "1" : "0"); } catch (e) { /* this visit only */ }
     root.classList.toggle("fs-left-hidden", on() && !leftShown); leftLabel();
     window.dispatchEvent(new Event("resize"));
+  };
+  // (0.0.70; Matthew, a screenshot of Checkers: "should be a way to hide this HUD") with the heads-up display, ☰ hides it all but
+  // itself, and shows it again, kept on this device; the status and the notes, which ☰ showed, are under ⓘ in the HUD's top row
+  const HUD_KEY = "hazeljs-examples/fs-hud-hidden";
+  let hudHidden = (() => { try { return localStorage.getItem(HUD_KEY) === "1"; } catch (e) { return false; } })();
+  const hudLabel = () => { if (!root.classList.contains("fs-hud-on")) { leftLabel(); return; }
+    leftBtn.setAttribute("aria-pressed", String(!hudHidden)); leftBtn.title = hudHidden ? "Show the controls and the score" : "Hide the controls and the score, for the whole board";
+    leftBtn.setAttribute("aria-label", leftBtn.title); };
+  leftBtn.addEventListener("click", () => {
+    if (!root.classList.contains("fs-hud-on")) { toggleLeft(); return; }
+    hudHidden = !hudHidden;
+    try { localStorage.setItem(HUD_KEY, hudHidden ? "1" : "0"); } catch (e) { /* this visit only */ }
+    root.classList.toggle("fs-hud-hidden", hudHidden); hudLabel();
+    window.dispatchEvent(new Event("resize"));
   });
+  const infoBtn = document.createElement("button");
+  infoBtn.type = "button"; infoBtn.className = "fs-info-toggle"; infoBtn.textContent = "ⓘ";
+  infoBtn.title = "The status and the notes"; infoBtn.setAttribute("aria-label", infoBtn.title);
+  infoBtn.addEventListener("click", () => { toggleLeft(); infoBtn.setAttribute("aria-pressed", String(leftShown)); });
   leftLabel();
   // ---- (0.0.27; M, on the tablet: "when we hide the LHS, we still want 'hint'") an app's own buttons, under ☰ while the
   // left column is hidden: OracleFs.tool({ label, title, click }) gives back the button, for the app to enable and disable

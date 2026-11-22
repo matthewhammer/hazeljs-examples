@@ -339,6 +339,10 @@ if (APP === "checkers") {
     for (const a of q.animals) { for (let rr = 1; rr < a.r; rr++) for (let k = a.c; k < 14; k++) cs[rr * 14 + k] = 0; for (let k = 0; k < 14; k++) cs[a.r * 14 + k] = 0; }
     q = { ...q, cells: cs, rocks: [], mons: [] };
     for (let k = 0; k < 140; k++) { const q2 = C.step(q, -1, false); if (k % 10 === 0) check(`sunlit step ${k}`, H.step(q, -1, false), q2); q = q2; } }
+  // (0.0.70) ghosts with the sun let in on them: a ground open toward the sun with monsters in it, one stunned; 200 steps both ways
+  { let q = C.start(11); const cs = q.cells.slice(); for (let rr = 1; rr < 9; rr++) for (let k = 4; k < 14; k++) cs[rr * 14 + k] = 0;
+    q = { ...q, cells: cs, rocks: [], mons: [{ c: 6, r: 6, stun: 0 }, { c: 9, r: 3, stun: 0 }, { c: 12, r: 8, stun: 50 }, ...q.mons], px: 0, py: 15 };
+    for (let k = 0; k < 200; k++) { const q2 = C.step(q, -1, false); if (k % 10 === 0 || q2.hit === 11) check(`ghosts in the sun, step ${k}`, H.step(q, -1, false), q2); q = q2; } }
   // (0.0.67) where things land, on grounds from that game dug further and further
   for (let k = 0; k < run.length; k += Math.max(1, Math.floor(run.length / 12))) { const cells = run[k][0].cells; check(`landing at step ${k}`, H.landing(cells), C.landing(cells)); }
   console.log(`${checked} answers compared: ${steps} steps with the robot's choice at each, ${differ} differ; the compiled robot's game: ${g.score} points, level ${g.level + 1}, ${g.lives} lives, ${g.t} steps`);

@@ -2,6 +2,12 @@
 
 Each version lists what the apps do as of that version. The newest version is first.
 
+## 0.0.70 (2026-11-22)
+
+- **Gnome dig: the ghosts run from the sunlight, or burn in it** (Matthew: "let's have the ghosts run away from sunlight too", "or burn in it"). In the rules (`Dig.hz`): a monster never steps into a sunlit cell, so the sunlit holes are safe; one the light reaches, where you have dug the ground open round it, runs to the shaded cell nearest you, and with none to go to, or stunned by your lantern, burns up: 150 points. The robot clears every level as before (480 fresh levels, all cleared). Checked compiled against hazeljs, with ghosts in a cave opened to the sun.
+- **Gnome dig: a ghost running looks scared** (Matthew: "let's show the ghosts with a scared face when they run, and an exclamation point"). Paler, trembling, its eyes wide, its brows up, its mouth an O, and a "!" in a yellow bubble over it, while it runs; one burnt up leaves a puff of smoke and sparks, with a sizzle.
+- **Full screen: the HUD can be hidden** (Matthew, a screenshot of Checkers: "should be a way to hide this HUD"). ☰ hides the heads-up display but itself, so the board is whole, and shows it again; the choice is kept on this device. The status and the notes, which ☰ used to show, are under ⓘ beside ✕. On a tall screen the field now fills the height left under the HUD in every game: Checkers' board had shrunk to nothing there, its own one-column rules winning over the HUD's.
+
 ## 0.0.69 (2026-11-22)
 
 - **Gnome dig: the mole, the rabbit and the badger walk out of the sunlight** (Matthew: "the animals move away from the light in the hole"). Where the sun's light falls is now Hazel's too: `Dig.sunlit` says whether a straight line from a cell's middle to the sun, where the page draws it, passes through dug cells alone, no earth and no boulder in the way, until it is above the ground (in steps of about a sixth of a cell, as the page draws its beams). An animal lying in a sunlit hole gets up and every 20 steps walks a cell along its floor: into the shade if it can, away from the sun first, else away from the sun; over a hole it drops again; in the shade it rests. The page walks it there smoothly. As the robot never lets an animal go, its games are as before: 480 fresh levels cleared, the same as 0.0.68. Checked compiled against hazeljs, with the animals let go into sunlit holes for 140 steps.

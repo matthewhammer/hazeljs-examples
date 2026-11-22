@@ -35,6 +35,11 @@
     low: () => sfx(t => { tone("sine", hz(84), hz(96), t, 0.07, 0.16); tone("sine", hz(86), hz(98), t + 0.1, 0.07, 0.12); }),
     drowned: () => sfx(t => { for (let i = 0; i < 6; i++) tone("sine", hz(86 - i * 3), hz(92 - i * 3), t + i * 0.08, 0.06, 0.15); tone("triangle", hz(43), hz(38), t + 0.5, 0.4, 0.35); }, 0.6),
     gear: () => sfx(t => { seq(t, [79, 84, 88, 91, 96], 0.05, "eighth", 0.18); hiss(t + 0.2, 0.2, 0.08, "highpass", 6000); tone("sine", hz(100), hz(100), t + 0.25, 0.3, 0.1, 16); }, 0.35),
+    // (0.0.70) a ghost burnt up in the sunlight: a sizzle and a puff going up; (0.0.71) the love shooter found: a warm chime up; and,
+    // while it shoots, now and then a soft pew
+    burn: () => sfx(t => { hiss(t, 0.45, 0.2, "highpass", 3500); tone("triangle", hz(72), hz(96), t + 0.05, 0.35, 0.16); seq(t + 0.3, [84, 88, 91], 0.06, "eighth", 0.14); }, 0.4),
+    love: () => sfx(t => { seq(t, [76, 80, 83, 88], 0.07, "quarter", 0.2); tone("sine", hz(92), hz(92), t + 0.3, 0.4, 0.14, 14); }, 0.4),
+    pew: () => sfx(t => tone("sine", hz(88), hz(100), t, 0.08, 0.08)),
     start: () => sfx(t => { seq(t, [67, 72, 76], 0.09, "quarter", 0.22); tone("quarter", hz(79), hz(79), t + 0.27, 0.4, 0.22, 14); }),
     over: () => sfx(t => { seq(t, [79, 76, 72], 0.2, "quarter", 0.22); tone("quarter", hz(67), hz(67), t + 0.6, 0.7, 0.22, 18); tone("triangle", hz(43), hz(43), t + 0.6, 0.7, 0.4); }, 0.6),
   };
