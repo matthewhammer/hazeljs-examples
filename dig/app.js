@@ -41,7 +41,7 @@
   // trimmed with fur; a round nose, eyes under bushy brows, a moustache and a long white beard; your lantern held out the way
   // you face (bright when ready, dim while it charges). Facing up, his back; facing left, him the other way round; bobbing as
   // he walks or digs. Drawn in a cell 40 units square, its middle at 0, 0
-  function gnome(c, x, y, u, d, ready, moving, now, diving, loves) {
+  function gnome(c, x, y, u, d, ready, moving, now, diving, loves, lamp = true) {
     const back = d === 0, flip = d === 3 ? -1 : 1, side = d === 1 || d === 3, step = moving ? Math.sin(now / 70) : 0, bob = moving ? -Math.abs(step) * 1.4 : 0;
     c.save(); c.translate(x, y); c.scale(flip * u / 40, u / 40); c.translate(0, bob);
     const E = (cx, cy, rx, ry, col, rot = 0) => { c.fillStyle = col; c.beginPath(); c.ellipse(cx, cy, rx, ry, rot, 0, 7); c.fill(); };
@@ -65,11 +65,13 @@
     c.beginPath(); c.moveTo(-8, -1); c.lineTo(-11, 7); c.moveTo(8, -1); c.lineTo(lx - 2, ly); c.stroke();
     E(-11, 8, 2.4, 2.4, "#f2c9a0"); E(lx - 1.5, ly + 0.5, 2.4, 2.4, "#f2c9a0");
     if (loves && !back) { c.save(); c.translate(-12, 9); loverAt(c, 0, 0, 26, now, false); c.restore(); }   // (0.0.71: the love shooter in his other hand)
-    // (the lantern: a handle, a dark frame, its glass lit when it is ready)
-    if (ready) { const gl = c.createRadialGradient(lx + 1, ly + 7, 0, lx + 1, ly + 7, 12); gl.addColorStop(0, "rgba(254, 240, 138, 0.75)"); gl.addColorStop(1, "rgba(254, 240, 138, 0)"); c.fillStyle = gl; c.beginPath(); c.arc(lx + 1, ly + 7, 12, 0, 7); c.fill(); }
+    // (the lantern: a handle, a dark frame, its glass lit when it is ready; 0.0.73: only once he has it)
+    if (lamp) {
+      if (ready) { const gl = c.createRadialGradient(lx + 1, ly + 7, 0, lx + 1, ly + 7, 12); gl.addColorStop(0, "rgba(254, 240, 138, 0.75)"); gl.addColorStop(1, "rgba(254, 240, 138, 0)"); c.fillStyle = gl; c.beginPath(); c.arc(lx + 1, ly + 7, 12, 0, 7); c.fill(); }
     c.strokeStyle = "#1f2937"; c.lineWidth = 1.2; c.beginPath(); c.arc(lx + 1, ly + 2.5, 2.2, Math.PI, 0); c.stroke();
     c.fillStyle = "#1f2937"; c.beginPath(); c.roundRect(lx - 2.5, ly + 2.5, 7, 9, 1.5); c.fill();
     c.fillStyle = ready ? "#fef08a" : "#a16207"; c.beginPath(); c.roundRect(lx - 1.3, ly + 4, 4.6, 6, 1); c.fill();
+    }
     if (back) {   // (his back: the beard showing at either side under the cap)
       E(-7.5, -6, 3.5, 6, "#f1f5f9", 0.3); E(7.5, -6, 3.5, 6, "#f1f5f9", -0.3);
       c.fillStyle = "#e5e7eb"; c.beginPath(); c.ellipse(0, -9.5, 8, 6.5, 0, 0, 7); c.fill();   // (white hair under the cap)
@@ -568,6 +570,7 @@
     if (L) { c.drawImage(dugLayer(g, L, u), 0, 0); creatures(c, u, now); }   // (the dug squares, two layers deep; then the creatures)
     if (g.gear >= 0) gearAt(c, (g.gear % W_ + 0.5) * u, (Math.floor(g.gear / W_) + 0.5) * u, u, now);
     if (g.lover >= 0) loverAt(c, (g.lover % W_ + 0.5) * u, (Math.floor(g.lover / W_) + 0.5) * u, u, now, true);
+    if (g.lamp >= 0) lampAt(c, (g.lamp % W_ + 0.5) * u, (Math.floor(g.lamp / W_) + 0.5) * u, u, now);
     for (const b of g.rocks) {
       const shake = !b.falling && b.wob >= 0 ? Math.sin(now / 30) * u * 0.05 : 0, fallBy = b.falling ? (4 - b.wob) / 4 * u : 0;
       const x = (b.c + 0.5) * u + shake, y = (b.r + 0.5) * u + fallBy;
@@ -598,7 +601,7 @@
         c.fillStyle = "#b91c1c"; c.font = `900 ${Math.round(u * 0.32)}px system-ui`; c.textAlign = "center"; c.textBaseline = "middle"; c.fillText("!", x, ey + u * 0.01); c.textBaseline = "alphabetic";
       } else { c.fillStyle = "#111827"; c.beginPath(); c.arc(x - u * 0.11, y - u * 0.04 + bob, u * 0.05, 0, 7); c.arc(x + u * 0.15, y - u * 0.04 + bob, u * 0.05, 0, 7); c.fill(); }
     }
-    if (g.dead === 0 || Math.floor(now / 120) % 2) gnome(c, (g.px + 0.5) * u, (g.py + 0.5) * u, u, g.pd, g.flash <= 0, g.pwait > 0, now, g.diving, g.loves);
+    if (g.dead === 0 || Math.floor(now / 120) % 2) gnome(c, (g.px + 0.5) * u, (g.py + 0.5) * u, u, g.pd, g.flash <= 0, g.pwait > 0, now, g.diving, g.loves, g.lantern !== false);
     if (g.loves && g.dead === 0) hearts(c, g, u, now);
     if (L && S.dug && S.dug.front) c.drawImage(S.dug.front, 0, 0);   // (the roots in front of all of it)
     S.puffs = S.puffs.filter(p => now - p.t < 900);
@@ -690,6 +693,16 @@
     heart(c, x + u * 0.22, y - u * 0.02, u * 0.14, "#f472b6");   // (the muzzle)
     heart(c, x - u * 0.08, y - u * 0.03, u * 0.07, "#fdf2f8");   // (the heart on its side)
   }
+  // (0.0.73; Matthew: "let's have the lantern stun be another thing to get in the level -- not there by default, except in first 3
+  // levels") the lantern, lying in the earth, glowing warm so it can be found through it
+  function lampAt(c, x, y, u, now) {
+    const gl = 0.5 + 0.5 * Math.sin(now / 300), rg = c.createRadialGradient(x, y, 0, x, y, u * 0.65);
+    rg.addColorStop(0, `rgba(254, 240, 138, ${0.4 + 0.3 * gl})`); rg.addColorStop(1, "rgba(254, 240, 138, 0)"); c.fillStyle = rg; c.fillRect(x - u * 0.65, y - u * 0.65, u * 1.3, u * 1.3);
+    c.strokeStyle = "#1f2937"; c.lineWidth = u * 0.04; c.beginPath(); c.arc(x, y - u * 0.22, u * 0.09, Math.PI, 0); c.stroke();   // (its handle)
+    c.fillStyle = "#1f2937"; c.beginPath(); c.roundRect(x - u * 0.14, y - u * 0.22, u * 0.28, u * 0.42, u * 0.05); c.fill();   // (its frame)
+    c.fillStyle = "#fef08a"; c.beginPath(); c.roundRect(x - u * 0.09, y - u * 0.15, u * 0.18, u * 0.28, u * 0.04); c.fill();   // (its glass, lit)
+    c.fillStyle = "#f59e0b"; c.beginPath(); c.ellipse(x, y - u * 0.02, u * 0.035, u * 0.06 + Math.sin(now / 120) * u * 0.008, 0, 0, 7); c.fill();   // (the flame)
+  }
   // a heart, its middle at x, y, s across
   function heart(c, x, y, s, col) {
     c.fillStyle = col; c.beginPath(); c.moveTo(x, y + s * 0.45);
@@ -721,7 +734,8 @@
   function bar() {
     const g = S.game; if (!g) return;
     $("points").textContent = `⭐ ${g.score}`; $("lives").textContent = "⛏️".repeat(Math.max(0, g.lives));
-    $("level").textContent = `level ${g.level + 1}` + (g.diving ? " 🤿" : g.wt < H_ ? " 💧" : ""); $("left").textContent = `💎 ${g.gems} left`;
+    $("level").textContent = `level ${g.level + 1}` + (g.diving ? " 🤿" : g.wt < H_ ? " 💧" : "") + (g.loves ? " 💘" : "");
+    const fb = $("flash"); if (fb) { const has = g.lantern !== false; fb.disabled = !has; fb.title = has ? "Flash the lantern: every monster within three cells stunned (Enter or F)" : "No lantern yet: find it in the ground 🏮"; } $("left").textContent = `💎 ${g.gems} left`;
     const ms = S.stepMs.length ? [...S.stepMs].sort((a, b) => a - b)[S.stepMs.length >> 1] : 0;
     $("info").textContent = `Your best on this device: ${S.best} points.` + (ms ? ` A step of Hazel's rules: ${ms < 1 ? ms.toFixed(2) : ms.toFixed(1)} ms.` : "");
     if (window.OracleFs) window.OracleFs.empty(!g || !!g.over);
@@ -747,7 +761,7 @@
     if (SND) {   // (0.0.68: the sounds of a step)
       const same = g2.level === g.level && g2.hit !== 3 && g2.hit !== 8, k = g2.py * W_ + g2.px;
       if (same && g2.hit !== 1 && (g2.px !== g.px || g2.py !== g.py) && g.cells[k] !== 0 && g2.cells[k] === 0) SND.dig();
-      const hits = { 1: "gem", 2: "caught", 4: "caught_mon", 5: "squash", 6: "land", 7: "flash", 8: "crushed", 9: "drowned", 10: "gear", 11: "burn", 12: "love" };
+      const hits = { 1: "gem", 2: "caught", 4: "caught_mon", 5: "squash", 6: "land", 7: "flash", 8: "crushed", 9: "drowned", 10: "gear", 11: "burn", 12: "love", 13: "gear" };
       if (hits[g2.hit]) SND[hits[g2.hit]]();
       if (same && g2.rocks.some(x => !x.falling && x.wob === 40)) SND.wobble();
       if (same && g2.animals && g.animals && g2.animals.some(a => a.fall === 4 && (g.animals.find(b => b.kind === a.kind) || {}).fall === -1)) SND.letgo();
@@ -778,6 +792,8 @@
       if (S.scared.size > 40) for (const [k, t] of S.scared) if (t < now) S.scared.delete(k);
     }
     if (g2.hit === 11) { S.pops.push({ c: g2.px, r: g2.py, text: "+150", t: now, col: "#fde68a" }); S.banner = { text: "☀️ A ghost burned up in the sunlight!", t: now }; }
+    if (g2.hit === 13) { S.pops.push({ c: g2.px, r: g2.py, text: "💡", t: now, col: "#fde68a" }); S.banner = { text: "🏮 Your lantern!", sub: "Flash it at the ghosts: 💡, Enter or F", t: now, long: true }; }
+    if ((g2.hit === 3 || g2.hit === 8) && !g2.over && g2.lamp >= 0) S.banner = { ...S.banner, sub: (S.banner && S.banner.sub ? S.banner.sub + " · " : "") + "🏮 Find your lantern", t: now, long: true };
     if (g2.hit === 12) { S.pops.push({ c: g2.px, r: g2.py, text: "💘", t: now, col: "#f9a8d4" }); S.banner = { text: "💘 The love shooter!", sub: "Ghosts near you run away", t: now, long: true }; }
     if (g2.hit === 10) { S.pops.push({ c: g2.px, r: g2.py, text: "🤿", t: now, col: "#7dd3fc" }); S.banner = { text: "🤿 The diving gear!", sub: "Now you can stay under the water", t: now, long: true }; }
     if ((g2.hit === 3 || g2.hit === 8) && !g2.over && g2.wt < H_) S.banner = { ...S.banner, sub: "💧 Ground water: find the diving gear 🤿", t: now, long: true };
@@ -894,7 +910,7 @@
   }
   function loadCompiled() {
     const c = document.createElement("script");
-    c.src = "compiled.js?v=0.0.72"; c.async = true;
+    c.src = "compiled.js?v=0.0.73"; c.async = true;
     c.onload = () => { const v = window.DigCompiled;
       if (v && !S.built) { S.built = { key: "compiled", ok: true, compiled: true, made: v.made, value: v, errors: [], threw: "", ms: 0, at: performance.now() }; drawStatus(); newGame(); }
       else if (!v) { S.compiledError = "it ran, but gave no Gnome dig"; loadLib(); } };

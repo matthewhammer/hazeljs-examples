@@ -2,6 +2,11 @@
 
 Each version lists what the apps do as of that version. The newest version is first.
 
+## 0.0.73 (2026-11-22)
+
+- **Gnome dig: the lantern is something to find, from the fourth level** (Matthew: "let's have the lantern stun be another thing to get in the level -- not there by default, except in first 3 levels"). On the first three levels you start with it, as before. From the fourth, you start without it: no flash, no stunning, 💡 dimmed. It lies in the earth near the top, glowing, in rows 2 to 4, a short way from the shaft you start in, always in a cell you can get to from the top; walk into it and it is yours for the level.
+- **The robot, adjusted again.** It fetches the lantern first, and keeps further from the monsters until it has it. And it now counts a monster's danger in moves, going round the bedrock and the boulders (the cells a monster could get to in one move, or two while the lantern charges or with none), not in cells straight across: a monster under a slab of bedrock no longer keeps it dancing to and fro over the slab. Now and then, if a monster guards the lantern, it braves it. In the rules' JavaScript copy, checked against Hazel (556 answers, none different), it cleared all 2,400 fresh levels, levels 1 to 12, none stuck; a monster caught it once on 48.
+
 ## 0.0.72 (2026-11-22)
 
 - **Gnome dig: bedrock, more of it in later levels** (Matthew: "okay the new sunlight dynamic makes the levels more fun --- let's also add, for more challenging levels (more so in later levels), some squares of 'bedrock' that cannot be dug --- preventing sunlight from reaching ghosts under them"). A new kind of cell in the rules (`Dig.hz`, cell 3): grey stone that nothing digs, not you, not the monsters, and that the sunlight does not pass. From the second level on, a run of it five long may lie over a monster's pocket, the row above (as likely as the level is high in tens: one in ten on the second level, always from the tenth), so the sun cannot be let in on it from above; and runs of 2 to 4 more lie here and there, one more every other level, up to 6. Runs never touch, even at a corner, so they never join into a wall; a gem walled off by bedrock and boulders is earth again; the diving gear's column has none.
