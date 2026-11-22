@@ -326,7 +326,10 @@ ADAPTERS = {
   const recOut = (r, ks) => Object.fromEntries(ks.map(k => [k, int(r[k])]));
   const scene = (seed, level) => { const r = P.scene([seed, level]);
     return Object.fromEntries(["above", "roots", "threads", "burrows", "ants", "run", "below"].map(k => [k, array(r[k]).map(x => recOut(x, k === "above" || k === "below" ? THING : LINE))])); };
-  const api = { start, step, robot, scene, made };"""),
+  // (0.0.67) landing : [Int] -> [Int] (the ground's cells, boulders counted as earth): for each cell the row a thing let go there
+  // comes to rest in, or -1 where the earth holds it
+  const landing = cells => array(P.landing(list(cells))).map(int);
+  const api = { start, step, robot, scene, landing, made };"""),
 }
 GLOBAL, ADAPT = ADAPTERS[a.app]
 TITLE = {"i-ching": "the I Ching", "tarot": "the Tarot", "astrology": "astrology", "checkers": "Checkers", "go": "Go", "minesweeper": "Minesweeper", "mahjong": "Mahjong", "solitaire": "Solitaire", "pinball": "Pinball", "mahjong-solitaire": "Mahjong solitaire", "downhill": "Downhill", "bricks": "Bricks", "snake": "Snake", "trails": "Light trails", "starwave": "Star wave", "bugs": "Butterfly garden", "dig": "Gnome dig"}[a.app]

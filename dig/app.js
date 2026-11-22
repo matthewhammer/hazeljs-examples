@@ -8,7 +8,7 @@
   "use strict";
   const LIB = "https://cdn.jsdelivr.net/npm/hazeljs@0.0.4/hazel-lib.js";
   const PROGRAM = "dig", MODULES = ["Dig", "Scene"];
-  const TAIL = "(start = Dig.start, step = Dig.step, robot = Dig.robot, scene = Scene.scene)";
+  const TAIL = "(start = Dig.start, step = Dig.step, robot = Dig.robot, scene = Scene.scene, landing = Scene.landing)";
   const KEY = "hazeljs-examples/dig/";
   const Q = new URLSearchParams(location.search);
   const COMPILED = !(Q.has("interpreted") || Q.get("compiled") === "0");
@@ -22,7 +22,8 @@
   // a flash asked for, words floating up, the best score
   const W_ = 14, H_ = 16, TOP = 3;   // (0.0.64: three rows of sky above the game's ground, for the trees)
   const S = { built: null, libAt: 0, libFailed: false, compiledError: "", game: null, best: kept("best", 0),
-              dir: -1, keys: [], flash: false, pops: [], stepMs: [], restartAt: 0, banner: null, swipe: null, startSeed: 1, scene: null, sceneKey: "", layers: null };
+              dir: -1, keys: [], flash: false, pops: [], stepMs: [], restartAt: 0, banner: null, swipe: null, startSeed: 1, scene: null, sceneKey: "", layers: null,
+              land: null, landKey: "", landAt: 0, drops: new Map(), dug: null };
   const H = () => S.built && S.built.ok ? S.built.value : null;
 
   // ---- drawing: the sky and the ground's layers (darker deeper), the tunnels, the gems glittering, the boulders (shaking before
@@ -106,14 +107,15 @@
     if (S.sceneKey !== key) {
       if (!(S.built && S.built.compiled) && S.scene) S.sceneKey = key;   // (interpreted, a scene takes seconds: the first one kept)
       else { S.scene = h.scene(S.startSeed, g.level); S.sceneKey = key; }
-      S.layers = null;
+      S.layers = null; S.drops = new Map();
     }
     if (S.layers && S.layers.w === cv.width) return S.layers;
     const mk = (hgt) => { const c2 = document.createElement("canvas"); c2.width = cv.width; c2.height = hgt; return c2; };
-    const sky = mk(Math.ceil((TOP + 1) * u + 4)), burrows = mk(Math.ceil(H_ * u)), roots = mk(Math.ceil(H_ * u)), light = mk(Math.ceil(H_ * u)), threads = mk(Math.ceil(H_ * u));
+    const sky = mk(Math.ceil((TOP + 1) * u + 4)), burrows = mk(Math.ceil(H_ * u)), roots = mk(Math.ceil(H_ * u)), light = mk(Math.ceil(H_ * u)), threads = mk(Math.ceil(H_ * u)), back = mk(Math.ceil(H_ * u));
     drawSky(sky.getContext("2d"), u, S.scene); drawBurrows(burrows.getContext("2d"), u, S.scene);
     drawRoots(roots.getContext("2d"), u, S.scene, false); drawRoots(light.getContext("2d"), u, S.scene, true); drawThreads(threads.getContext("2d"), u, S.scene);
-    S.layers = { w: cv.width, sky, burrows, roots, light, threads };
+    drawBack(back.getContext("2d"), u, S.scene, mk);
+    S.layers = { w: cv.width, sky, burrows, roots, light, threads, back };
     return S.layers;
   }
   const hsh = (a, b) => { let x = (a * 374761393 + b * 668265263) | 0; x = (x ^ (x >>> 13)) * 1274126177 | 0; return ((x ^ (x >>> 16)) >>> 0) / 4294967296; };
@@ -282,6 +284,68 @@
     c.lineCap = "round"; c.strokeStyle = "#fafaf5"; c.lineWidth = Math.max(0.8, PX(u, 3));
     c.beginPath(); for (const l of sc.threads) { c.moveTo(X(l.x0), Y(l.y0)); c.lineTo(X(l.x1), Y(l.y1)); } c.stroke();
   }
+  // (0.0.67; Matthew: "for the dug out parts, instead of being just black, lets show some different darker versions of what was there
+  // --- vary the root patterns for 'dug out' version of the pattern. Maybe two layers.") A tunnel's back wall, further in: each
+  // depth's earth, darker, and in it other roots than the ones in the cut face (the same trees' roots seen from behind: the
+  // pattern turned over and set a little lower), a shade darker than the wall, with their mycelium. Over it, in draw, the near
+  // layer: the roots that ran where the tunnel is, a shade lighter, hanging across it
+  function drawBack(c, u, sc, mk) {
+    const band = r => mixHex(LAYERS[Math.min(3, Math.floor((r - 1) / 4))], "#140a05", 0.62);
+    for (let r = 1; r < H_; r++) { c.fillStyle = band(r); c.fillRect(0, r * u, c.canvas.width, u + 0.5); }
+    const far = mk(c.canvas.height), threads = mk(c.canvas.height), fc = far.getContext("2d"), tc = threads.getContext("2d");
+    for (const k of [fc, tc]) { k.translate(c.canvas.width, PX(u, 45)); k.scale(-1, 1); }
+    drawRoots(fc, u, sc, false); drawThreads(tc, u, sc);
+    c.globalAlpha = 0.42; c.drawImage(far, 0, 0); c.globalAlpha = 0.1; c.drawImage(threads, 0, 0); c.globalAlpha = 1;
+  }
+  // the dug squares, all their layers at once, made again only when the ground changes: the back wall, the near roots and
+  // mycelium, and the shadows the earth casts into each (down from earth above, in from earth at either side), a lighter floor
+  function dugLayer(g, L, u) {
+    const key = g.cells.join("");
+    if (S.dug && S.dug.key === key && S.dug.L === L) return S.dug.canvas;
+    const cnv = S.dug && S.dug.canvas.width === cv.width && S.dug.canvas.height === L.back.height ? S.dug.canvas : Object.assign(document.createElement("canvas"), { width: cv.width, height: L.back.height });
+    const c = cnv.getContext("2d"), dug = (r, k) => r >= 0 && r < H_ && k >= 0 && k < W_ && g.cells[r * W_ + k] === 0;
+    c.clearRect(0, 0, cnv.width, cnv.height); c.save(); c.beginPath();
+    for (let r = 1; r < H_; r++) for (let k = 0; k < W_; k++) if (dug(r, k)) c.rect(k * u, r * u, u + 0.5, u + 0.5);
+    c.clip(); c.drawImage(L.back, 0, 0); c.globalAlpha = 0.2; c.drawImage(L.light, 0, 0); c.globalAlpha = 0.14; c.drawImage(L.threads, 0, 0); c.globalAlpha = 1;
+    const shade = (x0, y0, x1, y1, a, rx, ry, rw, rh) => { const gr = c.createLinearGradient(x0, y0, x1, y1); gr.addColorStop(0, `rgba(8, 4, 2, ${a})`); gr.addColorStop(1, "rgba(8, 4, 2, 0)"); c.fillStyle = gr; c.fillRect(rx, ry, rw, rh); };
+    for (let r = 1; r < H_; r++) for (let k = 0; k < W_; k++) if (dug(r, k)) {
+      const x = k * u, y = r * u;
+      if (r > 1 && !dug(r - 1, k)) shade(0, y, 0, y + u * 0.34, 0.55, x, y, u + 0.5, u * 0.34);
+      if (!dug(r, k - 1)) shade(x, 0, x + u * 0.16, 0, 0.35, x, y, u * 0.16, u + 0.5);
+      if (!dug(r, k + 1)) shade(x + u, 0, x + u * 0.84, 0, 0.35, x + u * 0.84, y, u * 0.16 + 0.5, u + 0.5);
+      if (!dug(r + 1, k)) { c.fillStyle = "rgba(255, 228, 196, 0.07)"; c.fillRect(x, y + u * 0.9, u + 0.5, u * 0.1); }
+    }
+    c.restore();
+    S.dug = { key, L, canvas: cnv };
+    return cnv;
+  }
+  // (0.0.67; Matthew: "when the dirt is removed, the worms and moles, etc, should drop down") Where a creature let go comes to rest is
+  // Hazel's (Scene.landing: for each cell the row it lands in, or -1 where the earth holds it), from the ground's cells with the
+  // boulders' counted as earth, and worked out again as the ground changes (interpreted, at most three times a second)
+  function landings(g) {
+    const h = H(); if (!h || typeof h.landing !== "function") return S.land;
+    const cells = g.cells.slice(); for (const b of g.rocks) if (b.r >= 0 && b.r < H_ && b.c >= 0 && b.c < W_) cells[b.r * W_ + b.c] = 1;
+    const key = cells.join(""), now = performance.now();
+    if (S.landKey === key || (!(S.built && S.built.compiled) && S.land && now - S.landAt < 330)) return S.land;
+    try { S.land = h.landing(cells); } catch (e) { S.land = null; }
+    S.landKey = key; S.landAt = now;
+    return S.land;
+  }
+  // where a creature is, in hundredths of a cell: at home (hx, hy) while the earth holds it; once its cell is dug out, let go, falling
+  // faster and faster to the floor it lands on (a little bounce), and lying there, falling on if that floor is dug away in turn.
+  // foot: from its middle to its feet
+  function placed(key, hx, hy, foot, land, now) {
+    let d = S.drops.get(key);
+    const row = (x, y) => { const k = Math.floor(x / 100), r = Math.floor(y / 100); return land && k >= 0 && k < W_ && r >= 1 && r < H_ ? land[r * W_ + k] : -1; };
+    if (!d) { if (row(hx, hy) < 0) return null; d = { x: hx, y: hy, vy: 0, t: now, rest: false }; S.drops.set(key, d); }
+    const l = row(d.x, Math.min(d.y, H_ * 100 - 1)), dt = Math.min(50, now - d.t); d.t = now;
+    if (l < 0) return d;   // (a boulder come down on it: it stays where it is, under the boulder)
+    const floor = (l + 1) * 100 - foot;
+    if (d.y < floor - 0.5 || d.vy < 0) { d.vy += 0.0035 * dt; d.y += d.vy * dt; d.rest = false;
+      if (d.y >= floor) { d.y = floor; d.vy = d.vy > 0.25 ? -d.vy * 0.3 : 0; d.rest = d.vy === 0; } }
+    else { d.y = floor; d.vy = 0; d.rest = true; }
+    return d;
+  }
   // a point along a path of lines, t from 0 to 1 and back (a creature going to and fro along it)
   function along(ls, t) {
     if (!ls.length) return null;
@@ -295,15 +359,23 @@
   function creatures(c, u, now) {
     const sc = S.scene; if (!sc) return;
     const X = v => PX(u, v), E = (cx, cy, rx, ry, col, rot = 0) => { c.fillStyle = col; c.beginPath(); c.ellipse(cx, cy, rx, ry, rot, 0, 7); c.fill(); };
+    const land = S.game ? landings(S.game) : null;
     c.save(); c.globalAlpha = 0.9;
-    for (let i = 0; i < 9; i++) { const p = along(sc.ants, now / 9000 + i * 0.23); if (!p) break;
+    for (let i = 0; i < 9; i++) { let p = along(sc.ants, now / 9000 + i * 0.23); if (!p) break;
+      const q = placed("a" + i, p.x, p.y, 4, land, now);   // (an ant let go: on the floor, it wanders to and fro)
+      if (q) p = { x: q.x + (q.rest ? Math.sin(now / 1400 + i) * 25 : 0), y: q.y, dx: Math.cos(now / 1400 + i), back: false };
       const x = X(p.x), y = X(p.y), s2 = (p.dx >= 0) !== p.back ? 1 : -1;
       c.strokeStyle = "#1c1917"; c.lineWidth = u * 0.012; c.beginPath(); for (const lx of [-0.03, 0, 0.03]) { c.moveTo(x + lx * u, y); c.lineTo(x + lx * u + Math.sin(now / 60 + i) * u * 0.015, y + u * 0.04); } c.stroke();
       E(x - s2 * u * 0.05, y, u * 0.028, u * 0.022, "#3f1d0b"); E(x, y, u * 0.022, u * 0.018, "#451a03"); E(x + s2 * u * 0.045, y - u * 0.005, u * 0.022, u * 0.02, "#3f1d0b"); }
-    for (const t of sc.below) {
-      const x = X(t.x), y = X(t.y), v = t.v;
-      if (t.kind === 15) {   // (the mole, along its run: velvet grey, a pink nose and broad pink hands)
-        const p = along(sc.run, now / 14000 + v / 1000) || { x: t.x, y: t.y, dx: 1, back: false }, mx = X(p.x), my = X(p.y), s2 = (p.dx >= 0) !== p.back ? 1 : -1;
+    const FOOT = { 12: 4, 13: 8, 14: 6, 15: 14, 17: 21, 19: 30 };
+    sc.below.forEach((t, i) => {
+      if (!FOOT[t.kind]) return;   // (the chambers are in the burrows' layer)
+      const q = t.kind === 15 ? null : placed("b" + i, t.x, t.y, FOOT[t.kind], land, now);
+      const x = X(q ? q.x : t.x), y = X(q ? q.y : t.y), v = t.v;
+      if (t.kind === 15) {   // (the mole, along its run: velvet grey, a pink nose and broad pink hands; let go, on the floor, shuffling)
+        const p0 = along(sc.run, now / 14000 + v / 1000) || { x: t.x, y: t.y, dx: 1, back: false }, d = placed("b" + i, p0.x, p0.y, FOOT[15], land, now);
+        const p = d ? { x: d.x + (d.rest ? Math.sin(now / 2600 + v) * 22 : 0), y: d.y, dx: Math.cos(now / 2600 + v), back: false } : p0;
+        const mx = X(p.x), my = X(p.y), s2 = (p.dx >= 0) !== p.back ? 1 : -1;
         E(mx, my, u * 0.2, u * 0.13, "#374151"); E(mx + s2 * u * 0.17, my + u * 0.02, u * 0.06, u * 0.045, "#f9a8d4");
         E(mx + s2 * u * 0.08, my + u * 0.1, u * 0.07, u * 0.035, "#fbcfe8", s2 * 0.5); E(mx - s2 * u * 0.12, my + u * 0.1, u * 0.05, u * 0.03, "#fbcfe8");
         E(mx + s2 * u * 0.1, my - u * 0.04, u * 0.012, u * 0.012, "#111827");
@@ -313,11 +385,9 @@
         E(x + u * 0.12, y - u * 0.2, u * 0.03, u * 0.11, "#a8a29e", -0.3 - tw); E(x + u * 0.19, y - u * 0.2, u * 0.03, u * 0.11, "#a8a29e", 0.2);
         E(x + u * 0.12, y - u * 0.2, u * 0.015, u * 0.07, "#fbcfe8", -0.3 - tw); E(x - u * 0.2, y + u * 0.02, u * 0.06, u * 0.06, "#f5f5f4");
         E(x + u * 0.2, y - u * 0.06, u * 0.016, u * 0.016, "#111827"); E(x + u * 0.26, y - u * 0.02 + Math.sin(now / 90) * u * 0.006, u * 0.015, u * 0.012, "#f472b6");
-      } else if (t.kind === 19) {   // (the badger, asleep in its sett: curled up, breathing, its striped face tucked in)
-        const br = 1 + 0.04 * Math.sin(now / 900 + v);
-        E(x, y + u * 0.06, u * 0.4 * br, u * 0.22 * br, "#6b7280"); E(x - u * 0.12, y + u * 0.02, u * 0.2, u * 0.12, "#4b5563");
-        E(x + u * 0.28, y + u * 0.06, u * 0.14, u * 0.1, "#f5f5f4"); E(x + u * 0.3, y + u * 0.06, u * 0.12, u * 0.035, "#111827");
-        c.fillStyle = `rgba(255, 255, 255, ${0.4 + 0.4 * Math.sin(now / 900 + v)})`; c.font = `${Math.round(u * 0.22)}px system-ui`; c.textAlign = "center"; c.fillText("z", x + u * 0.42, y - u * 0.18 - (now / 60 % 20) * u * 0.005);
+      } else if (t.kind === 19) {   // (the badger, asleep in its sett, breathing)
+        badger(c, x, y, u, v % 2 ? 1 : -1, 1 + 0.035 * Math.sin(now / 900 + v));
+        c.fillStyle = `rgba(255, 255, 255, ${0.4 + 0.4 * Math.sin(now / 900 + v)})`; c.font = `${Math.round(u * 0.22)}px system-ui`; c.textAlign = "center"; c.fillText("z", x + (v % 2 ? 1 : -1) * u * 0.45, y - u * 0.18 - (now / 60 % 20) * u * 0.005);
       } else if (t.kind === 12) {   // (a worm, wriggling a little to and fro)
         const ph = now / 500 + v, dir = v % 2 ? 1 : -1, off = Math.sin(now / 3000 + v) * u * 0.25;
         c.strokeStyle = "#f9a8d4"; c.lineWidth = u * 0.06; c.lineCap = "round"; c.beginPath();
@@ -331,7 +401,33 @@
         c.strokeStyle = "#1c1917"; c.lineWidth = u * 0.012; c.beginPath(); for (const s2 of [-1, 1]) for (const k2 of [-0.04, 0, 0.04]) { c.moveTo(bx, by + k2 * u); c.lineTo(bx + s2 * u * 0.07, by + k2 * u + Math.sin(now / 80 + k2 * 50) * u * 0.01); } c.stroke();
         E(bx, by, u * 0.06, u * 0.045, ["#1e3a8a", "#14532d", "#7f1d1d"][v % 3], rot); E(bx - u * 0.015, by - u * 0.015, u * 0.02, u * 0.012, "rgba(255, 255, 255, 0.5)", rot);
       }
-    }
+    });
+    c.restore();
+  }
+  // (0.0.67; Matthew: "some the animals look bad -- the biggest one, whatever its supposed to be") the badger, drawn again: asleep
+  // on its side, facing s2, a long low body grizzled grey, darker along its back, short black legs, a stubby tail, and its head
+  // resting on its front paws: white, with the black stripe from its nose back over its (closed) eye to its ear, white-tipped
+  function badger(c, x, y, u, s2, br) {
+    const E = (cx, cy, rx, ry, col, rot = 0) => { c.fillStyle = col; c.beginPath(); c.ellipse(cx, cy, rx, ry, rot, 0, 7); c.fill(); };
+    c.save(); c.translate(x, y); c.scale(s2 * u, u);   // (in cells from here: +x its front, y down)
+    E(-0.42, 0.12, 0.08, 0.035, "#a8a29e", 0.35);   // (the tail)
+    E(-0.26, 0.25, 0.11, 0.05, "#1c1917"); E(-0.12, 0.27, 0.07, 0.035, "#292524");   // (the hind legs, tucked)
+    c.save(); c.beginPath(); c.ellipse(-0.02, 0.1, 0.38, 0.17 * br, 0, 0, 7); c.fillStyle = "#9a9ca3"; c.fill(); c.clip();
+    E(-0.02, -0.03, 0.4, 0.12 * br, "#5f636b");   // (its back, darker)
+    c.strokeStyle = "rgba(240, 240, 240, 0.5)"; c.lineWidth = 0.012; c.lineCap = "round"; c.beginPath();
+    for (let i = 0; i < 18; i++) { const gx = -0.34 + i * 0.038, gy = -0.04 + ((i * 37) % 9) * 0.017; c.moveTo(gx, gy); c.lineTo(gx + 0.035, gy - 0.012); } c.stroke();
+    E(-0.02, 0.26, 0.4, 0.07, "#3f3f46");   // (its belly, in shadow)
+    c.restore();
+    E(0.27, 0.27, 0.11, 0.045, "#1c1917"); E(0.36, 0.28, 0.07, 0.035, "#0c0a09");   // (the front paws, under its chin)
+    c.save(); c.translate(0.37, 0.15); c.rotate(0.1);   // (the head, a wedge to the nose, resting on the paws)
+    c.beginPath(); c.moveTo(-0.13, -0.11); c.quadraticCurveTo(0.08, -0.12, 0.24, -0.02); c.quadraticCurveTo(0.27, 0.02, 0.22, 0.045);
+    c.quadraticCurveTo(0.05, 0.11, -0.13, 0.09); c.closePath(); c.fillStyle = "#f4f4f2"; c.fill();
+    c.save(); c.clip(); c.strokeStyle = "#111111"; c.lineWidth = 0.065; c.lineCap = "round";
+    c.beginPath(); c.moveTo(-0.16, -0.045); c.quadraticCurveTo(0.05, -0.065, 0.24, -0.005); c.stroke(); c.restore();
+    E(0.245, 0.01, 0.032, 0.026, "#0c0a09");   // (the nose)
+    c.strokeStyle = "#d6d3d1"; c.lineWidth = 0.011; c.beginPath(); c.arc(0.06, -0.06, 0.022, 0.25, Math.PI - 0.25); c.stroke();   // (the eye, closed)
+    E(-0.1, -0.115, 0.045, 0.038, "#111111"); E(-0.1, -0.13, 0.028, 0.016, "#f4f4f2");   // (the ear, white-tipped)
+    c.restore();
     c.restore();
   }
   function draw() {
@@ -345,7 +441,7 @@
     if (L) { c.drawImage(L.burrows, 0, 0); c.globalAlpha = 0.3; c.drawImage(L.roots, 0, 0); c.globalAlpha = 0.4; c.drawImage(L.threads, 0, 0); c.globalAlpha = 1; }   // (the roots a shade darker than each earth)
     for (let r = 1; r < H_; r++) for (let k = 0; k < W_; k++) {
       const v = g.cells[r * W_ + k], x = k * u, y = r * u;
-      if (v === 0) { c.fillStyle = "#1c1009"; c.fillRect(x, y, u + 0.5, u + 0.5); }
+      if (v === 0) { if (!L) { c.fillStyle = "#1c1009"; c.fillRect(x, y, u + 0.5, u + 0.5); } }
       else { c.fillStyle = "rgba(0, 0, 0, 0.12)"; c.fillRect(x + u * 0.2, y + u * 0.3, u * 0.08, u * 0.08); c.fillRect(x + u * 0.65, y + u * 0.7, u * 0.08, u * 0.08); }
       if (v === 2) {
         const tw = 0.6 + 0.4 * Math.sin(now / 250 + r * 3 + k);
@@ -353,11 +449,7 @@
         c.fillStyle = `rgba(255, 255, 255, ${tw})`; c.beginPath(); c.arc(x + u * 0.42, y + u * 0.4, u * 0.06, 0, 7); c.fill();
       }
     }
-    if (L) {   // (in the dug squares, the roots and the mycelium a shade lighter than the tunnel, hanging across it; then the creatures)
-      c.save(); c.beginPath(); for (let r = 1; r < H_; r++) for (let k = 0; k < W_; k++) if (g.cells[r * W_ + k] === 0) c.rect(k * u, r * u, u + 0.5, u + 0.5);
-      c.clip(); c.globalAlpha = 0.22; c.drawImage(L.light, 0, 0); c.globalAlpha = 0.18; c.drawImage(L.threads, 0, 0); c.restore();
-      creatures(c, u, now);
-    }
+    if (L) { c.drawImage(dugLayer(g, L, u), 0, 0); creatures(c, u, now); }   // (the dug squares, two layers deep; then the creatures)
     for (const b of g.rocks) {
       const shake = !b.falling && b.wob >= 0 ? Math.sin(now / 30) * u * 0.05 : 0, fallBy = b.falling ? (4 - b.wob) / 4 * u : 0;
       const x = (b.c + 0.5) * u + shake, y = (b.r + 0.5) * u + fallBy;
@@ -518,7 +610,7 @@
   }
   function loadCompiled() {
     const c = document.createElement("script");
-    c.src = "compiled.js?v=0.0.65"; c.async = true;
+    c.src = "compiled.js?v=0.0.67"; c.async = true;
     c.onload = () => { const v = window.DigCompiled;
       if (v && !S.built) { S.built = { key: "compiled", ok: true, compiled: true, made: v.made, value: v, errors: [], threw: "", ms: 0, at: performance.now() }; drawStatus(); newGame(); }
       else if (!v) { S.compiledError = "it ran, but gave no Gnome dig"; loadLib(); } };
@@ -561,7 +653,7 @@
     },
   });
   // (for checking the page where no frames are drawn, a browser pane hidden: ?test=1 lets a script run steps and draw)
-  if (Q.has("test")) window.DigTest = { S, newGame, gnome, steps: n => { const h = H(); for (let i = 0; i < n && S.game && !S.game.over; i++) oneStep(h); draw(); bar(); return S.game; }, auto: () => W };
+  if (Q.has("test")) window.DigTest = { S, newGame, gnome, badger, steps: n => { const h = H(); for (let i = 0; i < n && S.game && !S.game.over; i++) oneStep(h); draw(); bar(); return S.game; }, auto: () => W };
   document.body.classList.add("js");
   draw(); bar();
 })();

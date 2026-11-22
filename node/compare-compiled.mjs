@@ -37,7 +37,7 @@ const SETUP = {
   "solitaire": { modules: ["Cards", "Deal", "Moves"], tail: "(deal = Deal.deal, moves = Moves.moves, moves_from = Moves.moves_from, apply = Moves.apply, won = Moves.won)" },
   "pinball": { modules: ["Pinball"], tail: "(start = Pinball.start, step = Pinball.step, board = Pinball.board)" },
   "downhill": { modules: ["Downhill"], tail: "(start = Downhill.start, step = Downhill.step, course = Downhill.course, robot = Downhill.robot)" },
-  "dig": { modules: ["Dig", "Scene"], tail: "(start = Dig.start, step = Dig.step, robot = Dig.robot, scene = Scene.scene)" },
+  "dig": { modules: ["Dig", "Scene"], tail: "(start = Dig.start, step = Dig.step, robot = Dig.robot, scene = Scene.scene, landing = Scene.landing)" },
   "bugs": { modules: ["Bugs"], tail: "(start = Bugs.start, step = Bugs.step, robot = Bugs.robot)" },
   "starwave": { modules: ["StarWave"], tail: "(start = StarWave.start, step = StarWave.step, robot = StarWave.robot)" },
   "trails": { modules: ["Trails"], tail: "(start = Trails.start, step = Trails.step, robot = Trails.robot)" },
@@ -334,6 +334,8 @@ if (APP === "checkers") {
   for (const [g0, dir, flash] of pick) { steps++; check(`robot at ${JSON.stringify(g0)}`, H.robot(g0), C.robot(g0)); check(`step from ${JSON.stringify(g0)} ${dir} ${flash}`, H.step(g0, dir, flash), C.step(g0, dir, flash)); }
   // (0.0.63) the scene, for three levels' seeds, both ways (interpreted, it takes some seconds each)
   for (const [sd, lv] of [[42, 0], [7, 3], [99, 9]]) check(`scene ${sd} ${lv}`, H.scene(sd, lv), C.scene(sd, lv));
+  // (0.0.67) where things land, on grounds from that game dug further and further
+  for (let k = 0; k < run.length; k += Math.max(1, Math.floor(run.length / 12))) { const cells = run[k][0].cells; check(`landing at step ${k}`, H.landing(cells), C.landing(cells)); }
   console.log(`${checked} answers compared: ${steps} steps with the robot's choice at each, ${differ} differ; the compiled robot's game: ${g.score} points, level ${g.level + 1}, ${g.lives} lives, ${g.t} steps`);
   const g1 = C.start(7);
   console.log(`a step: ${HN} ${time(() => H.step(g1, 2, false), 5).toFixed(1)} ms, compiled ${time(() => C.step(g1, 2, false), 300).toFixed(3)} ms; the robot: ${HN} ${time(() => H.robot(g1), 5).toFixed(1)} ms, compiled ${time(() => C.robot(g1), 300).toFixed(3)} ms`);
