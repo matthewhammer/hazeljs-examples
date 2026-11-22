@@ -69,11 +69,12 @@
       c.fillStyle = "#2563eb"; c.beginPath(); c.roundRect(x - u * 0.28, y - u * 0.05, u * 0.56, u * 0.42, u * 0.12); c.fill();
       c.fillStyle = "#f2c9a0"; c.beginPath(); c.arc(x, y - u * 0.18, u * 0.2, 0, 7); c.fill();
       c.fillStyle = "#facc15"; c.beginPath(); c.arc(x, y - u * 0.28, u * 0.2, Math.PI, 0); c.fill();
-      c.fillStyle = "#fef08a"; c.beginPath(); c.arc(x + ex * u * 0.3, y + ey * u * 0.3, u * 0.09, 0, 7); c.fill();
+      c.fillStyle = g.flash > 0 ? "#a16207" : "#fef08a"; c.beginPath(); c.arc(x + ex * u * 0.3, y + ey * u * 0.3, u * 0.09, 0, 7); c.fill();   // (the lantern: bright when ready, dim while it charges)
     }
-    if (S.lit && now - S.lit.t < 300) {
-      const q = 1 - (now - S.lit.t) / 300; c.fillStyle = `rgba(254, 240, 138, ${0.5 * q})`;
+    if (S.lit && now - S.lit.t < 450) {
+      const q = 1 - (now - S.lit.t) / 450; c.fillStyle = `rgba(254, 240, 138, ${0.45 * q})`;
       for (const k of S.lit.cells) c.fillRect((k % W_) * u, Math.floor(k / W_) * u, u, u);
+      c.strokeStyle = `rgba(254, 249, 195, ${q})`; c.lineWidth = u * 0.12; c.beginPath(); c.arc((S.lit.c + 0.5) * u, (S.lit.r + 0.5) * u, u * (0.6 + 3 * (1 - q)), 0, 7); c.stroke();   // (a ring spreading out)
     }
     S.pops = S.pops.filter(p => now - p.t < 900);
     for (const p of S.pops) { const q = (now - p.t) / 900; c.globalAlpha = 1 - q; c.fillStyle = p.col; c.font = `700 ${Math.round(u * 0.5)}px system-ui`; c.textAlign = "center"; c.fillText(p.text, (p.c + 0.5) * u, (p.r + 0.3 - q) * u); }
@@ -109,7 +110,8 @@
     if (g2.hit === 5) S.banner = { text: "🪨 Squashed! +200", t: now };
     if (g2.hit === 2) S.banner = { text: g2.lives > 0 ? "👻 Caught!" : "", t: now };
     if (g2.hit === 3) S.banner = { text: `🎉 Level ${g2.level} cleared!`, t: now };
-    if (g2.hit === 7) { const cells = []; let c = g2.px, r = g2.py; for (let i = 0; i < 3; i++) { c += [0, 1, 0, -1][g2.pd]; r += [-1, 0, 1, 0][g2.pd]; if (c < 0 || c >= W_ || r < 0 || r >= H_ || g2.cells[r * W_ + c] !== 0) break; cells.push(r * W_ + c); } S.lit = { cells, t: now }; }
+    // (0.0.60: the lantern lights every cell within three of you, whatever is between: the monsters there are stunned)
+    if (g2.flash > g.flash) { const cells = []; for (let r = g2.py - 3; r <= g2.py + 3; r++) for (let c = g2.px - 3; c <= g2.px + 3; c++) { const d = Math.abs(c - g2.px) + Math.abs(r - g2.py); if (d >= 1 && d <= 3 && c >= 0 && c < W_ && r >= 0 && r < H_) cells.push(r * W_ + c); } S.lit = { cells, t: now, c: g2.px, r: g2.py }; }
   }
   function oneStep(h) {
     const g = S.game;
@@ -208,7 +210,7 @@
   }
   function loadCompiled() {
     const c = document.createElement("script");
-    c.src = "compiled.js?v=0.0.54"; c.async = true;
+    c.src = "compiled.js?v=0.0.60"; c.async = true;
     c.onload = () => { const v = window.DigCompiled;
       if (v && !S.built) { S.built = { key: "compiled", ok: true, compiled: true, made: v.made, value: v, errors: [], threw: "", ms: 0, at: performance.now() }; drawStatus(); newGame(); }
       else if (!v) { S.compiledError = "it ran, but gave no Deep dig"; loadLib(); } };
