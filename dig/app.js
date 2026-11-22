@@ -361,7 +361,7 @@
     if (!lit.length) return;
     c.save(); c.beginPath(); for (const [x, y] of lit) c.rect(x, y, u + 0.5, u + 0.5); c.clip();
     const far = H_ * u + u, gr = c.createLinearGradient(0, u, 0, far);
-    gr.addColorStop(0, "rgba(255, 240, 190, 0.42)"); gr.addColorStop(0.35, "rgba(255, 232, 170, 0.2)"); gr.addColorStop(1, "rgba(255, 225, 160, 0.06)");
+    gr.addColorStop(0, "rgba(255, 240, 190, 0.32)"); gr.addColorStop(0.35, "rgba(255, 232, 170, 0.16)"); gr.addColorStop(1, "rgba(255, 225, 160, 0.06)");
     c.fillStyle = gr; c.beginPath();
     for (let k = 0; k < W_; k++) if (clear(k, 1)) {
       const t = (far - sy) / (u - sy), ax = k * u, bx = (k + 1) * u;
@@ -372,7 +372,7 @@
     c.lineCap = "round";
     for (let k = 0; k < W_; k++) if (clear(k, 1)) for (const [f, w2] of [[0.2, 0.05], [0.5, 0.09], [0.8, 0.04]]) {
       const ox = (k + f) * u, t = (far - sy) / (u - sy), rg = c.createLinearGradient(ox, u, sx + (ox - sx) * t, far);
-      rg.addColorStop(0, "rgba(255, 250, 225, 0.5)"); rg.addColorStop(0.5, "rgba(255, 245, 210, 0.16)"); rg.addColorStop(1, "rgba(255, 245, 210, 0)");
+      rg.addColorStop(0, "rgba(255, 250, 225, 0.4)"); rg.addColorStop(0.5, "rgba(255, 245, 210, 0.16)"); rg.addColorStop(1, "rgba(255, 245, 210, 0)");
       c.strokeStyle = rg; c.lineWidth = u * w2; c.beginPath(); c.moveTo(ox, u); c.lineTo(sx + (ox - sx) * t, far); c.stroke();
     }
     c.restore();
@@ -595,8 +595,9 @@
     }
     S.pops = S.pops.filter(p => now - p.t < 900);
     for (const p of S.pops) { const q = (now - p.t) / 900; c.globalAlpha = 1 - q; c.fillStyle = p.col; c.font = `700 ${Math.round(u * 0.5)}px system-ui`; c.textAlign = "center"; c.fillText(p.text, (p.c + 0.5) * u, (p.r + 0.3 - q) * u); }
-    c.globalAlpha = 1; c.textAlign = "center";
+    c.globalAlpha = 1;
     c.restore();
+    c.textAlign = "center";   // (0.0.69; Matthew: "game over not centered": set after the restore, which put back the alignment of before)
     if (g.over) {
       c.fillStyle = "rgba(20, 10, 5, 0.8)"; c.fillRect(0, cv.height * 0.4, cv.width, cv.height * 0.2);
       c.fillStyle = "#ffffff"; c.font = `700 ${Math.round(u * 0.8)}px system-ui`; c.fillText(`Game over: ${g.score} points`, cv.width / 2, cv.height * 0.49);
@@ -815,7 +816,7 @@
   }
   function loadCompiled() {
     const c = document.createElement("script");
-    c.src = "compiled.js?v=0.0.68"; c.async = true;
+    c.src = "compiled.js?v=0.0.69"; c.async = true;
     c.onload = () => { const v = window.DigCompiled;
       if (v && !S.built) { S.built = { key: "compiled", ok: true, compiled: true, made: v.made, value: v, errors: [], threw: "", ms: 0, at: performance.now() }; drawStatus(); newGame(); }
       else if (!v) { S.compiledError = "it ran, but gave no Gnome dig"; loadLib(); } };

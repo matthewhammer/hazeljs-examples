@@ -334,6 +334,11 @@ if (APP === "checkers") {
   for (const [g0, dir, flash] of pick) { steps++; check(`robot at ${JSON.stringify(g0)}`, H.robot(g0), C.robot(g0)); check(`step from ${JSON.stringify(g0)} ${dir} ${flash}`, H.step(g0, dir, flash), C.step(g0, dir, flash)); }
   // (0.0.63) the scene, for three levels' seeds, both ways (interpreted, it takes some seconds each)
   for (const [sd, lv] of [[42, 0], [7, 3], [99, 9]]) { const an = C.start(sd).animals; check(`scene ${sd} ${lv}`, H.scene(sd, lv, an), C.scene(sd, lv, an)); }
+  // (0.0.69) the animals let go into sunlit holes: a ground opened up toward the sun over each, 140 steps both ways
+  { let q = C.start(5); const cs = q.cells.slice();
+    for (const a of q.animals) { for (let rr = 1; rr < a.r; rr++) for (let k = a.c; k < 14; k++) cs[rr * 14 + k] = 0; for (let k = 0; k < 14; k++) cs[a.r * 14 + k] = 0; }
+    q = { ...q, cells: cs, rocks: [], mons: [] };
+    for (let k = 0; k < 140; k++) { const q2 = C.step(q, -1, false); if (k % 10 === 0) check(`sunlit step ${k}`, H.step(q, -1, false), q2); q = q2; } }
   // (0.0.67) where things land, on grounds from that game dug further and further
   for (let k = 0; k < run.length; k += Math.max(1, Math.floor(run.length / 12))) { const cells = run[k][0].cells; check(`landing at step ${k}`, H.landing(cells), C.landing(cells)); }
   console.log(`${checked} answers compared: ${steps} steps with the robot's choice at each, ${differ} differ; the compiled robot's game: ${g.score} points, level ${g.level + 1}, ${g.lives} lives, ${g.t} steps`);

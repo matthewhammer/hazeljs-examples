@@ -2,6 +2,11 @@
 
 Each version lists what the apps do as of that version. The newest version is first.
 
+## 0.0.69 (2026-11-22)
+
+- **Gnome dig: the mole, the rabbit and the badger walk out of the sunlight** (Matthew: "the animals move away from the light in the hole"). Where the sun's light falls is now Hazel's too: `Dig.sunlit` says whether a straight line from a cell's middle to the sun, where the page draws it, passes through dug cells alone, no earth and no boulder in the way, until it is above the ground (in steps of about a sixth of a cell, as the page draws its beams). An animal lying in a sunlit hole gets up and every 20 steps walks a cell along its floor: into the shade if it can, away from the sun first, else away from the sun; over a hole it drops again; in the shade it rests. The page walks it there smoothly. As the robot never lets an animal go, its games are as before: 480 fresh levels cleared, the same as 0.0.68. Checked compiled against hazeljs, with the animals let go into sunlit holes for 140 steps.
+- **Gnome dig: "Game over" in the middle again** (Matthew: "game over not centered", with a screenshot). Since 0.0.64 the game-over card and the banners (a level cleared, the diving gear) were drawn starting from the middle instead of centred on it: the alignment was set before the drawing state was put back. And the sunlight is a little softer, where much of the ground near the top is dug open.
+
 ## 0.0.68 (2026-11-22)
 
 - **Gnome dig: the animals in the rules, and a boulder on one loses the level** (Matthew: "let's have a rule that if a rock falls on an animal in the ground (not a ghost), we lose the level", "adjust the AI"). The mole, the rabbit and the badger are now the rules' own (`Dig.hz`, a new `Animal` in the vocabulary): each level puts them in cells of earth by chance, the rabbit near the top, the mole in the middle, the badger low down. Dug out, an animal drops, a cell every four steps, until it lands; a boulder falling into an animal's cell loses the level: a life gone, and the level begins again, new. The monsters never burrow into an animal. The scene's burrows are dug round the animals where the rules put them. The robot keeps out of an animal's cell, and out of a cell under a boulder whose digging would let it fall onto one.
