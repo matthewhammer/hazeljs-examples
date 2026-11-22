@@ -235,6 +235,10 @@
     b.walls.forEach((w, j) => { if (w.level) return; fringe(c, w, w.kick > 0 ? b.glow : b.ink, 101 + 7 * j); });
     c.lineCap = "round";
     for (const w of b.walls) { if (w.level) continue; c.beginPath(); c.moveTo(w.ax, w.ay); c.lineTo(w.bx, w.by); c.lineWidth = w.kick > 0 ? 8 : 5; c.strokeStyle = w.kick > 0 ? b.glow : b.ink; c.stroke(); }
+    // (0.0.59, from the icon: chrome caps on the posts at each end of a kicking wall, the slingshots)
+    for (const w of b.walls) { if (w.level || !(w.kick > 0)) continue;
+      for (const [x, y] of [[w.ax, w.ay], [w.bx, w.by]]) { const gr = c.createRadialGradient(x - 2, y - 2, 0.5, x, y, 6.5); gr.addColorStop(0, "#ffffff"); gr.addColorStop(0.6, "#cbd5e1"); gr.addColorStop(1, "#64748b");
+        c.beginPath(); c.arc(x, y, 6, 0, TAU); c.fillStyle = gr; c.fill(); c.lineWidth = 1; c.strokeStyle = "#0b1030"; c.stroke(); } }
     for (const p of b.portals) {
       if ((p.from || 0) !== 0) continue;
       if (!p.kind) { for (let i = 0; i < 3; i++) { c.beginPath(); c.arc(p.x, p.y, p.r - i * 6, 0, TAU); c.strokeStyle = i % 2 ? b.ink : b.glow; c.lineWidth = 3; c.stroke(); }
@@ -328,6 +332,9 @@
         cx.save(); cx.translate(qx, qy); cx.rotate(now / 3000 * (1 + 4 * h) + i); cx.drawImage(sp.C, -sp.s / 2, -sp.s / 2, sp.s, sp.s); cx.restore();
         if (h > 0.02) { cx.globalAlpha = 0.2 + 0.55 * h; cx.fillStyle = b.glow; cx.beginPath(); cx.arc(qx, qy, q.r - 3, 0, 7); cx.fill(); S.heat[i] = h * 0.985; }
         if (t && now - t < 180) { const u = (now - t) / 180; cx.globalAlpha = 1 - u; cx.fillStyle = "#ffffff"; cx.beginPath(); cx.arc(qx, qy, q.r + 6 * (1 - u), 0, 7); cx.fill(); }
+        if (t && now - t < 260) { const u = (now - t) / 260; cx.globalAlpha = 0.9 * (1 - u); cx.strokeStyle = "#fdf4ff"; cx.lineWidth = 2.5; cx.lineCap = "round";   // (0.0.59, from the icon: sparks off a bumper struck)
+          for (let k = 0; k < 10; k++) { const a = k * TAU / 10 + i, r1 = q.r + 4 + 10 * u, r2 = r1 + (k % 2 ? 7 : 12) * (1 - u * 0.5);
+            cx.beginPath(); cx.moveTo(qx + r1 * Math.cos(a), qy + r1 * Math.sin(a)); cx.lineTo(qx + r2 * Math.cos(a), qy + r2 * Math.sin(a)); cx.stroke(); } }
         cx.globalAlpha = 1; });
       for (const [j, t] of S.wallFlash) { const w = b.walls[j]; if (!w || lvOf(w) !== lv) continue; const u = (now - t) / 240; if (u >= 1) { S.wallFlash.delete(j); continue; }
         cx.globalAlpha = 1 - u; cx.strokeStyle = "#ffffff"; cx.lineWidth = 12 - 6 * u; cx.lineCap = "round"; cx.beginPath(); cx.moveTo(w.ax, w.ay); cx.lineTo(w.bx, w.by); cx.stroke(); }
@@ -338,8 +345,19 @@
         cx.globalAlpha = 0.5; cx.strokeStyle = "#ffffff"; cx.lineWidth = 2; cx.stroke(); cx.globalAlpha = 1;
         cx.beginPath(); cx.arc(f.x, f.y, lv ? 5 : 6, 0, TAU); cx.fillStyle = b.bg; cx.fill(); });
       if (!(g.warp > 0) && (g.lv || 0) === lv) { const x = g.x / 1000, y = g.y / 1000;
-        if (lv) { cx.globalAlpha = 0.3; cx.fillStyle = "#000000"; cx.beginPath(); cx.arc(x + 10, y + 14, 12, 0, TAU); cx.fill(); cx.globalAlpha = 1; ball(x, y, 13.5); } else ball(x, y, 12); }
+        if (lv) { cx.globalAlpha = 0.3; cx.fillStyle = "#000000"; cx.beginPath(); cx.arc(x + 10, y + 14, 12, 0, TAU); cx.fill(); cx.globalAlpha = 1; ball(x, y, 13.5); }
+        else { cx.globalAlpha = 0.3; cx.fillStyle = "#000000"; cx.beginPath(); cx.ellipse(x + 5, y + 9, 11, 5, 0, 0, TAU); cx.fill(); cx.globalAlpha = 1; ball(x, y, 12); } }   // (0.0.59: its shadow on the table too)
     }
+    // (0.0.59, from the icon) a swirl turning in each portal's mouth; arrows chasing up the plunger lane
+    for (const p2 of b.portals) { if (p2.kind || (p2.from || 0) !== 0) continue;
+      cx.save(); cx.translate(p2.x, p2.y); cx.rotate(now / 600); cx.lineWidth = 2; cx.lineCap = "round";
+      for (let arm = 0; arm < 3; arm++) { cx.beginPath(); for (let t2 = 0; t2 < 20; t2++) { const a = arm * TAU / 3 + t2 * 0.2, r = 2 + t2 * (p2.r - 8) / 20; if (t2) cx.lineTo(r * Math.cos(a), r * Math.sin(a)); else cx.moveTo(r * Math.cos(a), r * Math.sin(a)); }
+        cx.globalAlpha = 0.65; cx.strokeStyle = arm ? b.glow : "#ffffff"; cx.stroke(); }
+      cx.restore(); }
+    cx.globalAlpha = 1;
+    if (g && !g.over) for (let k = 0; k < 3; k++) { const y = 930 - k * 34, on = 0.5 + 0.5 * Math.sin(now / 160 - k * 1.3);
+      cx.globalAlpha = 0.2 + 0.6 * on; cx.strokeStyle = b.glow; cx.lineWidth = 3.5; cx.lineCap = "round"; cx.lineJoin = "round"; cx.beginPath(); cx.moveTo(553, y + 9); cx.lineTo(563, y); cx.lineTo(573, y + 9); cx.stroke(); }
+    cx.globalAlpha = 1;
     level(0);
     if (S.deck) { cx.save(); cx.globalAlpha = 0.28; cx.fillStyle = "#000000"; cx.translate(10, 14); polyline(cx, b.glass); cx.closePath(); cx.fill(); cx.restore(); cx.globalAlpha = 1; cx.drawImage(S.deck, 0, 0); level(1); }
     if (S.wires) cx.drawImage(S.wires, 0, 0);

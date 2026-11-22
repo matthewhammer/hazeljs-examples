@@ -23,7 +23,7 @@
   // course's stretches as Hazel made them, the ski tracks, the gates passed, words floating up, the best run
   const S = { built: null, libAt: 0, libFailed: false, compiledError: "", game: null, chase: kept("chase", true), best: kept("best", 0),
               held: { left: false, right: false, tuck: false }, turn: 0, repeat: 0, wait: 0, stretches: new Map(), seed: 0,
-              tracks: [], passed: new Set(), pops: [], camX: 0, stepMs: [], banner: null, restartAt: 0 };
+              tracks: [], passed: new Set(), pops: [], camX: 0, stepMs: [], banner: null, restartAt: 0, spray: [], sprayAt: 0 };
   const H = () => S.built && S.built.ok ? S.built.value : null;
   const C = 100, METRE = 50;   // (hundredths a unit, units a metre)
   $("chase").checked = !!S.chase;
@@ -53,19 +53,24 @@
       c.fillStyle = "#1f6b3a"; c.beginPath(); c.moveTo(x - hw * k, y + (dy - 8) * k); c.lineTo(x + hw * k, y + (dy - 8) * k); c.lineTo(x, y + (dy - 8 - ht) * k); c.closePath(); c.fill();
       c.fillStyle = "#2f8a4e"; c.beginPath(); c.moveTo(x, y + (dy - 8 - ht) * k); c.lineTo(x + hw * k, y + (dy - 8) * k); c.lineTo(x + hw * 0.3 * k, y + (dy - 8) * k); c.closePath(); c.fill();
       c.fillStyle = "#ffffff"; c.beginPath(); c.moveTo(x - hw * 0.35 * k, y + (dy - 8 - ht * 0.62) * k); c.lineTo(x, y + (dy - 8 - ht) * k); c.lineTo(x + hw * 0.35 * k, y + (dy - 8 - ht * 0.62) * k); c.closePath(); c.fill();
+      // (0.0.59, from the icon: snow lying along the bough's lower edge)
+      const b = dy - 8; c.fillStyle = "rgba(255, 255, 255, 0.75)"; c.beginPath(); c.moveTo(x + (-hw + 2) * k, y + (b - 1) * k); c.lineTo(x - hw * 0.55 * k, y + (b - ht * 0.3) * k);
+      c.lineTo(x - hw * 0.45 * k, y + (b - ht * 0.22) * k); c.lineTo(x - hw * 0.3 * k, y + (b - 1) * k); c.closePath(); c.fill();
     }
   }
   function rock(c, x, y, k) {
     c.fillStyle = "rgba(60, 90, 140, 0.18)"; c.beginPath(); c.ellipse(x + 3 * k, y + 2 * k, 15 * k, 5 * k, 0, 0, 7); c.fill();
     c.fillStyle = "#7d8591"; c.beginPath(); c.moveTo(x - 14 * k, y); c.lineTo(x - 10 * k, y - 10 * k); c.lineTo(x - 2 * k, y - 15 * k); c.lineTo(x + 9 * k, y - 12 * k); c.lineTo(x + 14 * k, y - 2 * k); c.lineTo(x + 10 * k, y + 2 * k); c.closePath(); c.fill();
     c.fillStyle = "#a3abb6"; c.beginPath(); c.moveTo(x - 10 * k, y - 10 * k); c.lineTo(x - 2 * k, y - 15 * k); c.lineTo(x + 2 * k, y - 8 * k); c.lineTo(x - 6 * k, y - 5 * k); c.closePath(); c.fill();
+    c.fillStyle = "#646c78"; c.beginPath(); c.moveTo(x + 2 * k, y - 8 * k); c.lineTo(x + 9 * k, y - 12 * k); c.lineTo(x + 14 * k, y - 2 * k); c.lineTo(x + 10 * k, y + 2 * k); c.lineTo(x + 4 * k, y - 1 * k); c.closePath(); c.fill();   // (0.0.59: its shaded side)
     c.fillStyle = "#ffffff"; c.beginPath(); c.moveTo(x - 9 * k, y - 11 * k); c.lineTo(x - 2 * k, y - 15 * k); c.lineTo(x + 8 * k, y - 12 * k); c.lineTo(x + 2 * k, y - 11 * k); c.closePath(); c.fill();
   }
   function ramp(c, x, y, k) {
     c.fillStyle = "rgba(60, 90, 140, 0.22)"; c.beginPath(); c.ellipse(x, y + 4 * k, 28 * k, 6 * k, 0, 0, 7); c.fill();
     c.fillStyle = "#cfe3f7"; c.beginPath(); c.moveTo(x - 24 * k, y - 14 * k); c.lineTo(x + 24 * k, y - 14 * k); c.lineTo(x + 26 * k, y + 4 * k); c.lineTo(x - 26 * k, y + 4 * k); c.closePath(); c.fill();
+    c.fillStyle = "#e8f2fc"; c.beginPath(); c.moveTo(x - 24 * k, y - 14 * k); c.lineTo(x + 24 * k, y - 14 * k); c.lineTo(x + 22 * k, y - 10 * k); c.lineTo(x - 22 * k, y - 10 * k); c.closePath(); c.fill();   // (0.0.59: its lit top edge)
     c.fillStyle = "#8fb6de"; c.fillRect(x - 26 * k, y + 1 * k, 52 * k, 4 * k);
-    c.strokeStyle = "#f59e0b"; c.lineWidth = 3 * k; c.beginPath(); c.moveTo(x - 8 * k, y - 2 * k); c.lineTo(x, y - 10 * k); c.lineTo(x + 8 * k, y - 2 * k); c.stroke();
+    c.lineJoin = "round"; c.lineCap = "round"; c.strokeStyle = "#f59e0b"; c.lineWidth = 3 * k; c.beginPath(); c.moveTo(x - 8 * k, y - 2 * k); c.lineTo(x, y - 10 * k); c.lineTo(x + 8 * k, y - 2 * k); c.stroke();
   }
   function bumps(c, x, y, w, k) {
     for (let i = 0; i < 5; i++) {
@@ -75,8 +80,10 @@
     }
   }
   function flag(c, x, y, k, col, side) {
-    c.strokeStyle = "#374151"; c.lineWidth = 2 * k; c.beginPath(); c.moveTo(x, y); c.lineTo(x, y - 30 * k); c.stroke();
+    c.fillStyle = "rgba(60, 90, 140, 0.2)"; c.beginPath(); c.ellipse(x + 3 * k, y + 1 * k, 5 * k, 2 * k, 0, 0, 7); c.fill();   // (0.0.59: its shadow)
+    c.strokeStyle = "#374151"; c.lineWidth = 2 * k; c.lineCap = "round"; c.beginPath(); c.moveTo(x, y); c.lineTo(x, y - 30 * k); c.stroke();
     c.fillStyle = col; c.beginPath(); c.moveTo(x, y - 30 * k); c.lineTo(x + side * 14 * k, y - 25 * k); c.lineTo(x, y - 20 * k); c.closePath(); c.fill();
+    c.fillStyle = "#374151"; c.beginPath(); c.arc(x, y - 31 * k, 1.6 * k, 0, 7); c.fill();
   }
   // the skier, from their heading (-3 to 3): skis turned that way, the body over them; crouched; lying in the snow; in the air
   function skier(c, x, y, g, k, crouch) {
@@ -96,15 +103,25 @@
     c.save(); c.rotate(-a);
     c.strokeStyle = "#e11d48"; c.lineWidth = 3 * k; c.lineCap = "round";
     c.beginPath(); c.moveTo(-4 * k, -12 * k); c.lineTo(-4 * k, 14 * k); c.moveTo(4 * k, -12 * k); c.lineTo(4 * k, 14 * k); c.stroke();
+    c.strokeStyle = "#fda4af"; c.beginPath(); c.moveTo(-4 * k, 11 * k); c.lineTo(-4 * k, 14 * k); c.moveTo(4 * k, 11 * k); c.lineTo(4 * k, 14 * k); c.stroke();   // (0.0.59: the tips)
     c.restore();
     const bend = crouch ? 5 : 0;
     // legs, body, arms with poles, the head and its hat
-    c.fillStyle = "#1e3a8a"; c.fillRect(-5 * k, (-10 + bend) * k, 10 * k, 9 * k);
+    // (0.0.59, from the icon: a seam down the trousers, a stripe across the jacket, gloves, baskets on the poles, a band on the
+    // hat, goggles)
+    const hy = bend * 1.6;
+    c.fillStyle = "#1e3a8a"; c.fillRect(-5 * k, (-10 + bend) * k, 10 * k, 9 * k); c.fillStyle = "#172554"; c.fillRect(-0.6 * k, (-10 + bend) * k, 1.2 * k, 9 * k);
     c.fillStyle = "#f97316"; c.beginPath(); c.ellipse(0, (-16 + bend) * k, 8 * k, 9 * k, 0, 0, 7); c.fill();
+    c.fillStyle = "rgba(255, 255, 255, 0.85)"; c.fillRect(-7.4 * k, (-18 + bend) * k, 14.8 * k, 2.4 * k);
     c.strokeStyle = "#374151"; c.lineWidth = 1.5 * k; c.beginPath(); c.moveTo(-8 * k, (-16 + bend) * k); c.lineTo(-12 * k, 2 * k); c.moveTo(8 * k, (-16 + bend) * k); c.lineTo(12 * k, 2 * k); c.stroke();
-    c.fillStyle = "#f2c9a0"; c.beginPath(); c.arc(0, (-29 + bend * 1.6) * k, 6 * k, 0, 7); c.fill();
-    c.fillStyle = "#16a34a"; c.beginPath(); c.arc(0, (-31 + bend * 1.6) * k, 6.5 * k, Math.PI, 0); c.fill();
-    c.fillStyle = "#ffffff"; c.beginPath(); c.arc(0, (-38 + bend * 1.6) * k, 2.5 * k, 0, 7); c.fill();
+    c.lineWidth = 0.8 * k; c.beginPath(); c.arc(-12 * k, 2 * k, 1.6 * k, 0, 7); c.moveTo(13.6 * k, 2 * k); c.arc(12 * k, 2 * k, 1.6 * k, 0, 7); c.stroke();
+    c.fillStyle = "#16a34a"; c.beginPath(); c.arc(-8.2 * k, (-13 + bend) * k, 2 * k, 0, 7); c.arc(8.2 * k, (-13 + bend) * k, 2 * k, 0, 7); c.fill();
+    c.fillStyle = "#f2c9a0"; c.beginPath(); c.arc(0, (-29 + hy) * k, 6 * k, 0, 7); c.fill();
+    c.fillStyle = "#16a34a"; c.beginPath(); c.arc(0, (-31 + hy) * k, 6.5 * k, Math.PI, 0); c.fill();
+    c.fillStyle = "#bbf7d0"; c.fillRect(-6.6 * k, (-31.6 + hy) * k, 13.2 * k, 1.8 * k);
+    c.fillStyle = "#ffffff"; c.beginPath(); c.arc(0, (-38 + hy) * k, 2.5 * k, 0, 7); c.fill();
+    c.fillStyle = "#0f172a"; c.beginPath(); c.roundRect(-4.6 * k, (-29.5 + hy) * k, 9.2 * k, 3 * k, 1.5 * k); c.fill();
+    c.fillStyle = "#7dd3fc"; c.beginPath(); c.roundRect(-3.6 * k, (-29 + hy) * k, 3 * k, 1.6 * k, 0.8 * k); c.roundRect(0.6 * k, (-29 + hy) * k, 3 * k, 1.6 * k, 0.8 * k); c.fill();
     c.restore();
   }
   function snowball(c, x, y, r, k, roll) {
@@ -115,6 +132,8 @@
     c.strokeStyle = "rgba(120, 150, 190, 0.45)"; c.lineWidth = 2 * k;
     for (let i = 0; i < 3; i++) { const a = roll + i * 2.1; c.beginPath(); c.arc(x, y - r * k, r * 0.7 * k, a, a + 0.9); c.stroke(); }
     c.fillStyle = "#6b4423"; c.fillRect(x + Math.cos(roll) * r * 0.5 * k - 6 * k, y - r * k + Math.sin(roll) * r * 0.5 * k, 12 * k, 2 * k);
+    c.fillStyle = "#6b7f99";   // (0.0.59: pebbles rolled up in it, going round)
+    for (const [a, d, pr] of [[1.9, 0.45, 0.07], [3.6, 0.6, 0.05], [5.1, 0.3, 0.06]]) { c.beginPath(); c.arc(x + Math.cos(roll + a) * r * d * k, y - r * k + Math.sin(roll + a) * r * d * k, r * pr * k, 0, 7); c.fill(); }
   }
   function draw() {
     fit();
@@ -154,6 +173,19 @@
       else if (t.kind === 3) bumps(ctx, X, Y, t.w, k);
       else if (t.kind === 4) { const done = S.passed.has(t.x + ":" + t.y); flag(ctx, sx(t.x - t.w / 2), Y, k, done ? "#f59e0b" : "#dc2626", 1); flag(ctx, sx(t.x + t.w / 2), Y, k, done ? "#f59e0b" : "#2563eb", -1); }
     }
+    // (0.0.59, from the icon) snow thrown up off the skis when carving fast, and a soft vignette at the view's edges
+    const now0 = performance.now();
+    if (!g.over && !(g.air > 0) && !(g.down > 0) && g.heading !== 0 && g.speed / C > 4 && now0 - (S.sprayAt || 0) > 30) {
+      S.sprayAt = now0; const side = -Math.sign(g.heading);
+      for (let i = 0; i < 2; i++) S.spray.push({ x: gx + side * (6 + Math.random() * 6), y: gy + 4, vx: side * (0.6 + Math.random() * 1.4), vy: -0.4 - Math.random() * 1.2, r: 1.5 + Math.random() * 2.5, t: now0 });
+    }
+    S.spray = S.spray.filter(p => now0 - p.t < 450);
+    for (const p of S.spray) { const u = (now0 - p.t) / 450, d = u * 30;
+      ctx.globalAlpha = 1 - u; ctx.fillStyle = "#ffffff"; ctx.strokeStyle = "#b9cde6"; ctx.lineWidth = 1 * k;
+      ctx.beginPath(); ctx.arc(sx(p.x + p.vx * d), sy(p.y + p.vy * d + u * u * 18), p.r * k, 0, 7); ctx.fill(); ctx.stroke(); }
+    ctx.globalAlpha = 1;
+    const vg = ctx.createRadialGradient(W / 2, Hh * 0.45, Math.min(W, Hh) * 0.45, W / 2, Hh * 0.45, Math.max(W, Hh) * 0.75);
+    vg.addColorStop(0, "rgba(157, 184, 216, 0)"); vg.addColorStop(1, "rgba(157, 184, 216, 0.35)"); ctx.fillStyle = vg; ctx.fillRect(0, 0, W, Hh);
     // the snowball, if it is behind and out of sight: an arrow at the top, and how far
     if (g.rolling && sy(g.by / C) < 0) {
       const behind = Math.round((gy - g.by / C) / METRE), X = Math.max(20 * k, Math.min(W - 20 * k, sx(g.bx / C)));
@@ -185,7 +217,7 @@
   function newRun() {
     const h = H(); if (!h) return;
     S.seed = 1 + Math.floor(Math.random() * 2000000000); S.stretches.clear();
-    S.game = h.start(S.seed, !!S.chase); S.tracks = []; S.passed.clear(); S.pops = []; S.camX = 0; S.turn = 0; S.wait = 0; S.restartAt = 0;
+    S.game = h.start(S.seed, !!S.chase); S.tracks = []; S.passed.clear(); S.pops = []; S.spray = []; S.camX = 0; S.turn = 0; S.wait = 0; S.restartAt = 0;
     if (W && W.on) W.start(0);
     bar(); draw();
   }

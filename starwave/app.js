@@ -63,12 +63,14 @@
     if (kind === 3) {   // (a diamond with one big eye, its points pulsing)
       const p = pose ? 1 : 0.8;
       c.fillStyle = "#e879f9"; c.beginPath(); c.moveTo(cx, cy - 12 * k); c.lineTo(cx + 15 * k * p, cy); c.lineTo(cx, cy + 12 * k); c.lineTo(cx - 15 * k * p, cy); c.closePath(); c.fill();
+      c.fillStyle = "rgba(240, 171, 252, 0.6)"; c.beginPath(); c.moveTo(cx, cy - 12 * k); c.lineTo(cx + 15 * k * p, cy); c.lineTo(cx, cy); c.closePath(); c.fill();   // (0.0.59: a lit facet)
       c.fillStyle = "#ffffff"; c.beginPath(); c.arc(cx, cy - 2 * k, 4.5 * k, 0, 7); c.fill(); c.fillStyle = "#3b0764"; c.beginPath(); c.arc(cx, cy - 1 * k, 2.2 * k, 0, 7); c.fill();
+      c.fillStyle = "#ffffff"; c.beginPath(); c.arc(cx + 0.8 * k, cy - 2 * k, 0.8 * k, 0, 7); c.fill();   // (a glint)
       c.strokeStyle = "#3b0764"; c.lineWidth = 1.4 * k; c.beginPath(); c.arc(cx, cy + 3 * k, 3 * k, 0.15 * Math.PI, 0.85 * Math.PI); c.stroke();
     } else if (kind === 2) {   // (a six-sided drone, two antennae up or out)
       c.fillStyle = "#22d3ee"; c.beginPath();
       for (let i = 0; i < 6; i++) { const a = i * Math.PI / 3; c.lineTo(cx + Math.cos(a) * 14 * k, cy + Math.sin(a) * 10 * k); }
-      c.closePath(); c.fill();
+      c.closePath(); c.fill(); c.strokeStyle = "rgba(165, 243, 252, 0.7)"; c.lineWidth = 1 * k; c.stroke();   // (0.0.59: a rim)
       c.strokeStyle = "#a5f3fc"; c.lineWidth = 2 * k; c.beginPath(); const sp = pose ? 9 : 5;
       c.moveTo(cx - 5 * k, cy - 8 * k); c.lineTo(cx - sp * k, cy - 14 * k); c.moveTo(cx + 5 * k, cy - 8 * k); c.lineTo(cx + sp * k, cy - 14 * k); c.stroke();
       heart(c, cx - sp * k, cy - 15 * k, 2.2 * k, "#fb7185"); heart(c, cx + sp * k, cy - 15 * k, 2.2 * k, "#fb7185");
@@ -76,6 +78,7 @@
       smile(c, cx, cy + 1 * k, k, 3);
     } else {   // (a round blob on three legs, the legs stepping)
       c.fillStyle = "#4ade80"; c.beginPath(); c.ellipse(cx, cy - 2 * k, 14 * k, 9 * k, 0, 0, 7); c.fill();
+      c.fillStyle = "rgba(187, 247, 208, 0.5)"; c.beginPath(); c.ellipse(cx - 4 * k, cy - 6 * k, 6 * k, 3 * k, 0, 0, 7); c.fill();   // (0.0.59: a sheen)
       c.strokeStyle = "#4ade80"; c.lineWidth = 3 * k; c.beginPath();
       for (const dx of [-8, 0, 8]) { c.moveTo(cx + dx * k, cy + 5 * k); c.lineTo(cx + (dx + (pose ? 3 : -3)) * k, cy + 11 * k); }
       c.stroke();
@@ -109,9 +112,12 @@
   function draw() {
     fit();
     const k = cv.width / 600, g = S.game, c = ctx, now = performance.now();
-    const sky = c.createLinearGradient(0, 0, 0, cv.height); sky.addColorStop(0, "#070a1c"); sky.addColorStop(1, "#2a1647");
+    const sky = c.createLinearGradient(0, 0, 0, cv.height); sky.addColorStop(0, "#070a1c"); sky.addColorStop(0.7, "#1f1240"); sky.addColorStop(1, "#3a1d5c");
     c.fillStyle = sky; c.fillRect(0, 0, cv.width, cv.height);
     for (let i = 0; i < 90; i++) { const tw = 0.4 + 0.6 * Math.abs(Math.sin(now / 900 + i)); c.fillStyle = `rgba(220, 210, 255, ${0.25 + 0.5 * tw * hash(i, 7)})`; c.fillRect(hash(i, 1) * cv.width, hash(i, 2) * cv.height * 0.75, 1.6 * k, 1.6 * k); }
+    for (let i = 0; i < 6; i++) {   // (0.0.59, from the icon: a few stars twinkling as four-pointed sparkles)
+      const tw = Math.max(0, Math.sin(now / 700 + i * 1.7)), x = hash(i, 11) * cv.width, y = hash(i, 12) * cv.height * 0.6, r = (3 + 4 * tw) * k;
+      if (tw > 0.05) { c.fillStyle = `rgba(233, 213, 255, ${0.35 + 0.5 * tw})`; c.beginPath(); c.moveTo(x, y - r); c.lineTo(x + r * 0.22, y - r * 0.22); c.lineTo(x + r, y); c.lineTo(x + r * 0.22, y + r * 0.22); c.lineTo(x, y + r); c.lineTo(x - r * 0.22, y + r * 0.22); c.lineTo(x - r, y); c.lineTo(x - r * 0.22, y - r * 0.22); c.closePath(); c.fill(); } }
     if (!g) { c.fillStyle = "#1e293b"; c.fillRect(0, 762 * k, cv.width, 38 * k); return; }
     const all = painted(g) >= FULL;
     if (all) {   // (the town all rainbow: a rainbow over it)
@@ -119,26 +125,39 @@
       c.globalAlpha = 1;
     }
     town(c, g, k, now);
-    c.fillStyle = "#1e293b"; c.fillRect(0, 762 * k, cv.width, 38 * k);
+    c.fillStyle = "#1e293b"; c.fillRect(0, 762 * k, cv.width, 38 * k); c.fillStyle = "#334155"; c.fillRect(0, 762 * k, cv.width, 2 * k);
     const pose = Math.floor(g.fx / 8) % 2 === 0;
     g.aliens.forEach((a, i) => { if (a) visitor(c, a, g.fx + (i % 9) * 48, g.fy + Math.floor(i / 9) * 40, k, pose); });
     // (the rainbow drops: a falling drop, its colour going round)
-    for (const d of g.drops) { const x = d.x * k, y = d.y * k; c.fillStyle = `hsl(${(d.y * 3 + now / 6) % 360}, 90%, 62%)`; c.beginPath(); c.moveTo(x, y - 9 * k); c.quadraticCurveTo(x + 6 * k, y, x, y + 4 * k); c.quadraticCurveTo(x - 6 * k, y, x, y - 9 * k); c.fill(); }
+    for (const d of g.drops) { const x = d.x * k, y = d.y * k; c.fillStyle = `hsl(${(d.y * 3 + now / 6) % 360}, 90%, 62%)`; c.beginPath(); c.moveTo(x, y - 9 * k); c.quadraticCurveTo(x + 6 * k, y, x, y + 4 * k); c.quadraticCurveTo(x - 6 * k, y, x, y - 9 * k); c.fill();
+      c.strokeStyle = "rgba(255, 255, 255, 0.8)"; c.lineWidth = 1 * k; c.lineCap = "round"; c.beginPath(); c.moveTo(x - 1.5 * k, y - 4 * k); c.quadraticCurveTo(x - 2.5 * k, y - 1 * k, x - 1 * k, y + 1 * k); c.stroke(); }   // (0.0.59: a shine)
     // (your launcher, in front of the town, and its heart going up)
     { const x = g.cx * k, y = 740 * k;
       c.fillStyle = "#f9a8d4"; c.beginPath(); c.roundRect(x - 22 * k, y - 2 * k, 44 * k, 16 * k, 7 * k); c.fill();
+      c.fillStyle = "#f472b6"; c.beginPath(); c.roundRect(x - 22 * k, y + 9 * k, 44 * k, 5 * k, 2.5 * k); c.fill();   // (0.0.59: a band at its foot)
       c.fillStyle = "#fdf2f8"; c.beginPath(); c.roundRect(x - 7 * k, y - 16 * k, 14 * k, 16 * k, 5 * k); c.fill();
+      c.fillStyle = "#fbcfe8"; c.beginPath(); c.roundRect(x - 5 * k, y - 16 * k, 10 * k, 3 * k, 1.5 * k); c.fill();
       heart(c, x, y + 6 * k, 5 * k, "#e11d48"); }
-    if (g.hy >= 0) { heart(c, g.hx * k, (g.hy + 6) * k, 9 * k, "rgba(253, 164, 175, 0.35)"); heart(c, g.hx * k, (g.hy + 6) * k, 7 * k, "#f43f5e"); }
+    if (g.hy >= 0) {   // (0.0.59, from the icon: a glow round the heart, a trail under it, a highlight on it)
+      const hx = g.hx * k, hy = (g.hy + 6) * k, gl = c.createRadialGradient(hx, hy, 0, hx, hy, 20 * k);
+      gl.addColorStop(0, "rgba(253, 164, 175, 0.6)"); gl.addColorStop(1, "rgba(253, 164, 175, 0)"); c.fillStyle = gl; c.beginPath(); c.arc(hx, hy, 20 * k, 0, 7); c.fill();
+      for (let i = 1; i <= 4; i++) { c.fillStyle = `rgba(253, 164, 175, ${0.75 - i * 0.15})`; c.beginPath(); c.arc(hx, hy + (6 + i * 9) * k, (3.4 - i * 0.5) * k, 0, 7); c.fill(); }
+      heart(c, hx, hy, 7 * k, "#f43f5e"); heart(c, hx - 2 * k, hy - 2 * k, 2.2 * k, "rgba(254, 205, 211, 0.75)"); }
     // (hearts bursting out of a visitor reached, drifting up and away)
     S.bursts = S.bursts.filter(b => now - b.t < 1100);
     for (const b of S.bursts) { const q = (now - b.t) / 1100;
+      { const gl = c.createRadialGradient(b.x * k, b.y * k, 0, b.x * k, b.y * k, 40 * k); gl.addColorStop(0, `rgba(253, 164, 175, ${0.55 * (1 - q)})`); gl.addColorStop(1, "rgba(253, 164, 175, 0)");   // (0.0.59: a glow, and sparkles)
+        c.fillStyle = gl; c.beginPath(); c.arc(b.x * k, b.y * k, 40 * k, 0, 7); c.fill();
+        c.fillStyle = `rgba(255, 255, 255, ${1 - q})`; for (let i = 0; i < 4; i++) { const a = i * 1.57 + b.spin * 3 + 0.8, r = (14 + q * 30) * k, x = b.x * k + Math.cos(a) * r, y = b.y * k + Math.sin(a) * r, z = 3 * k * (1 - q);
+          c.beginPath(); c.moveTo(x, y - z); c.lineTo(x + z * 0.25, y - z * 0.25); c.lineTo(x + z, y); c.lineTo(x + z * 0.25, y + z * 0.25); c.lineTo(x, y + z); c.lineTo(x - z * 0.25, y + z * 0.25); c.lineTo(x - z, y); c.lineTo(x - z * 0.25, y - z * 0.25); c.closePath(); c.fill(); } }
       for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4 + b.spin, r = 6 + q * 46; c.globalAlpha = 1 - q;
         heart(c, (b.x + Math.cos(a) * r) * k, (b.y + Math.sin(a) * r - q * 20) * k, (4 + 2 * (i % 2)) * (1 - q * 0.4) * k, i % 2 ? "#fb7185" : "#f9a8d4"); } }
     c.globalAlpha = 1;
     S.pops = S.pops.filter(p => now - p.t < 900);
     for (const p of S.pops) { const q = (now - p.t) / 900; c.globalAlpha = 1 - q; c.fillStyle = p.col; c.font = `700 ${Math.round(15 * k)}px system-ui`; c.textAlign = "center"; c.fillText(p.text, p.x * k, (p.y - q * 24) * k); }
     c.globalAlpha = 1; c.textAlign = "center";
+    { const vg = c.createRadialGradient(cv.width / 2, cv.height * 0.45, cv.width * 0.55, cv.width / 2, cv.height * 0.45, cv.height * 0.75);   // (0.0.59: a vignette)
+      vg.addColorStop(0, "rgba(0, 0, 0, 0)"); vg.addColorStop(1, "rgba(0, 0, 0, 0.3)"); c.fillStyle = vg; c.fillRect(0, 0, cv.width, cv.height); }
     // (the rainbow meter, along the top: the town's floors turned, the visitors left)
     { const n = painted(g), x0 = 150 * k, w = 300 * k, y0 = 14 * k, h = 12 * k;
       c.fillStyle = "rgba(255, 255, 255, 0.12)"; c.beginPath(); c.roundRect(x0, y0, w, h, 6 * k); c.fill();
