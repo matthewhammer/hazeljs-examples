@@ -19,6 +19,14 @@ APPS = {
   "checkers": ("Checkers", "against an opponent written in Hazel", ["the moves, the jumps", "(compulsory, and on while", "they can), the kings, and", "Hazel's look-ahead"]),
   "mahjong-solitaire": ("Mahjong solitaire", "a one-player game, its rules in Hazel", ["144 tiles in layers:", "which are free, a deal", "that can be won, a clue,", "and Hazel's own play"]),
   "pinball": ("Pinball", "a physics simulation in Hazel", ["ten tables as Hazel data,", "chambers and flippers,", "bumpers on tracks; every", "frame's physics in Hazel"]),
+  # (0.0.62: the games of 2026-11-22)
+  "downhill": ("Downhill", "a physics simulation in Hazel", ["a ski slope made by Hazel", "a stretch at a time: pines,", "ramps, gates, a snowball;", "every step's physics"]),
+  "bricks": ("Bricks", "a physics simulation in Hazel", ["a paddle, a ball, and six", "walls of bricks as Hazel", "data; every bounce is", "a step of Hazel's"]),
+  "snake": ("Snake", "a one-player game, its rules in Hazel", ["steer to the apple, three", "cells longer a meal; the", "walls may wrap; Hazel's", "robot floods for room"]),
+  "starwave": ("Star wave", "a one-player game, its rules in Hazel", ["send hearts up to visitors", "who turn the town rainbow;", "the last heart just as", "it is all rainbow"]),
+  "trails": ("Light trails", "against an opponent written in Hazel", ["two riders leaving walls", "of light; the first to", "crash loses; Hazel rides", "at three skills"]),
+  "bugs": ("Butterfly garden", "a one-player game, its rules in Hazel", ["feed caterpillars nectar:", "they turn to butterflies", "that open the buds, till", "the garden is in bloom"]),
+  "dig": ("Gnome dig", "a one-player game, its rules in Hazel", ["a gnome with a lantern", "digs for gems while", "monsters follow; boulders", "wobble, then fall"]),
 }
 LIGHT = ".h{fill:#1f2328;font:700 15px system-ui,sans-serif}.m{fill:#5b6470;font:10px system-ui,sans-serif}.k{fill:#1f2328;font:11px system-ui,sans-serif}"
 DARK = ".h{fill:#e8e6e3}.m{fill:#a2a9b3}.k{fill:#e8e6e3}"

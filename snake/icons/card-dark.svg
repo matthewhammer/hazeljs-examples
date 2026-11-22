@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200" width="320" height="200">
+<style>.h{fill:#1f2328;font:700 15px system-ui,sans-serif}.m{fill:#5b6470;font:10px system-ui,sans-serif}.k{fill:#1f2328;font:11px system-ui,sans-serif}
+.h{fill:#e8e6e3}.m{fill:#a2a9b3}.k{fill:#e8e6e3}
+</style>
+<text class="h" x="16" y="26">Snake</text>
+<text class="m" x="16" y="42">a one-player game, its rules in Hazel</text>
+<svg x="16" y="56" width="132" height="132" viewBox="0 0 512 512"><clipPath id="round"><rect width="512" height="512" rx="88"/></clipPath><g clip-path="url(#round)">
+<defs><pattern id="ck" width="64" height="64" patternUnits="userSpaceOnUse"><rect width="64" height="64" fill="#15803d"/><rect width="32" height="32" fill="#166534"/><rect x="32" y="32" width="32" height="32" fill="#166534"/></pattern></defs>
+<rect width="512" height="512" rx="96" fill="url(#ck)"/>
+<path d="M96 400 L96 304 L224 304 L224 208 L352 208 L352 144" fill="none" stroke="#a16207" stroke-width="64" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M96 400 L96 304 L224 304 L224 208 L352 208 L352 144" fill="none" stroke="#facc15" stroke-width="52" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="338" cy="128" r="9" fill="#fff"/><circle cx="366" cy="128" r="9" fill="#fff"/><circle cx="339" cy="125" r="4.5" fill="#111827"/><circle cx="367" cy="125" r="4.5" fill="#111827"/>
+<path d="M340 156 q12 10 24 0" fill="none" stroke="#7c2d12" stroke-width="4" stroke-linecap="round"/>
+<circle cx="416" cy="80" r="30" fill="#dc2626"/><circle cx="404" cy="70" r="8" fill="rgba(255,255,255,0.5)"/>
+<path d="M416 50 l4 -18" stroke="#78350f" stroke-width="6" stroke-linecap="round"/><ellipse cx="434" cy="40" rx="14" ry="7" fill="#4ade80" transform="rotate(-25 434 40)"/>
+</g></svg>
+<text class="k" x="164" y="84">steer to the apple, three</text>
+<text class="k" x="164" y="106">cells longer a meal; the</text>
+<text class="k" x="164" y="128">walls may wrap; Hazel's</text>
+<text class="k" x="164" y="150">robot floods for room</text>
+</svg>

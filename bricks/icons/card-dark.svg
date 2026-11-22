@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200" width="320" height="200">
+<style>.h{fill:#1f2328;font:700 15px system-ui,sans-serif}.m{fill:#5b6470;font:10px system-ui,sans-serif}.k{fill:#1f2328;font:11px system-ui,sans-serif}
+.h{fill:#e8e6e3}.m{fill:#a2a9b3}.k{fill:#e8e6e3}
+</style>
+<text class="h" x="16" y="26">Bricks</text>
+<text class="m" x="16" y="42">a physics simulation in Hazel</text>
+<svg x="16" y="56" width="132" height="132" viewBox="0 0 512 512"><clipPath id="round"><rect width="512" height="512" rx="88"/></clipPath><g clip-path="url(#round)">
+<defs><linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2b1d4e"/><stop offset="1" stop-color="#140d26"/></linearGradient>
+<linearGradient id="pad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#a5b4fc"/><stop offset="1" stop-color="#4f46e5"/></linearGradient></defs>
+<rect width="512" height="512" rx="96" fill="url(#bg)"/>
+<g>
+<rect x="56" y="88" width="88" height="34" rx="8" fill="#ef4444"/><rect x="152" y="88" width="88" height="34" rx="8" fill="#ef4444"/><rect x="248" y="88" width="88" height="34" rx="8" fill="#ef4444"/><rect x="344" y="88" width="88" height="34" rx="8" fill="#ef4444"/>
+<rect x="56" y="130" width="88" height="34" rx="8" fill="#f59e0b"/><rect x="152" y="130" width="88" height="34" rx="8" fill="#f59e0b"/><rect x="344" y="130" width="88" height="34" rx="8" fill="#f59e0b"/>
+<rect x="56" y="172" width="88" height="34" rx="8" fill="#22c55e"/><rect x="248" y="172" width="88" height="34" rx="8" fill="#22c55e"/><rect x="344" y="172" width="88" height="34" rx="8" fill="#22c55e"/>
+<rect x="152" y="214" width="88" height="34" rx="8" fill="#3b82f6"/><rect x="344" y="214" width="88" height="34" rx="8" fill="#3b82f6"/>
+</g>
+<g fill="rgba(255,255,255,0.25)"><rect x="62" y="92" width="76" height="6" rx="3"/><rect x="158" y="92" width="76" height="6" rx="3"/><rect x="254" y="92" width="76" height="6" rx="3"/><rect x="350" y="92" width="76" height="6" rx="3"/></g>
+<path d="M300 200 L258 320 L330 420" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="5" stroke-dasharray="3 12" stroke-linecap="round"/>
+<circle cx="300" cy="196" r="34" fill="rgba(255,255,255,0.18)"/><circle cx="300" cy="196" r="20" fill="#ffffff"/>
+<rect x="250" y="420" width="160" height="26" rx="13" fill="url(#pad)"/>
+</g></svg>
+<text class="k" x="164" y="84">a paddle, a ball, and six</text>
+<text class="k" x="164" y="106">walls of bricks as Hazel</text>
+<text class="k" x="164" y="128">data; every bounce is</text>
+<text class="k" x="164" y="150">a step of Hazel's</text>
+</svg>

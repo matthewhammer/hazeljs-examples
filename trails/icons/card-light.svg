@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200" width="320" height="200">
+<style>.h{fill:#1f2328;font:700 15px system-ui,sans-serif}.m{fill:#5b6470;font:10px system-ui,sans-serif}.k{fill:#1f2328;font:11px system-ui,sans-serif}
+</style>
+<text class="h" x="16" y="26">Light trails</text>
+<text class="m" x="16" y="42">against an opponent written in Hazel</text>
+<svg x="16" y="56" width="132" height="132" viewBox="0 0 512 512"><clipPath id="round"><rect width="512" height="512" rx="88"/></clipPath><g clip-path="url(#round)">
+<defs><filter id="glow" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="7"/></filter></defs>
+<rect width="512" height="512" rx="96" fill="#0b1020"/>
+<g stroke="rgba(120,140,220,0.16)" stroke-width="2"><path d="M64 0V512M128 0V512M192 0V512M256 0V512M320 0V512M384 0V512M448 0V512M0 64H512M0 128H512M0 192H512M0 256H512M0 320H512M0 384H512M0 448H512"/></g>
+<g fill="none" stroke-linecap="round" stroke-linejoin="round">
+<path d="M70 400 L70 300 L190 300 L190 170 L290 170" stroke="#38bdf8" stroke-width="30" opacity="0.5" filter="url(#glow)"/>
+<path d="M70 400 L70 300 L190 300 L190 170 L290 170" stroke="#7dd3fc" stroke-width="14"/>
+<path d="M442 110 L442 230 L340 230 L340 360 L250 360" stroke="#fb923c" stroke-width="30" opacity="0.5" filter="url(#glow)"/>
+<path d="M442 110 L442 230 L340 230 L340 360 L250 360" stroke="#fdba74" stroke-width="14"/>
+</g>
+<circle cx="290" cy="170" r="13" fill="#fff"/><circle cx="250" cy="360" r="13" fill="#fff"/>
+</g></svg>
+<text class="k" x="164" y="84">two riders leaving walls</text>
+<text class="k" x="164" y="106">of light; the first to</text>
+<text class="k" x="164" y="128">crash loses; Hazel rides</text>
+<text class="k" x="164" y="150">at three skills</text>
+</svg>
