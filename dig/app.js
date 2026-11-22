@@ -110,9 +110,10 @@
     }
     if (S.layers && S.layers.w === cv.width) return S.layers;
     const mk = (hgt) => { const c2 = document.createElement("canvas"); c2.width = cv.width; c2.height = hgt; return c2; };
-    const sky = mk(Math.ceil((TOP + 1) * u + 4)), burrows = mk(Math.ceil(H_ * u)), roots = mk(Math.ceil(H_ * u));
-    drawSky(sky.getContext("2d"), u, S.scene); drawBurrows(burrows.getContext("2d"), u, S.scene); drawRoots(roots.getContext("2d"), u, S.scene);
-    S.layers = { w: cv.width, sky, burrows, roots };
+    const sky = mk(Math.ceil((TOP + 1) * u + 4)), burrows = mk(Math.ceil(H_ * u)), roots = mk(Math.ceil(H_ * u)), light = mk(Math.ceil(H_ * u)), threads = mk(Math.ceil(H_ * u));
+    drawSky(sky.getContext("2d"), u, S.scene); drawBurrows(burrows.getContext("2d"), u, S.scene);
+    drawRoots(roots.getContext("2d"), u, S.scene, false); drawRoots(light.getContext("2d"), u, S.scene, true); drawThreads(threads.getContext("2d"), u, S.scene);
+    S.layers = { w: cv.width, sky, burrows, roots, light, threads };
     return S.layers;
   }
   const hsh = (a, b) => { let x = (a * 374761393 + b * 668265263) | 0; x = (x ^ (x >>> 13)) * 1274126177 | 0; return ((x ^ (x >>> 16)) >>> 0) / 4294967296; };
@@ -202,16 +203,23 @@
         c.strokeStyle = "#a3a35a"; c.lineWidth = u * 0.025; c.beginPath(); for (let i = 0; i < 9; i++) { const a = Math.PI * (0.15 + 0.7 * i / 8); c.moveTo(x - Math.cos(a) * u * 0.42 * big, y + u * 0.2 * big); c.lineTo(x - Math.cos(a) * u * 0.3 * big, y + u * 0.12 * big); } c.stroke(); }
     }
   }
-  // the roots (brown, thicker near the tree, a lighter streak along the big ones) and the threads of mycelium (fine, pale)
-  function drawRoots(c, u, sc) {
+  // the roots, in solid colours on a layer of their own, laid over the ground faintly and evenly (0.0.65; Matthew: "make the roots
+  // more 'low contrast' in each square: dirt squares, of each shade. dug squares."): dark ones over the earth, so a root is a
+  // shade darker than the earth it runs through, whatever its depth; light ones in the dug squares, a shade lighter than the
+  // tunnel. The big roots a little lighter along their length. Overlaps do not darken, being one layer laid on at once
+  function drawRoots(c, u, sc, light) {
     const X = v => PX(u, v), Y = v => PX(u, v);
     c.lineCap = "round";
-    c.strokeStyle = "rgba(250, 250, 245, 0.58)"; c.lineWidth = Math.max(0.8, PX(u, 3));
-    c.beginPath(); for (const l of sc.threads) { c.moveTo(X(l.x0), Y(l.y0)); c.lineTo(X(l.x1), Y(l.y1)); } c.stroke();
     for (const l of [...sc.roots].sort((a, b) => a.w - b.w)) {
-      c.strokeStyle = "rgba(74, 46, 24, 0.85)"; c.lineWidth = Math.max(1, PX(u, l.w)); c.beginPath(); c.moveTo(X(l.x0), Y(l.y0)); c.lineTo(X(l.x1), Y(l.y1)); c.stroke();
-      if (l.w >= 9) { c.strokeStyle = "rgba(196, 150, 100, 0.35)"; c.lineWidth = Math.max(0.6, PX(u, l.w) * 0.3); c.beginPath(); c.moveTo(X(l.x0) - 1, Y(l.y0) - 1); c.lineTo(X(l.x1) - 1, Y(l.y1) - 1); c.stroke(); }
+      c.strokeStyle = light ? "#b08a63" : "#24120a"; c.lineWidth = Math.max(1, PX(u, l.w)); c.beginPath(); c.moveTo(X(l.x0), Y(l.y0)); c.lineTo(X(l.x1), Y(l.y1)); c.stroke();
+      if (l.w >= 9) { c.strokeStyle = light ? "#c4a07a" : "#3d2414"; c.lineWidth = Math.max(0.6, PX(u, l.w) * 0.35); c.beginPath(); c.moveTo(X(l.x0) - 1, Y(l.y0) - 1); c.lineTo(X(l.x1) - 1, Y(l.y1) - 1); c.stroke(); }
     }
+  }
+  // the threads of mycelium, fine and pale, on a layer of their own too
+  function drawThreads(c, u, sc) {
+    const X = v => PX(u, v), Y = v => PX(u, v);
+    c.lineCap = "round"; c.strokeStyle = "#fafaf5"; c.lineWidth = Math.max(0.8, PX(u, 3));
+    c.beginPath(); for (const l of sc.threads) { c.moveTo(X(l.x0), Y(l.y0)); c.lineTo(X(l.x1), Y(l.y1)); } c.stroke();
   }
   // a point along a path of lines, t from 0 to 1 and back (a creature going to and fro along it)
   function along(ls, t) {
@@ -273,7 +281,7 @@
     c.save(); c.translate(0, TOP * u);   // (the game's ground, row 0 its surface, three rows of sky above)
     for (let r = 1; r < H_; r++) { c.fillStyle = LAYERS[Math.min(3, Math.floor((r - 1) / 4))]; c.fillRect(0, r * u, cv.width, u + 0.5); }
     if (!g) { c.restore(); return; }
-    if (L) c.drawImage(L.burrows, 0, 0);
+    if (L) { c.drawImage(L.burrows, 0, 0); c.globalAlpha = 0.3; c.drawImage(L.roots, 0, 0); c.globalAlpha = 0.4; c.drawImage(L.threads, 0, 0); c.globalAlpha = 1; }   // (the roots a shade darker than each earth)
     for (let r = 1; r < H_; r++) for (let k = 0; k < W_; k++) {
       const v = g.cells[r * W_ + k], x = k * u, y = r * u;
       if (v === 0) { c.fillStyle = "#1c1009"; c.fillRect(x, y, u + 0.5, u + 0.5); }
@@ -284,7 +292,11 @@
         c.fillStyle = `rgba(255, 255, 255, ${tw})`; c.beginPath(); c.arc(x + u * 0.42, y + u * 0.4, u * 0.06, 0, 7); c.fill();
       }
     }
-    if (L) { c.drawImage(L.roots, 0, 0); creatures(c, u, now); }   // (the roots and the mycelium over the tunnels too, hanging across them; the creatures)
+    if (L) {   // (in the dug squares, the roots and the mycelium a shade lighter than the tunnel, hanging across it; then the creatures)
+      c.save(); c.beginPath(); for (let r = 1; r < H_; r++) for (let k = 0; k < W_; k++) if (g.cells[r * W_ + k] === 0) c.rect(k * u, r * u, u + 0.5, u + 0.5);
+      c.clip(); c.globalAlpha = 0.22; c.drawImage(L.light, 0, 0); c.globalAlpha = 0.18; c.drawImage(L.threads, 0, 0); c.restore();
+      creatures(c, u, now);
+    }
     for (const b of g.rocks) {
       const shake = !b.falling && b.wob >= 0 ? Math.sin(now / 30) * u * 0.05 : 0, fallBy = b.falling ? (4 - b.wob) / 4 * u : 0;
       const x = (b.c + 0.5) * u + shake, y = (b.r + 0.5) * u + fallBy;
@@ -445,7 +457,7 @@
   }
   function loadCompiled() {
     const c = document.createElement("script");
-    c.src = "compiled.js?v=0.0.64"; c.async = true;
+    c.src = "compiled.js?v=0.0.65"; c.async = true;
     c.onload = () => { const v = window.DigCompiled;
       if (v && !S.built) { S.built = { key: "compiled", ok: true, compiled: true, made: v.made, value: v, errors: [], threw: "", ms: 0, at: performance.now() }; drawStatus(); newGame(); }
       else if (!v) { S.compiledError = "it ran, but gave no Gnome dig"; loadLib(); } };
