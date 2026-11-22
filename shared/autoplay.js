@@ -9,7 +9,12 @@
 // once every 50 ms of play (about 20 times a second), so most of the clock is Hazel's logic.
 (() => {
   "use strict";
-  const PACES = [[900, "slowly"], [450, "at a walk"], [120, "briskly"], [0, "at full speed"]];
+  // (0.0.54; Matthew, 2026-11-22: "there needs to be some speeds between 'briskly' and 'full speed' ... 'briskly 1x', 2x, 3x,
+  // 4x, 5x, 10x") the wait between moves: briskly's 120 ms, a half, a third, a quarter, a fifth and a tenth of it
+  const PACES = [[900, "slowly"], [450, "at a walk"], [120, "briskly 1x"], [60, "briskly 2x"], [40, "briskly 3x"], [30, "briskly 4x"], [24, "briskly 5x"], [12, "briskly 10x"], [0, "at full speed"]];
+  // (a game whose time runs on its own: how many times its own speed each pace is, slowly half and at a walk its own, briskly
+  // 1x twice, each briskly more that many times as fast; at full speed, as fast as it goes)
+  const RATE = p => p >= 900 ? 0.5 : p >= 450 ? 1 : p > 0 ? 2 * 120 / p : Infinity;
   const sleep = ms => new Promise(r => setTimeout(r, ms));
   // (the next frame painted, or 60 ms, whichever comes first: a page in the background draws no frames)
   const painted = () => new Promise(r => { let done = false; const go = () => { if (!done) { done = true; r(); } }; requestAnimationFrame(() => setTimeout(go, 0)); setTimeout(go, 60); });
@@ -69,7 +74,7 @@
     into.append(box, clock);
 
     // ---- the clock: from the switch (or a new game) to the game's end; each side's thinking, the moves, the slowest move
-    let t0 = 0, moves = 0, think = [0, 0], slowest = 0, from = 0, endText = "", running = false, lastPaint = 0, paceAtStart = 0;
+    let t0 = 0, moves = 0, think = [0, 0], slowest = 0, from = 0, endText = "", running = false, lastPaint = 0, paceAtStart = 0, lastMove = 0;
     const paceNow = () => pace ? pace.get() : +select.value;
     const paceName = ms => (PACES.find(([v]) => v === ms) || [0, ms ? `with ${ms} ms between moves` : "at full speed"])[1];
     function text(done) {
@@ -84,6 +89,7 @@
     const W = {
       get on() { return input.checked; },
       get pace() { return paceNow(); },
+      get rate() { return RATE(paceNow()); },
       // a new watch, from move `at` of the game (0: its start)
       start(at) { t0 = performance.now(); moves = 0; think = [0, 0]; slowest = 0; from = at || 0; endText = ""; running = true; paceAtStart = paceNow(); clock.hidden = false; clock.textContent = text(); },
       // a move made by side (0, yours; 1, Hazel's own), its thinking ms
@@ -98,7 +104,13 @@
       // last drawing, so the moves run back to back
       async between(draw) {
         const p = paceNow();
-        if (p > 0) { draw(); W.show(); await painted(); await sleep(p); lastPaint = performance.now(); return; }
+        // (briskly 2x and faster: the moves kept that far apart by the clock, the board drawn at most every 33 ms; a wait after
+        // each frame's drawing would set the pace instead)
+        if (p > 0 && p < 100) {
+          if (performance.now() - lastPaint >= 33) { draw(); W.show(); await painted(); lastPaint = performance.now(); }
+          const wait = lastMove + p - performance.now(); if (wait > 0) await sleep(wait); lastMove = performance.now(); return;
+        }
+        if (p > 0) { draw(); W.show(); await painted(); await sleep(p); lastPaint = performance.now(); lastMove = lastPaint; return; }
         if (performance.now() - lastPaint >= 50) { draw(); W.show(); await painted(); lastPaint = performance.now(); }
       },
       set(on) { input.checked = !!on; mirror(); },

@@ -131,11 +131,12 @@
     if (P && P.paused()) { lastT = t; draw(); return; }
     // (60 steps a second whatever the screen's rate; 🤖's pace: slowly half speed, at a walk the game's own, briskly twice,
     // at full speed four times; at most a few a frame, so a slow device runs slower rather than skipping)
-    const auto = W && W.on, rate = auto ? ({ 900: 0.5, 450: 1, 120: 2, 0: 4 }[W.pace] || 1) : 1;
-    acc += Math.min(100, t - (lastT || t)) * rate * 60 / 1000; lastT = t;
-    let n = 0;
-    try { while (acc >= 1 && n < 6 && !S.game.over) { oneStep(h); acc -= 1; n++; } } catch (e) { S.built = { ...S.built, ok: false, threw: String(e && e.message || e) }; drawStatus(); return; }
-    if (n === 6) acc = 0;
+    // (0.0.54) as many times its own speed as 🤖's pace says (W.rate), several steps a frame; at full speed, as many as fit in 10 ms
+    const auto = W && W.on, rate = auto ? (W.rate || 1) : 1, fast = rate === Infinity, cap = fast ? 100000 : Math.max(6, Math.ceil(rate * 2));
+    acc += fast ? 0 : Math.min(100, t - (lastT || t)) * rate * 60 / 1000; lastT = t;
+    let n = 0; const tq = performance.now();
+    try { while ((fast ? performance.now() - tq < 10 : acc >= 1) && n < cap && !S.game.over) { oneStep(h); acc -= 1; n++; } } catch (e) { S.built = { ...S.built, ok: false, threw: String(e && e.message || e) }; drawStatus(); return; }
+    if (n >= cap || fast) acc = 0;
     if (auto) W.show();
     draw();
     if (t - lastBar > 150) { lastBar = t; bar(); }

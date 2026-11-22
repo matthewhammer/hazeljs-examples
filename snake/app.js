@@ -107,12 +107,17 @@
     if (!g.over) {
       // (a step every 1/speed of a second; 🤖's pace: slowly half speed, at a walk the speed chosen, briskly twice, at full speed
       // four times; waiting for the first turn when you play)
-      const auto = W && W.on, rate = auto ? ({ 900: 0.5, 450: 1, 120: 2, 0: 4 }[W.pace] || 1) : 1, every = 1000 / (S.speed * rate);
-      const waiting = !auto && g.t === 0 && !S.turns.length;
-      if (waiting) S.lastStep = t;
-      else if (t - S.lastStep >= every) {
-        S.lastStep = t - Math.min(every, t - S.lastStep - every);
-        try { oneStep(h); } catch (e) { S.built = { ...S.built, ok: false, threw: String(e && e.message || e) }; drawStatus(); return; }
+      // (0.0.54) as many times the speed chosen as 🤖's pace says (W.rate), several steps a frame; at full speed, as many as fit in 10 ms
+      const auto = W && W.on, rate = auto ? (W.rate || 1) : 1, every = rate === Infinity ? 0 : 1000 / (S.speed * rate);
+      if (!auto && g.t === 0 && !S.turns.length) S.lastStep = t;
+      else if (rate === Infinity) {
+        const tq = performance.now();
+        try { while (!S.game.over && performance.now() - tq < 10) oneStep(h); } catch (e) { S.built = { ...S.built, ok: false, threw: String(e && e.message || e) }; drawStatus(); return; }
+        S.lastStep = t; W.show();
+      } else if (t - S.lastStep >= every) {
+        let k = 0;
+        try { while (t - S.lastStep >= every && k < 40 && !S.game.over) { S.lastStep += every; oneStep(h); k++; } } catch (e) { S.built = { ...S.built, ok: false, threw: String(e && e.message || e) }; drawStatus(); return; }
+        if (t - S.lastStep > every * 4) S.lastStep = t;
         if (auto) W.show();
       }
     }

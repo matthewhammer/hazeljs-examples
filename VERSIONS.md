@@ -2,6 +2,10 @@
 
 Each version lists what the apps do as of that version. The newest version is first.
 
+## 0.0.54 (2026-11-22)
+
+- **🤖 Hazel plays for you: more paces between briskly and full speed** (Matthew: "for Go, checkers, and others, there needs to be some speeds between 'briskly' and 'full speed' ... 'briskly 1x', 2x, 3x, 4x, 5x, 10x"). Every game's pace menu now has briskly 1x (as briskly was, 120 ms between moves), 2x, 3x, 4x, 5x and 10x (12 ms), then at full speed; Mahjong's own menu too. From 2x on, the moves are kept that far apart by the clock and the board is drawn at most every 33 ms, so 10x is ten times as fast and not held back by the screen. Checkers' moves animate up to 3x, faster each step, and not from 4x. The games whose time runs on their own (Pinball, Downhill, Bricks, Snake, Star wave) run that many times faster still: briskly 1x twice their own speed, 10x twenty times, several steps a frame.
+
 ## 0.0.53 (2026-11-22)
 
 - **A pause for every game whose time runs on its own** (Matthew: "for each physics based game (any game with time advancing automatically) --- let's offer a pause feature, as a button and as space bar."). Pinball, Downhill, Bricks, Snake and Star wave (and the games to come: Light trails, Bug run, Deep dig) have a ⏸ Pause button beside New game, and the space bar pauses and goes on; paused, a card over the board says so, and a tap on it goes on. Leaving the page (another app, the screen off) pauses too. 🤖 Hazel playing for you pauses the same way. The space bar's old uses moved: Pinball's plunger to ↓, Downhill's crouch to ↓, Bricks' launch and Star wave's shot to ↑ or Enter (or F).

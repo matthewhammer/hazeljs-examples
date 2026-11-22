@@ -442,7 +442,8 @@
     try {
       if (pace === 900) { half = !half; if (half) oneStep(h); }
       else if (pace === 450) oneStep(h);
-      else if (pace === 120) for (let k = 0; k < 3 && !S.game.over; k++) oneStep(h, k < 2);
+      // (0.0.54) briskly 1x three steps a frame, each briskly more that many times as many (briskly 10x, thirty)
+      else if (pace > 0) { const n = Math.round(3 * 120 / pace); for (let k = 0; k < n && !S.game.over; k++) oneStep(h, k < n - 1); }
       else { const t0 = performance.now(); while (!S.game.over && performance.now() - t0 < 10) oneStep(h, true); }
     } catch (e) { S.built = { ...S.built, ok: false, threw: String(e && e.message || e) }; drawStatus(); return; }
     if (auto) W.show();

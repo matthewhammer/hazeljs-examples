@@ -238,9 +238,10 @@
         try { m = hazelMove(g); if (m && m.from >= 0) g2 = h.apply(g, m); } catch (e) { g2 = null; }
         const ms = performance.now() - t;
         // (0.0.47; Matthew: "In 'walk' automated mode, do the same animations at the same speed as interactive mode. And in 'brisk'
-        // automated mode, do the same animations but much faster.") slowly and at a walk, as you play; briskly, four times as fast;
-        // at full speed, none
-        const speed = W.pace >= 450 ? 1 : W.pace >= 120 ? 4 : 0;
+        // automated mode, do the same animations but much faster.") slowly and at a walk, as you play; briskly 1x, four times as fast,
+        // 2x and 3x that many times faster again (0.0.54); from briskly 4x (30 ms between moves) on, and at full speed, none: the
+        // moves would be a blur, and the animation would set the pace
+        const speed = W.pace >= 450 ? 1 : W.pace >= 40 ? 4 * 120 / W.pace : 0;
         if (g2 && speed) await animateMove(m, speed, side);
         if (!g2) { S.note = "Hazel found no move here."; break; }
         W.think(side === 1 ? 0 : 1, ms); S.thinkMs = ms;
