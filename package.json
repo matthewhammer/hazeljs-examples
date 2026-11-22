@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "i-ching": "node node/i-ching.mjs",
-    "compare-compiled": "node node/compare-compiled.mjs i-ching && node node/compare-compiled.mjs tarot && node node/compare-compiled.mjs astrology && node node/compare-compiled.mjs checkers 1 && node node/compare-compiled.mjs solitaire 2 60 && node node/compare-compiled.mjs minesweeper 9 25 && node node/compare-compiled.mjs go 1 50 && node node/compare-compiled.mjs mahjong 2 && node node/compare-compiled.mjs pinball 10 25 && node node/compare-compiled.mjs downhill && node node/compare-compiled.mjs bricks && node node/compare-compiled.mjs snake && node node/compare-compiled.mjs starwave",
+    "compare-compiled": "node node/compare-compiled.mjs i-ching && node node/compare-compiled.mjs tarot && node node/compare-compiled.mjs astrology && node node/compare-compiled.mjs checkers 1 && node node/compare-compiled.mjs solitaire 2 60 && node node/compare-compiled.mjs minesweeper 9 25 && node node/compare-compiled.mjs go 1 50 && node node/compare-compiled.mjs mahjong 2 && node node/compare-compiled.mjs pinball 10 25 && node node/compare-compiled.mjs downhill && node node/compare-compiled.mjs bricks && node node/compare-compiled.mjs snake && node node/compare-compiled.mjs starwave && node node/compare-compiled.mjs bugs && node node/compare-compiled.mjs dig",
     "serve": "python3 -m http.server 8000 --bind 127.0.0.1",
     "tarot": "node node/tarot.mjs",
     "astrology": "node node/astrology.mjs",
@@ -24,7 +24,9 @@
     "downhill-moments": "node node/downhill-moments.mjs",
     "bricks": "node node/bricks.mjs",
     "snake": "node node/snake.mjs",
-    "starwave": "node node/starwave.mjs"
+    "starwave": "node node/starwave.mjs",
+    "bugs": "node node/bugs.mjs",
+    "dig": "node node/dig.mjs"
   },
   "dependencies": {
     "hazeljs": "0.0.4"

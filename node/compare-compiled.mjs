@@ -302,14 +302,15 @@ if (APP === "checkers") {
   const g = C.start(0);
   console.log(`a step: ${HN} ${time(() => H.step(g, 1, 3), 5).toFixed(1)} ms, compiled ${time(() => C.step(g, 1, 3), 500).toFixed(3)} ms; the robot looking 150: ${HN} ${time(() => H.robot(g, 2, 150, 0, 50), 2).toFixed(1)} ms, compiled ${time(() => C.robot(g, 2, 150, 0, 50), 50).toFixed(3)} ms`);
 } else if (APP === "starwave") {
-  // (ticket 827) a game played by the compiled robot (now and then a move or a shot by chance), and at steps spread across it the
-  // robot's choice and the next step both ways
+  // (ticket 827) a game played by the compiled robot (now and then a move or a shot by chance) through two waves and more, and at
+  // steps spread across it, and at every step that ends a wave or starts one, the robot's choice and the next step both ways
   const per = CAP || 40; let steps = 0;
   let g = C.start(42); const run = [];
-  for (let k = 0; k < 3000 && !g.over; k++) { const c = C.robot(g), move = draw() < 0.05 ? Math.floor(draw() * 3) - 1 : c.move, fire = draw() < 0.05 ? !c.fire : c.fire; run.push([g, move, fire]); g = C.step(g, move, fire); }
-  const pick = run.filter((_, k) => k < 3 || k % Math.max(1, Math.floor(run.length / per)) === 0 || run[k][0].hit).slice(0, per + 3);
+  for (let k = 0; k < 12000 && !g.over; k++) { const c = C.robot(g), move = draw() < 0.05 ? Math.floor(draw() * 3) - 1 : c.move, fire = draw() < 0.05 ? !c.fire : c.fire; run.push([g, move, fire]); g = C.step(g, move, fire); }
+  const ends = (k) => k + 1 < run.length && run[k + 1][0].hit >= 3;
+  const pick = [...run.filter((_, k) => k < 3 || k % Math.max(1, Math.floor(run.length / per)) === 0).slice(0, per + 3), ...run.filter((_, k) => ends(k) || run[k][0].wait === 1).slice(0, 12)];
   for (const [g0, move, fire] of pick) { steps++; check(`robot at ${JSON.stringify(g0)}`, H.robot(g0), C.robot(g0)); check(`step from ${JSON.stringify(g0)} ${move} ${fire}`, H.step(g0, move, fire), C.step(g0, move, fire)); }
-  console.log(`${checked} answers compared: ${steps} steps with the robot's choice at each, ${differ} differ; the compiled robot's game: ${g.score} points, wave ${g.wave + 1}, ${g.lives} lives, ${g.t} steps`);
+  console.log(`${checked} answers compared: ${steps} steps with the robot's choice at each, ${differ} differ; the compiled robot's game: ${g.hearts} hearts, ${g.wins} waves just right, wave ${g.wave + 1}, ${g.tries} tries left, ${g.t} steps`);
   const g1 = C.start(7);
   console.log(`a step: ${HN} ${time(() => H.step(g1, 1, true), 10).toFixed(1)} ms, compiled ${time(() => C.step(g1, 1, true), 500).toFixed(3)} ms; the robot: ${HN} ${time(() => H.robot(g1), 10).toFixed(1)} ms, compiled ${time(() => C.robot(g1), 500).toFixed(3)} ms`);
 } else if (APP === "bugs") {

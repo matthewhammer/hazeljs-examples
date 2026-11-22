@@ -4,15 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Star wave, its rules in Hazel</title>
-<meta name="description" content="Star wave: a formation of invaders marching across and down, your cannon behind four shields; every step a Hazel program, compiled ahead of time to JavaScript by hazel-jit, and a robot in Hazel that plays it.">
+<meta name="description" content="Star wave: visitors from the stars come down wanting love, turning the town rainbow as they come; send each a heart, the last just after the town is all rainbow. Every step a Hazel program, compiled ahead of time to JavaScript by hazel-jit, and a robot in Hazel that plays it.">
 <link rel="stylesheet" href="../shared/style.css?v=0.0.14">
-<link rel="stylesheet" href="../shared/oracles.css?v=0.0.53">
+<link rel="stylesheet" href="../shared/oracles.css?v=0.0.57">
 <link rel="stylesheet" href="starwave.css?v=0.0.55">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
 <link rel="icon" href="icons/icon-32.png" sizes="32x32" type="image/png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-<meta name="theme-color" content="#05070f">
+<meta name="theme-color" content="#070a1c">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="StarWave">
@@ -22,26 +22,26 @@
 <h1>Star wave, its rules in Hazel</h1>
 <span class="app-links"><a href="../">Hazel activities</a> › <a href="../#games">One-player games</a> · <a href="https://github.com/matthewhammer/hazeljs-examples">source on GitHub</a> · <a href="https://www.npmjs.com/package/hazeljs">hazeljs on npm</a></span>
 </div>
-<p class="sub">Wave after wave of invaders march across the sky and step down at each edge, faster as there are fewer of them, dropping bombs. Move your cannon with ⬅️ ➡️ (or drag along the field) and fire with ⬆️, Enter or a tap, one shot at a time; the space bar pauses. The four shields wear away under bombs and shots alike. Three lives; the game ends if the invaders reach the ground. Each step, and the robot that plays it for you, are Hazel (<code>starwave/rules/StarWave.hz</code>).</p>
+<p class="sub">Visitors from the stars come down, wanting love, and drop rainbows on the town as they come: each rainbow turns a floor of a building rainbow, more often the more visitors are in the sky. Send them hearts from your launcher: move it with ⬅️ ➡️ (or drag along the field) and send a heart with 💗, ⬆️, Enter or a tap, one in the air at a time; a visitor who gets one bursts into hearts. The goal: the last heart just after the whole town is rainbow (the meter along the top). Too soon (the town not yet all rainbow) or too late (the visitors land, or the rainbow town waits more than 8 seconds) takes one of three tries 🎈; just right, and on to the next wave. The space bar pauses. Each step, and the robot that plays it for you, are Hazel (<code>starwave/rules/StarWave.hz</code>).</p>
 
 <div class="oracle-grid">
 <section class="oracle-ui sw-ui" aria-label="The run">
   <div class="controls">
     <button type="button" id="new" class="primary">New game</button>
-    <button type="button" id="music" class="sw-toggle" aria-pressed="true" title="Music: five tunes of our own, on a little chip, a new one each wave">🎵</button>
-    <button type="button" id="sfx" class="sw-toggle" aria-pressed="true" title="Sounds: your shots, the invaders hit, the bombs, the march…">🔊</button>
+    <button type="button" id="music" class="sw-toggle" aria-pressed="true" title="Music: six tunes of our own in major keys (ska, funk, house), on a little chip, a new one each wave">🎵</button>
+    <button type="button" id="sfx" class="sw-toggle" aria-pressed="true" title="Sounds: your hearts, the visitors reached, the rainbows, the town climbing up the scale…">🔊</button>
   </div>
   <div class="status wait" id="status">⏳ Loading the rules…</div>
   <div class="sw-bar"><span id="points">⭐ 0</span><span id="lives"></span><span id="level"></span><span id="left" class="muted"></span></div>
   <div class="sw-wrap"><canvas id="field" width="600" height="800" aria-label="The sky and the field"></canvas></div>
-  <div class="sw-pad"><button type="button" id="left" aria-label="Move left" title="Move left (the ← key)">⬅️</button><button type="button" id="launch" aria-label="Fire" title="Fire (↑ or Enter)">⬆️</button><button type="button" id="right" aria-label="Move right" title="Move right (the → key)">➡️</button></div>
+  <div class="sw-pad"><button type="button" id="left" aria-label="Move left" title="Move left (the ← key)">⬅️</button><button type="button" id="launch" aria-label="Send a heart" title="Send a heart (↑ or Enter)">💗</button><button type="button" id="right" aria-label="Move right" title="Move right (the → key)">➡️</button></div>
   <p class="sol-info" id="info"></p>
   <p class="nojs muted">This app needs JavaScript, and a page served over http (python3 -m http.server, then localhost).</p>
 </section>
 <section class="oracle-code" aria-label="The rules, in Hazel">
   <p class="muted" style="margin-top:0">The vocabulary the module sees (<code>starwave/rules/preamble.hz</code>). The listings are text, highlighted, until <b>Edit in Hazel</b> opens each in Hazel's own editor; an edit changes the next step (interpreted, so slower).</p>
   <pre class="code hazel" data-program="starwave">loading preamble.hz…</pre>
-  <div class="ed"><div class="ed-head"><b>StarWave</b> <span class="muted">one step of the game (the cannon and its shot, the formation marching, its bombs, the shields worn away; a hit, a wave cleared, the invaders landing), and the robot that plays it</span></div>
+  <div class="ed"><div class="ed-head"><b>StarWave</b> <span class="muted">one step of the game (your launcher and its heart, the visitors marching, their rainbows turning the town a floor at a time; just right, too soon, too late), and the robot that plays it, pacing its hearts to the rainbows</span></div>
   <pre class="code hazel" data-program="starwave" data-module="StarWave">loading StarWave.hz…</pre></div>
   <p><button type="button" id="reset-rules">Put the program back as it was</button></p>
 </section>
@@ -51,14 +51,14 @@
 <p class="app-foot" id="app-foot">hazeljs-examples · <a href="../VERSIONS.md">versions</a> · Apache 2.0 (code), CC BY 4.0 (words, the icon) · by Matthew Hammer · an example for <a href="https://github.com/hazelgrove/hazeljs">hazeljs</a></p>
 </main>
 <script src="../shared/divider.js?v=0.0.8"></script>
-<script src="../shared/fullscreen.js?v=0.0.52"></script>
+<script src="../shared/fullscreen.js?v=0.0.57"></script>
 <script src="../shared/offline.js?v=0.0.27"></script>
 <script src="../shared/advanced.js?v=0.0.45"></script>
 <script src="../shared/autoplay.js?v=0.0.54"></script>
 <script src="../shared/pause.js?v=0.0.53"></script>
-<script src="../shared/chip.js?v=0.0.56"></script>
-<script src="sound.js?v=0.0.56"></script>
+<script src="../shared/chip.js?v=0.0.57"></script>
+<script src="sound.js?v=0.0.57"></script>
 <script src="../shared/volume.js?v=0.0.56"></script>
-<script src="app.js?v=0.0.56"></script>
+<script src="app.js?v=0.0.57"></script>
 </body>
 </html>

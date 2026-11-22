@@ -284,11 +284,11 @@ ADAPTERS = {
   const robot = (g, who, care, slip, luck) => int(P.robot([roundIn(g), who, care, slip, luck]));
   const api = { start, step, robot, made };"""),
   "starwave": ("StarWaveCompiled", """
-  // (ticket 827) Game = (cx, sx, sy = Int, bombs = [Bomb], aliens = [Int], fx, fy, fdir, march = Int, shields = [Int], lives, score,
-  // wave, seed, wait = Int, over = Bool, hit, t = Int); Bomb = (x, y = Int); Choice = (move = Int, fire = Bool)
-  const GAME = ["cx", "sx", "sy", "bombs", "aliens", "fx", "fy", "fdir", "march", "shields", "lives", "score", "wave", "seed", "wait", "over", "hit", "t"];
-  const gameIn = g => $R.tup(GAME.map(k => k === "bombs" ? list(g.bombs.map(b => $R.tup([b.x, b.y], ["x", "y"]))) : k === "aliens" || k === "shields" ? list(g[k]) : g[k]), GAME);
-  const gameOut = r => Object.fromEntries(GAME.map(k => [k, k === "bombs" ? array(r.bombs).map(b => ({ x: int(b.x), y: int(b.y) })) : k === "aliens" || k === "shields" ? array(r[k]).map(int) : k === "over" ? r[k] : int(r[k])]));
+  // (ticket 827, reimagined in 0.0.57) Game = (cx, hx, hy = Int, drops = [Drop], aliens = [Int], fx, fy, fdir, march = Int, town = [Int],
+  // glow, tries, hearts, wins, wave, seed, wait, verdict = Int, over = Bool, hit, t = Int); Drop = (x, y = Int); Choice = (move = Int, fire = Bool)
+  const GAME = ["cx", "hx", "hy", "drops", "aliens", "fx", "fy", "fdir", "march", "town", "glow", "tries", "hearts", "wins", "wave", "seed", "wait", "verdict", "over", "hit", "t"];
+  const gameIn = g => $R.tup(GAME.map(k => k === "drops" ? list(g.drops.map(d => $R.tup([d.x, d.y], ["x", "y"]))) : k === "aliens" || k === "town" ? list(g[k]) : g[k]), GAME);
+  const gameOut = r => Object.fromEntries(GAME.map(k => [k, k === "drops" ? array(r.drops).map(d => ({ x: int(d.x), y: int(d.y) })) : k === "aliens" || k === "town" ? array(r[k]).map(int) : k === "over" ? r[k] : int(r[k])]));
   // start : Int -> Game (a seed); step : (Game, Int, Bool) -> Game (a move, -1, 0 or 1, and a shot); robot : Game -> Choice
   const start = seed => gameOut(P.start(seed));
   const step = (g, move, fire) => gameOut(P.step([gameIn(g), move, fire]));

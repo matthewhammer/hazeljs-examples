@@ -274,6 +274,22 @@ h2[id] { scroll-margin-top: 12px; }
 .fs-bar { display: flex; justify-content: flex-end; margin: 0 0 4px; }
 .fs-button { font: inherit; font-size: 0.85em; padding: 3px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); cursor: pointer; }
 .fs-button:hover, .fs-button:focus-visible { border-color: var(--accent); }
+/* (0.0.57; Matthew, 2026-11-22: "let's make the link back to the 'main menu' of hazeljs activities easier to find, even in
+   fullscreen mode"; "can we use the hazel nut icon instead of that home emoji?") Hazel's hazelnut and Activities beside ⛶ Full
+   screen in every mode (fullscreen.js), larger in full screen, for a finger; and the page head's link home a button with the
+   hazelnut (shared/hazelnut.svg, Hazel's own, as a mask in a hazelnut brown) */
+.hz-nut { display: inline-block; width: 1.25em; height: 1.25em; margin-right: 0.35em; vertical-align: -0.28em; background: #b97a3c;
+  -webkit-mask: url(hazelnut.svg) center / contain no-repeat; mask: url(hazelnut.svg) center / contain no-repeat; }
+.fs-bar { gap: 8px; align-items: center; }
+.fs-home { font-size: 0.85em; padding: 3px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--paper); color: var(--ink);
+  text-decoration: none; white-space: nowrap; font-weight: 600; }
+.fs-home:hover, .fs-home:focus-visible { border-color: var(--accent); }
+html.oracle-fs .fs-home { font-size: 1.05em; padding: 6px 14px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18); }
+.app-links > a:first-child { display: inline-block; padding: 2px 11px; border-radius: 999px; border: 1px solid var(--line); background: var(--paper);
+  color: var(--ink); font-weight: 600; text-decoration: none; }
+.app-links > a:first-child::before { content: ""; display: inline-block; width: 1.2em; height: 1.2em; margin-right: 0.3em; vertical-align: -0.25em;
+  background: #b97a3c; -webkit-mask: url(hazelnut.svg) center / contain no-repeat; mask: url(hazelnut.svg) center / contain no-repeat; }
+.app-links > a:first-child:hover, .app-links > a:first-child:focus-visible { border-color: var(--accent); }
 /* (0.0.48; Matthew, 2026-11-22: "let's offer full screen for every activity in single column mode") the button in one column too:
    it was shown only in two-column mode; full screen in one column is laid out below ("a window narrower than two columns") */
 html.oracle-fs, html.oracle-fs body { height: 100%; overflow: hidden; }

@@ -11,7 +11,7 @@
   const { sfx, tone, hiss, seq } = C;
   // which tune each board plays (of the eight): the floaty ones for the ocean and the moon, the stormy ones for the volcano, the
   // funfair and the portals, the new ones spread over the rest (0.0.55)
-  const BOARD_TUNE = [0, 1, 2, 3, 4, 5, 1, 2, 6, 7];
+  const BOARD_TUNE = [0, 8, 1, 9, 2, 10, 3, 11, 4, 12];   // (0.0.57: the boards take turns, a minor tune of before, a major one of the new six)
 
   // ---- the table's sounds
   const SFX = {

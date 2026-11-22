@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Deep dig, its rules in Hazel</title>
+<meta name="description" content="Deep dig: dig through the ground for gems while monsters follow your tunnels; drop boulders on them, or stun them with your lantern and catch them. Every step a Hazel program, compiled ahead of time to JavaScript by hazel-jit, and a robot in Hazel that plays it.">
+<link rel="stylesheet" href="../shared/style.css?v=0.0.14">
+<link rel="stylesheet" href="../shared/oracles.css?v=0.0.57">
+<link rel="stylesheet" href="dig.css?v=0.0.49">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="icon" href="icons/icon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="theme-color" content="#3b2416">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Dig">
+</head>
+<body><main class="oracle">
+<div class="app-head">
+<h1>Deep dig, its rules in Hazel</h1>
+<span class="app-links"><a href="../">Hazel activities</a> › <a href="../#games">One-player games</a> · <a href="https://github.com/matthewhammer/hazeljs-examples">source on GitHub</a> · <a href="https://www.npmjs.com/package/hazeljs">hazeljs on npm</a></span>
+</div>
+<p class="sub">Dig down through the ground for the gems: the arrow keys (or W A S D), a swipe, or the four buttons, held to keep going. The monsters follow your tunnels, and now and then burrow. Dig under a boulder and it wobbles, then falls: it squashes a monster below it (200 points), or you. Your lantern (💡, or Enter or F) stuns the monsters in the three cells ahead of you: walk into a stunned one to catch it (100 points). Take every gem for the next level. Each step, and the robot that plays it for you, are Hazel (<code>dig/rules/Dig.hz</code>). ⏸ or the space bar pauses.</p>
+
+<div class="oracle-grid">
+<section class="oracle-ui dg-ui" aria-label="The run">
+  <div class="controls">
+    <button type="button" id="new" class="primary">New game</button>
+
+  </div>
+  <div class="status wait" id="status">⏳ Loading the rules…</div>
+  <div class="dg-bar"><span id="points">⭐ 0</span><span id="lives"></span><span id="level"></span><span id="left" class="muted"></span></div>
+  <div class="dg-wrap"><canvas id="ground" width="560" height="640" aria-label="The ground"></canvas></div>
+  <div class="dg-pad"><button type="button" id="flash" aria-label="Lantern" title="Flash the lantern (Enter or F)">💡</button><button type="button" data-dir="0" aria-label="Up" title="Up (↑ or W)">⬆️</button><span></span><button type="button" data-dir="3" aria-label="Left" title="Left (← or A)">⬅️</button><button type="button" data-dir="2" aria-label="Down" title="Down (↓ or S)">⬇️</button><button type="button" data-dir="1" aria-label="Right" title="Right (→ or D)">➡️</button></div>
+  <p class="sol-info" id="info"></p>
+  <p class="nojs muted">This app needs JavaScript, and a page served over http (python3 -m http.server, then localhost).</p>
+</section>
+<section class="oracle-code" aria-label="The rules, in Hazel">
+  <p class="muted" style="margin-top:0">The vocabulary the module sees (<code>dig/rules/preamble.hz</code>). The listings are text, highlighted, until <b>Edit in Hazel</b> opens each in Hazel's own editor; an edit changes the next step.</p>
+  <pre class="code hazel" data-program="dig">loading preamble.hz…</pre>
+  <div class="ed"><div class="ed-head"><b>Dig</b> <span class="muted">a level's ground by chance; one step of the game (your digging, the boulders, the monsters, the lantern); and the robot that plays it: toward the nearest gem it can reach without risk</span></div>
+  <pre class="code hazel" data-program="dig" data-module="Dig">loading Dig.hz…</pre></div>
+  <p><button type="button" id="reset-rules">Put the program back as it was</button></p>
+</section>
+</div>
+
+<div id="advanced" class="advanced-holder"></div>
+<p class="app-foot" id="app-foot">hazeljs-examples · <a href="../VERSIONS.md">versions</a> · Apache 2.0 (code), CC BY 4.0 (words, the icon) · by Matthew Hammer · an example for <a href="https://github.com/hazelgrove/hazeljs">hazeljs</a></p>
+</main>
+<script src="../shared/divider.js?v=0.0.8"></script>
+<script src="../shared/fullscreen.js?v=0.0.57"></script>
+<script src="../shared/offline.js?v=0.0.27"></script>
+<script src="../shared/advanced.js?v=0.0.45"></script>
+<script src="../shared/autoplay.js?v=0.0.54"></script>
+<script src="../shared/pause.js?v=0.0.53"></script>
+<script src="app.js?v=0.0.54"></script>
+</body>
+</html>

@@ -1,9 +1,14 @@
-// hazeljs-examples, Star wave (ticket 827; Matthew, 2026-11-22: "Next: space invaders clone, centipede clone, dig dug clone",
-// and "all with hazel rules and hazel AI that plays the game"): a fixed shooter of our own in that genre. The page: the sky
-// drawn on a canvas, every frame a step of Hazel's rules (StarWave.step: the cannon and its shot, the formation marching,
-// its bombs, the shields; a hit, a wave cleared, the invaders landing), and 🤖 Hazel plays for you, the robot in Hazel
-// (StarWave.robot) choosing each step's move and shot. The rules compiled ahead of time by hazel-jit (compiled.js) when it is
-// here, else, and once they are edited, run by hazeljs (slower).
+// hazeljs-examples, Star wave (ticket 827; Matthew, 2026-11-22: "Next: space invaders clone ..." and "all with hazel rules
+// and hazel AI that plays the game"; reimagined in 0.0.57: "the aliens are coming down, and they want to receive a 'love
+// heart' that's shot up at them, not a laser beam. When they get that heart, they explode into hearts, and dissolve into the
+// shared reality. And we score how many heart connections we make before they land on the ground. Rather than them destroying
+// the buildings on the ground, let's say that they are transforming them into rainbows. We want to have love-struck each alien
+// by the time that our buildings are fully rainbow, and if we time it just right (not too soon, or too late), we win."). The
+// page: the sky and the town drawn on a canvas, every frame a step of Hazel's rules (StarWave.step: your launcher and its
+// heart, the visitors marching across and down, their rainbows falling and turning the town rainbow a floor at a time; just
+// right, too soon, too late), and 🤖 Hazel plays for you, the robot in Hazel (StarWave.robot) pacing its hearts to the
+// rainbows. The rules compiled ahead of time by hazel-jit (compiled.js) when it is here, else, and once they are edited, run
+// by hazeljs (slower).
 (async () => {
   "use strict";
   const LIB = "https://cdn.jsdelivr.net/npm/hazeljs@0.0.4/hazel-lib.js";
@@ -18,16 +23,21 @@
   const kept = (k, dflt) => { try { const v = JSON.parse(localStorage.getItem(KEY + k)); return v === null ? dflt : v; } catch (e) { return dflt; } };
   const keep = (k, v) => { try { localStorage.setItem(KEY + k, JSON.stringify(v)); } catch (e) { /* kept for this visit only */ } };
 
-  // ---- the state: the rules, the game (a Hazel value: the field 600 by 800), what is held, where a finger points, words
-  // floating up, the best score
-  const S = { built: null, libAt: 0, libFailed: false, compiledError: "", game: null, best: kept("best", 0),
-              held: { left: false, right: false }, aimX: null, fire: false, pops: [], stepMs: [], restartAt: 0, banner: null, booms: [] };
+  // ---- the state: the rules, the game (a Hazel value: the field 600 by 800), what is held, where a finger points, the hearts
+  // flying out of a visitor, words floating up, floors just turned, rainbow arcs, the best on this device
+  const S = { built: null, libAt: 0, libFailed: false, compiledError: "", game: null, best: kept("best-hearts", 0),
+              held: { left: false, right: false }, aimX: null, fire: false, pops: [], stepMs: [], restartAt: 0, bursts: [], flashes: [], arcs: [] };
   const H = () => S.built && S.built.ok ? S.built.value : null;
   const SND = window.StarWaveSound || null;   // (sound.js: the music, a tune each wave, and the game's sounds)
-  const SHIELD_X = [58, 198, 338, 478];
+  // (the town, as in the rules: building s from 54 + 140 s, 72 wide, its floors 18 tall; 22 floors in all)
+  const FLOORS = [5, 7, 6, 4], BX = s => 54 + 140 * s, ROOF = s => 762 - 18 * FLOORS[s], FULL = 22, WINDOW = 480;
+  const painted = g => g.town.reduce((a, b) => a + b, 0);
+  const left = g => g.aliens.filter(a => a > 0).length;
+  const VERDICT = { 3: "💖 Just right!", 4: "⏰ Too late: they landed", 5: "⏩ Too soon: the town wasn't all rainbow", 6: "⏰ Too late: the rainbow town waited" };
 
-  // ---- drawing: the sky, its stars; the invaders (our own three kinds, each with two poses, changing at each march); the
-  // shields' blocks; the cannon, its shot, the bombs; a burst where something is hit
+  // ---- drawing: the sky, its stars; the visitors (our own three kinds, each with two poses, changing at each march, all
+  // smiling); the town's buildings, their floors plain or rainbow; your launcher, its heart, the rainbow drops; hearts bursting
+  // out of a visitor reached; the rainbow meter; once the town is all rainbow, a rainbow over it and the seconds left
   const cv = $("field"), ctx = cv.getContext("2d");
   function fit() {
     const r = cv.getBoundingClientRect(), d = Math.min(2, window.devicePixelRatio || 1);
@@ -35,93 +45,161 @@
     if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
   }
   const hash = (a, b) => { let x = (a * 374761393 + b * 668265263) | 0; x = (x ^ (x >>> 13)) * 1274126177 | 0; return ((x ^ (x >>> 16)) >>> 0) / 4294967296; };
-  function invader(c, kind, x, y, k, pose) {
+  const BANDS = ["#ef4444", "#f97316", "#facc15", "#22c55e", "#3b82f6", "#6366f1", "#a855f7"];   // (a floor's rainbow, by its place from the top: every building's bands in line)
+  const rainbow = (i, n, l = 60) => `hsl(${Math.round(n > 1 ? i / (n - 1) * 280 : 0)}, 90%, ${l}%)`;   // (red at the top, violet at the bottom)
+  function heart(c, x, y, r, fill) {   // (a heart, its middle at x, y, r about half its width, in canvas pixels)
+    c.fillStyle = fill; c.beginPath();
+    c.moveTo(x, y + r * 0.9);
+    c.bezierCurveTo(x - r * 1.5, y - r * 0.1, x - r * 0.75, y - r * 1.25, x, y - r * 0.45);
+    c.bezierCurveTo(x + r * 0.75, y - r * 1.25, x + r * 1.5, y - r * 0.1, x, y + r * 0.9);
+    c.fill();
+  }
+  function smile(c, cx, cy, k, w) {
+    c.strokeStyle = "#1f0a2e"; c.lineWidth = 1.6 * k; c.beginPath(); c.arc(cx, cy, w * k, 0.15 * Math.PI, 0.85 * Math.PI); c.stroke();
+    c.fillStyle = "rgba(251, 113, 133, 0.75)"; c.beginPath(); c.arc(cx - (w + 4) * k, cy - 1 * k, 2.2 * k, 0, 7); c.arc(cx + (w + 4) * k, cy - 1 * k, 2.2 * k, 0, 7); c.fill();
+  }
+  function visitor(c, kind, x, y, k, pose) {
     const cx = (x + 16) * k, cy = (y + 12) * k;
-    if (kind === 3) {   // (a diamond with an eye, its points pulsing)
+    if (kind === 3) {   // (a diamond with one big eye, its points pulsing)
       const p = pose ? 1 : 0.8;
       c.fillStyle = "#e879f9"; c.beginPath(); c.moveTo(cx, cy - 12 * k); c.lineTo(cx + 15 * k * p, cy); c.lineTo(cx, cy + 12 * k); c.lineTo(cx - 15 * k * p, cy); c.closePath(); c.fill();
-      c.fillStyle = "#ffffff"; c.beginPath(); c.arc(cx, cy, 4.5 * k, 0, 7); c.fill(); c.fillStyle = "#3b0764"; c.beginPath(); c.arc(cx, cy + 1 * k, 2.2 * k, 0, 7); c.fill();
+      c.fillStyle = "#ffffff"; c.beginPath(); c.arc(cx, cy - 2 * k, 4.5 * k, 0, 7); c.fill(); c.fillStyle = "#3b0764"; c.beginPath(); c.arc(cx, cy - 1 * k, 2.2 * k, 0, 7); c.fill();
+      c.strokeStyle = "#3b0764"; c.lineWidth = 1.4 * k; c.beginPath(); c.arc(cx, cy + 3 * k, 3 * k, 0.15 * Math.PI, 0.85 * Math.PI); c.stroke();
     } else if (kind === 2) {   // (a six-sided drone, two antennae up or out)
       c.fillStyle = "#22d3ee"; c.beginPath();
       for (let i = 0; i < 6; i++) { const a = i * Math.PI / 3; c.lineTo(cx + Math.cos(a) * 14 * k, cy + Math.sin(a) * 10 * k); }
       c.closePath(); c.fill();
       c.strokeStyle = "#a5f3fc"; c.lineWidth = 2 * k; c.beginPath(); const sp = pose ? 9 : 5;
       c.moveTo(cx - 5 * k, cy - 8 * k); c.lineTo(cx - sp * k, cy - 14 * k); c.moveTo(cx + 5 * k, cy - 8 * k); c.lineTo(cx + sp * k, cy - 14 * k); c.stroke();
-      c.fillStyle = "#083344"; c.fillRect(cx - 7 * k, cy - 2 * k, 4 * k, 4 * k); c.fillRect(cx + 3 * k, cy - 2 * k, 4 * k, 4 * k);
+      heart(c, cx - sp * k, cy - 15 * k, 2.2 * k, "#fb7185"); heart(c, cx + sp * k, cy - 15 * k, 2.2 * k, "#fb7185");
+      c.fillStyle = "#083344"; c.fillRect(cx - 7 * k, cy - 4 * k, 4 * k, 4 * k); c.fillRect(cx + 3 * k, cy - 4 * k, 4 * k, 4 * k);
+      smile(c, cx, cy + 1 * k, k, 3);
     } else {   // (a round blob on three legs, the legs stepping)
       c.fillStyle = "#4ade80"; c.beginPath(); c.ellipse(cx, cy - 2 * k, 14 * k, 9 * k, 0, 0, 7); c.fill();
       c.strokeStyle = "#4ade80"; c.lineWidth = 3 * k; c.beginPath();
       for (const dx of [-8, 0, 8]) { c.moveTo(cx + dx * k, cy + 5 * k); c.lineTo(cx + (dx + (pose ? 3 : -3)) * k, cy + 11 * k); }
       c.stroke();
-      c.fillStyle = "#052e16"; c.beginPath(); c.arc(cx - 5 * k, cy - 3 * k, 2.5 * k, 0, 7); c.arc(cx + 5 * k, cy - 3 * k, 2.5 * k, 0, 7); c.fill();
+      c.fillStyle = "#052e16"; c.beginPath(); c.arc(cx - 5 * k, cy - 4 * k, 2.5 * k, 0, 7); c.arc(cx + 5 * k, cy - 4 * k, 2.5 * k, 0, 7); c.fill();
+      smile(c, cx, cy - 1 * k, k, 3.5);
     }
+  }
+  function town(c, g, k, now) {
+    const all = painted(g) >= FULL;
+    for (let s = 0; s < 4; s++) {
+      const x = BX(s) * k, w = 72 * k, F = FLOORS[s];
+      for (let i = 0; i < F; i++) {
+        const y = (ROOF(s) + 18 * i) * k, lit = i < g.town[s];
+        c.fillStyle = lit ? BANDS[i] : (i % 2 ? "#2b3a55" : "#33445f");
+        c.fillRect(x, y, w, 18 * k + 0.5);
+        if (lit && all) { c.fillStyle = `rgba(255, 255, 255, ${0.18 + 0.14 * Math.sin(now / 160 + i)})`; c.fillRect(x, y, w, 18 * k + 0.5); }   // (all rainbow: shimmering)
+        for (let wi = 0; wi < 3; wi++) {   // (three windows a floor, some lit)
+          c.fillStyle = lit ? "rgba(255, 255, 255, 0.55)" : (hash(s * 31 + i, wi) > 0.45 ? "#fde68a" : "#1e293b");
+          c.fillRect(x + (10 + wi * 21) * k, y + 5 * k, 10 * k, 8 * k);
+        }
+      }
+      c.fillStyle = g.town[s] >= F ? "#fef3c7" : "#475569"; c.fillRect(x - 3 * k, ROOF(s) * k - 4 * k, w + 6 * k, 4 * k);   // (the roof)
+    }
+    // (a floor just turned rainbow flashes; a rainbow landing away from the building it turned arcs over to it)
+    S.flashes = S.flashes.filter(f => now - f.t < 450);
+    for (const f of S.flashes) { c.fillStyle = `rgba(255, 255, 255, ${0.8 * (1 - (now - f.t) / 450)})`; c.fillRect(BX(f.s) * k, (ROOF(f.s) + 18 * f.i) * k, 72 * k, 18 * k); }
+    S.arcs = S.arcs.filter(a => now - a.t < 700);
+    for (const a of S.arcs) { const q = (now - a.t) / 700, x0 = a.x * k, x1 = (BX(a.s) + 36) * k, y = ROOF(a.s) * k, mid = (x0 + x1) / 2, r = Math.abs(x1 - x0) / 2;
+      c.globalAlpha = 1 - q; for (let b = 0; b < 6; b++) { c.strokeStyle = rainbow(b, 6); c.lineWidth = 3 * k; c.beginPath(); c.arc(mid, y, Math.max(1, r - b * 3 * k), Math.PI, 2 * Math.PI); c.stroke(); } c.globalAlpha = 1; }
   }
   function draw() {
     fit();
     const k = cv.width / 600, g = S.game, c = ctx, now = performance.now();
-    c.fillStyle = "#05070f"; c.fillRect(0, 0, cv.width, cv.height);
-    for (let i = 0; i < 90; i++) { const tw = 0.4 + 0.6 * Math.abs(Math.sin(now / 900 + i)); c.fillStyle = `rgba(200, 210, 255, ${0.25 + 0.5 * tw * hash(i, 7)})`; c.fillRect(hash(i, 1) * cv.width, hash(i, 2) * cv.height * 0.85, 1.6 * k, 1.6 * k); }
-    c.fillStyle = "#1e293b"; c.fillRect(0, 762 * k, cv.width, 38 * k);
-    if (!g) return;
-    const pose = Math.floor(g.fx / 8) % 2 === 0;
-    g.aliens.forEach((a, i) => { if (a) invader(c, a, g.fx + (i % 9) * 48, g.fy + Math.floor(i / 9) * 40, k, pose); });
-    c.fillStyle = "#22c55e";
-    g.shields.forEach((b, i) => { if (!b) return; const s = Math.floor(i / 32), r = Math.floor((i % 32) / 8), col = i % 8; c.fillRect((SHIELD_X[s] + col * 8) * k, (640 + r * 8) * k, 8 * k + 0.5, 8 * k + 0.5); });
-    // the cannon (blinking while it waits after a hit), its shot, the bombs
-    if (!(g.wait > 0 && Math.floor(now / 120) % 2)) {
-      const x = g.cx * k, y = 740 * k;
-      c.fillStyle = "#2dd4bf"; c.beginPath(); c.roundRect(x - 20 * k, y - 4 * k, 40 * k, 16 * k, 4 * k); c.fill();
-      c.fillRect(x - 4 * k, y - 16 * k, 8 * k, 14 * k); c.fillStyle = "#99f6e4"; c.fillRect(x - 14 * k, y, 28 * k, 3 * k);
+    const sky = c.createLinearGradient(0, 0, 0, cv.height); sky.addColorStop(0, "#070a1c"); sky.addColorStop(1, "#2a1647");
+    c.fillStyle = sky; c.fillRect(0, 0, cv.width, cv.height);
+    for (let i = 0; i < 90; i++) { const tw = 0.4 + 0.6 * Math.abs(Math.sin(now / 900 + i)); c.fillStyle = `rgba(220, 210, 255, ${0.25 + 0.5 * tw * hash(i, 7)})`; c.fillRect(hash(i, 1) * cv.width, hash(i, 2) * cv.height * 0.75, 1.6 * k, 1.6 * k); }
+    if (!g) { c.fillStyle = "#1e293b"; c.fillRect(0, 762 * k, cv.width, 38 * k); return; }
+    const all = painted(g) >= FULL;
+    if (all) {   // (the town all rainbow: a rainbow over it)
+      for (let b = 0; b < 7; b++) { c.strokeStyle = rainbow(b, 7, 62); c.globalAlpha = 0.35; c.lineWidth = 9 * k; c.beginPath(); c.arc(300 * k, 790 * k, (330 - b * 9) * k, Math.PI, 2 * Math.PI); c.stroke(); }
+      c.globalAlpha = 1;
     }
-    if (g.sy >= 0) { c.fillStyle = "#fde047"; c.fillRect(g.sx * k - 1.5 * k, g.sy * k, 3 * k, 12 * k); }
-    c.strokeStyle = "#f87171"; c.lineWidth = 2.5 * k;
-    for (const b of g.bombs) { c.beginPath(); c.moveTo(b.x * k, (b.y - 10) * k); c.lineTo((b.x + 3) * k, (b.y - 6) * k); c.lineTo((b.x - 3) * k, (b.y - 2) * k); c.lineTo(b.x * k, (b.y + 2) * k); c.stroke(); }
-    S.booms = S.booms.filter(b => now - b.t < 400);
-    for (const b of S.booms) { const q = (now - b.t) / 400; c.strokeStyle = `rgba(255, 220, 120, ${1 - q})`; c.lineWidth = 2 * k; for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4, r1 = 6 + q * 14, r2 = r1 + 6; c.beginPath(); c.moveTo((b.x + Math.cos(a) * r1) * k, (b.y + Math.sin(a) * r1) * k); c.lineTo((b.x + Math.cos(a) * r2) * k, (b.y + Math.sin(a) * r2) * k); c.stroke(); } }
-    S.pops = S.pops.filter(p => now - p.t < 800);
-    for (const p of S.pops) { const q = (now - p.t) / 800; c.globalAlpha = 1 - q; c.fillStyle = p.col; c.font = `700 ${Math.round(15 * k)}px system-ui`; c.textAlign = "center"; c.fillText(p.text, p.x * k, (p.y - q * 24) * k); }
+    town(c, g, k, now);
+    c.fillStyle = "#1e293b"; c.fillRect(0, 762 * k, cv.width, 38 * k);
+    const pose = Math.floor(g.fx / 8) % 2 === 0;
+    g.aliens.forEach((a, i) => { if (a) visitor(c, a, g.fx + (i % 9) * 48, g.fy + Math.floor(i / 9) * 40, k, pose); });
+    // (the rainbow drops: a falling drop, its colour going round)
+    for (const d of g.drops) { const x = d.x * k, y = d.y * k; c.fillStyle = `hsl(${(d.y * 3 + now / 6) % 360}, 90%, 62%)`; c.beginPath(); c.moveTo(x, y - 9 * k); c.quadraticCurveTo(x + 6 * k, y, x, y + 4 * k); c.quadraticCurveTo(x - 6 * k, y, x, y - 9 * k); c.fill(); }
+    // (your launcher, in front of the town, and its heart going up)
+    { const x = g.cx * k, y = 740 * k;
+      c.fillStyle = "#f9a8d4"; c.beginPath(); c.roundRect(x - 22 * k, y - 2 * k, 44 * k, 16 * k, 7 * k); c.fill();
+      c.fillStyle = "#fdf2f8"; c.beginPath(); c.roundRect(x - 7 * k, y - 16 * k, 14 * k, 16 * k, 5 * k); c.fill();
+      heart(c, x, y + 6 * k, 5 * k, "#e11d48"); }
+    if (g.hy >= 0) { heart(c, g.hx * k, (g.hy + 6) * k, 9 * k, "rgba(253, 164, 175, 0.35)"); heart(c, g.hx * k, (g.hy + 6) * k, 7 * k, "#f43f5e"); }
+    // (hearts bursting out of a visitor reached, drifting up and away)
+    S.bursts = S.bursts.filter(b => now - b.t < 1100);
+    for (const b of S.bursts) { const q = (now - b.t) / 1100;
+      for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4 + b.spin, r = 6 + q * 46; c.globalAlpha = 1 - q;
+        heart(c, (b.x + Math.cos(a) * r) * k, (b.y + Math.sin(a) * r - q * 20) * k, (4 + 2 * (i % 2)) * (1 - q * 0.4) * k, i % 2 ? "#fb7185" : "#f9a8d4"); } }
+    c.globalAlpha = 1;
+    S.pops = S.pops.filter(p => now - p.t < 900);
+    for (const p of S.pops) { const q = (now - p.t) / 900; c.globalAlpha = 1 - q; c.fillStyle = p.col; c.font = `700 ${Math.round(15 * k)}px system-ui`; c.textAlign = "center"; c.fillText(p.text, p.x * k, (p.y - q * 24) * k); }
     c.globalAlpha = 1; c.textAlign = "center";
+    // (the rainbow meter, along the top: the town's floors turned, the visitors left)
+    { const n = painted(g), x0 = 150 * k, w = 300 * k, y0 = 14 * k, h = 12 * k;
+      c.fillStyle = "rgba(255, 255, 255, 0.12)"; c.beginPath(); c.roundRect(x0, y0, w, h, 6 * k); c.fill();
+      for (let i = 0; i < n; i++) { c.fillStyle = rainbow(i, FULL); c.fillRect(x0 + i * w / FULL, y0, w / FULL + 0.5, h); }
+      c.fillStyle = "#e0e7ff"; c.font = `600 ${Math.round(13 * k)}px system-ui`; c.textAlign = "right"; c.fillText("🌈", x0 - 8 * k, y0 + 11 * k);
+      c.textAlign = "left"; c.fillText(`${left(g)} 👾`, x0 + w + 10 * k, y0 + 11 * k); c.textAlign = "center"; }
+    if (all && !g.wait && !g.over) {   // (now's the time: the seconds left for the last heart)
+      const sec = Math.ceil(g.glow / 60);
+      c.fillStyle = "#fff1f2"; c.font = `800 ${Math.round(30 * k)}px system-ui`; c.fillText(`💗 Now! ${sec}`, 300 * k, 560 * k);
+    }
     if (g.over) {
-      c.fillStyle = "rgba(5, 7, 15, 0.75)"; c.fillRect(0, 330 * k, 600 * k, 140 * k);
-      c.fillStyle = "#ffffff"; c.font = `700 ${Math.round(28 * k)}px system-ui`; c.fillText(g.hit === 4 ? `They landed: ${g.score} points` : `Game over: ${g.score} points`, 300 * k, 395 * k);
-      c.font = `${Math.round(17 * k)}px system-ui`; c.fillText("New game: the button, a tap, or Enter", 300 * k, 435 * k);
-    } else if (S.banner && now - S.banner.t < 1600 && S.banner.text) {
-      c.fillStyle = "#e0e7ff"; c.font = `700 ${Math.round(26 * k)}px system-ui`; c.fillText(S.banner.text, 300 * k, 560 * k);
+      c.fillStyle = "rgba(10, 6, 25, 0.78)"; c.fillRect(0, 320 * k, 600 * k, 170 * k);
+      c.fillStyle = "#ffffff"; c.font = `700 ${Math.round(24 * k)}px system-ui`; c.fillText(VERDICT[g.verdict] || "", 300 * k, 370 * k);
+      c.font = `700 ${Math.round(26 * k)}px system-ui`; c.fillText(`💗 ${g.hearts} hearts · ⭐ ${g.wins} just right`, 300 * k, 415 * k);
+      c.font = `${Math.round(17 * k)}px system-ui`; c.fillText("New game: the button, a tap, or Enter", 300 * k, 455 * k);
+    } else if (g.wait > 0) {
+      c.fillStyle = "rgba(10, 6, 25, 0.6)"; c.fillRect(0, 330 * k, 600 * k, 110 * k);
+      c.fillStyle = g.verdict === 3 ? "#fde68a" : "#e0e7ff"; c.font = `800 ${Math.round((g.verdict === 3 ? 34 : 24) * k)}px system-ui`;
+      c.fillText(VERDICT[g.verdict] || "", 300 * k, 385 * k);
+      c.font = `${Math.round(16 * k)}px system-ui`; c.fillStyle = "#e0e7ff";
+      c.fillText(g.verdict === 3 ? `Next: wave ${g.wave + 2}` : `${g.tries} ${g.tries === 1 ? "try" : "tries"} left: wave ${g.wave + 1} again`, 300 * k, 420 * k);
     }
   }
   function bar() {
     const g = S.game; if (!g) return;
-    $("points").textContent = `⭐ ${g.score}`; $("lives").textContent = "🛡️".repeat(Math.max(0, g.lives));
-    $("level").textContent = `wave ${g.wave + 1}`; $("left").textContent = `${g.aliens.filter(a => a > 0).length} invaders left`;
+    $("points").textContent = `💗 ${g.hearts}`; $("lives").textContent = "🎈".repeat(Math.max(0, g.tries));
+    $("level").textContent = `wave ${g.wave + 1}` + (g.wins ? ` · ⭐ ${g.wins}` : "");
+    $("left").textContent = `🌈 ${painted(g)} of ${FULL} floors · ${left(g)} visitors`;
     const ms = S.stepMs.length ? [...S.stepMs].sort((a, b) => a - b)[S.stepMs.length >> 1] : 0;
-    $("info").textContent = `Your best on this device: ${S.best} points.` + (ms ? ` A step of Hazel's rules: ${ms < 1 ? ms.toFixed(2) : ms.toFixed(1)} ms.` : "");
+    $("info").textContent = `Your best on this device: ${S.best} hearts.` + (ms ? ` A step of Hazel's rules: ${ms < 1 ? ms.toFixed(2) : ms.toFixed(1)} ms.` : "");
     if (window.OracleFs) window.OracleFs.empty(!g || !!g.over);
   }
 
   // ---- a game, and every frame a step of the rules
   function newGame() {
     const h = H(); if (!h) return;
-    S.game = h.start(1 + Math.floor(Math.random() * 2000000000)); S.pops = []; S.booms = []; S.banner = null; S.fire = false; S.restartAt = 0;
+    S.game = h.start(1 + Math.floor(Math.random() * 2000000000)); S.pops = []; S.bursts = []; S.flashes = []; S.arcs = []; S.fire = false; S.restartAt = 0;
     if (SND) { SND.start(); SND.tune(0); }
     if (W && W.on) W.start(0);
     bar(); draw();
   }
+  // (what a step did, seen and heard: a heart sent, a visitor reached (hearts burst out of it), a rainbow dropped, a floor
+  // turned (the next note up the scale), the march, the town all rainbow, a wave's end, a wave's start and its tune)
   function heard(g, g2) {
-    const now = performance.now();
-    // (the sounds: a shot fired, each invader hit by its kind, a bomb dropped, the march, the cannon hit, a wave cleared, the end;
-    // the next wave's tune)
-    if (SND) {
-      if (g.sy < 0 && g2.sy >= 0) SND.shot();
-      g.aliens.forEach((a, i) => { if (a && !g2.aliens[i] && g2.wave === g.wave) SND.hit(a); });
-      if (g2.wave === g.wave && g2.bombs.length > g.bombs.length) SND.bomb();
-      if (g2.wave === g.wave && (g2.fx !== g.fx || g2.fy !== g.fy)) SND.march();
-      if (g2.over && !g.over) { SND.stop(); if (g2.hit === 2) SND.boom(); SND.over(); }
-      else if (g2.hit === 2) SND.boom();
-      if (g2.hit === 3) { SND.cleared(); SND.tune(g2.wave); }
+    const now = performance.now(), same = g2.hit !== 7;
+    if (same) {
+      g.aliens.forEach((a, i) => { if (a && !g2.aliens[i]) { const x = g.fx + (i % 9) * 48 + 16, y = g.fy + Math.floor(i / 9) * 40 + 12;
+        S.bursts.push({ x, y, t: now, spin: Math.random() }); S.pops.push({ x, y: y - 14, text: "+💗", t: now, col: "#fda4af" }); if (SND) SND.hit(a); } });
+      const before = painted(g);
+      g2.town.forEach((f, s) => { for (let i = g.town[s]; i < f; i++) S.flashes.push({ s, i, t: now }); });
+      const gone = g.drops.filter(d => !g2.drops.some(e => e.x === d.x && e.y === d.y + 4));
+      g2.town.forEach((f, s) => { if (f > g.town[s]) { const d = gone.find(d => d.x < BX(s) || d.x >= BX(s) + 72); if (d) S.arcs.push({ x: d.x, s, t: now }); } });
+      if (SND) { for (let p = before; p < painted(g2); p++) SND.paint(p); }
     }
-    g.aliens.forEach((a, i) => { if (a && !g2.aliens[i] && g2.wave === g.wave) { const x = g.fx + (i % 9) * 48 + 16, y = g.fy + Math.floor(i / 9) * 40 + 12; S.booms.push({ x, y, t: now }); S.pops.push({ x, y: y - 10, text: "+" + a * 10, t: now, col: "#fde047" }); } });
-    if (g2.hit === 2) { S.booms.push({ x: g2.cx, y: 740, t: now }); S.banner = { text: g2.lives > 0 ? "💥 Hit!" : "", t: now }; }
-    if (g2.hit === 3) S.banner = { text: `🎉 Wave ${g2.wave} cleared!`, t: now };
+    if (!SND) return;
+    if (g.hy < 0 && g2.hy >= 0) SND.shot();
+    if (same && g2.drops.length > g.drops.length) SND.bomb();
+    if (same && !g2.wait && (g2.fx !== g.fx || g2.fy !== g.fy)) SND.march();
+    if (g2.glow > 0 && !(g.glow > 0) && !g2.wait) SND.glow();
+    if (g2.hit >= 3 && g2.hit <= 6) { if (g2.over) SND.stop(); (g2.hit === 3 ? SND.cleared : g2.hit === 5 ? SND.soon : SND.late)(); if (g2.over) SND.over(); }
+    if (g2.hit === 7) { SND.start(); SND.tune(g2.wave); }
   }
   function oneStep(h) {
     const g = S.game;
@@ -129,13 +207,13 @@
     if (W && W.on) { const t1 = performance.now(), c = h.robot(g); W.think(0, performance.now() - t1); move = c.move; fire = c.fire; }
     else {
       move = S.held.left ? -1 : S.held.right ? 1 : S.aimX !== null ? (S.aimX > g.cx + 4 ? 1 : S.aimX < g.cx - 4 ? -1 : 0) : 0;
-      fire = S.fire; if (g.sy < 0 || !S.fire) S.fire = false;
+      fire = S.fire; if (g.hy < 0 || !S.fire) S.fire = false;
     }
     const t0 = performance.now(), g2 = h.step(g, move, fire);
     S.stepMs.push(performance.now() - t0); if (S.stepMs.length > 60) S.stepMs.shift();
     heard(g, g2); S.game = g2;
-    if (g2.over && !(W && W.on) && g2.score > S.best) { S.best = g2.score; keep("best", S.best); }
-    if (g2.over && W && W.on) { W.end(`🤖 Hazel's game: ${g2.score} points, to wave ${g2.wave + 1}`); S.restartAt = performance.now() + 3000; }
+    if (g2.over && !(W && W.on) && g2.hearts > S.best) { S.best = g2.hearts; keep("best-hearts", S.best); }
+    if (g2.over && W && W.on) { W.end(`🤖 Hazel's game: ${g2.hearts} hearts, ${g2.wins} ${g2.wins === 1 ? "wave" : "waves"} just right`); S.restartAt = performance.now() + 3000; }
   }
   let lastBar = 0, acc = 0, lastT = 0;
   function frame(t) {
@@ -156,8 +234,8 @@
   }
   requestAnimationFrame(frame);
 
-  // ---- the controls: ⬅️ ➡️ held (or the keys), a finger along the field (the cannon follows it), ⬆️, the space bar or a tap
-  // to fire (one shot in the air at a time; a fire asked for waits until it can go)
+  // ---- the controls: ⬅️ ➡️ held (or the keys), a finger along the field (the launcher follows it), 💗, ⬆️, Enter or a tap to
+  // send a heart (one in the air at a time; a heart asked for waits until it can go)
   const fieldX = e => { const r = cv.getBoundingClientRect(); return (e.clientX - r.left) / r.width * 600; };
   cv.addEventListener("pointerdown", e => { if (W && W.on) return; if (S.game && S.game.over) { newGame(); return; } S.aimX = fieldX(e); S.fire = true; cv.setPointerCapture && cv.setPointerCapture(e.pointerId); });
   cv.addEventListener("pointermove", e => { if (W && W.on) return; if (e.buttons) S.aimX = fieldX(e); });
@@ -194,7 +272,7 @@
   if (window.OracleFs) window.OracleFs.offer({ label: "🚀 New game", title: "A new game, from the first wave", cast: newGame });
   const W = window.HazelAutoplay ? window.HazelAutoplay.make({
     into: $("new").parentElement, key: KEY, sides: ["Hazel"], label: "🤖 Hazel plays for you", what: "the game",
-    more: () => S.game ? `; ${S.game.score} points, wave ${S.game.wave + 1}` : "",
+    more: () => S.game ? `; ${S.game.hearts} hearts, wave ${S.game.wave + 1}` : "",
     onChange: on => {
       S.held = { left: false, right: false }; S.fire = false; S.aimX = null;
       if (!on) { W.stop(); return; }
@@ -211,7 +289,7 @@
   function drawStatus() {
     const st = $("status"), b = S.built;
     if (b && b.compiled) { st.className = "status ok"; st.textContent = `✓ Compiled ahead of time: the rules run as JavaScript (hazel-jit, ${b.made || "a prototype"}), every step, without loading Hazel's library or building the program. Hazel loads if you edit the rules.`; return; }
-    if (!window.Hazel) { st.className = "status wait"; st.textContent = S.libFailed ? "Hazel did not load from jsDelivr: check the connection, then reload." : "⏳ Loading Hazel (hazeljs from jsDelivr), whose rules move the invaders…"; return; }
+    if (!window.Hazel) { st.className = "status wait"; st.textContent = S.libFailed ? "Hazel did not load from jsDelivr: check the connection, then reload." : "⏳ Loading Hazel (hazeljs from jsDelivr), whose rules move the visitors…"; return; }
     if (!b) { st.className = "status wait"; st.textContent = "⏳ Building the rules…"; return; }
     if (b.ok) { st.className = "status ok"; st.textContent = `✓ Hazel's rules are ready, built by hazeljs in ${(b.ms / 1000).toFixed(1)} s, and interpreted every step: slower than compiled, so the game may go in slow motion.`; return; }
     st.className = "status no";
@@ -231,7 +309,7 @@
   }
   function loadCompiled() {
     const c = document.createElement("script");
-    c.src = "compiled.js?v=0.0.53"; c.async = true;
+    c.src = "compiled.js?v=0.0.57"; c.async = true;
     c.onload = () => { const v = window.StarWaveCompiled;
       if (v && !S.built) { S.built = { key: "compiled", ok: true, compiled: true, made: v.made, value: v, errors: [], threw: "", ms: 0, at: performance.now() }; drawStatus(); newGame(); }
       else if (!v) { S.compiledError = "it ran, but gave no Star wave"; loadLib(); } };

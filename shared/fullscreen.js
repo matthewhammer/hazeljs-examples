@@ -139,7 +139,14 @@
   document.addEventListener("keydown", e => { if (e.key === "Escape" && on() && !document.fullscreenElement) set(false); });
   const bar = document.createElement("div");
   bar.className = "fs-bar";
-  bar.append(btn);
+  // (0.0.57; Matthew, 2026-11-22: "let's make the link back to the 'main menu' of hazeljs activities easier to find, even in
+  // fullscreen mode"; "can we use the hazel nut icon instead of that home emoji?") Hazel's hazelnut and Activities beside the full-screen button, in every mode: the page head, with its own link home, is
+  // hidden in full screen; leaving the page leaves the browser's full screen too
+  const home = document.createElement("a");
+  home.className = "fs-home"; home.innerHTML = '<span class="hz-nut" aria-hidden="true"></span>Activities';   // (Hazel's hazelnut, shared/hazelnut.svg)
+  home.href = (document.querySelector(".app-links a") || { getAttribute: () => null }).getAttribute("href") || "../";
+  home.title = "Back to Hazel activities, the menu of every activity";
+  bar.append(home, btn);
   ui.prepend(bar);
   bar.after(castBtn);
   ui.prepend(leftBtn);

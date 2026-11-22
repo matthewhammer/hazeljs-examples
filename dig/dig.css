@@ -1,0 +1,21 @@
+/* hazeljs-examples, Deep dig (0.0.51): the board, a square canvas; the points above it; a cross of four big buttons under it */
+.dg-check, .dg-speed { display: inline-flex; align-items: center; gap: 6px; }
+.dg-bar { display: flex; gap: 14px; flex-wrap: wrap; align-items: baseline; font-variant-numeric: tabular-nums; margin: 6px 0; }
+.dg-bar #points { font-size: 1.5em; font-weight: 700; }
+.dg-wrap { display: flex; justify-content: center; }
+.dg-wrap canvas { width: min(100%, 520px, calc((100vh - 260px) * 0.875)); height: auto; aspect-ratio: 7 / 8; border-radius: 14px; touch-action: none; box-shadow: 0 2px 12px rgb(0 0 0 / 0.25); background: #3b2416; }
+.dg-wrap canvas, .dg-pad button { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+.dg-pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; max-width: 300px; margin: 10px auto 0; }
+.dg-pad button { font: inherit; font-size: 1.5em; padding: 10px 0; border-radius: 12px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); touch-action: none; user-select: none; }
+.dg-pad button.held { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 20%, var(--paper)); }
+/* full screen, two columns: the controls at the left, the board as large as the window, its buttons under it */
+html.oracle-fs .dg-ui { grid-template-columns: minmax(200px, 0.55fr) minmax(0, 3fr); grid-template-rows: auto minmax(0, 1fr) auto; }
+html.oracle-fs .dg-ui > .dg-bar { grid-column: 2; grid-row: 1; justify-self: center; margin: 0 0 6px; }
+html.oracle-fs .dg-ui > .dg-wrap { grid-column: 2; grid-row: 2; align-self: stretch; min-height: 0; container-type: size; align-items: center; }
+html.oracle-fs .dg-ui .dg-wrap canvas { width: min(100cqw, 87.5cqh); height: auto; max-width: none; }
+html.oracle-fs .dg-ui > .dg-pad { grid-column: 2; grid-row: 3; }
+html.oracle-fs .dg-ui > .fs-cast { grid-row: 1 / -1; }
+@media (max-width: 900px) {
+  html.oracle-fs .dg-ui > .dg-wrap { container-type: normal; }
+  html.oracle-fs .dg-ui .dg-wrap canvas { width: min(100%, calc((100vh - 260px) * 0.875)); }
+}

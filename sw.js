@@ -8,7 +8,7 @@
 // (0.0.45) The front page is an app of its own (manifest.webmanifest): one icon on a tablet's home screen holding every
 // activity. So the worker saves, at once, the front page's own files, offline.js, and Hazel's library, which the Petri net
 // runs its rules with (and every app falls back to): before, those were saved only once a page had asked for them online.
-const VERSION = "0.0.56";
+const VERSION = "0.0.57";
 const CACHE = "hazeljs-examples-" + VERSION;
 // (files a page saves on request, the Tarot's woodcut faces, and every face a page has shown: kept across versions)
 const EXTRA = "hazeljs-examples-extra";
@@ -26,6 +26,7 @@ const PRECACHE = [
   "shared/pause.js",
   "shared/chip.js",
   "shared/volume.js",
+  "shared/hazelnut.svg",
   "shared/home.js",
   "https://cdn.jsdelivr.net/npm/hazeljs@0.0.4/hazel-lib.js",
   "version.json",
@@ -165,6 +166,32 @@ const PRECACHE = [
   "mahjong/icons/apple-touch-icon.png",
   "mahjong/rules/preamble.hz",
   "mahjong/rules/Mahjong.hz",
+  "dig/",
+  "dig/index.html",
+  "dig/app.js",
+  "dig/compiled.js",
+  "dig/dig.css",
+  "dig/manifest.webmanifest",
+  "dig/icons/apple-touch-icon.png",
+  "dig/icons/icon-192.png",
+  "dig/icons/icon-32.png",
+  "dig/icons/icon-512.png",
+  "dig/icons/icon.svg",
+  "dig/rules/Dig.hz",
+  "dig/rules/preamble.hz",
+  "bugs/",
+  "bugs/index.html",
+  "bugs/app.js",
+  "bugs/compiled.js",
+  "bugs/bugs.css",
+  "bugs/manifest.webmanifest",
+  "bugs/icons/apple-touch-icon.png",
+  "bugs/icons/icon-192.png",
+  "bugs/icons/icon-32.png",
+  "bugs/icons/icon-512.png",
+  "bugs/icons/icon.svg",
+  "bugs/rules/Bugs.hz",
+  "bugs/rules/preamble.hz",
   "starwave/",
   "starwave/index.html",
   "starwave/app.js",
