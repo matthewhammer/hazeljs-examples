@@ -2,6 +2,10 @@
 
 Each version lists what the apps do as of that version. The newest version is first.
 
+## 0.0.45 (2026-11-22)
+
+- **Every activity in one app, with no connection** (Matthew: "The usecase is the kids' tablet, where I don't want to manually create new homescreen icons for each activity --- i want one menu app that has all of the others inside, to all work offline together."). The front page is now an app of its own: Add to Home Screen on it makes one icon, **Hazel**, a 3 by 3 grid of nine activities' own icons, that opens this page full screen with every activity a tap away inside it, and each one's link back. Opened once while online, it saves them all on the device, about 6 MB: every activity's files, as before, and now from the first visit also the page's own, and Hazel's library, which the Petri net runs its rules with (it was saved only after the net had been opened online). Then the icon works with no connection. Its 📲 box, at the top of the page, says whether this device has them all, shows this device's steps to put the icon on it, and saves the Tarot's woodcut faces too, black and white (about 4 MB) or colored (about 28 MB), which are kept only on request. Each activity's own icon still works as before. Opening a program in Hazel's editor needs a connection.
+
 ## 0.0.44 (2026-11-21)
 
 - **Astrology: the houses labelled on the wheel** (Matthew: "can we label the houses by number and label?"). Each house has its number and a word for what it holds, just inside the birth's ring, in line with its sign (whole-sign houses, counted from the rising sign): 1 self, 2 money, 3 talk, 4 home, 5 pleasure, 6 work, 7 partners, 8 shared, 9 travel, 10 career, 11 friends, 12 hidden. Hovered, a house says what it holds, in the reading's words, and lights its notes; a note about a house lights its label too.

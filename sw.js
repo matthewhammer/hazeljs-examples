@@ -5,13 +5,26 @@
 // jsDelivr. Every request goes to the network first, so a page that is online always gets the newest files; with no
 // network, the saved copy answers, its ?v= query ignored. Hazel's editor frames come from build.hazel.org, which this
 // worker cannot answer for: with no connection, the listings stay text.
-const VERSION = "0.0.44";
+// (0.0.45) The front page is an app of its own (manifest.webmanifest): one icon on a tablet's home screen holding every
+// activity. So the worker saves, at once, the front page's own files, offline.js, and Hazel's library, which the Petri net
+// runs its rules with (and every app falls back to): before, those were saved only once a page had asked for them online.
+const VERSION = "0.0.45";
 const CACHE = "hazeljs-examples-" + VERSION;
 // (files a page saves on request, the Tarot's woodcut faces, and every face a page has shown: kept across versions)
 const EXTRA = "hazeljs-examples-extra";
 const PRECACHE = [
   "./",
   "index.html",
+  "manifest.webmanifest",
+  "icons/icon.svg",
+  "icons/icon-32.png",
+  "icons/icon-192.png",
+  "icons/icon-512.png",
+  "icons/icon-maskable-512.png",
+  "icons/apple-touch-icon.png",
+  "shared/offline.js",
+  "shared/home.js",
+  "https://cdn.jsdelivr.net/npm/hazeljs@0.0.4/hazel-lib.js",
   "version.json",
   "VERSIONS.md",
   "shared/advanced.js",

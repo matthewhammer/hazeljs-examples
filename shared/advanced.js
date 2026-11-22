@@ -146,7 +146,7 @@
     async function show() {
       if (!O) { state.textContent = "📴 The offline part of the page did not load."; return; }
       const s = await O.status();
-      const now = s.online ? "" : " You are offline now: casting and readings work; Hazel's editor and library wait for a connection.";
+      const now = s.online ? "" : app.offlineNow || " You are offline now: casting and readings work; Hazel's editor and library wait for a connection.";
       state.textContent =
         !s.secure ? "📴 Saving for offline use needs the page served over https, or from localhost; this one is not."
         : !s.supported ? "📴 This browser cannot keep the app for use with no connection."
@@ -161,7 +161,7 @@
     return { show, nodes: [
       el("h3", { class: "advanced-cap" }, "📲 Use it with no connection"),
       state,
-      el("p", { class: "muted" }, `Put ${app.name}'s icon on this device, and open it once while online, so it saves itself. After that it works ` +
+      el("p", { class: "muted" }, app.offlineText || `Put ${app.name}'s icon on this device, and open it once while online, so it saves itself. After that it works ` +
         "with no connection: casting, the reading, and your past readings and anything you saved, which live on this device. Opening the rules in Hazel's " +
         "editor, or editing them, needs a connection."),
       el("div", { class: "speed-row" }, [install]),
@@ -246,5 +246,6 @@
     box.addEventListener("toggle", () => { if (box.open) off.show(); if (box.open && !newsBox.dataset.read) { newsBox.dataset.read = "1"; news(newsBox); } });
     app.holder.replaceChildren(box);
   }
-  window.OracleAdvanced = { panel, stats, painted };
+  // (0.0.45) and the 📲 section alone, for the front page: one icon for every activity (offlineText, offlineNow: its own words)
+  window.OracleAdvanced = { panel, stats, painted, offline: offlineSection };
 })();
