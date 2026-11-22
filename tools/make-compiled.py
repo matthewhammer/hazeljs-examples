@@ -320,7 +320,13 @@ ADAPTERS = {
   const start = seed => gameOut(P.start(seed));
   const step = (g, dir, flash) => gameOut(P.step([gameIn(g), dir, flash]));
   const robot = g => { const c = P.robot(gameIn(g)); return { dir: int(c.dir), flash: c.flash }; };
-  const api = { start, step, robot, made };"""),
+  // (0.0.63) scene : (Int, Int) -> Scene (a seed and a level): Scene = (above, roots, threads, burrows, ants, run, below); Line = (x0, y0, x1, y1, w = Int);
+  // Thing = (kind, x, y, size, v = Int)
+  const LINE = ["x0", "y0", "x1", "y1", "w"], THING = ["kind", "x", "y", "size", "v"];
+  const recOut = (r, ks) => Object.fromEntries(ks.map(k => [k, int(r[k])]));
+  const scene = (seed, level) => { const r = P.scene([seed, level]);
+    return Object.fromEntries(["above", "roots", "threads", "burrows", "ants", "run", "below"].map(k => [k, array(r[k]).map(x => recOut(x, k === "above" || k === "below" ? THING : LINE))])); };
+  const api = { start, step, robot, scene, made };"""),
 }
 GLOBAL, ADAPT = ADAPTERS[a.app]
 TITLE = {"i-ching": "the I Ching", "tarot": "the Tarot", "astrology": "astrology", "checkers": "Checkers", "go": "Go", "minesweeper": "Minesweeper", "mahjong": "Mahjong", "solitaire": "Solitaire", "pinball": "Pinball", "mahjong-solitaire": "Mahjong solitaire", "downhill": "Downhill", "bricks": "Bricks", "snake": "Snake", "trails": "Light trails", "starwave": "Star wave", "bugs": "Butterfly garden", "dig": "Gnome dig"}[a.app]

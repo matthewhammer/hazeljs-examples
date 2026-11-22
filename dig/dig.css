@@ -3,7 +3,7 @@
 .dg-bar { display: flex; gap: 14px; flex-wrap: wrap; align-items: baseline; font-variant-numeric: tabular-nums; margin: 6px 0; }
 .dg-bar #points { font-size: 1.5em; font-weight: 700; }
 .dg-wrap { display: flex; justify-content: center; }
-.dg-wrap canvas { width: min(100%, 520px, calc((100vh - 260px) * 0.875)); height: auto; aspect-ratio: 7 / 8; border-radius: 14px; touch-action: none; box-shadow: 0 2px 12px rgb(0 0 0 / 0.25); background: #3b2416; }
+.dg-wrap canvas { width: min(100%, 520px, calc((100vh - 260px) * 0.7368)); height: auto; aspect-ratio: 14 / 19; border-radius: 14px; touch-action: none; box-shadow: 0 2px 12px rgb(0 0 0 / 0.25); background: #3b2416; }
 .dg-wrap canvas, .dg-pad button { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
 .dg-pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; max-width: 300px; margin: 10px auto 0; }
 .dg-pad button { font: inherit; font-size: 1.5em; padding: 10px 0; border-radius: 12px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); touch-action: none; user-select: none; }
@@ -12,10 +12,10 @@
 html.oracle-fs .dg-ui { grid-template-columns: minmax(200px, 0.55fr) minmax(0, 3fr); grid-template-rows: auto minmax(0, 1fr) auto; }
 html.oracle-fs .dg-ui > .dg-bar { grid-column: 2; grid-row: 1; justify-self: center; margin: 0 0 6px; }
 html.oracle-fs .dg-ui > .dg-wrap { grid-column: 2; grid-row: 2; align-self: stretch; min-height: 0; container-type: size; align-items: center; }
-html.oracle-fs .dg-ui .dg-wrap canvas { width: min(100cqw, 87.5cqh); height: auto; max-width: none; }
+html.oracle-fs .dg-ui .dg-wrap canvas { width: min(100cqw, 73.68cqh); height: auto; max-width: none; }   /* (0.0.64: 14 by 19, three rows of sky above the 16 of ground) */
 html.oracle-fs .dg-ui > .dg-pad { grid-column: 2; grid-row: 3; }
 html.oracle-fs .dg-ui > .fs-cast { grid-row: 1 / -1; }
 @media (max-width: 900px) {
   html.oracle-fs .dg-ui > .dg-wrap { container-type: normal; }
-  html.oracle-fs .dg-ui .dg-wrap canvas { width: min(100%, calc((100vh - 260px) * 0.875)); }
+  html.oracle-fs .dg-ui .dg-wrap canvas { width: min(100%, calc((100vh - 260px) * 0.7368)); }
 }

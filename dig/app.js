@@ -7,8 +7,8 @@
 (async () => {
   "use strict";
   const LIB = "https://cdn.jsdelivr.net/npm/hazeljs@0.0.4/hazel-lib.js";
-  const PROGRAM = "dig", MODULES = ["Dig"];
-  const TAIL = "(start = Dig.start, step = Dig.step, robot = Dig.robot)";
+  const PROGRAM = "dig", MODULES = ["Dig", "Scene"];
+  const TAIL = "(start = Dig.start, step = Dig.step, robot = Dig.robot, scene = Scene.scene)";
   const KEY = "hazeljs-examples/dig/";
   const Q = new URLSearchParams(location.search);
   const COMPILED = !(Q.has("interpreted") || Q.get("compiled") === "0");
@@ -20,9 +20,9 @@
 
   // ---- the state: the rules, the game (a Hazel value: the ground 14 by 16 cells), the way held (by a key, a button or a swipe),
   // a flash asked for, words floating up, the best score
-  const W_ = 14, H_ = 16;
+  const W_ = 14, H_ = 16, TOP = 3;   // (0.0.64: three rows of sky above the game's ground, for the trees)
   const S = { built: null, libAt: 0, libFailed: false, compiledError: "", game: null, best: kept("best", 0),
-              dir: -1, keys: [], flash: false, pops: [], stepMs: [], restartAt: 0, banner: null, swipe: null };
+              dir: -1, keys: [], flash: false, pops: [], stepMs: [], restartAt: 0, banner: null, swipe: null, startSeed: 1, scene: null, sceneKey: "", layers: null };
   const H = () => S.built && S.built.ok ? S.built.value : null;
 
   // ---- drawing: the sky and the ground's layers (darker deeper), the tunnels, the gems glittering, the boulders (shaking before
@@ -30,7 +30,7 @@
   const cv = $("ground"), ctx = cv.getContext("2d");
   function fit() {
     const r = cv.getBoundingClientRect(), d = Math.min(2, window.devicePixelRatio || 1);
-    const w = Math.max(200, Math.round(r.width * d)), h = Math.round(w * H_ / W_);
+    const w = Math.max(200, Math.round(r.width * d)), h = Math.round(w * (H_ + TOP) / W_);
     if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
   }
   const LAYERS = ["#a16207", "#92400e", "#7c2d12", "#5b2112"];
@@ -92,12 +92,188 @@
     c.strokeStyle = "rgba(255, 255, 255, 0.25)"; c.lineWidth = 1; c.beginPath(); c.moveTo(-6, -17.5); c.quadraticCurveTo(-4, -26, -0.5, -32); c.stroke();
     c.restore();
   }
+  // ---- (0.0.64; Matthew: "the gnome digging game looks good--- let's add trees and other veg on top. Let's add lots of realistic
+  // tree roots as background. let's generate that geometry for roots with more Hazel code. also add mushrooms and myclieum, and
+  // underground ants, and other burrowing inspects. also add burrowing animals") the scene: made by Hazel (Scene.scene, from the
+  // game's seed and the level) once a level, and drawn here into three layers, once a level and size: the sky and what grows on
+  // top; the burrows (the rabbit's, the badger's sett, the ants' nest, the mole's run, their chambers); the roots and the threads
+  // of mycelium, drawn over the gnome's tunnels too. The creatures move each frame. In hundredths of a cell: x 0 to 1400 across,
+  // y 100 the surface (the foot of row 0), the sky above it to -300
+  const PX = (u, v) => v * u / 100;   // (hundredths of a cell to pixels)
+  function layers(g, u) {
+    const h = H(); if (!h || !h.scene) return null;
+    const key = S.startSeed + ":" + g.level;
+    if (S.sceneKey !== key) {
+      if (!(S.built && S.built.compiled) && S.scene) S.sceneKey = key;   // (interpreted, a scene takes seconds: the first one kept)
+      else { S.scene = h.scene(S.startSeed, g.level); S.sceneKey = key; }
+      S.layers = null;
+    }
+    if (S.layers && S.layers.w === cv.width) return S.layers;
+    const mk = (hgt) => { const c2 = document.createElement("canvas"); c2.width = cv.width; c2.height = hgt; return c2; };
+    const sky = mk(Math.ceil((TOP + 1) * u + 4)), burrows = mk(Math.ceil(H_ * u)), roots = mk(Math.ceil(H_ * u));
+    drawSky(sky.getContext("2d"), u, S.scene); drawBurrows(burrows.getContext("2d"), u, S.scene); drawRoots(roots.getContext("2d"), u, S.scene);
+    S.layers = { w: cv.width, sky, burrows, roots };
+    return S.layers;
+  }
+  const hsh = (a, b) => { let x = (a * 374761393 + b * 668265263) | 0; x = (x ^ (x >>> 13)) * 1274126177 | 0; return ((x ^ (x >>> 16)) >>> 0) / 4294967296; };
+  // the sky and what grows on top: a sky, the sun, clouds, far hills; then, back to front, trees, bushes, ferns, mushrooms,
+  // flowers, grass, the anthill; the grass along the surface. Drawn in the sky layer's own frame: y 0 its top (-300 in the scene)
+  function drawSky(c, u, sc) {
+    const Y = v => PX(u, v + TOP * 100), X = v => PX(u, v), base = Y(100);
+    const sky = c.createLinearGradient(0, 0, 0, base); sky.addColorStop(0, "#38bdf8"); sky.addColorStop(1, "#bae6fd");
+    c.fillStyle = sky; c.fillRect(0, 0, c.canvas.width, base + 2);
+    c.fillStyle = "#fde68a"; c.beginPath(); c.arc(X(1220), Y(-210), u * 0.45, 0, 7); c.fill();
+    c.fillStyle = "rgba(253, 230, 138, 0.35)"; c.beginPath(); c.arc(X(1220), Y(-210), u * 0.7, 0, 7); c.fill();
+    for (let i = 0; i < 4; i++) { const cx = X(150 + i * 330 + hsh(i, 5) * 120), cy = Y(-250 + hsh(i, 6) * 90); c.fillStyle = "rgba(255, 255, 255, 0.85)";
+      for (let j = 0; j < 4; j++) { c.beginPath(); c.ellipse(cx + (j - 1.5) * u * 0.3, cy + (j % 2) * u * 0.06, u * 0.32, u * 0.2, 0, 0, 7); c.fill(); } }
+    c.fillStyle = "#86c66b"; c.beginPath(); c.moveTo(0, base);
+    for (let x = 0; x <= 1400; x += 50) c.lineTo(X(x), Y(10 + 30 * Math.sin(x / 160) + 20 * Math.sin(x / 70)));
+    c.lineTo(c.canvas.width, base); c.closePath(); c.fill();
+    const above = [...sc.above].sort((a, b) => (a.kind <= 2 ? 0 : 1) - (b.kind <= 2 ? 0 : 1));
+    for (const t of above) plant(c, X(t.x), base, u, t);
+    c.fillStyle = "#4d7c0f"; c.fillRect(0, base - u * 0.06, c.canvas.width, u * 0.1);
+    c.strokeStyle = "#65a30d"; c.lineWidth = u * 0.03; c.beginPath();
+    for (let x = 4; x < 1400; x += 9) { const hh = 6 + hsh(x, 3) * 9; c.moveTo(X(x), base); c.lineTo(X(x + (hsh(x, 4) - 0.5) * 6), base - PX(u, hh)); }
+    c.stroke();
+  }
+  // a thing on top, its foot at x, base: trees, a bush, grass, a flower, a fern, mushrooms, the anthill
+  function plant(c, x, base, u, t) {
+    const k = t.size / 100, v = t.v, E = (cx, cy, rx, ry, col) => { c.fillStyle = col; c.beginPath(); c.ellipse(cx, cy, rx, ry, 0, 0, 7); c.fill(); };
+    if (t.kind === 0) {   // (an oak: a stout trunk, a broad round crown of leaves)
+      const H2 = u * 2.4 * k;
+      c.fillStyle = "#6b4423"; c.beginPath(); c.moveTo(x - u * 0.14 * k, base); c.lineTo(x - u * 0.09 * k, base - H2 * 0.55); c.lineTo(x + u * 0.09 * k, base - H2 * 0.55); c.lineTo(x + u * 0.14 * k, base); c.fill();
+      c.strokeStyle = "#6b4423"; c.lineWidth = u * 0.06 * k; c.beginPath(); c.moveTo(x, base - H2 * 0.45); c.lineTo(x - u * 0.35 * k, base - H2 * 0.7); c.moveTo(x, base - H2 * 0.5); c.lineTo(x + u * 0.3 * k, base - H2 * 0.72); c.stroke();
+      for (const [dx, dy, r, col] of [[-0.4, 0.7, 0.42, "#2f7d32"], [0.4, 0.68, 0.44, "#2f7d32"], [0, 0.82, 0.5, "#388e3c"], [-0.2, 0.95, 0.38, "#43a047"], [0.25, 0.92, 0.36, "#43a047"], [0, 0.62, 0.36, "#2e7031"]])
+        E(x + dx * u * k, base - dy * H2, r * u * k, r * u * k * 0.85, col);
+      c.fillStyle = "rgba(255, 255, 255, 0.12)"; for (let i = 0; i < 6; i++) { c.beginPath(); c.arc(x + (hsh(v, i) - 0.6) * u * 0.8 * k, base - H2 * (0.7 + hsh(i, v) * 0.25), u * 0.08 * k, 0, 7); c.fill(); }
+    } else if (t.kind === 1) {   // (a pine: a straight trunk, tiers of dark needles)
+      const H2 = u * 2.7 * k;
+      c.fillStyle = "#5b3a1e"; c.fillRect(x - u * 0.06 * k, base - H2 * 0.3, u * 0.12 * k, H2 * 0.3);
+      for (let i = 0; i < 4; i++) { const yb = base - H2 * (0.2 + i * 0.19), hw = u * (0.62 - i * 0.12) * k, ht = H2 * 0.32;
+        c.fillStyle = "#1f5f3a"; c.beginPath(); c.moveTo(x - hw, yb); c.lineTo(x + hw, yb); c.lineTo(x, yb - ht); c.fill();
+        c.fillStyle = "#2d7a4b"; c.beginPath(); c.moveTo(x, yb - ht); c.lineTo(x + hw, yb); c.lineTo(x + hw * 0.3, yb); c.fill(); }
+    } else if (t.kind === 2) {   // (a birch: a slim white trunk with dark marks, a light crown)
+      const H2 = u * 2.6 * k;
+      c.fillStyle = "#f5f5f4"; c.fillRect(x - u * 0.06 * k, base - H2 * 0.62, u * 0.12 * k, H2 * 0.62);
+      c.fillStyle = "#292524"; for (let i = 0; i < 6; i++) c.fillRect(x - u * 0.06 * k + (i % 2) * u * 0.05 * k, base - H2 * (0.08 + i * 0.09), u * 0.07 * k, u * 0.025);
+      for (const [dx, dy, rx, ry, col] of [[0, 0.75, 0.38, 0.32, "#84cc16"], [-0.2, 0.62, 0.28, 0.24, "#65a30d"], [0.22, 0.64, 0.27, 0.24, "#65a30d"], [0, 0.9, 0.26, 0.22, "#a3e635"]])
+        E(x + dx * u * k, base - dy * H2, rx * u * k, ry * u * k * 1.2, col);
+    } else if (t.kind === 3) {   // (a bush, with berries)
+      for (const [dx, dy, r, col] of [[-0.22, 0.2, 0.24, "#3f7d2b"], [0.22, 0.2, 0.24, "#3f7d2b"], [0, 0.32, 0.27, "#4d8f33"]]) E(x + dx * u * k, base - dy * u * k, r * u * k, r * u * k * 0.8, col);
+      c.fillStyle = "#dc2626"; for (let i = 0; i < 5; i++) { c.beginPath(); c.arc(x + (hsh(v, i) - 0.5) * u * 0.6 * k, base - (0.15 + hsh(i, v) * 0.3) * u * k, u * 0.035, 0, 7); c.fill(); }
+    } else if (t.kind === 4) {   // (a tuft of grass)
+      c.strokeStyle = v % 2 ? "#4d7c0f" : "#65a30d"; c.lineWidth = u * 0.035; c.beginPath();
+      for (let i = -2; i <= 2; i++) { c.moveTo(x + i * u * 0.03, base); c.quadraticCurveTo(x + i * u * 0.06, base - u * 0.2 * k, x + i * u * 0.11, base - u * (0.26 + (i % 2) * 0.06) * k); }
+      c.stroke();
+    } else if (t.kind === 5) {   // (a flower on its stem)
+      const col = ["#f472b6", "#facc15", "#a78bfa", "#fb923c", "#f8fafc", "#60a5fa"][v % 6], hh = u * 0.32 * k;
+      c.strokeStyle = "#4d7c0f"; c.lineWidth = u * 0.03; c.beginPath(); c.moveTo(x, base); c.lineTo(x, base - hh); c.stroke();
+      c.fillStyle = col; for (let i = 0; i < 5; i++) { const a = i * 1.2566; c.beginPath(); c.arc(x + Math.cos(a) * u * 0.05, base - hh + Math.sin(a) * u * 0.05, u * 0.045, 0, 7); c.fill(); }
+      c.fillStyle = "#ca8a04"; c.beginPath(); c.arc(x, base - hh, u * 0.03, 0, 7); c.fill();
+    } else if (t.kind === 6) {   // (a fern: fronds arching out)
+      c.strokeStyle = "#15803d"; c.lineWidth = u * 0.025;
+      for (const s2 of [-1, -0.4, 0.4, 1]) { const ex = x + s2 * u * 0.32 * k, ey = base - u * (0.38 - Math.abs(s2) * 0.12) * k; c.beginPath(); c.moveTo(x, base); c.quadraticCurveTo(x + s2 * u * 0.1, base - u * 0.4 * k, ex, ey); c.stroke();
+        for (let j = 1; j < 6; j++) { const q = j / 6, px = x + (ex - x) * q, py = base + (ey - base) * q - u * 0.05 * Math.sin(q * 3); c.beginPath(); c.moveTo(px, py); c.lineTo(px + s2 * u * 0.05, py - u * 0.05); c.moveTo(px, py); c.lineTo(px - s2 * u * 0.03, py - u * 0.06); c.stroke(); } }
+    } else if (t.kind === 7 || t.kind === 8) {   // (mushrooms: a red cap with white spots, or a brown one)
+      const red = t.kind === 7, hh = u * 0.28 * k, cw = u * 0.2 * k;
+      c.fillStyle = "#f5f5f0"; c.fillRect(x - u * 0.04 * k, base - hh, u * 0.08 * k, hh);
+      c.fillStyle = red ? "#dc2626" : "#92400e"; c.beginPath(); c.ellipse(x, base - hh, cw, cw * 0.7, 0, Math.PI, 0); c.fill();
+      c.fillStyle = red ? "#ffffff" : "#d6a46b"; for (let i = 0; i < 4; i++) { c.beginPath(); c.arc(x + (i - 1.5) * cw * 0.45, base - hh - cw * (0.2 + (i % 2) * 0.25), u * 0.025 * k, 0, 7); c.fill(); }
+      if (v % 2) { c.fillStyle = red ? "#ef4444" : "#a16207"; c.fillRect(x + cw * 1.1 - u * 0.025, base - hh * 0.6, u * 0.05, hh * 0.6); c.beginPath(); c.ellipse(x + cw * 1.1, base - hh * 0.6, cw * 0.5, cw * 0.35, 0, Math.PI, 0); c.fill(); }
+    } else if (t.kind === 9) {   // (the anthill: a mound of earth with a hole at its top)
+      c.fillStyle = "#a16207"; c.beginPath(); c.ellipse(x, base, u * 0.38, u * 0.24, 0, Math.PI, 0); c.fill();
+      c.fillStyle = "#854d0e"; for (let i = 0; i < 12; i++) { c.beginPath(); c.arc(x + (hsh(i, 9) - 0.5) * u * 0.6, base - hsh(9, i) * u * 0.18, u * 0.02, 0, 7); c.fill(); }
+      c.fillStyle = "#1c1009"; c.beginPath(); c.ellipse(x, base - u * 0.2, u * 0.05, u * 0.03, 0, 0, 7); c.fill();
+    }
+  }
+  // the burrows: the rabbit's burrow and the badger's sett, the ants' nest, the mole's run (dark tunnels with rounded ends), their
+  // chambers (lined with grass, a few eggs in the ants'), in the game's frame (row 0 at the top)
+  function drawBurrows(c, u, sc) {
+    const X = v => PX(u, v), Y = v => PX(u, v);
+    const tube = (ls, col, edge) => { c.lineCap = "round"; c.lineJoin = "round";
+      for (const [w2, cl] of [[1.25, edge], [1, col]]) { c.strokeStyle = cl; for (const l of ls) { c.lineWidth = Math.max(1, PX(u, l.w) * w2); c.beginPath(); c.moveTo(X(l.x0), Y(l.y0)); c.lineTo(X(l.x1), Y(l.y1)); c.stroke(); } } };
+    tube(sc.burrows, "#2b170b", "rgba(0, 0, 0, 0.25)"); tube(sc.run, "#2b170b", "rgba(0, 0, 0, 0.25)"); tube(sc.ants, "#2b170b", "rgba(0, 0, 0, 0.2)");
+    for (const t of sc.below) {
+      const x = X(t.x), y = Y(t.y);
+      if (t.kind === 11) { c.fillStyle = "#2b170b"; c.beginPath(); c.ellipse(x, y, u * 0.24 * t.size / 80, u * 0.13 * t.size / 80, 0, 0, 7); c.fill();
+        c.fillStyle = "#f5f5f0"; for (let i = 0; i < 4; i++) { c.beginPath(); c.ellipse(x + (i - 1.5) * u * 0.06, y + u * 0.05, u * 0.025, u * 0.035, 0, 0, 7); c.fill(); } }
+      else if (t.kind === 16 || t.kind === 18 || t.kind === 20) { const big = t.kind === 20 ? 1.35 : t.kind === 18 ? 1.05 : 0.8;
+        c.fillStyle = "#2b170b"; c.beginPath(); c.ellipse(x, y, u * 0.5 * big, u * 0.3 * big, 0, 0, 7); c.fill();
+        c.strokeStyle = "#a3a35a"; c.lineWidth = u * 0.025; c.beginPath(); for (let i = 0; i < 9; i++) { const a = Math.PI * (0.15 + 0.7 * i / 8); c.moveTo(x - Math.cos(a) * u * 0.42 * big, y + u * 0.2 * big); c.lineTo(x - Math.cos(a) * u * 0.3 * big, y + u * 0.12 * big); } c.stroke(); }
+    }
+  }
+  // the roots (brown, thicker near the tree, a lighter streak along the big ones) and the threads of mycelium (fine, pale)
+  function drawRoots(c, u, sc) {
+    const X = v => PX(u, v), Y = v => PX(u, v);
+    c.lineCap = "round";
+    c.strokeStyle = "rgba(250, 250, 245, 0.58)"; c.lineWidth = Math.max(0.8, PX(u, 3));
+    c.beginPath(); for (const l of sc.threads) { c.moveTo(X(l.x0), Y(l.y0)); c.lineTo(X(l.x1), Y(l.y1)); } c.stroke();
+    for (const l of [...sc.roots].sort((a, b) => a.w - b.w)) {
+      c.strokeStyle = "rgba(74, 46, 24, 0.85)"; c.lineWidth = Math.max(1, PX(u, l.w)); c.beginPath(); c.moveTo(X(l.x0), Y(l.y0)); c.lineTo(X(l.x1), Y(l.y1)); c.stroke();
+      if (l.w >= 9) { c.strokeStyle = "rgba(196, 150, 100, 0.35)"; c.lineWidth = Math.max(0.6, PX(u, l.w) * 0.3); c.beginPath(); c.moveTo(X(l.x0) - 1, Y(l.y0) - 1); c.lineTo(X(l.x1) - 1, Y(l.y1) - 1); c.stroke(); }
+    }
+  }
+  // a point along a path of lines, t from 0 to 1 and back (a creature going to and fro along it)
+  function along(ls, t) {
+    if (!ls.length) return null;
+    const total = ls.reduce((a, l) => a + Math.hypot(l.x1 - l.x0, l.y1 - l.y0), 0), q = (t % 2 < 1 ? t % 1 : 1 - t % 1) * total;
+    let acc = 0; const order = [...ls].reverse();
+    for (const l of order) { const d = Math.hypot(l.x1 - l.x0, l.y1 - l.y0); if (acc + d >= q) { const f = d ? (q - acc) / d : 0; return { x: l.x0 + (l.x1 - l.x0) * f, y: l.y0 + (l.y1 - l.y0) * f, dx: l.x1 - l.x0, back: t % 2 >= 1 }; } acc += d; }
+    const l = order[order.length - 1]; return { x: l.x1, y: l.y1, dx: l.x1 - l.x0, back: t % 2 >= 1 };
+  }
+  // the creatures, each frame: ants going to and fro along their tunnels, the mole along its run, the rabbit in its chamber (an
+  // ear twitching), the badger asleep (breathing), worms wriggling, grubs curled, beetles creeping; a little muted, behind the game
+  function creatures(c, u, now) {
+    const sc = S.scene; if (!sc) return;
+    const X = v => PX(u, v), E = (cx, cy, rx, ry, col, rot = 0) => { c.fillStyle = col; c.beginPath(); c.ellipse(cx, cy, rx, ry, rot, 0, 7); c.fill(); };
+    c.save(); c.globalAlpha = 0.9;
+    for (let i = 0; i < 9; i++) { const p = along(sc.ants, now / 9000 + i * 0.23); if (!p) break;
+      const x = X(p.x), y = X(p.y), s2 = (p.dx >= 0) !== p.back ? 1 : -1;
+      c.strokeStyle = "#1c1917"; c.lineWidth = u * 0.012; c.beginPath(); for (const lx of [-0.03, 0, 0.03]) { c.moveTo(x + lx * u, y); c.lineTo(x + lx * u + Math.sin(now / 60 + i) * u * 0.015, y + u * 0.04); } c.stroke();
+      E(x - s2 * u * 0.05, y, u * 0.028, u * 0.022, "#3f1d0b"); E(x, y, u * 0.022, u * 0.018, "#451a03"); E(x + s2 * u * 0.045, y - u * 0.005, u * 0.022, u * 0.02, "#3f1d0b"); }
+    for (const t of sc.below) {
+      const x = X(t.x), y = X(t.y), v = t.v;
+      if (t.kind === 15) {   // (the mole, along its run: velvet grey, a pink nose and broad pink hands)
+        const p = along(sc.run, now / 14000 + v / 1000) || { x: t.x, y: t.y, dx: 1, back: false }, mx = X(p.x), my = X(p.y), s2 = (p.dx >= 0) !== p.back ? 1 : -1;
+        E(mx, my, u * 0.2, u * 0.13, "#374151"); E(mx + s2 * u * 0.17, my + u * 0.02, u * 0.06, u * 0.045, "#f9a8d4");
+        E(mx + s2 * u * 0.08, my + u * 0.1, u * 0.07, u * 0.035, "#fbcfe8", s2 * 0.5); E(mx - s2 * u * 0.12, my + u * 0.1, u * 0.05, u * 0.03, "#fbcfe8");
+        E(mx + s2 * u * 0.1, my - u * 0.04, u * 0.012, u * 0.012, "#111827");
+      } else if (t.kind === 17) {   // (the rabbit in its chamber, an ear twitching, its nose going)
+        const tw = Math.sin(now / 400 + v) > 0.9 ? 0.25 : 0;
+        E(x, y + u * 0.05, u * 0.22, u * 0.16, "#a8a29e"); E(x + u * 0.16, y - u * 0.04, u * 0.11, u * 0.1, "#a8a29e");
+        E(x + u * 0.12, y - u * 0.2, u * 0.03, u * 0.11, "#a8a29e", -0.3 - tw); E(x + u * 0.19, y - u * 0.2, u * 0.03, u * 0.11, "#a8a29e", 0.2);
+        E(x + u * 0.12, y - u * 0.2, u * 0.015, u * 0.07, "#fbcfe8", -0.3 - tw); E(x - u * 0.2, y + u * 0.02, u * 0.06, u * 0.06, "#f5f5f4");
+        E(x + u * 0.2, y - u * 0.06, u * 0.016, u * 0.016, "#111827"); E(x + u * 0.26, y - u * 0.02 + Math.sin(now / 90) * u * 0.006, u * 0.015, u * 0.012, "#f472b6");
+      } else if (t.kind === 19) {   // (the badger, asleep in its sett: curled up, breathing, its striped face tucked in)
+        const br = 1 + 0.04 * Math.sin(now / 900 + v);
+        E(x, y + u * 0.06, u * 0.4 * br, u * 0.22 * br, "#6b7280"); E(x - u * 0.12, y + u * 0.02, u * 0.2, u * 0.12, "#4b5563");
+        E(x + u * 0.28, y + u * 0.06, u * 0.14, u * 0.1, "#f5f5f4"); E(x + u * 0.3, y + u * 0.06, u * 0.12, u * 0.035, "#111827");
+        c.fillStyle = `rgba(255, 255, 255, ${0.4 + 0.4 * Math.sin(now / 900 + v)})`; c.font = `${Math.round(u * 0.22)}px system-ui`; c.textAlign = "center"; c.fillText("z", x + u * 0.42, y - u * 0.18 - (now / 60 % 20) * u * 0.005);
+      } else if (t.kind === 12) {   // (a worm, wriggling a little to and fro)
+        const ph = now / 500 + v, dir = v % 2 ? 1 : -1, off = Math.sin(now / 3000 + v) * u * 0.25;
+        c.strokeStyle = "#f9a8d4"; c.lineWidth = u * 0.06; c.lineCap = "round"; c.beginPath();
+        for (let i = 0; i <= 8; i++) { const px = x + off + dir * (i - 4) * u * 0.045, py = y + Math.sin(ph + i * 0.8) * u * 0.04; if (i) c.lineTo(px, py); else c.moveTo(px, py); } c.stroke();
+        c.strokeStyle = "#f472b6"; c.lineWidth = u * 0.07; c.beginPath(); c.moveTo(x + off + dir * u * 0.04, y + Math.sin(ph + 4.8) * u * 0.04); c.lineTo(x + off + dir * u * 0.07, y + Math.sin(ph + 5.6) * u * 0.04); c.stroke();
+      } else if (t.kind === 13) {   // (a grub, curled, its head brown)
+        c.strokeStyle = "#fef3c7"; c.lineWidth = u * 0.07; c.lineCap = "round"; c.beginPath(); c.arc(x, y, u * 0.07 * (1 + 0.04 * Math.sin(now / 700 + v)), 0.3, 4.8); c.stroke();
+        E(x + Math.cos(0.3) * u * 0.07, y + Math.sin(0.3) * u * 0.07, u * 0.035, u * 0.035, "#92400e");
+      } else if (t.kind === 14) {   // (a beetle, creeping round a little circle, its shell shining)
+        const a = now / 4000 + v, bx = x + Math.cos(a) * u * 0.15, by = y + Math.sin(a) * u * 0.08, rot = a + Math.PI / 2;
+        c.strokeStyle = "#1c1917"; c.lineWidth = u * 0.012; c.beginPath(); for (const s2 of [-1, 1]) for (const k2 of [-0.04, 0, 0.04]) { c.moveTo(bx, by + k2 * u); c.lineTo(bx + s2 * u * 0.07, by + k2 * u + Math.sin(now / 80 + k2 * 50) * u * 0.01); } c.stroke();
+        E(bx, by, u * 0.06, u * 0.045, ["#1e3a8a", "#14532d", "#7f1d1d"][v % 3], rot); E(bx - u * 0.015, by - u * 0.015, u * 0.02, u * 0.012, "rgba(255, 255, 255, 0.5)", rot);
+      }
+    }
+    c.restore();
+  }
   function draw() {
     fit();
     const c = ctx, u = cv.width / W_, g = S.game, now = performance.now();
-    c.fillStyle = "#7dd3fc"; c.fillRect(0, 0, cv.width, u);
+    const L = g ? layers(g, u) : null;
+    if (L) c.drawImage(L.sky, 0, 0); else { c.fillStyle = "#7dd3fc"; c.fillRect(0, 0, cv.width, (TOP + 1) * u); }
+    c.save(); c.translate(0, TOP * u);   // (the game's ground, row 0 its surface, three rows of sky above)
     for (let r = 1; r < H_; r++) { c.fillStyle = LAYERS[Math.min(3, Math.floor((r - 1) / 4))]; c.fillRect(0, r * u, cv.width, u + 0.5); }
-    if (!g) return;
+    if (!g) { c.restore(); return; }
+    if (L) c.drawImage(L.burrows, 0, 0);
     for (let r = 1; r < H_; r++) for (let k = 0; k < W_; k++) {
       const v = g.cells[r * W_ + k], x = k * u, y = r * u;
       if (v === 0) { c.fillStyle = "#1c1009"; c.fillRect(x, y, u + 0.5, u + 0.5); }
@@ -108,6 +284,7 @@
         c.fillStyle = `rgba(255, 255, 255, ${tw})`; c.beginPath(); c.arc(x + u * 0.42, y + u * 0.4, u * 0.06, 0, 7); c.fill();
       }
     }
+    if (L) { c.drawImage(L.roots, 0, 0); creatures(c, u, now); }   // (the roots and the mycelium over the tunnels too, hanging across them; the creatures)
     for (const b of g.rocks) {
       const shake = !b.falling && b.wob >= 0 ? Math.sin(now / 30) * u * 0.05 : 0, fallBy = b.falling ? (4 - b.wob) / 4 * u : 0;
       const x = (b.c + 0.5) * u + shake, y = (b.r + 0.5) * u + fallBy;
@@ -136,6 +313,7 @@
     S.pops = S.pops.filter(p => now - p.t < 900);
     for (const p of S.pops) { const q = (now - p.t) / 900; c.globalAlpha = 1 - q; c.fillStyle = p.col; c.font = `700 ${Math.round(u * 0.5)}px system-ui`; c.textAlign = "center"; c.fillText(p.text, (p.c + 0.5) * u, (p.r + 0.3 - q) * u); }
     c.globalAlpha = 1; c.textAlign = "center";
+    c.restore();
     if (g.over) {
       c.fillStyle = "rgba(20, 10, 5, 0.8)"; c.fillRect(0, cv.height * 0.4, cv.width, cv.height * 0.2);
       c.fillStyle = "#ffffff"; c.font = `700 ${Math.round(u * 0.8)}px system-ui`; c.fillText(`Game over: ${g.score} points`, cv.width / 2, cv.height * 0.49);
@@ -156,7 +334,7 @@
   // ---- a game, and every frame a step of the rules
   function newGame() {
     const h = H(); if (!h) return;
-    S.game = h.start(1 + Math.floor(Math.random() * 2000000000)); S.pops = []; S.banner = null; S.flash = false; S.dir = -1; S.keys = []; S.restartAt = 0;
+    S.startSeed = 1 + Math.floor(Math.random() * 2000000000); S.game = h.start(S.startSeed); S.pops = []; S.banner = null; S.flash = false; S.dir = -1; S.keys = []; S.restartAt = 0;
     if (W && W.on) W.start(0);
     bar(); draw();
   }
@@ -267,7 +445,7 @@
   }
   function loadCompiled() {
     const c = document.createElement("script");
-    c.src = "compiled.js?v=0.0.60"; c.async = true;
+    c.src = "compiled.js?v=0.0.64"; c.async = true;
     c.onload = () => { const v = window.DigCompiled;
       if (v && !S.built) { S.built = { key: "compiled", ok: true, compiled: true, made: v.made, value: v, errors: [], threw: "", ms: 0, at: performance.now() }; drawStatus(); newGame(); }
       else if (!v) { S.compiledError = "it ran, but gave no Gnome dig"; loadLib(); } };
