@@ -557,6 +557,7 @@
     for (let r = 1; r < H_; r++) for (let k = 0; k < W_; k++) {
       const v = g.cells[r * W_ + k], x = k * u, y = r * u;
       if (v === 0) { if (!L) { c.fillStyle = "#1c1009"; c.fillRect(x, y, u + 0.5, u + 0.5); } }
+      else if (v === 3) bedrockAt(c, g, k, r, u);
       else { c.fillStyle = "rgba(0, 0, 0, 0.12)"; c.fillRect(x + u * 0.2, y + u * 0.3, u * 0.08, u * 0.08); c.fillRect(x + u * 0.65, y + u * 0.7, u * 0.08, u * 0.08); }
       if (v === 2) {
         const tw = 0.6 + 0.4 * Math.sin(now / 250 + r * 3 + k);
@@ -625,6 +626,25 @@
       c.fillStyle = "#fef9c3"; c.font = `700 ${Math.round(u * 0.7)}px system-ui`; if (S.banner.text) c.fillText(S.banner.text, cv.width / 2, cv.height * 0.12);
       if (S.banner.sub) { c.font = `600 ${Math.round(u * 0.45)}px system-ui`; c.fillStyle = "#e0f2fe"; c.fillText(S.banner.sub, cv.width / 2, cv.height * 0.12 + u * 0.7); }
     }
+  }
+  // (0.0.72; Matthew: "some squares of 'bedrock' that cannot be dug --- preventing sunlight from reaching ghosts under them") a cell
+  // of bedrock: grey stone, its run one piece (the edges light along the top and dark along the bottom only where the earth is),
+  // cracked and speckled the same way each time
+  function bedrockAt(c, g, k, r, u) {
+    const x = k * u, y = r * u, stone = (kk, rr) => kk >= 0 && kk < W_ && rr >= 0 && rr < H_ && g.cells[rr * W_ + kk] === 3;
+    const gr = c.createLinearGradient(0, y, 0, y + u); gr.addColorStop(0, "#6b6863"); gr.addColorStop(1, "#4a4744");
+    c.fillStyle = gr; c.fillRect(x, y, u + 0.5, u + 0.5);
+    const e = Math.max(1, u * 0.07);
+    if (!stone(k, r - 1)) { c.fillStyle = "rgba(255, 255, 255, 0.22)"; c.fillRect(x, y, u + 0.5, e); }
+    if (!stone(k, r + 1)) { c.fillStyle = "rgba(0, 0, 0, 0.38)"; c.fillRect(x, y + u - e, u + 0.5, e); }
+    if (!stone(k - 1, r)) { c.fillStyle = "rgba(255, 255, 255, 0.12)"; c.fillRect(x, y, e, u + 0.5); }
+    if (!stone(k + 1, r)) { c.fillStyle = "rgba(0, 0, 0, 0.28)"; c.fillRect(x + u - e, y, e, u + 0.5); }
+    c.strokeStyle = "rgba(30, 28, 26, 0.55)"; c.lineWidth = Math.max(1, u * 0.025); c.lineCap = "round"; c.beginPath();
+    const a = hsh(k, r), b = hsh(r + 7, k + 3);
+    c.moveTo(x + u * (0.15 + 0.5 * a), y + u * 0.15); c.lineTo(x + u * (0.3 + 0.3 * b), y + u * 0.5); c.lineTo(x + u * (0.2 + 0.5 * a), y + u * 0.85);
+    c.moveTo(x + u * (0.3 + 0.3 * b), y + u * 0.5); c.lineTo(x + u * (0.75 + 0.2 * a), y + u * (0.4 + 0.3 * b)); c.stroke();
+    c.fillStyle = "rgba(226, 232, 240, 0.35)";
+    for (let i = 0; i < 4; i++) { const sx = hsh(k * 5 + i, r * 3), sy = hsh(r * 7 + i, k * 11); c.fillRect(x + u * (0.1 + 0.8 * sx), y + u * (0.1 + 0.8 * sy), u * 0.05, u * 0.05); }
   }
   // (0.0.68) the ground water: in every dug cell from row wt down, water, clear and blue, over what is in it, light wavering in it;
   // its surface rippling where a tunnel comes down into it
@@ -874,7 +894,7 @@
   }
   function loadCompiled() {
     const c = document.createElement("script");
-    c.src = "compiled.js?v=0.0.70"; c.async = true;
+    c.src = "compiled.js?v=0.0.71"; c.async = true;
     c.onload = () => { const v = window.DigCompiled;
       if (v && !S.built) { S.built = { key: "compiled", ok: true, compiled: true, made: v.made, value: v, errors: [], threw: "", ms: 0, at: performance.now() }; drawStatus(); newGame(); }
       else if (!v) { S.compiledError = "it ran, but gave no Gnome dig"; loadLib(); } };

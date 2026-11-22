@@ -343,6 +343,13 @@ if (APP === "checkers") {
   { let q = C.start(11); const cs = q.cells.slice(); for (let rr = 1; rr < 9; rr++) for (let k = 4; k < 14; k++) cs[rr * 14 + k] = 0;
     q = { ...q, cells: cs, rocks: [], mons: [{ c: 6, r: 6, stun: 0 }, { c: 9, r: 3, stun: 0 }, { c: 12, r: 8, stun: 50 }, ...q.mons], px: 0, py: 15 };
     for (let k = 0; k < 200; k++) { const q2 = C.step(q, -1, false); if (k % 10 === 0 || q2.hit === 11) check(`ghosts in the sun, step ${k}`, H.step(q, -1, false), q2); q = q2; } }
+  // (0.0.71) the love shooter: a level with one, a tunnel dug to it with two monsters along it, the gnome walking in; 160 steps both ways
+  { let g0 = C.start(42); for (let k = 0; k < 12000 && !(g0.level >= 1 && g0.lover >= 0); k++) { const c = C.robot(g0); g0 = C.step(g0, c.dir, c.flash); }
+    if (g0.lover >= 0) {
+      const lc = g0.lover % 14, lr = Math.floor(g0.lover / 14), cs = g0.cells.slice(); for (let k = 0; k < 14; k++) if (k !== lc) cs[lr * 14 + k] = 0;
+      let q2 = { ...g0, cells: cs, rocks: [], px: lc === 0 ? 1 : lc - 1, py: lr, pwait: 0, dead: 0, mons: [{ c: lc === 13 ? 10 : 13, r: lr, stun: 0 }, { c: lc < 7 ? lc + 3 : lc - 3, r: lr, stun: 0 }] };
+      for (let k = 0; k < 160; k++) { const want = k === 0 ? (lc === 0 ? 3 : 1) : -1, n = C.step(q2, want, false); if (k % 10 === 0 || n.hit === 12) check(`love step ${k}`, H.step(q2, want, false), n); q2 = n; }
+    } else console.log("(no level with a love shooter reached in this game)"); }
   // (0.0.67) where things land, on grounds from that game dug further and further
   for (let k = 0; k < run.length; k += Math.max(1, Math.floor(run.length / 12))) { const cells = run[k][0].cells; check(`landing at step ${k}`, H.landing(cells), C.landing(cells)); }
   console.log(`${checked} answers compared: ${steps} steps with the robot's choice at each, ${differ} differ; the compiled robot's game: ${g.score} points, level ${g.level + 1}, ${g.lives} lives, ${g.t} steps`);

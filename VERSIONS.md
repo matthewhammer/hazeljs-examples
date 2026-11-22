@@ -2,6 +2,10 @@
 
 Each version lists what the apps do as of that version. The newest version is first.
 
+## 0.0.71 (2026-11-22)
+
+- **Gnome dig: the love shooter** (Matthew: "let's also have a love shooter --- another item in some levels / when the gnome has it, they can also have the swim goggles / when the gnome has it, they automatically shoot love at the ghosts when they are nearby and they run away / like sunlight"). From the second level on, half the levels by chance have one, a pink blaster glowing in the earth (rows 3 to 8). Walk into its cell and it is yours for the rest of the level, along with the diving gear if you have that too. In the rules (`Dig.hz`): with it, every awake ghost within three cells of you runs from you at its next move, to the shaded cell farthest from you (never into the sunlight). On the page: hearts fly from it to each of those ghosts, which look scared, with their "!", and a soft pew now and then; the gnome holds it in his other hand. The robot goes for it as if it were a gem: on 480 fresh levels it cleared every one, losing a life to a monster on 16 of them, not 21. Checked compiled against hazeljs, with two ghosts along a tunnel to a love shooter.
+
 ## 0.0.70 (2026-11-22)
 
 - **Gnome dig: the ghosts run from the sunlight, or burn in it** (Matthew: "let's have the ghosts run away from sunlight too", "or burn in it"). In the rules (`Dig.hz`): a monster never steps into a sunlit cell, so the sunlit holes are safe; one the light reaches, where you have dug the ground open round it, runs to the shaded cell nearest you, and with none to go to, or stunned by your lantern, burns up: 150 points. The robot clears every level as before (480 fresh levels, all cleared). Checked compiled against hazeljs, with ghosts in a cave opened to the sun.
