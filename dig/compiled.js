@@ -1,4 +1,4 @@
-// hazeljs-examples, Deep dig: its Hazel (rules/*.hz), compiled ahead of time to JavaScript by hazel-jit at
+// hazeljs-examples, Gnome dig: its Hazel (rules/*.hz), compiled ahead of time to JavaScript by hazel-jit at
 // hazelgrove/hazel 59e4e7b8d4 (trial/794-games-aot), wrapped by tools/make-compiled.py. Made, not written: do not edit.
 // (ticket 829) The page runs its rules through this file instead of loading hazeljs and building the program, unless asked
 // for interpreted (?interpreted=1) or the rules are edited. The same answers are checked by node/compare-compiled.mjs.

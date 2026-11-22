@@ -1,16 +1,36 @@
 {
- "name": "Bug run, its rules in Hazel",
- "short_name": "Bug run",
- "description": "A long bug winding down a field of pebbles: the rules and the robot player are Hazel.",
+ "name": "Butterfly garden, its rules in Hazel",
+ "short_name": "Butterflies",
+ "description": "Caterpillars in a garden of buds: feed them nectar and they turn to butterflies that open the flowers. The rules and the robot player are Hazel.",
  "start_url": "./",
  "scope": "./",
  "display": "standalone",
- "background_color": "#1c1917",
- "theme_color": "#1c1917",
+ "background_color": "#4ade80",
+ "theme_color": "#4ade80",
  "icons": [
-  { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
-  { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-  { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-  { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  {
+   "src": "icons/icon.svg",
+   "sizes": "any",
+   "type": "image/svg+xml",
+   "purpose": "any"
+  },
+  {
+   "src": "icons/icon-192.png",
+   "sizes": "192x192",
+   "type": "image/png",
+   "purpose": "any"
+  },
+  {
+   "src": "icons/icon-512.png",
+   "sizes": "512x512",
+   "type": "image/png",
+   "purpose": "any"
+  },
+  {
+   "src": "icons/icon-512.png",
+   "sizes": "512x512",
+   "type": "image/png",
+   "purpose": "maskable"
+  }
  ]
 }

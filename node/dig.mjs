@@ -1,4 +1,4 @@
-// hazeljs-examples, Deep dig in Node (ticket 829): the same Hazel module as the page (dig/rules/Dig.hz), built by hazeljs. It
+// hazeljs-examples, Gnome dig in Node (ticket 829; Deep dig until 0.0.61): the same Hazel module as the page (dig/rules/Dig.hz), built by hazeljs. It
 // builds the rules, has the robot (Dig.robot, the 🤖 player) play a game, and checks it: you stay on the ground, a cell at a
 // time, the points only grow, the lives only fall; it counts the gems, the monsters caught and squashed, the boulders landed,
 // the times you were caught and the levels cleared; then times a step and a robot's choice.

@@ -295,13 +295,13 @@ ADAPTERS = {
   const robot = g => { const c = P.robot(gameIn(g)); return { move: int(c.move), fire: c.fire }; };
   const api = { start, step, robot, made };"""),
   "bugs": ("BugsCompiled", """
-  // (ticket 828) Game = (px, py, sx, sy = Int, segs = [Seg], stones = [Stone], lives, score, wave, seed, tick, pace, wait = Int, over = Bool,
-  // hit, t = Int); Seg = (c, r, d, v = Int); Stone = (c, r, hp = Int); Choice = (mx, my = Int, fire = Bool)
-  const GAME = ["px", "py", "sx", "sy", "segs", "stones", "lives", "score", "wave", "seed", "tick", "pace", "wait", "over", "hit", "t"];
-  const SEG = ["c", "r", "d", "v"], STONE = ["c", "r", "hp"];
+  // (ticket 828; Butterfly garden since 0.0.61) Game = (px, py, sx, sy = Int, segs = [Seg], buds = [Bud], cocoons = [Bud], lives, score, freed,
+  // wave, seed, tick, pace, wait = Int, over = Bool, hit, t = Int); Seg = (c, r, d, v = Int); Bud = (c, r, hp = Int); Choice = (mx, my = Int, fire = Bool)
+  const GAME = ["px", "py", "sx", "sy", "segs", "buds", "cocoons", "lives", "score", "freed", "wave", "seed", "tick", "pace", "wait", "over", "hit", "t"];
+  const SEG = ["c", "r", "d", "v"], BUD = ["c", "r", "hp"];
   const recIn = (o, ks) => $R.tup(ks.map(k => o[k]), ks), recOut = (r, ks) => Object.fromEntries(ks.map(k => [k, int(r[k])]));
-  const gameIn = g => $R.tup(GAME.map(k => k === "segs" ? list(g.segs.map(s => recIn(s, SEG))) : k === "stones" ? list(g.stones.map(s => recIn(s, STONE))) : g[k]), GAME);
-  const gameOut = r => Object.fromEntries(GAME.map(k => [k, k === "segs" ? array(r.segs).map(s => recOut(s, SEG)) : k === "stones" ? array(r.stones).map(s => recOut(s, STONE)) : k === "over" ? r[k] : int(r[k])]));
+  const gameIn = g => $R.tup(GAME.map(k => k === "segs" ? list(g.segs.map(s => recIn(s, SEG))) : k === "buds" || k === "cocoons" ? list(g[k].map(s => recIn(s, BUD))) : g[k]), GAME);
+  const gameOut = r => Object.fromEntries(GAME.map(k => [k, k === "segs" ? array(r.segs).map(s => recOut(s, SEG)) : k === "buds" || k === "cocoons" ? array(r[k]).map(s => recOut(s, BUD)) : k === "over" ? r[k] : int(r[k])]));
   // start : Int -> Game (a seed); step : (Game, Int, Int, Bool) -> Game (the moves across and up or down, a shot); robot : Game -> Choice
   const start = seed => gameOut(P.start(seed));
   const step = (g, mx, my, fire) => gameOut(P.step([gameIn(g), mx, my, fire]));
@@ -323,7 +323,7 @@ ADAPTERS = {
   const api = { start, step, robot, made };"""),
 }
 GLOBAL, ADAPT = ADAPTERS[a.app]
-TITLE = {"i-ching": "the I Ching", "tarot": "the Tarot", "astrology": "astrology", "checkers": "Checkers", "go": "Go", "minesweeper": "Minesweeper", "mahjong": "Mahjong", "solitaire": "Solitaire", "pinball": "Pinball", "mahjong-solitaire": "Mahjong solitaire", "downhill": "Downhill", "bricks": "Bricks", "snake": "Snake", "trails": "Light trails", "starwave": "Star wave", "bugs": "Bug run", "dig": "Deep dig"}[a.app]
+TITLE = {"i-ching": "the I Ching", "tarot": "the Tarot", "astrology": "astrology", "checkers": "Checkers", "go": "Go", "minesweeper": "Minesweeper", "mahjong": "Mahjong", "solitaire": "Solitaire", "pinball": "Pinball", "mahjong-solitaire": "Mahjong solitaire", "downhill": "Downhill", "bricks": "Bricks", "snake": "Snake", "trails": "Light trails", "starwave": "Star wave", "bugs": "Butterfly garden", "dig": "Gnome dig"}[a.app]
 TICKET = {"i-ching": "765", "tarot": "765", "astrology": "768", "checkers": "794", "go": "794", "minesweeper": "794", "mahjong": "794", "solitaire": "794", "pinball": "793", "mahjong-solitaire": "803", "downhill": "823", "bricks": "824", "snake": "825", "trails": "826", "starwave": "827", "bugs": "828", "dig": "829"}[a.app]
 
 jit = subprocess.run(["git", "-C", a.hazel, "show", f"{a.commit}:src/language/dynamics/HazelJit.re"], capture_output=True, text=True, check=True).stdout

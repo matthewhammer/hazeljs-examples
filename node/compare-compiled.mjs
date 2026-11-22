@@ -314,14 +314,14 @@ if (APP === "checkers") {
   const g1 = C.start(7);
   console.log(`a step: ${HN} ${time(() => H.step(g1, 1, true), 10).toFixed(1)} ms, compiled ${time(() => C.step(g1, 1, true), 500).toFixed(3)} ms; the robot: ${HN} ${time(() => H.robot(g1), 10).toFixed(1)} ms, compiled ${time(() => C.robot(g1), 500).toFixed(3)} ms`);
 } else if (APP === "bugs") {
-  // (ticket 828) a game played by the compiled robot (now and then a move or a shot by chance), and at steps spread across it the
+  // (ticket 828; Butterfly garden since 0.0.61) a game played by the compiled robot (now and then a move or a shot by chance), and at steps spread across it the
   // robot's choice and the next step both ways
   const per = CAP || 40; let steps = 0;
   let g = C.start(42); const run = [];
-  for (let k = 0; k < 3000 && !g.over; k++) { const c = C.robot(g), mx = draw() < 0.05 ? Math.floor(draw() * 3) - 1 : c.mx, my = c.my, fire = draw() < 0.05 ? !c.fire : c.fire; run.push([g, mx, my, fire]); g = C.step(g, mx, my, fire); }
+  for (let k = 0; k < 9000 && !g.over; k++) { const c = C.robot(g), mx = draw() < 0.05 ? Math.floor(draw() * 3) - 1 : c.mx, my = c.my, fire = draw() < 0.05 ? !c.fire : c.fire; run.push([g, mx, my, fire]); g = C.step(g, mx, my, fire); }
   const pick = run.filter((_, k) => k < 3 || k % Math.max(1, Math.floor(run.length / per)) === 0 || run[k][0].hit).slice(0, per + 3);
   for (const [g0, mx, my, fire] of pick) { steps++; check(`robot at ${JSON.stringify(g0)}`, H.robot(g0), C.robot(g0)); check(`step from ${JSON.stringify(g0)} ${mx} ${my} ${fire}`, H.step(g0, mx, my, fire), C.step(g0, mx, my, fire)); }
-  console.log(`${checked} answers compared: ${steps} steps with the robot's choice at each, ${differ} differ; the compiled robot's game: ${g.score} points, wave ${g.wave + 1}, ${g.lives} lives, ${g.t} steps`);
+  console.log(`${checked} answers compared: ${steps} steps with the robot's choice at each, ${differ} differ; the compiled robot's game: ${g.freed} butterflies, ${g.score} points, garden ${g.wave + 1}, ${g.lives} tries, ${g.t} steps`);
   const g1 = C.start(7);
   console.log(`a step: ${HN} ${time(() => H.step(g1, 1, 0, true), 10).toFixed(1)} ms, compiled ${time(() => C.step(g1, 1, 0, true), 500).toFixed(3)} ms; the robot: ${HN} ${time(() => H.robot(g1), 10).toFixed(1)} ms, compiled ${time(() => C.robot(g1), 500).toFixed(3)} ms`);
 } else if (APP === "dig") {

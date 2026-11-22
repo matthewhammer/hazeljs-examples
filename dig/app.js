@@ -1,4 +1,4 @@
-// hazeljs-examples, Deep dig (ticket 829; Matthew, 2026-11-22: "Next: space invaders clone, centipede clone, dig dug clone", and
+// hazeljs-examples, Gnome dig (Deep dig until 0.0.61; ticket 829; Matthew, 2026-11-22: "Next: space invaders clone, centipede clone, dig dug clone", and
 // "all with hazel rules and hazel AI that plays the game"): a digging game of our own in that genre (its own way with the
 // monsters: boulders, and a lantern that stuns, not a pump). The page: the ground drawn on a canvas, every frame a step of
 // Hazel's rules (Dig.step: your digging, the boulders, the monsters, the lantern), and 🤖 Hazel plays for you, the robot in
@@ -34,6 +34,64 @@
     if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
   }
   const LAYERS = ["#a16207", "#92400e", "#7c2d12", "#5b2112"];
+  // (0.0.61; Matthew: "for the deep dig game -- let's redo the main char as a gnome. with more details, including a face with a beard,
+  // nose, eyes, eye brows, moustache") you, a gnome of our own: a tall red cap, a blue tunic with a belt and its buckle, boots
+  // trimmed with fur; a round nose, eyes under bushy brows, a moustache and a long white beard; your lantern held out the way
+  // you face (bright when ready, dim while it charges). Facing up, his back; facing left, him the other way round; bobbing as
+  // he walks or digs. Drawn in a cell 40 units square, its middle at 0, 0
+  function gnome(c, x, y, u, d, ready, moving, now) {
+    const back = d === 0, flip = d === 3 ? -1 : 1, side = d === 1 || d === 3, step = moving ? Math.sin(now / 70) : 0, bob = moving ? -Math.abs(step) * 1.4 : 0;
+    c.save(); c.translate(x, y); c.scale(flip * u / 40, u / 40); c.translate(0, bob);
+    const E = (cx, cy, rx, ry, col, rot = 0) => { c.fillStyle = col; c.beginPath(); c.ellipse(cx, cy, rx, ry, rot, 0, 7); c.fill(); };
+    E(0, 19 - bob, 13, 3.4, "rgba(0, 0, 0, 0.32)");   // (his shadow)
+    for (const s2 of [-1, 1]) {   // (boots, a step at a time, with fur at the top)
+      const lift = s2 * step > 0 ? -2 * Math.abs(step) : 0;
+      c.fillStyle = "#4b5563"; c.beginPath(); c.roundRect(s2 * 6 - 4 + (s2 > 0 ? 1 : -1), 13 + lift, 9, 6, 2.5); c.fill();
+      c.fillStyle = "#e5e7eb"; c.beginPath(); c.roundRect(s2 * 6 - 4, 11.5 + lift, 8, 3, 1.5); c.fill();
+    }
+    // (the tunic, its sleeves and the belt)
+    c.fillStyle = "#3b5bab"; c.beginPath(); c.moveTo(-9, -3); c.lineTo(9, -3); c.lineTo(12, 13); c.quadraticCurveTo(0, 15, -12, 13); c.closePath(); c.fill();
+    c.fillStyle = "#2f4a8f"; c.beginPath(); c.moveTo(3, -3); c.lineTo(9, -3); c.lineTo(12, 13); c.quadraticCurveTo(7, 14.3, 4, 14.5); c.closePath(); c.fill();
+    c.fillStyle = "#7c4a1e"; c.fillRect(-11, 5.5, 22, 3.6);
+    if (!back) { c.fillStyle = "#eab308"; c.beginPath(); c.roundRect(-3, 4.8, 6, 5, 1); c.fill(); c.fillStyle = "#7c4a1e"; c.fillRect(-1.2, 6.3, 2.4, 2); }
+    const lx = side ? 14 : 13, ly = side ? 2 : 5;   // (the lantern's hand)
+    c.strokeStyle = "#3b5bab"; c.lineWidth = 4.5; c.lineCap = "round";
+    c.beginPath(); c.moveTo(-8, -1); c.lineTo(-11, 7); c.moveTo(8, -1); c.lineTo(lx - 2, ly); c.stroke();
+    E(-11, 8, 2.4, 2.4, "#f2c9a0"); E(lx - 1.5, ly + 0.5, 2.4, 2.4, "#f2c9a0");
+    // (the lantern: a handle, a dark frame, its glass lit when it is ready)
+    if (ready) { const gl = c.createRadialGradient(lx + 1, ly + 7, 0, lx + 1, ly + 7, 12); gl.addColorStop(0, "rgba(254, 240, 138, 0.75)"); gl.addColorStop(1, "rgba(254, 240, 138, 0)"); c.fillStyle = gl; c.beginPath(); c.arc(lx + 1, ly + 7, 12, 0, 7); c.fill(); }
+    c.strokeStyle = "#1f2937"; c.lineWidth = 1.2; c.beginPath(); c.arc(lx + 1, ly + 2.5, 2.2, Math.PI, 0); c.stroke();
+    c.fillStyle = "#1f2937"; c.beginPath(); c.roundRect(lx - 2.5, ly + 2.5, 7, 9, 1.5); c.fill();
+    c.fillStyle = ready ? "#fef08a" : "#a16207"; c.beginPath(); c.roundRect(lx - 1.3, ly + 4, 4.6, 6, 1); c.fill();
+    if (back) {   // (his back: the beard showing at either side under the cap)
+      E(-7.5, -6, 3.5, 6, "#f1f5f9", 0.3); E(7.5, -6, 3.5, 6, "#f1f5f9", -0.3);
+      c.fillStyle = "#e5e7eb"; c.beginPath(); c.ellipse(0, -9.5, 8, 6.5, 0, 0, 7); c.fill();   // (white hair under the cap)
+      c.strokeStyle = "#cbd5e1"; c.lineWidth = 0.8; c.beginPath(); for (const hx of [-5, -2, 1, 4]) { c.moveTo(hx, -14); c.quadraticCurveTo(hx + 1, -9, hx, -4); } c.stroke();
+    } else {
+      // (the face, rosy cheeks, the beard down over the tunic, its strands)
+      c.fillStyle = "#f2c9a0"; c.beginPath(); c.ellipse(side ? 1.5 : 0, -10.5, 7.5, 6.5, 0, 0, 7); c.fill();
+      E(side ? -3 : -5, -8, 2.2, 1.6, "rgba(244, 114, 114, 0.45)"); E(side ? 6 : 5, -8, 2.2, 1.6, "rgba(244, 114, 114, 0.45)");
+      c.fillStyle = "#f8fafc"; c.beginPath(); c.moveTo(-8 + (side ? 1 : 0), -8); c.quadraticCurveTo(-10, 3, (side ? 2 : 0), 12); c.quadraticCurveTo(10, 3, 8 + (side ? 2 : 0), -8); c.quadraticCurveTo(side ? 2 : 0, -2, -8 + (side ? 1 : 0), -8); c.fill();
+      c.strokeStyle = "#cbd5e1"; c.lineWidth = 0.8; c.beginPath();
+      for (const bx of [-4, -1, 2, 5]) { const ox = side ? 1.5 : 0; c.moveTo(bx + ox, -3); c.quadraticCurveTo(bx * 0.6 + ox, 3, bx * 0.3 + ox, 8); }
+      c.stroke();
+      const fx = side ? 2.5 : 0;   // (the face turned a little toward the way he goes)
+      // eyes, each with a glint, under bushy white brows
+      for (const s2 of [-1, 1]) { const ex2 = fx + s2 * 3.2;
+        E(ex2, -11.2, 1.5, 1.7, "#1f2937"); E(ex2 + 0.5, -11.8, 0.5, 0.5, "#ffffff");
+        c.fillStyle = "#f8fafc"; c.beginPath(); c.ellipse(ex2 + s2 * 0.5, -13.4, 3, 1.4, s2 * 0.3, 0, 7); c.fill();
+        c.strokeStyle = "#cbd5e1"; c.lineWidth = 0.5; c.beginPath(); c.moveTo(ex2 - 2, -13.2); c.lineTo(ex2 + 2.4, -13.8); c.stroke(); }
+      // the moustache, sweeping out from under the nose, and the round nose
+      E(fx - 3.6, -6.4, 4.6, 2.2, "#f1f5f9", 0.35); E(fx + 3.6, -6.4, 4.6, 2.2, "#f1f5f9", -0.35);
+      c.strokeStyle = "#cbd5e1"; c.lineWidth = 0.6; c.beginPath(); c.moveTo(fx, -7); c.lineTo(fx - 6.5, -5.2); c.moveTo(fx, -7); c.lineTo(fx + 6.5, -5.2); c.stroke();
+      E(fx + (side ? 1 : 0), -8.6, 2.9, 2.6, "#f0997d"); E(fx + (side ? 0.2 : -0.8), -9.4, 0.9, 0.7, "rgba(255, 255, 255, 0.6)");
+    }
+    // (the tall red cap, pulled down over the brows, its tip bending back)
+    c.fillStyle = "#dc2626"; c.beginPath(); c.moveTo(-10, -14.5); c.quadraticCurveTo(-7, -25, -1, -34); c.quadraticCurveTo(2, -36, 4, -32.5); c.quadraticCurveTo(7, -24, 10, -14.5); c.quadraticCurveTo(0, -16, -10, -14.5); c.fill();
+    c.fillStyle = "#b91c1c"; c.beginPath(); c.moveTo(3, -33); c.quadraticCurveTo(7, -24, 10, -14.5); c.quadraticCurveTo(6, -15.3, 4, -15.5); c.quadraticCurveTo(4, -24, 3, -33); c.fill();
+    c.strokeStyle = "rgba(255, 255, 255, 0.25)"; c.lineWidth = 1; c.beginPath(); c.moveTo(-6, -17.5); c.quadraticCurveTo(-4, -26, -0.5, -32); c.stroke();
+    c.restore();
+  }
   function draw() {
     fit();
     const c = ctx, u = cv.width / W_, g = S.game, now = performance.now();
@@ -61,16 +119,15 @@
       c.fillStyle = m.stun > 0 ? "#c4b5fd" : "#ef4444"; c.beginPath(); c.arc(x, y + bob, u * 0.38, Math.PI, 0); c.lineTo(x + u * 0.38, y + u * 0.36);
       for (let i = 3; i >= -3; i -= 2) c.lineTo(x + i * u * 0.11, y + u * (i % 4 === 1 || i % 4 === -3 ? 0.26 : 0.36)); c.closePath(); c.fill();
       c.fillStyle = "#fff"; c.beginPath(); c.arc(x - u * 0.13, y - u * 0.05 + bob, u * 0.1, 0, 7); c.arc(x + u * 0.13, y - u * 0.05 + bob, u * 0.1, 0, 7); c.fill();
-      c.fillStyle = "#111827"; c.beginPath(); c.arc(x - u * 0.11, y - u * 0.04 + bob, u * 0.05, 0, 7); c.arc(x + u * 0.15, y - u * 0.04 + bob, u * 0.05, 0, 7); c.fill();
-      if (m.stun > 0) { c.font = `${Math.round(u * 0.36)}px system-ui`; c.textAlign = "center"; c.fillText("💫", x + Math.cos(now / 150) * u * 0.25, y - u * 0.45); }
+      if (m.stun > 0) {   // (0.0.61, as on the icon: stunned, crossed eyes and three gold stars going round over it)
+        c.strokeStyle = "#111827"; c.lineWidth = u * 0.035; c.lineCap = "round"; c.beginPath();
+        for (const s2 of [-1, 1]) { const ex = x + s2 * u * 0.13, ey = y - u * 0.05 + bob, z = u * 0.05; c.moveTo(ex - z, ey - z); c.lineTo(ex + z, ey + z); c.moveTo(ex + z, ey - z); c.lineTo(ex - z, ey + z); }
+        c.stroke(); c.fillStyle = "#fde047";
+        for (let i = 0; i < 3; i++) { const a = now / 260 + i * 2.094, sx = x + Math.cos(a) * u * 0.3, sy = y - u * 0.52 + Math.sin(a) * u * 0.08, z = u * 0.08;
+          c.beginPath(); c.moveTo(sx, sy - z); c.lineTo(sx + z * 0.3, sy - z * 0.3); c.lineTo(sx + z, sy); c.lineTo(sx + z * 0.3, sy + z * 0.3); c.lineTo(sx, sy + z); c.lineTo(sx - z * 0.3, sy + z * 0.3); c.lineTo(sx - z, sy); c.lineTo(sx - z * 0.3, sy - z * 0.3); c.closePath(); c.fill(); }
+      } else { c.fillStyle = "#111827"; c.beginPath(); c.arc(x - u * 0.11, y - u * 0.04 + bob, u * 0.05, 0, 7); c.arc(x + u * 0.15, y - u * 0.04 + bob, u * 0.05, 0, 7); c.fill(); }
     }
-    if (g.dead === 0 || Math.floor(now / 120) % 2) {
-      const x = (g.px + 0.5) * u, y = (g.py + 0.5) * u, d = g.pd, ex = [0, 1, 0, -1][d], ey = [-1, 0, 1, 0][d];
-      c.fillStyle = "#2563eb"; c.beginPath(); c.roundRect(x - u * 0.28, y - u * 0.05, u * 0.56, u * 0.42, u * 0.12); c.fill();
-      c.fillStyle = "#f2c9a0"; c.beginPath(); c.arc(x, y - u * 0.18, u * 0.2, 0, 7); c.fill();
-      c.fillStyle = "#facc15"; c.beginPath(); c.arc(x, y - u * 0.28, u * 0.2, Math.PI, 0); c.fill();
-      c.fillStyle = g.flash > 0 ? "#a16207" : "#fef08a"; c.beginPath(); c.arc(x + ex * u * 0.3, y + ey * u * 0.3, u * 0.09, 0, 7); c.fill();   // (the lantern: bright when ready, dim while it charges)
-    }
+    if (g.dead === 0 || Math.floor(now / 120) % 2) gnome(c, (g.px + 0.5) * u, (g.py + 0.5) * u, u, g.pd, g.flash <= 0, g.pwait > 0, now);
     if (S.lit && now - S.lit.t < 450) {
       const q = 1 - (now - S.lit.t) / 450; c.fillStyle = `rgba(254, 240, 138, ${0.45 * q})`;
       for (const k of S.lit.cells) c.fillRect((k % W_) * u, Math.floor(k / W_) * u, u, u);
@@ -213,7 +270,7 @@
     c.src = "compiled.js?v=0.0.60"; c.async = true;
     c.onload = () => { const v = window.DigCompiled;
       if (v && !S.built) { S.built = { key: "compiled", ok: true, compiled: true, made: v.made, value: v, errors: [], threw: "", ms: 0, at: performance.now() }; drawStatus(); newGame(); }
-      else if (!v) { S.compiledError = "it ran, but gave no Deep dig"; loadLib(); } };
+      else if (!v) { S.compiledError = "it ran, but gave no Gnome dig"; loadLib(); } };
     c.onerror = () => { S.compiledError = "it is not here yet"; loadLib(); };
     document.head.append(c);
   }
@@ -240,7 +297,7 @@
 
   // ---- ⚙️ Advanced: this device's speed (300 steps of a game, the robot choosing each one)
   if (window.OracleAdvanced) window.OracleAdvanced.panel({
-    holder: $("advanced"), name: "Deep dig", built: () => S.built, libAt: () => S.libAt, keysIn: null,
+    holder: $("advanced"), name: "Gnome dig", built: () => S.built, libAt: () => S.libAt, keysIn: null,
     mode: () => ({ asked: COMPILED ? "compiled" : "interpreted", error: S.compiledError || null }),
     about: "300 steps of a game with the robot choosing each one, through Hazel",
     work: async say => {
@@ -253,7 +310,7 @@
     },
   });
   // (for checking the page where no frames are drawn, a browser pane hidden: ?test=1 lets a script run steps and draw)
-  if (Q.has("test")) window.DigTest = { S, newGame, steps: n => { const h = H(); for (let i = 0; i < n && S.game && !S.game.over; i++) oneStep(h); draw(); bar(); return S.game; }, auto: () => W };
+  if (Q.has("test")) window.DigTest = { S, newGame, gnome, steps: n => { const h = H(); for (let i = 0; i < n && S.game && !S.game.over; i++) oneStep(h); draw(); bar(); return S.game; }, auto: () => W };
   document.body.classList.add("js");
   draw(); bar();
 })();
