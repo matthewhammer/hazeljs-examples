@@ -431,6 +431,56 @@ html.oracle-fs .tarot-ui > .faces-credit { grid-column: 2; grid-row: 2; margin: 
   html.oracle-fs.fs-left-hidden :is(.dh-ui, .bk-ui, .sn-ui, .tr-ui, .sw-ui, .cp-ui, .dg-ui) { grid-template-columns: 0 minmax(0, 1fr) !important; column-gap: 0; padding-left: 20px; padding-right: 20px; }
 }
 
+/* (0.0.68; Matthew, 2026-11-22: "let's put the controls and score into a HUD and stretch the game to full height in full screen.
+   Same for all examples.") The games in full screen (fullscreen.js, html.fs-hud-on): the field, board or table (.fs-play) fills
+   the window, as tall as it is, a canvas as large as its shape allows; over it, at the top left, the heads-up display (.fs-hud):
+   ☰, the score and the controls, each on a dark glass; ☰ adds the status and the notes under them. The game's own buttons
+   (.fs-pad) at the bottom right, or, on a tall screen, the bottom middle; Activities and ✕ at the top right. */
+html.oracle-fs.fs-hud-on .oracle-ui { display: block !important; padding: 0 !important; overflow: hidden !important; }
+html.oracle-fs.fs-hud-on .fs-play { position: absolute !important; inset: 0 !important; margin: 0 !important; min-height: 0 !important;
+  width: auto !important; height: auto !important; max-width: none !important; max-height: none !important;
+  justify-self: stretch !important; align-self: stretch !important; }   /* (an absolute box aligned otherwise shrinks to its contents, none under size containment) */
+html.oracle-fs.fs-hud-on .fs-play:is(.fit-canvas, .fit-square) { display: flex !important; align-items: center !important; justify-content: center !important;
+  container-type: size !important; }
+html.oracle-fs.fs-hud-on .fs-play.fit-canvas > canvas { width: min(100cqw, calc(100cqh * var(--fs-ar, 0.75))) !important; height: auto !important;
+  max-width: none !important; max-height: none !important; }
+html.oracle-fs.fs-hud-on .fs-play.fit-square > :first-child { width: min(100cqw, calc(100cqh - 12px)) !important; max-width: none !important; flex: none; }
+/* (the tables fit themselves, in the room right of the HUD: Solitaire's stock and Mahjong's west seat are at the left) */
+html.oracle-fs.fs-hud-on .fs-play.fit-self { left: 270px !important; padding: 8px !important; box-sizing: border-box; overflow: auto !important; }
+html.oracle-fs.fs-hud-self .fs-hud { max-width: 250px; }
+html.oracle-fs.fs-hud-on .fs-hud { position: absolute; top: 10px; left: 10px; z-index: 6; display: flex; flex-direction: column; align-items: flex-start;
+  gap: 6px; max-width: min(440px, max(250px, calc((100vw - 100vh * var(--fs-ar, 0.75)) / 2 - 20px))); max-height: calc(100vh - 20px); pointer-events: none; }
+html.oracle-fs.fs-hud-on .fs-hud > * { pointer-events: auto; margin: 0 !important; max-width: 100%; box-sizing: border-box; }
+html.oracle-fs.fs-hud-on .fs-hud > :not(.fs-hud-top):not(.fs-tools) { background: rgb(12 15 22 / 0.62); color: #f8fafc; border-radius: 12px;
+  padding: 6px 10px; -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); }
+html.oracle-fs.fs-hud-on .fs-hud .muted { color: #cbd5e1; }
+html.oracle-fs.fs-hud-on .fs-hud-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+html.oracle-fs.fs-hud-on .fs-hud-top > .fs-bar { position: static !important; margin: 0 !important; }
+html.oracle-fs.fs-hud-on .fs-hud-top > .fs-left-toggle { display: flex; position: static; width: 40px; height: 40px; padding: 0; align-items: center;
+  justify-content: center; font-size: 20px; line-height: 1; border-radius: 10px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25); }
+html.oracle-fs.fs-hud-on .fs-hud > .controls { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; }
+html.oracle-fs.fs-hud-on .fs-hud > .fs-left { position: static; overflow-y: auto; min-height: 0; max-height: 50vh; width: min(380px, calc(100vw - 20px)); }
+html.oracle-fs.fs-hud-on.fs-left-hidden .fs-hud > .fs-left { display: none !important; }
+html.oracle-fs.fs-hud-on .fs-hud > .fs-tools { display: none !important; }   /* (the controls are in the HUD, so ☰'s shortcuts are not needed) */
+html.oracle-fs.fs-hud-on .fs-pad { position: absolute !important; right: 12px; bottom: 12px; left: auto; z-index: 6; margin: 0 !important;
+  width: min(300px, max(200px, calc((100vw - 100vh * var(--fs-ar, 0.75)) / 2 - 24px))) !important; max-width: none !important; opacity: 0.92; }
+html.oracle-fs.fs-hud-on .fs-pad button { background: rgb(12 15 22 / 0.55); color: #f8fafc; border-color: rgb(255 255 255 / 0.25); }
+/* (Mahjong: its calls, Pong and the rest, at the right, half way down, clear of your hand; the hand's end in the middle) */
+html.oracle-fs.fs-hud-on .mj-ui > .mj-acts.fs-pad { top: 50%; bottom: auto; transform: translateY(-50%); width: min(250px, 30vw) !important; }
+html.oracle-fs.fs-hud-on .mj-ui > .mj-end { position: absolute; left: calc(50% + 135px); top: 50%; transform: translate(-50%, -50%); z-index: 6; margin: 0; }
+html.oracle-fs.fs-hud-on .oracle-ui > .fs-cast:not([hidden]) { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 6; margin: 0; }
+/* (on a tall screen, a phone: the HUD above the field, not over it; the field all the height left; its buttons under it) */
+@media (orientation: portrait) {
+  html.oracle-fs.fs-hud-on .oracle-ui { display: flex !important; flex-direction: column; }
+  html.oracle-fs.fs-hud-on .fs-hud { position: static; order: 0; flex: none; max-width: none; max-height: none; padding: 8px 8px 4px; }
+  html.oracle-fs.fs-hud-on .fs-hud > .fs-left { max-height: 38vh; width: auto; }
+  html.oracle-fs.fs-hud-on .fs-play { position: relative !important; inset: auto !important; order: 1; flex: 1 1 0; }
+  html.oracle-fs.fs-hud-on .fs-play.fit-self { left: auto !important; }
+  html.oracle-fs.fs-hud-on .fs-pad { position: static !important; order: 2; flex: none; transform: none; margin: 6px auto 10px !important; width: min(340px, 86vw) !important; }
+  html.oracle-fs.fs-hud-on .mj-ui > .mj-acts.fs-pad { transform: none; }
+  html.oracle-fs.fs-hud-on .mj-ui > .mj-end { left: 50%; }
+}
+
 /* (0.0.27; Matthew: "messed up dress up also has a feature that pops up when there's a new live version. Can we do that here,
    somehow?") A newer version (shared/offline.js): the card at the top of the window, over full screen too; the 🆕 chip after the
    page's title; ⚙️ Advanced's switch and its pop-up toggle. */

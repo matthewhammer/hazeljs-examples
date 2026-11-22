@@ -59,7 +59,7 @@
     const w = table.clientWidth || 640;
     // (in full screen, the cards as big as the window allows: seven across, and a tall pile's height down)
     const fs = document.documentElement.classList.contains("oracle-fs");
-    const most = fs ? Math.max(110, Math.floor((innerHeight - 60) / 5.2)) : 110;
+    const most = fs ? Math.max(110, Math.floor((innerHeight - (document.documentElement.classList.contains("fs-hud-on") ? 24 : 60)) / 5.2)) : 110;   // (0.0.68: the HUD beside it)
     const cw = Math.max(36, Math.min(most, Math.floor((w - 16) / 7.9)));
     table.style.setProperty("--cw", cw + "px");
     return cw;

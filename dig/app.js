@@ -23,8 +23,9 @@
   const W_ = 14, H_ = 16, TOP = 3;   // (0.0.64: three rows of sky above the game's ground, for the trees)
   const S = { built: null, libAt: 0, libFailed: false, compiledError: "", game: null, best: kept("best", 0),
               dir: -1, keys: [], flash: false, pops: [], stepMs: [], restartAt: 0, banner: null, swipe: null, startSeed: 1, scene: null, sceneKey: "", layers: null,
-              land: null, landKey: "", landAt: 0, drops: new Map(), dug: null };
+              land: null, landKey: "", landAt: 0, drops: new Map(), dug: null, restarts: 0, works: new Map(), worksN: 0 };
   const H = () => S.built && S.built.ok ? S.built.value : null;
+  const SND = window.DigSound || null;   // (0.0.68, sound.js: the music, a tune each level, and the ground's sounds)
 
   // ---- drawing: the sky and the ground's layers (darker deeper), the tunnels, the gems glittering, the boulders (shaking before
   // they fall), the monsters (with stars when stunned), you with your lantern, and its flash
@@ -40,7 +41,7 @@
   // trimmed with fur; a round nose, eyes under bushy brows, a moustache and a long white beard; your lantern held out the way
   // you face (bright when ready, dim while it charges). Facing up, his back; facing left, him the other way round; bobbing as
   // he walks or digs. Drawn in a cell 40 units square, its middle at 0, 0
-  function gnome(c, x, y, u, d, ready, moving, now) {
+  function gnome(c, x, y, u, d, ready, moving, now, diving) {
     const back = d === 0, flip = d === 3 ? -1 : 1, side = d === 1 || d === 3, step = moving ? Math.sin(now / 70) : 0, bob = moving ? -Math.abs(step) * 1.4 : 0;
     c.save(); c.translate(x, y); c.scale(flip * u / 40, u / 40); c.translate(0, bob);
     const E = (cx, cy, rx, ry, col, rot = 0) => { c.fillStyle = col; c.beginPath(); c.ellipse(cx, cy, rx, ry, rot, 0, 7); c.fill(); };
@@ -50,10 +51,14 @@
       c.fillStyle = "#4b5563"; c.beginPath(); c.roundRect(s2 * 6 - 4 + (s2 > 0 ? 1 : -1), 13 + lift, 9, 6, 2.5); c.fill();
       c.fillStyle = "#e5e7eb"; c.beginPath(); c.roundRect(s2 * 6 - 4, 11.5 + lift, 8, 3, 1.5); c.fill();
     }
+    const tank = () => { c.fillStyle = "#facc15"; c.beginPath(); c.roundRect(back ? -5 : -15, -7, back ? 10 : 7, 17, 3.5); c.fill();
+      c.fillStyle = "#a16207"; c.fillRect(back ? -1.5 : -13, -9.5, 3, 3); };
+    if (diving && !back) tank();   // (0.0.68: the diving gear on, its air tank on his back, behind him, or, his back to us, on it)
     // (the tunic, its sleeves and the belt)
     c.fillStyle = "#3b5bab"; c.beginPath(); c.moveTo(-9, -3); c.lineTo(9, -3); c.lineTo(12, 13); c.quadraticCurveTo(0, 15, -12, 13); c.closePath(); c.fill();
     c.fillStyle = "#2f4a8f"; c.beginPath(); c.moveTo(3, -3); c.lineTo(9, -3); c.lineTo(12, 13); c.quadraticCurveTo(7, 14.3, 4, 14.5); c.closePath(); c.fill();
     c.fillStyle = "#7c4a1e"; c.fillRect(-11, 5.5, 22, 3.6);
+    if (diving && back) tank();
     if (!back) { c.fillStyle = "#eab308"; c.beginPath(); c.roundRect(-3, 4.8, 6, 5, 1); c.fill(); c.fillStyle = "#7c4a1e"; c.fillRect(-1.2, 6.3, 2.4, 2); }
     const lx = side ? 14 : 13, ly = side ? 2 : 5;   // (the lantern's hand)
     c.strokeStyle = "#3b5bab"; c.lineWidth = 4.5; c.lineCap = "round";
@@ -86,7 +91,14 @@
       E(fx - 3.6, -6.4, 4.6, 2.2, "#f1f5f9", 0.35); E(fx + 3.6, -6.4, 4.6, 2.2, "#f1f5f9", -0.35);
       c.strokeStyle = "#cbd5e1"; c.lineWidth = 0.6; c.beginPath(); c.moveTo(fx, -7); c.lineTo(fx - 6.5, -5.2); c.moveTo(fx, -7); c.lineTo(fx + 6.5, -5.2); c.stroke();
       E(fx + (side ? 1 : 0), -8.6, 2.9, 2.6, "#f0997d"); E(fx + (side ? 0.2 : -0.8), -9.4, 0.9, 0.7, "rgba(255, 255, 255, 0.6)");
+      if (diving) {   // (and the mask over his eyes, its strap round the back of his head)
+        c.strokeStyle = "#0f172a"; c.lineWidth = 1.3; c.beginPath(); c.moveTo(fx - 7, -11.5); c.lineTo(-9.5, -11); c.stroke();
+        c.fillStyle = "#0284c7"; c.beginPath(); c.roundRect(fx - 7.5, -15.2, 15, 7.6, 3); c.fill();
+        c.fillStyle = "rgba(224, 242, 254, 0.62)"; c.beginPath(); c.roundRect(fx - 6, -14, 12, 5.2, 2.2); c.fill();
+        E(fx - 3.5, -13, 1.6, 0.7, "rgba(255, 255, 255, 0.85)", -0.3);
+      }
     }
+    if (back && diving) { c.strokeStyle = "#0f172a"; c.lineWidth = 1.3; c.beginPath(); c.moveTo(-8, -11.5); c.lineTo(8, -11.5); c.stroke(); }
     // (the tall red cap, pulled down over the brows, its tip bending back)
     c.fillStyle = "#dc2626"; c.beginPath(); c.moveTo(-10, -14.5); c.quadraticCurveTo(-7, -25, -1, -34); c.quadraticCurveTo(2, -36, 4, -32.5); c.quadraticCurveTo(7, -24, 10, -14.5); c.quadraticCurveTo(0, -16, -10, -14.5); c.fill();
     c.fillStyle = "#b91c1c"; c.beginPath(); c.moveTo(3, -33); c.quadraticCurveTo(7, -24, 10, -14.5); c.quadraticCurveTo(6, -15.3, 4, -15.5); c.quadraticCurveTo(4, -24, 3, -33); c.fill();
@@ -103,19 +115,19 @@
   const PX = (u, v) => v * u / 100;   // (hundredths of a cell to pixels)
   function layers(g, u) {
     const h = H(); if (!h || !h.scene) return null;
-    const key = S.startSeed + ":" + g.level;
+    const key = S.startSeed + ":" + g.level + ":" + S.restarts;   // (0.0.68: a level lost begins again, new, with a scene of its own)
     if (S.sceneKey !== key) {
       if (!(S.built && S.built.compiled) && S.scene) S.sceneKey = key;   // (interpreted, a scene takes seconds: the first one kept)
-      else { S.scene = h.scene(S.startSeed, g.level); S.sceneKey = key; }
-      S.layers = null; S.drops = new Map();
+      else { S.scene = h.scene(S.startSeed + S.restarts * 7919, g.level, g.animals || []); S.sceneKey = key; }
+      S.layers = null; S.drops = new Map(); S.works = new Map(); S.worksN++;
     }
     if (S.layers && S.layers.w === cv.width) return S.layers;
     const mk = (hgt) => { const c2 = document.createElement("canvas"); c2.width = cv.width; c2.height = hgt; return c2; };
-    const sky = mk(Math.ceil((TOP + 1) * u + 4)), burrows = mk(Math.ceil(H_ * u)), roots = mk(Math.ceil(H_ * u)), light = mk(Math.ceil(H_ * u)), threads = mk(Math.ceil(H_ * u)), back = mk(Math.ceil(H_ * u));
+    const sky = mk(Math.ceil((TOP + 1) * u + 4)), burrows = mk(Math.ceil(H_ * u)), roots = mk(Math.ceil(H_ * u)), light = mk(Math.ceil(H_ * u)), threads = mk(Math.ceil(H_ * u)), back = mk(Math.ceil(H_ * u)), fore = mk(Math.ceil(H_ * u));
     drawSky(sky.getContext("2d"), u, S.scene); drawBurrows(burrows.getContext("2d"), u, S.scene);
     drawRoots(roots.getContext("2d"), u, S.scene, false); drawRoots(light.getContext("2d"), u, S.scene, true); drawThreads(threads.getContext("2d"), u, S.scene);
-    drawBack(back.getContext("2d"), u, S.scene, mk);
-    S.layers = { w: cv.width, sky, burrows, roots, light, threads, back };
+    drawBack(back.getContext("2d"), u, S.scene, mk); drawFore(fore.getContext("2d"), u, S.scene);
+    S.layers = { w: cv.width, sky, burrows, roots, light, threads, back, fore };
     return S.layers;
   }
   const hsh = (a, b) => { let x = (a * 374761393 + b * 668265263) | 0; x = (x ^ (x >>> 13)) * 1274126177 | 0; return ((x ^ (x >>> 16)) >>> 0) / 4294967296; };
@@ -297,10 +309,78 @@
     drawRoots(fc, u, sc, false); drawThreads(tc, u, sc);
     c.globalAlpha = 0.42; c.drawImage(far, 0, 0); c.globalAlpha = 0.1; c.drawImage(threads, 0, 0); c.globalAlpha = 1;
   }
+  // (0.0.68; Matthew: "in the dug out holes, let's retain foreground roots too, to make multiple layers") the front layer: the
+  // roots that ran through a hole still crossing it, nearest of all, as wood: each with its shadow on the wall behind, its bark,
+  // and a lighter top where the light catches it; the finest left out, as too fine to stay up
+  function drawFore(c, u, sc) {
+    const X = v => PX(u, v), big = [...sc.roots].filter(l => l.w >= 5).sort((a, b) => a.w - b.w);
+    c.lineCap = "round";
+    const pass = (col, wk, dx, dy, min) => { c.strokeStyle = col; for (const l of big) { const lw = PX(u, l.w) * wk; if (lw < min) continue;
+      c.lineWidth = lw; c.beginPath(); c.moveTo(X(l.x0) + dx, X(l.y0) + dy); c.lineTo(X(l.x1) + dx, X(l.y1) + dy); c.stroke(); } };
+    pass("rgba(5, 2, 1, 0.45)", 1.05, u * 0.05, u * 0.07, 1);   // (its shadow on the back wall)
+    pass("#5b3a22", 1, 0, 0, 1);   // (the root)
+    pass("#8a6440", 0.35, -u * 0.012, -u * 0.012, 0.8);   // (the light along its top)
+  }
+  // (0.0.68; Matthew: "as the gnome builds, he also installs: wooden scaffolding, ladders to move vertically") what the gnome puts
+  // in as he goes: in a cell he went up or down through, a ladder; in one he went along, a timber set: a post either side, a cap
+  // under the earth above, a sill on the earth below
+  function drawWorks(c, g, u) {
+    const dug = (r, k) => r >= 0 && r < H_ && k >= 0 && k < W_ && g.cells[r * W_ + k] === 0;
+    const plank = (x, y, w2, h2, col, edge) => { c.fillStyle = col; c.fillRect(x, y, w2, h2); c.fillStyle = edge; c.fillRect(x, y + h2 * 0.72, w2, h2 * 0.28); };
+    for (const [i, kind] of S.works) {
+      const k = i % W_, r = Math.floor(i / W_), x = k * u, y = r * u;
+      if (r < 1 || !dug(r, k)) continue;
+      if (kind === "ladder") {
+        for (const rx of [0.24, 0.7]) plank(x + rx * u, y - 0.5, u * 0.07, u + 1, "#b07d45", "#8a5c2e");
+        for (let j = 0; j < 4; j++) { const ry = y + (j + 0.4) * u / 4; plank(x + 0.24 * u, ry, u * 0.53, u * 0.055, "#c48f55", "#8a5c2e"); }
+      } else {
+        for (const px of [0.06, 0.86]) plank(x + px * u, y + u * 0.06, u * 0.08, u * 0.9, "#9a6a37", "#6e4721");
+        if (!dug(r - 1, k)) plank(x - 0.5, y + u * 0.02, u + 1, u * 0.1, "#a8743e", "#6e4721");
+        if (!dug(r + 1, k)) plank(x - 0.5, y + u * 0.9, u + 1, u * 0.08, "#8f6233", "#5f3d1c");
+        c.strokeStyle = "rgba(110, 71, 33, 0.85)"; c.lineWidth = u * 0.035; c.beginPath(); c.moveTo(x + u * 0.12, y + u * 0.14); c.lineTo(x + u * 0.3, y + u * 0.12); c.moveTo(x + u * 0.88, y + u * 0.14); c.lineTo(x + u * 0.7, y + u * 0.12); c.stroke();
+      }
+    }
+  }
+  // (0.0.68; Matthew: "can we make shafts of light that come into the holes, from the actual position of the sun, somehow?") The
+  // sun's light down into the holes, from the sun where the sky has it (at 12.2 cells across, 2.1 above the ground): a beam
+  // from the sun through each opening in the surface, spreading as it goes down, bright at the top and fading; and only in the
+  // cells that can see the sun, a straight line from them to it passing through nothing but dug cells (no earth, no boulder)
+  const SUN = [12.2, -2.1];
+  function shafts(c, g, u) {
+    c.clearRect(0, 0, c.canvas.width, c.canvas.height);
+    const sx = SUN[0] * u, sy = SUN[1] * u, rock = new Set(g.rocks.map(x => x.r * W_ + x.c));
+    const clear = (k, r) => k >= 0 && k < W_ && r >= 1 && r < H_ && g.cells[r * W_ + k] === 0 && !rock.has(r * W_ + k);
+    const sees = (x, y) => { const dx = sx - x, dy = sy - y, n = Math.ceil(Math.hypot(dx, dy) / (u / 6));
+      for (let i = 1; i <= n; i++) { const qx = x + dx * i / n, qy = y + dy * i / n; if (qy < u) return true; if (!clear(Math.floor(qx / u), Math.floor(qy / u))) return false; } return true; };
+    const lit = []; S.litC = new Set();
+    for (let r = 1; r < H_; r++) for (let k = 0; k < W_; k++) if (clear(k, r)) {
+      const x = k * u, y = r * u;
+      if (sees(x + 0.5 * u, y + 0.5 * u)) S.litC.add(r * W_ + k);   // (the cells whose middle sees the sun: the creatures leave them)
+      if ([[0.5, 0.5], [0.2, 0.3], [0.8, 0.3], [0.2, 0.85], [0.8, 0.85]].some(([a, b]) => sees(x + a * u, y + b * u))) lit.push([x, y]);
+    }
+    if (!lit.length) return;
+    c.save(); c.beginPath(); for (const [x, y] of lit) c.rect(x, y, u + 0.5, u + 0.5); c.clip();
+    const far = H_ * u + u, gr = c.createLinearGradient(0, u, 0, far);
+    gr.addColorStop(0, "rgba(255, 240, 190, 0.42)"); gr.addColorStop(0.35, "rgba(255, 232, 170, 0.2)"); gr.addColorStop(1, "rgba(255, 225, 160, 0.06)");
+    c.fillStyle = gr; c.beginPath();
+    for (let k = 0; k < W_; k++) if (clear(k, 1)) {
+      const t = (far - sy) / (u - sy), ax = k * u, bx = (k + 1) * u;
+      c.moveTo(ax, u); c.lineTo(bx, u); c.lineTo(sx + (bx - sx) * t, far); c.lineTo(sx + (ax - sx) * t, far); c.closePath();
+    }
+    c.fill("nonzero");
+    // (and rays within each beam, brighter lines from the sun)
+    c.lineCap = "round";
+    for (let k = 0; k < W_; k++) if (clear(k, 1)) for (const [f, w2] of [[0.2, 0.05], [0.5, 0.09], [0.8, 0.04]]) {
+      const ox = (k + f) * u, t = (far - sy) / (u - sy), rg = c.createLinearGradient(ox, u, sx + (ox - sx) * t, far);
+      rg.addColorStop(0, "rgba(255, 250, 225, 0.5)"); rg.addColorStop(0.5, "rgba(255, 245, 210, 0.16)"); rg.addColorStop(1, "rgba(255, 245, 210, 0)");
+      c.strokeStyle = rg; c.lineWidth = u * w2; c.beginPath(); c.moveTo(ox, u); c.lineTo(sx + (ox - sx) * t, far); c.stroke();
+    }
+    c.restore();
+  }
   // the dug squares, all their layers at once, made again only when the ground changes: the back wall, the near roots and
   // mycelium, and the shadows the earth casts into each (down from earth above, in from earth at either side), a lighter floor
   function dugLayer(g, L, u) {
-    const key = g.cells.join("");
+    const key = g.cells.join("") + ":" + S.worksN + ":" + g.rocks.map(x => x.r * W_ + x.c).join(",");
     if (S.dug && S.dug.key === key && S.dug.L === L) return S.dug.canvas;
     const cnv = S.dug && S.dug.canvas.width === cv.width && S.dug.canvas.height === L.back.height ? S.dug.canvas : Object.assign(document.createElement("canvas"), { width: cv.width, height: L.back.height });
     const c = cnv.getContext("2d"), dug = (r, k) => r >= 0 && r < H_ && k >= 0 && k < W_ && g.cells[r * W_ + k] === 0;
@@ -315,8 +395,17 @@
       if (!dug(r, k + 1)) shade(x + u, 0, x + u * 0.84, 0, 0.35, x + u * 0.84, y, u * 0.16 + 0.5, u + 0.5);
       if (!dug(r + 1, k)) { c.fillStyle = "rgba(255, 228, 196, 0.07)"; c.fillRect(x, y + u * 0.9, u + 0.5, u * 0.1); }
     }
+    drawWorks(c, g, u);
     c.restore();
-    S.dug = { key, L, canvas: cnv };
+    // (0.0.68: the roots still crossing the holes, a picture of their own, drawn over everything in them: the gnome, the animals,
+    // the monsters and the boulders go behind them; Matthew: "the gnome goes behind the foreground roots", "the animals too")
+    const front = S.dug && S.dug.front.width === cnv.width && S.dug.front.height === cnv.height ? S.dug.front : Object.assign(document.createElement("canvas"), { width: cnv.width, height: cnv.height });
+    const f = front.getContext("2d"); f.clearRect(0, 0, front.width, front.height); f.save(); f.beginPath();
+    for (let r = 1; r < H_; r++) for (let k = 0; k < W_; k++) if (dug(r, k)) f.rect(k * u, r * u, u + 0.5, u + 0.5);
+    f.clip(); f.globalAlpha = 0.92; f.drawImage(L.fore, 0, 0); f.restore();
+    const light = S.dug && S.dug.light.width === cnv.width && S.dug.light.height === cnv.height ? S.dug.light : Object.assign(document.createElement("canvas"), { width: cnv.width, height: cnv.height });
+    shafts(light.getContext("2d"), g, u);
+    S.dug = { key, L, canvas: cnv, front, light };
     return cnv;
   }
   // (0.0.67; Matthew: "when the dirt is removed, the worms and moles, etc, should drop down") Where a creature let go comes to rest is
@@ -344,7 +433,26 @@
     if (d.y < floor - 0.5 || d.vy < 0) { d.vy += 0.0035 * dt; d.y += d.vy * dt; d.rest = false;
       if (d.y >= floor) { d.y = floor; d.vy = d.vy > 0.25 ? -d.vy * 0.3 : 0; d.rest = d.vy === 0; } }
     else { d.y = floor; d.vy = 0; d.rest = true; }
+    // (0.0.68; Matthew: "the animals move away from the light in the hole") lying in the sunlight, it crawls along its floor, away
+    // from the sun if it can, else the other way, until it is in the shade; over a hole it drops again
+    const k = Math.floor(d.x / 100), r = Math.floor(Math.min(d.y, H_ * 100 - 1) / 100), g = S.game;
+    if (d.rest && g && S.litC && S.litC.has(r * W_ + k)) {
+      const open = kk => kk >= 0 && kk < W_ && g.cells[r * W_ + kk] === 0, away = d.x < 1220 ? -1 : 1;
+      const way = open(k + away) ? away : open(k - away) ? -away : 0;
+      d.x = Math.max(4, Math.min(W_ * 100 - 4, d.x + way * 0.07 * dt)); d.crawl = way;
+    } else d.crawl = 0;
     return d;
+  }
+  // (0.0.68) where one of the rules' animals is drawn, in hundredths: in the middle of its chamber while the earth holds it; let go,
+  // on its cell's floor, coming down to it faster and faster as the rules drop it a cell at a time
+  function held(a, foot, now) {
+    const g = S.game, dug = g.cells[a.r * W_ + a.c] === 0, x = a.c * 100 + 50, ty = dug ? (a.r + 1) * 100 - foot : a.r * 100 + 55, key = "A" + a.kind;
+    let d = S.drops.get(key);
+    if (!d || Math.abs(d.x - x) > 150 || ty < d.y - 150) d = { x, y: ty, vy: 0, t: now };   // (a new level: straight there)
+    const dt = Math.min(50, now - d.t); d.t = now;
+    if (Math.abs(d.x - x) > 0.5) d.x += Math.sign(x - d.x) * Math.min(Math.abs(x - d.x), 0.35 * dt);   // (0.0.69: walking a cell along, out of the sun)
+    if (d.y < ty - 0.5) { d.vy += 0.0035 * dt; d.y = Math.min(ty, d.y + d.vy * dt); } else { d.y = ty; d.vy = 0; }
+    S.drops.set(key, d); return d;
   }
   // a point along a path of lines, t from 0 to 1 and back (a creature going to and fro along it)
   function along(ls, t) {
@@ -368,17 +476,18 @@
       c.strokeStyle = "#1c1917"; c.lineWidth = u * 0.012; c.beginPath(); for (const lx of [-0.03, 0, 0.03]) { c.moveTo(x + lx * u, y); c.lineTo(x + lx * u + Math.sin(now / 60 + i) * u * 0.015, y + u * 0.04); } c.stroke();
       E(x - s2 * u * 0.05, y, u * 0.028, u * 0.022, "#3f1d0b"); E(x, y, u * 0.022, u * 0.018, "#451a03"); E(x + s2 * u * 0.045, y - u * 0.005, u * 0.022, u * 0.02, "#3f1d0b"); }
     const FOOT = { 12: 4, 13: 8, 14: 6, 15: 14, 17: 21, 19: 30 };
-    sc.below.forEach((t, i) => {
+    // (0.0.68) the mole, the rabbit and the badger are the rules' now (Dig's animals): where the rules have them, let go when their
+    // cell is dug out and dropping as the rules drop them; the worms, grubs and beetles stay the scene's, dropped by the page
+    const g = S.game, ruled = g && g.animals ? g.animals.map(a => ({ kind: a.kind, x: a.c * 100 + 50, y: a.r * 100 + 55, v: a.kind * 37 + a.c, a })) : [];
+    [...sc.below, ...ruled].forEach((t, i) => {
       if (!FOOT[t.kind]) return;   // (the chambers are in the burrows' layer)
-      const q = t.kind === 15 ? null : placed("b" + i, t.x, t.y, FOOT[t.kind], land, now);
+      const q = t.a ? held(t.a, FOOT[t.kind], now) : placed("b" + i, t.x, t.y, FOOT[t.kind], land, now);
       const x = X(q ? q.x : t.x), y = X(q ? q.y : t.y), v = t.v;
-      if (t.kind === 15) {   // (the mole, along its run: velvet grey, a pink nose and broad pink hands; let go, on the floor, shuffling)
-        const p0 = along(sc.run, now / 14000 + v / 1000) || { x: t.x, y: t.y, dx: 1, back: false }, d = placed("b" + i, p0.x, p0.y, FOOT[15], land, now);
-        const p = d ? { x: d.x + (d.rest ? Math.sin(now / 2600 + v) * 22 : 0), y: d.y, dx: Math.cos(now / 2600 + v), back: false } : p0;
-        const mx = X(p.x), my = X(p.y), s2 = (p.dx >= 0) !== p.back ? 1 : -1;
-        E(mx, my, u * 0.2, u * 0.13, "#374151"); E(mx + s2 * u * 0.17, my + u * 0.02, u * 0.06, u * 0.045, "#f9a8d4");
-        E(mx + s2 * u * 0.08, my + u * 0.1, u * 0.07, u * 0.035, "#fbcfe8", s2 * 0.5); E(mx - s2 * u * 0.12, my + u * 0.1, u * 0.05, u * 0.03, "#fbcfe8");
-        E(mx + s2 * u * 0.1, my - u * 0.04, u * 0.012, u * 0.012, "#111827");
+      if (t.kind === 15) {   // (the mole, in its chamber or let go: velvet grey, a pink nose, broad pink hands paddling, facing its run)
+        const r0 = sc.run.length ? sc.run[sc.run.length - 1] : null, s2 = r0 && r0.x1 < r0.x0 ? -1 : 1, pad = Math.sin(now / 160 + v) * u * 0.02;
+        E(x, y, u * 0.2, u * 0.13, "#374151"); E(x + s2 * u * 0.17, y + u * 0.02, u * 0.06, u * 0.045, "#f9a8d4");
+        E(x + s2 * u * 0.08 + pad, y + u * 0.1, u * 0.07, u * 0.035, "#fbcfe8", s2 * 0.5); E(x - s2 * u * 0.12 - pad, y + u * 0.1, u * 0.05, u * 0.03, "#fbcfe8");
+        E(x + s2 * u * 0.1, y - u * 0.04, u * 0.012, u * 0.012, "#111827");
       } else if (t.kind === 17) {   // (the rabbit in its chamber, an ear twitching, its nose going)
         const tw = Math.sin(now / 400 + v) > 0.9 ? 0.25 : 0;
         E(x, y + u * 0.05, u * 0.22, u * 0.16, "#a8a29e"); E(x + u * 0.16, y - u * 0.04, u * 0.11, u * 0.1, "#a8a29e");
@@ -438,6 +547,11 @@
     c.save(); c.translate(0, TOP * u);   // (the game's ground, row 0 its surface, three rows of sky above)
     for (let r = 1; r < H_; r++) { c.fillStyle = LAYERS[Math.min(3, Math.floor((r - 1) / 4))]; c.fillRect(0, r * u, cv.width, u + 0.5); }
     if (!g) { c.restore(); return; }
+    if (g.wt < H_) {   // (0.0.68) the ground water: the earth from row wt down a little blue, and the water table a wavy line
+      c.fillStyle = "rgba(37, 99, 235, 0.16)"; c.fillRect(0, g.wt * u, cv.width, (H_ - g.wt) * u);
+      c.strokeStyle = "rgba(147, 197, 253, 0.55)"; c.lineWidth = Math.max(1, u * 0.035); c.beginPath();
+      for (let x = 0; x <= cv.width + u / 6; x += u / 6) { const y = g.wt * u + Math.sin(x / u * 2.2 + now / 700) * u * 0.035; if (x) c.lineTo(x, y); else c.moveTo(x, y); } c.stroke();
+    }
     if (L) { c.drawImage(L.burrows, 0, 0); c.globalAlpha = 0.3; c.drawImage(L.roots, 0, 0); c.globalAlpha = 0.4; c.drawImage(L.threads, 0, 0); c.globalAlpha = 1; }   // (the roots a shade darker than each earth)
     for (let r = 1; r < H_; r++) for (let k = 0; k < W_; k++) {
       const v = g.cells[r * W_ + k], x = k * u, y = r * u;
@@ -450,6 +564,7 @@
       }
     }
     if (L) { c.drawImage(dugLayer(g, L, u), 0, 0); creatures(c, u, now); }   // (the dug squares, two layers deep; then the creatures)
+    if (g.gear >= 0) gearAt(c, (g.gear % W_ + 0.5) * u, (Math.floor(g.gear / W_) + 0.5) * u, u, now);
     for (const b of g.rocks) {
       const shake = !b.falling && b.wob >= 0 ? Math.sin(now / 30) * u * 0.05 : 0, fallBy = b.falling ? (4 - b.wob) / 4 * u : 0;
       const x = (b.c + 0.5) * u + shake, y = (b.r + 0.5) * u + fallBy;
@@ -469,7 +584,10 @@
           c.beginPath(); c.moveTo(sx, sy - z); c.lineTo(sx + z * 0.3, sy - z * 0.3); c.lineTo(sx + z, sy); c.lineTo(sx + z * 0.3, sy + z * 0.3); c.lineTo(sx, sy + z); c.lineTo(sx - z * 0.3, sy + z * 0.3); c.lineTo(sx - z, sy); c.lineTo(sx - z * 0.3, sy - z * 0.3); c.closePath(); c.fill(); }
       } else { c.fillStyle = "#111827"; c.beginPath(); c.arc(x - u * 0.11, y - u * 0.04 + bob, u * 0.05, 0, 7); c.arc(x + u * 0.15, y - u * 0.04 + bob, u * 0.05, 0, 7); c.fill(); }
     }
-    if (g.dead === 0 || Math.floor(now / 120) % 2) gnome(c, (g.px + 0.5) * u, (g.py + 0.5) * u, u, g.pd, g.flash <= 0, g.pwait > 0, now);
+    if (g.dead === 0 || Math.floor(now / 120) % 2) gnome(c, (g.px + 0.5) * u, (g.py + 0.5) * u, u, g.pd, g.flash <= 0, g.pwait > 0, now, g.diving);
+    if (L && S.dug && S.dug.front) c.drawImage(S.dug.front, 0, 0);   // (the roots in front of all of it)
+    if (g.wt < H_) { water(c, g, u, now); if (g.py >= g.wt && g.dead === 0) bubbles(c, g, u, now); }
+    if (L && S.dug && S.dug.light) { c.save(); c.globalCompositeOperation = "screen"; c.globalAlpha = 0.85 + 0.15 * Math.sin(now / 1700); c.drawImage(S.dug.light, 0, 0); c.restore(); }   // (the sunlight in the holes, over all in them)
     if (S.lit && now - S.lit.t < 450) {
       const q = 1 - (now - S.lit.t) / 450; c.fillStyle = `rgba(254, 240, 138, ${0.45 * q})`;
       for (const k of S.lit.cells) c.fillRect((k % W_) * u, Math.floor(k / W_) * u, u, u);
@@ -483,14 +601,61 @@
       c.fillStyle = "rgba(20, 10, 5, 0.8)"; c.fillRect(0, cv.height * 0.4, cv.width, cv.height * 0.2);
       c.fillStyle = "#ffffff"; c.font = `700 ${Math.round(u * 0.8)}px system-ui`; c.fillText(`Game over: ${g.score} points`, cv.width / 2, cv.height * 0.49);
       c.font = `${Math.round(u * 0.45)}px system-ui`; c.fillText("New game: the button, a tap, or Enter", cv.width / 2, cv.height * 0.55);
-    } else if (S.banner && now - S.banner.t < 1600 && S.banner.text) {
-      c.fillStyle = "#fef9c3"; c.font = `700 ${Math.round(u * 0.7)}px system-ui`; c.fillText(S.banner.text, cv.width / 2, cv.height * 0.12);
+    } else if (S.banner && now - S.banner.t < (S.banner.long ? 2800 : 1600) && (S.banner.text || S.banner.sub)) {
+      c.fillStyle = "#fef9c3"; c.font = `700 ${Math.round(u * 0.7)}px system-ui`; if (S.banner.text) c.fillText(S.banner.text, cv.width / 2, cv.height * 0.12);
+      if (S.banner.sub) { c.font = `600 ${Math.round(u * 0.45)}px system-ui`; c.fillStyle = "#e0f2fe"; c.fillText(S.banner.sub, cv.width / 2, cv.height * 0.12 + u * 0.7); }
     }
+  }
+  // (0.0.68) the ground water: in every dug cell from row wt down, water, clear and blue, over what is in it, light wavering in it;
+  // its surface rippling where a tunnel comes down into it
+  function water(c, g, u, now) {
+    c.save(); c.beginPath(); let any = false;
+    for (let r = g.wt; r < H_; r++) for (let k = 0; k < W_; k++) if (g.cells[r * W_ + k] === 0) { c.rect(k * u, r * u, u + 0.5, u + 0.5); any = true; }
+    if (any) {
+      c.clip(); c.fillStyle = "rgba(37, 99, 235, 0.36)"; c.fillRect(0, g.wt * u, cv.width, (H_ - g.wt) * u);
+      c.strokeStyle = "rgba(191, 219, 254, 0.2)"; c.lineWidth = u * 0.03; c.beginPath();
+      for (let r = g.wt; r < H_; r++) for (let i = 0; i < 3; i++) { const y = (r + 0.25 + i * 0.25) * u;
+        for (let x = 0; x <= cv.width + u / 4; x += u / 4) { const yy = y + Math.sin(x / u * 3 + now / 500 + i * 2 + r) * u * 0.03; if (x) c.lineTo(x, yy); else c.moveTo(x, yy); } }
+      c.stroke();
+    }
+    c.restore();
+    c.strokeStyle = "rgba(219, 234, 254, 0.85)"; c.lineWidth = Math.max(1, u * 0.05);
+    for (let k = 0; k < W_; k++) if (g.cells[g.wt * W_ + k] === 0 && g.cells[(g.wt - 1) * W_ + k] === 0) {
+      c.beginPath(); for (let i = 0; i <= 8; i++) { const x = k * u + i * u / 8, y = g.wt * u + Math.sin(i * 1.3 + now / 260 + k) * u * 0.035; if (i) c.lineTo(x, y); else c.moveTo(x, y); } c.stroke(); }
+  }
+  // under the water: bubbles rising from you; without the gear, your breath over your head, a bubble for every 20 steps of it left,
+  // red and blinking at the last two
+  function bubbles(c, g, u, now) {
+    const x = (g.px + 0.5) * u, y = (g.py + 0.5) * u, s2 = g.pd === 3 ? -1 : 1;
+    c.save(); c.strokeStyle = "#e0f2fe"; c.lineWidth = u * 0.02;
+    for (let i = 0; i < 4; i++) { const q = (now / 900 + i / 4) % 1, bx = x + s2 * u * 0.08 + Math.sin(now / 200 + i * 2) * u * 0.05, by = y - u * 0.3 - q * u * 0.9;
+      c.globalAlpha = 1 - q; c.beginPath(); c.arc(bx, by, u * (i % 2 ? 0.05 : 0.03), 0, 7); c.stroke(); }
+    c.globalAlpha = 1;
+    if (!g.diving) {
+      const n = Math.ceil(g.air / 20), low = g.air <= 40, blink = low && Math.floor(now / 200) % 2;
+      for (let i = 0; i < 5; i++) { const bx = x + (i - 2) * u * 0.2, by = y - u * 1.02;
+        c.beginPath(); c.arc(bx, by, u * 0.075, 0, 7);
+        if (i < n) { c.fillStyle = low ? (blink ? "#fca5a5" : "#ef4444") : "#bae6fd"; c.fill(); }
+        c.strokeStyle = "rgba(255, 255, 255, 0.85)"; c.lineWidth = u * 0.022; c.stroke(); }
+    }
+    c.restore();
+  }
+  // the diving gear where it lies, glowing so it can be found through the earth: a yellow air tank, a mask with its strap
+  function gearAt(c, x, y, u, now) {
+    const gl = 0.5 + 0.5 * Math.sin(now / 300), rg = c.createRadialGradient(x, y, 0, x, y, u * 0.6);
+    rg.addColorStop(0, `rgba(125, 211, 252, ${0.35 + 0.3 * gl})`); rg.addColorStop(1, "rgba(125, 211, 252, 0)");
+    c.fillStyle = rg; c.fillRect(x - u * 0.6, y - u * 0.6, u * 1.2, u * 1.2);
+    c.fillStyle = "#facc15"; c.beginPath(); c.roundRect(x - u * 0.32, y - u * 0.26, u * 0.17, u * 0.5, u * 0.08); c.fill();
+    c.fillStyle = "#a16207"; c.fillRect(x - u * 0.28, y - u * 0.33, u * 0.09, u * 0.07);
+    c.strokeStyle = "#111827"; c.lineWidth = u * 0.035; c.beginPath(); c.moveTo(x - u * 0.16, y - u * 0.02); c.quadraticCurveTo(x + u * 0.04, y + u * 0.3, x + u * 0.3, y + u * 0.02); c.stroke();
+    c.fillStyle = "#0284c7"; c.beginPath(); c.roundRect(x - u * 0.08, y - u * 0.2, u * 0.4, u * 0.23, u * 0.09); c.fill();
+    c.fillStyle = "rgba(224, 242, 254, 0.9)"; c.beginPath(); c.roundRect(x - u * 0.04, y - u * 0.16, u * 0.32, u * 0.15, u * 0.06); c.fill();
+    c.fillStyle = "#ffffff"; c.beginPath(); c.ellipse(x + u * 0.03, y - u * 0.12, u * 0.045, u * 0.02, -0.3, 0, 7); c.fill();
   }
   function bar() {
     const g = S.game; if (!g) return;
     $("points").textContent = `⭐ ${g.score}`; $("lives").textContent = "⛏️".repeat(Math.max(0, g.lives));
-    $("level").textContent = `level ${g.level + 1}`; $("left").textContent = `💎 ${g.gems} left`;
+    $("level").textContent = `level ${g.level + 1}` + (g.diving ? " 🤿" : g.wt < H_ ? " 💧" : ""); $("left").textContent = `💎 ${g.gems} left`;
     const ms = S.stepMs.length ? [...S.stepMs].sort((a, b) => a - b)[S.stepMs.length >> 1] : 0;
     $("info").textContent = `Your best on this device: ${S.best} points.` + (ms ? ` A step of Hazel's rules: ${ms < 1 ? ms.toFixed(2) : ms.toFixed(1)} ms.` : "");
     if (window.OracleFs) window.OracleFs.empty(!g || !!g.over);
@@ -499,17 +664,44 @@
   // ---- a game, and every frame a step of the rules
   function newGame() {
     const h = H(); if (!h) return;
-    S.startSeed = 1 + Math.floor(Math.random() * 2000000000); S.game = h.start(S.startSeed); S.pops = []; S.banner = null; S.flash = false; S.dir = -1; S.keys = []; S.restartAt = 0;
+    S.startSeed = 1 + Math.floor(Math.random() * 2000000000); S.restarts = 0; S.works = new Map(); S.worksN++; S.game = h.start(S.startSeed);
+    if (SND) { SND.start(); SND.tune(0); } S.pops = []; S.banner = null; S.flash = false; S.dir = -1; S.keys = []; S.restartAt = 0;
     if (W && W.on) W.start(0);
     bar(); draw();
   }
   function heard(g, g2) {
     const now = performance.now();
+    // (0.0.68) the gnome's works: a ladder where he goes up or down, a timber set where he goes along (a ladder stays a ladder)
+    if (g2.level === g.level && g2.hit !== 3 && g2.hit !== 8 && (g2.px !== g.px || g2.py !== g.py) && g2.dead === 0) {
+      const a = g.py * W_ + g.px, b = g2.py * W_ + g2.px;
+      if (g2.px === g.px) { S.works.set(a, "ladder"); S.works.set(b, "ladder"); }
+      else { if (!S.works.has(a)) S.works.set(a, "frame"); if (!S.works.has(b)) S.works.set(b, "frame"); }
+      S.worksN++;
+    }
+    if (SND) {   // (0.0.68: the sounds of a step)
+      const same = g2.level === g.level && g2.hit !== 3 && g2.hit !== 8, k = g2.py * W_ + g2.px;
+      if (same && g2.hit !== 1 && (g2.px !== g.px || g2.py !== g.py) && g.cells[k] !== 0 && g2.cells[k] === 0) SND.dig();
+      const hits = { 1: "gem", 2: "caught", 4: "caught_mon", 5: "squash", 6: "land", 7: "flash", 8: "crushed", 9: "drowned", 10: "gear" };
+      if (hits[g2.hit]) SND[hits[g2.hit]]();
+      if (same && g2.rocks.some(x => !x.falling && x.wob === 40)) SND.wobble();
+      if (same && g2.animals && g.animals && g2.animals.some(a => a.fall === 4 && (g.animals.find(b => b.kind === a.kind) || {}).fall === -1)) SND.letgo();
+      if (same && g2.wt < H_ && g2.py >= g2.wt && g.py < g.wt) SND.splash();
+      if (same && g2.wt < H_ && !g2.diving && g2.py >= g2.wt && ((g.air > 40 && g2.air <= 40) || (g.air > 20 && g2.air <= 20))) SND.low();
+      if (g2.over && !g.over) { SND.stop(); SND.over(); }
+      else if (g2.hit === 3) { SND.cleared(); SND.tune(g2.level); }
+    }
     if (g2.hit === 1) S.pops.push({ c: g2.px, r: g2.py, text: "+50", t: now, col: "#67e8f9" });
     if (g2.hit === 4) S.pops.push({ c: g2.px, r: g2.py, text: "+100", t: now, col: "#c4b5fd" });
     if (g2.hit === 5) S.banner = { text: "🪨 Squashed! +200", t: now };
     if (g2.hit === 2) S.banner = { text: g2.lives > 0 ? "👻 Caught!" : "", t: now };
     if (g2.hit === 3) S.banner = { text: `🎉 Level ${g2.level} cleared!`, t: now };
+    // (0.0.68) a boulder on an animal: the level lost, begun again; out of breath under the water; the diving gear found; a level
+    // with ground water
+    if (g2.hit === 8) { S.restarts++; const a = g.animals.find(a2 => g.rocks.some(x => x.falling && x.c === a2.c && x.r + 1 === a2.r));
+      S.banner = { text: `💔 The boulder fell on the ${({ 15: "mole", 17: "rabbit", 19: "badger" })[a ? a.kind : 15]}!`, sub: g2.over ? "" : `Level ${g2.level + 1} begins again`, t: now, long: true }; }
+    if (g2.hit === 9) S.banner = { text: g2.lives > 0 ? "🫧 Out of breath!" : "", t: now };
+    if (g2.hit === 10) { S.pops.push({ c: g2.px, r: g2.py, text: "🤿", t: now, col: "#7dd3fc" }); S.banner = { text: "🤿 The diving gear!", sub: "Now you can stay under the water", t: now, long: true }; }
+    if ((g2.hit === 3 || g2.hit === 8) && !g2.over && g2.wt < H_) S.banner = { ...S.banner, sub: "💧 Ground water: find the diving gear 🤿", t: now, long: true };
     // (0.0.60: the lantern lights every cell within three of you, whatever is between: the monsters there are stunned)
     if (g2.flash > g.flash) { const cells = []; for (let r = g2.py - 3; r <= g2.py + 3; r++) for (let c = g2.px - 3; c <= g2.px + 3; c++) { const d = Math.abs(c - g2.px) + Math.abs(r - g2.py); if (d >= 1 && d <= 3 && c >= 0 && c < W_ && r >= 0 && r < H_) cells.push(r * W_ + c); } S.lit = { cells, t: now, c: g2.px, r: g2.py }; }
   }
@@ -584,7 +776,20 @@
     },
   }) : null;
   // (0.0.53) ⏸ the pause (shared/pause.js): its button and the space bar; no step runs while paused
-  const P = window.HazelPause ? window.HazelPause.make({ into: $("new").parentElement, over: $("ground").parentElement }) : null;
+  const P = window.HazelPause ? window.HazelPause.make({ into: $("new").parentElement, over: $("ground").parentElement,
+    onChange: paused => { if (!SND) return; if (paused) SND.stop(); else if (S.game && !S.game.over) SND.tune(S.game.level); } }) : null;   // (the music stops while paused)
+  // (0.0.68: the music and the sounds, each a switch and a slider, remembered; any tap or key wakes the chip, which browsers ask for first)
+  if (SND) {
+    const sw = (id, get, set) => { const b = $(id); if (!b) return; b.setAttribute("aria-pressed", String(get()));
+      b.addEventListener("click", () => { set(!get()); b.setAttribute("aria-pressed", String(get())); if (get()) SND.gesture(S.game && !S.game.over ? S.game.level : null); b.blur(); }); };
+    sw("music", () => SND.musicOn, on => { SND.music(on); if (on && S.game && !S.game.over) SND.tune(S.game.level); });
+    sw("sfx", () => SND.soundsOn, on => SND.sounds(on));
+    if (window.HazelVolume) {
+      window.HazelVolume.slider($("music"), { label: "Music volume", get: () => SND.volumeOf("music"), set: v => SND.setVolume("music", v), isOn: () => SND.musicOn });
+      window.HazelVolume.slider($("sfx"), { label: "Sounds volume", get: () => SND.volumeOf("sfx"), set: v => SND.setVolume("sfx", v), isOn: () => SND.soundsOn, hear: () => SND.gem() });
+    }
+    for (const ev of ["pointerdown", "keydown"]) addEventListener(ev, () => SND.gesture(S.game && !S.game.over ? S.game.level : null), true);
+  } else for (const id of ["music", "sfx"]) { const b = $(id); if (b) b.hidden = true; }
 
   // ---- the rules: compiled ahead of time when compiled.js is here, else (and once they are edited) built by hazeljs
   function drawStatus() {
@@ -610,7 +815,7 @@
   }
   function loadCompiled() {
     const c = document.createElement("script");
-    c.src = "compiled.js?v=0.0.67"; c.async = true;
+    c.src = "compiled.js?v=0.0.68"; c.async = true;
     c.onload = () => { const v = window.DigCompiled;
       if (v && !S.built) { S.built = { key: "compiled", ok: true, compiled: true, made: v.made, value: v, errors: [], threw: "", ms: 0, at: performance.now() }; drawStatus(); newGame(); }
       else if (!v) { S.compiledError = "it ran, but gave no Gnome dig"; loadLib(); } };
@@ -653,7 +858,7 @@
     },
   });
   // (for checking the page where no frames are drawn, a browser pane hidden: ?test=1 lets a script run steps and draw)
-  if (Q.has("test")) window.DigTest = { S, newGame, gnome, badger, steps: n => { const h = H(); for (let i = 0; i < n && S.game && !S.game.over; i++) oneStep(h); draw(); bar(); return S.game; }, auto: () => W };
+  if (Q.has("test")) window.DigTest = { S, newGame, gnome, badger, gearAt, steps: n => { const h = H(); for (let i = 0; i < n && S.game && !S.game.over; i++) oneStep(h); draw(); bar(); return S.game; }, auto: () => W };
   document.body.classList.add("js");
   draw(); bar();
 })();

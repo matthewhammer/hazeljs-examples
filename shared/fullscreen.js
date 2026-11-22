@@ -66,6 +66,53 @@
     ui.insertBefore(left, ui.firstChild.nextSibling);
   };
   const scatter = () => { for (const [e, mark] of moved) mark.replaceWith(e); moved = []; left.remove(); };
+  // ---- (0.0.68; Matthew, 2026-11-22: "let's put the controls and score into a HUD and stretch the game to full height in full
+  // screen. Same for all examples.") The games in full screen: the field, the board or the table fills the window, as tall as it
+  // is; over it, a heads-up display at the top left (☰, the score, the controls: New game, 🤖, the pace, ⏸), the game's own
+  // buttons (the arrows, the lantern) at the bottom, Activities and ✕ at the top right; ☰ shows the rest of the left column
+  // (the status, the notes) under the controls. For each game: its field, its score, its buttons, and how the field fits the
+  // window: a canvas made as large as its shape allows (canvas), a square board (square), or the game fitting itself, in the
+  // room right of the HUD (self: the tables, whose piles and seats reach the window's left side)
+  const HUD = { "dg-ui": [".dg-wrap", ".dg-bar", ".dg-pad", "canvas"], "sw-ui": [".sw-wrap", ".sw-bar", ".sw-pad", "canvas"], "cp-ui": [".cp-wrap", ".cp-bar", ".cp-pad", "canvas"],
+    "pb-ui": [".pb-wrap", ".pb-bar", ".pb-pad", "canvas"], "dh-ui": [".dh-wrap", ".dh-bar", ".dh-pad", "canvas"], "bk-ui": [".bk-wrap", ".bk-bar", ".bk-pad", "canvas"],
+    "sn-ui": [".sn-wrap", ".sn-bar", ".sn-pad", "canvas"], "tr-ui": [".tr-wrap", ".tr-bar", ".tr-pad", "canvas"],
+    "go-ui": [".goban-wrap", ".go-bar", null, "square"], "ck-ui": [".ck-wrap", ".ck-bar", null, "square"], "ms-ui": [".ms-wrap", ".ms-bar", null, "self"],
+    "sweeper-ui": [".board-wrap", ".sweep-bar", null, "self"], "solitaire-ui": [".felt", null, null, "self"], "mj-ui": [".mj-table", null, ".mj-acts", "self"] };
+  const hudOf = Object.entries(HUD).find(([c]) => ui.classList.contains(c));
+  const hud = document.createElement("div");
+  hud.className = "fs-hud";
+  let hudMoved = [], hudTagged = [];
+  const ratio = cv => { const m = String(getComputedStyle(cv).aspectRatio || "").match(/([\d.]+)\s*\/\s*([\d.]+)/);
+    return m && +m[2] ? +m[1] / +m[2] : cv.height ? cv.width / cv.height : 0.75; };
+  const hudOn = () => {
+    if (!hudOf || hudMoved.length) return;
+    const [play, score, pad, fit] = hudOf[1];
+    const tag = (sel, cls) => { const e = sel && ui.querySelector(":scope > " + sel); if (e) { e.classList.add(cls); hudTagged.push([e, cls]); } return e; };
+    const p = tag(play, "fs-play"), cv = p && p.querySelector(":scope > canvas");
+    if (p) { p.classList.add("fit-" + fit); hudTagged.push([p, "fit-" + fit]); }
+    root.classList.add("fs-hud-" + fit);
+    // (the field's shape on the column, for the HUD and the buttons to keep to the room beside the field)
+    ui.style.setProperty("--fs-ar", String(fit === "canvas" && cv ? ratio(cv) : fit === "square" ? 1 : 1.5));
+    tag(pad, "fs-pad");
+    // (each part moved into the HUD leaves a marker in its place, to go back to: ☰, Activities and ✕ in a row, then the score and
+    // the controls)
+    const move = (e, into) => { if (!e) return; const mark = document.createComment("hud"); e.replaceWith(mark); into.append(e); hudMoved.push([e, mark]); };
+    const top = document.createElement("div"); top.className = "fs-hud-top";
+    move(leftBtn, top); move(bar, top); hud.append(top);
+    for (const sel of [score, ".controls"]) move(sel && ui.querySelector(":scope > " + sel), hud);
+    move(toolBox, hud);
+    ui.append(hud);
+    root.classList.add("fs-hud-on");
+  };
+  const hudOff = () => {
+    if (!hudMoved.length) return;
+    for (const [e, mark] of hudMoved.reverse()) mark.replaceWith(e);
+    hud.replaceChildren();
+    for (const [e, cls] of hudTagged) e.classList.remove(cls);
+    ui.style.removeProperty("--fs-ar");
+    hudMoved = []; hudTagged = []; hud.remove();
+    root.classList.remove("fs-hud-on", "fs-hud-canvas", "fs-hud-square", "fs-hud-self");
+  };
   // ---- (0.0.24) one button in the picture's place, in full screen while no reading is cast: each app offers its cast
   // (OracleFs.offer({ label, title, cast })) and says, as its reading changes, whether it is empty (OracleFs.empty(bool))
   const castBtn = document.createElement("button");
@@ -116,7 +163,7 @@
     return b;
   };
   const set = v => {
-    if (v) gather(); else scatter();
+    if (v) { hudOn(); gather(); if (hudMoved.length) hud.append(left); } else { scatter(); hudOff(); }
     root.classList.toggle("oracle-fs", v);
     root.classList.toggle("fs-left-hidden", v && !leftShown);
     showCast();

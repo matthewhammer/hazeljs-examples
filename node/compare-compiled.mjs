@@ -329,11 +329,11 @@ if (APP === "checkers") {
   // robot's choice and the next step both ways
   const per = CAP || 40; let steps = 0;
   let g = C.start(42); const run = [];
-  for (let k = 0; k < 3000 && !g.over; k++) { const c = C.robot(g), dir = draw() < 0.05 ? Math.floor(draw() * 5) - 1 : c.dir, flash = draw() < 0.02 ? true : c.flash; run.push([g, dir, flash]); g = C.step(g, dir, flash); }
+  for (let k = 0; k < 12000 && !g.over; k++) { const c = C.robot(g), dir = draw() < 0.05 ? Math.floor(draw() * 5) - 1 : c.dir, flash = draw() < 0.02 ? true : c.flash; run.push([g, dir, flash]); g = C.step(g, dir, flash); }
   const pick = run.filter((_, k) => k < 3 || k % Math.max(1, Math.floor(run.length / per)) === 0 || run[k][0].hit).slice(0, per + 3);
   for (const [g0, dir, flash] of pick) { steps++; check(`robot at ${JSON.stringify(g0)}`, H.robot(g0), C.robot(g0)); check(`step from ${JSON.stringify(g0)} ${dir} ${flash}`, H.step(g0, dir, flash), C.step(g0, dir, flash)); }
   // (0.0.63) the scene, for three levels' seeds, both ways (interpreted, it takes some seconds each)
-  for (const [sd, lv] of [[42, 0], [7, 3], [99, 9]]) check(`scene ${sd} ${lv}`, H.scene(sd, lv), C.scene(sd, lv));
+  for (const [sd, lv] of [[42, 0], [7, 3], [99, 9]]) { const an = C.start(sd).animals; check(`scene ${sd} ${lv}`, H.scene(sd, lv, an), C.scene(sd, lv, an)); }
   // (0.0.67) where things land, on grounds from that game dug further and further
   for (let k = 0; k < run.length; k += Math.max(1, Math.floor(run.length / 12))) { const cells = run[k][0].cells; check(`landing at step ${k}`, H.landing(cells), C.landing(cells)); }
   console.log(`${checked} answers compared: ${steps} steps with the robot's choice at each, ${differ} differ; the compiled robot's game: ${g.score} points, level ${g.level + 1}, ${g.lives} lives, ${g.t} steps`);

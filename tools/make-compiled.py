@@ -309,22 +309,25 @@ ADAPTERS = {
   const api = { start, step, robot, made };"""),
   "dig": ("DigCompiled", """
   // (ticket 829) Game = (px, py, pd, pwait = Int, cells = [Int], rocks = [Rock], mons = [Mon], gems, score, lives, level, seed, flash, mwait,
-  // mpace, dead = Int, over = Bool, hit, t = Int); Rock = (c, r, wob = Int, falling = Bool); Mon = (c, r, stun = Int); Choice = (dir = Int, flash = Bool)
-  const GAME = ["px", "py", "pd", "pwait", "cells", "rocks", "mons", "gems", "score", "lives", "level", "seed", "flash", "mwait", "mpace", "dead", "over", "hit", "t"];
-  const ROCK = ["c", "r", "wob", "falling"], MON = ["c", "r", "stun"];
+  // mpace, dead = Int, over = Bool, hit, t = Int, (0.0.68) animals = [Animal], wt, gear = Int, diving = Bool, air = Int); Rock = (c, r, wob = Int,
+  // falling = Bool); Mon = (c, r, stun = Int); Animal = (kind, c, r, fall = Int); Choice = (dir = Int, flash = Bool)
+  const GAME = ["px", "py", "pd", "pwait", "cells", "rocks", "mons", "gems", "score", "lives", "level", "seed", "flash", "mwait", "mpace", "dead", "over", "hit", "t", "animals", "wt", "gear", "diving", "air"];
+  const ROCK = ["c", "r", "wob", "falling"], MON = ["c", "r", "stun"], ANIMAL = ["kind", "c", "r", "fall"];
   const recIn = (o, ks) => $R.tup(ks.map(k => o[k]), ks);
-  const gameIn = g => $R.tup(GAME.map(k => k === "cells" ? list(g.cells) : k === "rocks" ? list(g.rocks.map(x => recIn(x, ROCK))) : k === "mons" ? list(g.mons.map(m => recIn(m, MON))) : g[k]), GAME);
+  const animalsIn = xs => list(xs.map(a => recIn(a, ANIMAL)));
+  const gameIn = g => $R.tup(GAME.map(k => k === "cells" ? list(g.cells) : k === "rocks" ? list(g.rocks.map(x => recIn(x, ROCK))) : k === "mons" ? list(g.mons.map(m => recIn(m, MON))) : k === "animals" ? animalsIn(g.animals) : g[k]), GAME);
   const rockOut = x => ({ c: int(x.c), r: int(x.r), wob: int(x.wob), falling: x.falling }), monOut = m => ({ c: int(m.c), r: int(m.r), stun: int(m.stun) });
-  const gameOut = r => Object.fromEntries(GAME.map(k => [k, k === "cells" ? array(r.cells).map(int) : k === "rocks" ? array(r.rocks).map(rockOut) : k === "mons" ? array(r.mons).map(monOut) : k === "over" ? r[k] : int(r[k])]));
+  const animalOut = a => ({ kind: int(a.kind), c: int(a.c), r: int(a.r), fall: int(a.fall) });
+  const gameOut = r => Object.fromEntries(GAME.map(k => [k, k === "cells" ? array(r.cells).map(int) : k === "rocks" ? array(r.rocks).map(rockOut) : k === "mons" ? array(r.mons).map(monOut) : k === "animals" ? array(r.animals).map(animalOut) : k === "over" || k === "diving" ? r[k] : int(r[k])]));
   // start : Int -> Game (a seed); step : (Game, Int, Bool) -> Game (a way, or -1, and the lantern); robot : Game -> Choice
   const start = seed => gameOut(P.start(seed));
   const step = (g, dir, flash) => gameOut(P.step([gameIn(g), dir, flash]));
   const robot = g => { const c = P.robot(gameIn(g)); return { dir: int(c.dir), flash: c.flash }; };
-  // (0.0.63) scene : (Int, Int) -> Scene (a seed and a level): Scene = (above, roots, threads, burrows, ants, run, below); Line = (x0, y0, x1, y1, w = Int);
+  // (0.0.63) scene : (Int, Int, [Animal]) -> Scene (a seed, a level and, 0.0.68, the level's animals): Scene = (above, roots, threads, burrows, ants, run, below); Line = (x0, y0, x1, y1, w = Int);
   // Thing = (kind, x, y, size, v = Int)
   const LINE = ["x0", "y0", "x1", "y1", "w"], THING = ["kind", "x", "y", "size", "v"];
   const recOut = (r, ks) => Object.fromEntries(ks.map(k => [k, int(r[k])]));
-  const scene = (seed, level) => { const r = P.scene([seed, level]);
+  const scene = (seed, level, animals) => { const r = P.scene([seed, level, animalsIn(animals || [])]);
     return Object.fromEntries(["above", "roots", "threads", "burrows", "ants", "run", "below"].map(k => [k, array(r[k]).map(x => recOut(x, k === "above" || k === "below" ? THING : LINE))])); };
   // (0.0.67) landing : [Int] -> [Int] (the ground's cells, boulders counted as earth): for each cell the row a thing let go there
   // comes to rest in, or -1 where the earth holds it

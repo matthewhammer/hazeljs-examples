@@ -287,7 +287,41 @@
         "d6 - b5 - g5 - b5 - d6 - - - . . . .",
         "c#6 - a5 - e5 - a5 - c#6 - - - . . . .",
         "a5 - f#5 - d5 - f#5 - a5 - d6 - f#6 - - -",
-        "d6 - - - - - - - . . . . . . . ."] }] }];
+        "d6 - - - - - - - . . . . . . . ."] }] },
+    // ---- (0.0.68; Matthew, for Gnome dig: "gnome dig game needs music and sound effects") two of our own for the gnome, major
+    // keys: a fast ska hop in C for his lantern, and a New Orleans strut in D for the cellar and the roots
+    { name: "Lantern hop", style: "ska", bpm: 170, sections: [
+      { chords: ["C", "F", "G", "C"], lead: [
+        "c5 . e5 . g5 - e5 . c6 - . g5 . e5 . .",
+        "f5 . a5 . c6 - a5 . f5 - . c5 . f5 . .",
+        "g5 . b5 . d6 - b5 . g5 . a5 . b5 . d6 .",
+        "c6 - - . g5 . e5 . c5 - - - . . . ."] },
+      { chords: ["Am", "F", "C", "G"], lead: [
+        "e5 - . a5 . . c6 - b5 . a5 . e5 . . .",
+        "f5 - . a5 . . c6 - d6 . c6 . a5 . . .",
+        "e5 . g5 . c6 . e6 - d6 . c6 . g5 . . .",
+        "d6 - . b5 . . g5 . d5 . g5 . b5 . d6 ."] },
+      { chords: ["F", "G", "C", "C"], lead: [
+        "a5 . c6 . f6 - e6 . d6 . c6 . a5 . . .",
+        "b5 . d6 . g6 - f6 . e6 . d6 . b5 . . .",
+        "c6 . e6 . g6 - e6 . c6 . g5 . e5 . c5 .",
+        "c6 - - - - - . . g5 . a5 . b5 . . ."] }] },
+    { name: "Root cellar", style: "funk", bpm: 104, swing: 0.14, sections: [
+      { chords: ["D7", "D7", "G7", "D7"], lead: [
+        "d5 - . d5 . . c5 d5 . f#5 . a5 . . g5 f#5",
+        "d5 . . . c5 . a4 . c5 d5 . . . . . .",
+        "g5 - . g5 . . f5 g5 . b5 . d6 . . c6 b5",
+        "a5 . . . f#5 . d5 . c5 d5 . . . . . ."] },
+      { chords: ["A7", "G7", "D7", "A7"], lead: [
+        "c#6 . e6 . g6 - . e6 . c#6 . a5 . . . .",
+        "b5 . d6 . f6 - . d6 . b5 . g5 . . . .",
+        "d5 - . d5 . . c5 d5 . f#5 . a5 . . g5 f#5",
+        "e5 . . c#5 . . a4 . g5 - . e5 - . c#5 ."] },
+      { chords: ["G7", "G7", "D7", "D7"], lead: [
+        "b5 - - - g5 . d5 . f5 - . d5 b4 . g4 .",
+        "b4 . d5 . g5 . b5 . d6 - . b5 . g5 . .",
+        "a5 - - - f#5 . d5 . c5 - . a4 f#4 . d4 .",
+        "d4 . f#4 . a4 . c5 . d5 . f#5 . a5 . c6 ."] }] }];
   // ---- a tune as steps: for every sixteenth, the notes that start on it (an instrument, a note, how many steps it lasts)
   const ARP = [0, 1, 2, 3, 2, 1, 2, 1];
   // (0.0.57) the bands under the lead, by a tune's style: what the bass, the chords and the drums play in a bar, put(k, note) on

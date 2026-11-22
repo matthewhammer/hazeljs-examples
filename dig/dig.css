@@ -1,5 +1,8 @@
 /* hazeljs-examples, Deep dig (0.0.51): the board, a square canvas; the points above it; a cross of four big buttons under it */
 .dg-check, .dg-speed { display: inline-flex; align-items: center; gap: 6px; }
+/* (0.0.68) 🎵 and 🔊, each a switch with its slider beside it (shared/volume.js) */
+.dg-toggle { font-size: 1.15em; padding: 2px 8px; }
+.dg-toggle[aria-pressed="false"] { opacity: 0.45; text-decoration: line-through; }
 .dg-bar { display: flex; gap: 14px; flex-wrap: wrap; align-items: baseline; font-variant-numeric: tabular-nums; margin: 6px 0; }
 .dg-bar #points { font-size: 1.5em; font-weight: 700; }
 .dg-wrap { display: flex; justify-content: center; }

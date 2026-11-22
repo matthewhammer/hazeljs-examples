@@ -40,8 +40,10 @@
     const w = (board.parentElement.clientWidth || 320) - 10;
     // (in full screen, the cells as large as the window lets them be, its height too, less the bar above the board)
     const fs = document.documentElement.classList.contains("oracle-fs");
-    const byH = fs ? Math.floor((innerHeight - 120) / rows) - 2 : 34;
-    board.style.setProperty("--cs", Math.max(22, Math.min(fs ? 64 : 34, Math.floor(w / cols) - 2, byH)) + "px");
+    // (0.0.68: with the heads-up display, the whole height, the bar being over the room at the left)
+    const hud = document.documentElement.classList.contains("fs-hud-on");
+    const byH = fs ? Math.floor((innerHeight - (hud ? 28 : 120)) / rows) - 2 : 34;
+    board.style.setProperty("--cs", Math.max(22, Math.min(fs ? (hud ? 96 : 64) : 34, Math.floor(w / cols) - 2, byH)) + "px");
   }
   function draw() {
     const g = S.game;

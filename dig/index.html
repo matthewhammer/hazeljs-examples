@@ -6,8 +6,8 @@
 <title>Gnome dig, its rules in Hazel</title>
 <meta name="description" content="Gnome dig: a gnome digging through the ground for gems while monsters follow your tunnels; drop boulders on them, or stun them with your lantern and catch them. Every step a Hazel program, compiled ahead of time to JavaScript by hazel-jit, and a robot in Hazel that plays it.">
 <link rel="stylesheet" href="../shared/style.css?v=0.0.14">
-<link rel="stylesheet" href="../shared/oracles.css?v=0.0.59">
-<link rel="stylesheet" href="dig.css?v=0.0.64">
+<link rel="stylesheet" href="../shared/oracles.css?v=0.0.68">
+<link rel="stylesheet" href="dig.css?v=0.0.68">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
 <link rel="icon" href="icons/icon-32.png" sizes="32x32" type="image/png">
@@ -22,12 +22,14 @@
 <h1>Gnome dig, its rules in Hazel</h1>
 <span class="app-links"><a href="../">Hazel activities</a> › <a href="../#games">One-player games</a> · <a href="https://github.com/matthewhammer/hazeljs-examples">source on GitHub</a> · <a href="https://www.npmjs.com/package/hazeljs">hazeljs on npm</a></span>
 </div>
-<p class="sub">You are a gnome with a lantern, digging down through the ground for the gems: the arrow keys (or W A S D), a swipe, or the four buttons, held to keep going. The monsters follow your tunnels, and now and then burrow. Dig under a boulder and it wobbles, then falls: it squashes a monster below it (200 points), or you. Your lantern (💡, or Enter or F) stuns every monster within three cells of you, for three seconds, and is ready again a second later (it glows on you when it is): walk into a stunned one to catch it (100 points). Take every gem for the next level. Above, trees, bushes, ferns, flowers and mushrooms; below, the trees' roots, the mushrooms' mycelium, an ants' nest, a rabbit, a mole, a sleeping badger, worms, grubs and beetles, a new garden of them each level, all made by Hazel too (<code>dig/rules/Scene.hz</code>) from the level's seed. Each step, and the robot that plays it for you, are Hazel (<code>dig/rules/Dig.hz</code>). ⏸ or the space bar pauses.</p>
+<p class="sub">You are a gnome with a lantern, digging down through the ground for the gems: the arrow keys (or W A S D), a swipe, or the four buttons, held to keep going. The monsters follow your tunnels, and now and then burrow. Dig under a boulder and it wobbles, then falls: it squashes a monster below it (200 points), or you. Your lantern (💡, or Enter or F) stuns every monster within three cells of you, for three seconds, and is ready again a second later (it glows on you when it is): walk into a stunned one to catch it (100 points). Take every gem for the next level. Mind the animals: dig out a mole, a rabbit or a badger and it drops, and a boulder falling on one loses the level. From the second level on, some levels have ground water: under it you hold your breath (the bubbles over your head), until you find the level's diving gear 🤿, which lies under the water, just reachable on one breath if you dig straight down to it. Above, trees, bushes, ferns, flowers and mushrooms; below, the trees' roots, the mushrooms' mycelium, an ants' nest, the rabbit's burrow, the mole's run, the badger's sett, worms, grubs and beetles, a new garden of them each level, all made by Hazel too (<code>dig/rules/Scene.hz</code>) from the level's seed. Each step, and the robot that plays it for you, are Hazel (<code>dig/rules/Dig.hz</code>). ⏸ or the space bar pauses.</p>
 
 <div class="oracle-grid">
 <section class="oracle-ui dg-ui" aria-label="The run">
   <div class="controls">
     <button type="button" id="new" class="primary">New game</button>
+    <button type="button" id="music" class="dg-toggle" aria-pressed="true" title="Music: happy tunes of our own on a little chip, the gnome's own first, a new one each level">🎵</button>
+    <button type="button" id="sfx" class="dg-toggle" aria-pressed="true" title="Sounds: your digging, the gems, the lantern, the boulders, the water…">🔊</button>
 
   </div>
   <div class="status wait" id="status">⏳ Loading the rules…</div>
@@ -40,7 +42,7 @@
 <section class="oracle-code" aria-label="The rules, in Hazel">
   <p class="muted" style="margin-top:0">The vocabulary the module sees (<code>dig/rules/preamble.hz</code>). The listings are text, highlighted, until <b>Edit in Hazel</b> opens each in Hazel's own editor; an edit changes the next step.</p>
   <pre class="code hazel" data-program="dig">loading preamble.hz…</pre>
-  <div class="ed"><div class="ed-head"><b>Dig</b> <span class="muted">a level's ground by chance; one step of the game (your digging, the boulders, the monsters, the lantern); and the robot that plays it: toward the nearest gem it can reach without risk, clear of the monsters while its lantern charges, and to stun a monster guarding the gems</span></div>
+  <div class="ed"><div class="ed-head"><b>Dig</b> <span class="muted">a level's ground by chance; one step of the game (your digging, the boulders, the monsters, the lantern; 0.0.68: the animals, the ground water, your breath and the diving gear); and the robot that plays it: toward the nearest gem it can reach without risk, clear of the monsters while its lantern charges, and to stun a monster guarding the gems; digging round the animals and never letting a boulder fall on one; fetching the diving gear before the gems under the water, and up for air if it must</span></div>
   <pre class="code hazel" data-program="dig" data-module="Dig">loading Dig.hz…</pre></div>
   <div class="ed"><div class="ed-head"><b>Scene</b> <span class="muted">the scene drawn behind the game, from the level's seed: the trees, bushes, flowers, ferns and mushrooms on top; each tree's roots, grown a segment at a time (wandering, drawn downward, thinning, branching); the mycelium spreading from each mushroom; the ants' nest, the rabbit's burrow, the mole's run and the badger's sett; worms, grubs and beetles. The rules never see it. And (0.0.67) where a creature let go comes to rest, for every cell of the ground: the page drops them with it as you dig</span></div>
   <pre class="code hazel" data-program="dig" data-module="Scene">loading Scene.hz…</pre></div>
@@ -52,11 +54,14 @@
 <p class="app-foot" id="app-foot">hazeljs-examples · <a href="../VERSIONS.md">versions</a> · Apache 2.0 (code), CC BY 4.0 (words, the icon) · by Matthew Hammer · an example for <a href="https://github.com/hazelgrove/hazeljs">hazeljs</a></p>
 </main>
 <script src="../shared/divider.js?v=0.0.8"></script>
-<script src="../shared/fullscreen.js?v=0.0.57"></script>
+<script src="../shared/fullscreen.js?v=0.0.68"></script>
 <script src="../shared/offline.js?v=0.0.27"></script>
 <script src="../shared/advanced.js?v=0.0.45"></script>
 <script src="../shared/autoplay.js?v=0.0.54"></script>
 <script src="../shared/pause.js?v=0.0.53"></script>
-<script src="app.js?v=0.0.67"></script>
+<script src="../shared/chip.js?v=0.0.68"></script>
+<script src="sound.js?v=0.0.68"></script>
+<script src="../shared/volume.js?v=0.0.56"></script>
+<script src="app.js?v=0.0.68"></script>
 </body>
 </html>
