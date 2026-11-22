@@ -20,3 +20,6 @@ html.oracle-fs .sw-ui > .fs-cast { grid-row: 1 / -1; }
   html.oracle-fs .sw-ui > .sw-wrap { container-type: normal; }
   html.oracle-fs .sw-ui .sw-wrap canvas { width: min(100%, calc((100vh - 190px) * 0.75)); }
 }
+/* (0.0.55) 🎵 and 🔊: each a switch, struck through when off */
+.sw-toggle { font-size: 1.15em; padding: 2px 8px; }
+.sw-toggle[aria-pressed="false"] { opacity: 0.45; text-decoration: line-through; }

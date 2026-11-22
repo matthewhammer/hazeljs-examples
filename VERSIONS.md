@@ -2,6 +2,11 @@
 
 Each version lists what the apps do as of that version. The newest version is first.
 
+## 0.0.55 (2026-11-22)
+
+- **Star wave: sounds and music** (Matthew: "for Star wave, let's have sound effects, and let's have music. Let's create another set of melodies and chord progressions, in the style of mega man. Let's share these songs with the other game that has them: pinball"). Five new songs of our own, all original, in the style of an 8-bit action game: Steel sky, Circuit run, Neon fortress, Comet chase and Last light, quick (150 to 184 beats a minute), in minor keys, each twelve bars with a bridge, a pulse-wave lead over a pulse-wave harmony, a triangle bass on eighths, and noise drums. Each wave of Star wave has its own song. The sounds: your shot, a hit (pitched by the invader's kind), a bomb dropped, the formation's march (two low notes, quicker as it speeds up), the cannon lost, a wave cleared. 🎵 and 🔊 beside the board switch each off, kept on this device; ⏸ Pause stops the music.
+- **Pinball and Star wave share their songs** in one little chip (`shared/chip.js`): Pinball's ten boards now play all eight songs, its three and the five new ones.
+
 ## 0.0.54 (2026-11-22)
 
 - **🤖 Hazel plays for you: more paces between briskly and full speed** (Matthew: "for Go, checkers, and others, there needs to be some speeds between 'briskly' and 'full speed' ... 'briskly 1x', 2x, 3x, 4x, 5x, 10x"). Every game's pace menu now has briskly 1x (as briskly was, 120 ms between moves), 2x, 3x, 4x, 5x and 10x (12 ms), then at full speed; Mahjong's own menu too. From 2x on, the moves are kept that far apart by the clock and the board is drawn at most every 33 ms, so 10x is ten times as fast and not held back by the screen. Checkers' moves animate up to 3x, faster each step, and not from 4x. The games whose time runs on their own (Pinball, Downhill, Bricks, Snake, Star wave) run that many times faster still: briskly 1x twice their own speed, 10x twenty times, several steps a frame.

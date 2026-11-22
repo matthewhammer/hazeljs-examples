@@ -554,7 +554,8 @@
     },
   }) : null;
   // (0.0.53) ⏸ the pause (shared/pause.js): its button and the space bar; no step runs while paused
-  const P = window.HazelPause ? window.HazelPause.make({ into: $("new").parentElement, over: $("board").parentElement }) : null;
+  const P = window.HazelPause ? window.HazelPause.make({ into: $("new").parentElement, over: $("board").parentElement,
+    onChange: paused => { if (!SND) return; if (paused) SND.stop(); else if (S.game && !S.game.over) SND.tune(S.board); } }) : null;   // (the music stops while paused)
 
   // ---- the rules: compiled ahead of time when compiled.js is here, else (and once they are edited) built by hazeljs
   function drawStatus() {

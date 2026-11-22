@@ -23,6 +23,7 @@
   const S = { built: null, libAt: 0, libFailed: false, compiledError: "", game: null, best: kept("best", 0),
               held: { left: false, right: false }, aimX: null, fire: false, pops: [], stepMs: [], restartAt: 0, banner: null, booms: [] };
   const H = () => S.built && S.built.ok ? S.built.value : null;
+  const SND = window.StarWaveSound || null;   // (sound.js: the music, a tune each wave, and the game's sounds)
   const SHIELD_X = [58, 198, 338, 478];
 
   // ---- drawing: the sky, its stars; the invaders (our own three kinds, each with two poses, changing at each march); the
@@ -101,11 +102,23 @@
   function newGame() {
     const h = H(); if (!h) return;
     S.game = h.start(1 + Math.floor(Math.random() * 2000000000)); S.pops = []; S.booms = []; S.banner = null; S.fire = false; S.restartAt = 0;
+    if (SND) { SND.start(); SND.tune(0); }
     if (W && W.on) W.start(0);
     bar(); draw();
   }
   function heard(g, g2) {
     const now = performance.now();
+    // (the sounds: a shot fired, each invader hit by its kind, a bomb dropped, the march, the cannon hit, a wave cleared, the end;
+    // the next wave's tune)
+    if (SND) {
+      if (g.sy < 0 && g2.sy >= 0) SND.shot();
+      g.aliens.forEach((a, i) => { if (a && !g2.aliens[i] && g2.wave === g.wave) SND.hit(a); });
+      if (g2.wave === g.wave && g2.bombs.length > g.bombs.length) SND.bomb();
+      if (g2.wave === g.wave && (g2.fx !== g.fx || g2.fy !== g.fy)) SND.march();
+      if (g2.over && !g.over) { SND.stop(); if (g2.hit === 2) SND.boom(); SND.over(); }
+      else if (g2.hit === 2) SND.boom();
+      if (g2.hit === 3) { SND.cleared(); SND.tune(g2.wave); }
+    }
     g.aliens.forEach((a, i) => { if (a && !g2.aliens[i] && g2.wave === g.wave) { const x = g.fx + (i % 9) * 48 + 16, y = g.fy + Math.floor(i / 9) * 40 + 12; S.booms.push({ x, y, t: now }); S.pops.push({ x, y: y - 10, text: "+" + a * 10, t: now, col: "#fde047" }); } });
     if (g2.hit === 2) { S.booms.push({ x: g2.cx, y: 740, t: now }); S.banner = { text: g2.lives > 0 ? "💥 Hit!" : "", t: now }; }
     if (g2.hit === 3) S.banner = { text: `🎉 Wave ${g2.wave} cleared!`, t: now };
@@ -164,6 +177,14 @@
   hold("left", "left"); hold("right", "right");
   $("launch").addEventListener("pointerdown", e => { e.preventDefault(); if (!(W && W.on)) S.fire = true; });
   $("new").addEventListener("click", newGame);
+  // (0.0.55: the music and the sounds, each a switch, remembered; any tap or key wakes the chip, which browsers ask for first)
+  if (SND) {
+    const sw = (id, get, set) => { const b = $(id); b.setAttribute("aria-pressed", String(get()));
+      b.addEventListener("click", () => { set(!get()); b.setAttribute("aria-pressed", String(get())); if (get()) SND.gesture(S.game && !S.game.over ? S.game.wave : null); b.blur(); }); };
+    sw("music", () => SND.musicOn, on => { SND.music(on); if (on && S.game && !S.game.over) SND.tune(S.game.wave); });
+    sw("sfx", () => SND.soundsOn, on => SND.sounds(on));
+    for (const ev of ["pointerdown", "keydown"]) addEventListener(ev, () => SND.gesture(S.game && !S.game.over ? S.game.wave : null), true);
+  } else for (const id of ["music", "sfx"]) $(id).hidden = true;
   addEventListener("resize", () => draw());
   if (window.OracleFs) window.OracleFs.offer({ label: "🚀 New game", title: "A new game, from the first wave", cast: newGame });
   const W = window.HazelAutoplay ? window.HazelAutoplay.make({
@@ -178,7 +199,8 @@
     },
   }) : null;
   // (0.0.53) ⏸ the pause (shared/pause.js): its button and the space bar; no step runs while paused
-  const P = window.HazelPause ? window.HazelPause.make({ into: $("new").parentElement, over: $("field").parentElement }) : null;
+  const P = window.HazelPause ? window.HazelPause.make({ into: $("new").parentElement, over: $("field").parentElement,
+    onChange: paused => { if (!SND) return; if (paused) SND.stop(); else if (S.game && !S.game.over) SND.tune(S.game.wave); } }) : null;   // (the music stops while paused)
 
   // ---- the rules: compiled ahead of time when compiled.js is here, else (and once they are edited) built by hazeljs
   function drawStatus() {
