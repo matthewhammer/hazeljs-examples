@@ -262,6 +262,27 @@ ADAPTERS = {
   const layout = l => array(P.layout(l)).map(int);
   const robot = g => { const c = P.robot(gameIn(g)); return { target: int(c.target), launch: c.launch }; };
   const api = { start, step, layout, robot, made };"""),
+  "snake": ("SnakeCompiled", """
+  // (ticket 825) Game = (body = [Int], dir, grow, food, seed = Int, wrap = Bool, score = Int, over = Bool, hit, t = Int)
+  const GAME = ["body", "dir", "grow", "food", "seed", "wrap", "score", "over", "hit", "t"];
+  const gameIn = g => $R.tup(GAME.map(k => k === "body" ? list(g.body) : g[k]), GAME);
+  const gameOut = r => Object.fromEntries(GAME.map(k => [k, k === "body" ? array(r.body).map(int) : k === "wrap" || k === "over" ? r[k] : int(r[k])]));
+  // start : (Int, Bool) -> Game (a seed, whether the walls wrap); step : (Game, Int) -> Game (a way to turn, or -1); robot : Game -> Int
+  const start = (seed, wrap) => gameOut(P.start([seed, wrap]));
+  const step = (g, want) => gameOut(P.step([gameIn(g), want]));
+  const robot = g => int(P.robot(gameIn(g)));
+  const api = { start, step, robot, made };"""),
+  "trails": ("TrailsCompiled", """
+  // (ticket 826) Round = (ax, ay, ad, bx, by, bd = Int, lit = [Int], over = Bool, winner, t = Int)
+  const ROUND = ["ax", "ay", "ad", "bx", "by", "bd", "lit", "over", "winner", "t"];
+  const roundIn = g => $R.tup(ROUND.map(k => k === "lit" ? list(g.lit) : g[k]), ROUND);
+  const roundOut = r => Object.fromEntries(ROUND.map(k => [k, k === "lit" ? array(r.lit).map(int) : k === "over" ? r[k] : int(r[k])]));
+  // start : Int -> Round; step : (Round, Int, Int) -> Round (the ways each rider asks to turn, or -1); robot : (Round, Int, Int) -> Int
+  // (the rider, 1 or 2, and how far it looks)
+  const start = seed => roundOut(P.start(seed));
+  const step = (g, a, b) => roundOut(P.step([roundIn(g), a, b]));
+  const robot = (g, who, care) => int(P.robot([roundIn(g), who, care]));
+  const api = { start, step, robot, made };"""),
 }
 GLOBAL, ADAPT = ADAPTERS[a.app]
 TITLE = {"i-ching": "the I Ching", "tarot": "the Tarot", "astrology": "astrology", "checkers": "Checkers", "go": "Go", "minesweeper": "Minesweeper", "mahjong": "Mahjong", "solitaire": "Solitaire", "pinball": "Pinball", "mahjong-solitaire": "Mahjong solitaire", "downhill": "Downhill", "bricks": "Bricks", "snake": "Snake", "trails": "Light trails"}[a.app]

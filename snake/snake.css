@@ -1,0 +1,21 @@
+/* hazeljs-examples, Snake (0.0.51): the board, a square canvas; the points above it; a cross of four big buttons under it */
+.sn-check, .sn-speed { display: inline-flex; align-items: center; gap: 6px; }
+.sn-bar { display: flex; gap: 14px; flex-wrap: wrap; align-items: baseline; font-variant-numeric: tabular-nums; margin: 6px 0; }
+.sn-bar #points { font-size: 1.5em; font-weight: 700; }
+.sn-wrap { display: flex; justify-content: center; }
+.sn-wrap canvas { width: min(100%, 560px, calc(100vh - 260px)); height: auto; aspect-ratio: 1; border-radius: 14px; touch-action: none; box-shadow: 0 2px 12px rgb(0 0 0 / 0.25); background: #14532d; }
+.sn-wrap canvas, .sn-pad button { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+.sn-pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; max-width: 300px; margin: 10px auto 0; }
+.sn-pad button { font: inherit; font-size: 1.5em; padding: 10px 0; border-radius: 12px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); touch-action: none; user-select: none; }
+.sn-pad button.held { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 20%, var(--paper)); }
+/* full screen, two columns: the controls at the left, the board as large as the window, its buttons under it */
+html.oracle-fs .sn-ui { grid-template-columns: minmax(200px, 0.55fr) minmax(0, 3fr); grid-template-rows: auto minmax(0, 1fr) auto; }
+html.oracle-fs .sn-ui > .sn-bar { grid-column: 2; grid-row: 1; justify-self: center; margin: 0 0 6px; }
+html.oracle-fs .sn-ui > .sn-wrap { grid-column: 2; grid-row: 2; align-self: stretch; min-height: 0; container-type: size; align-items: center; }
+html.oracle-fs .sn-ui .sn-wrap canvas { width: min(100cqw, 100cqh); height: auto; max-width: none; }
+html.oracle-fs .sn-ui > .sn-pad { grid-column: 2; grid-row: 3; }
+html.oracle-fs .sn-ui > .fs-cast { grid-row: 1 / -1; }
+@media (max-width: 900px) {
+  html.oracle-fs .sn-ui > .sn-wrap { container-type: normal; }
+  html.oracle-fs .sn-ui .sn-wrap canvas { width: min(100%, calc(100vh - 260px)); }
+}

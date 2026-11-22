@@ -2,6 +2,11 @@
 
 Each version lists what the apps do as of that version. The newest version is first.
 
+## 0.0.51 (2026-11-22)
+
+- **Snake, its rules in Hazel** (ticket 825; Matthew: "let's do more classic games with simple physics and rules: break out, snake, tron"). Steer to the apple: the arrow keys or W A S D, a swipe on the board, or four big buttons (a quick double turn is kept). A meal is 10 points and three cells longer; a wall or the snake's own body ends the game, unless the walls wrap round. Three speeds. Every step is Hazel's (Snake.step), the next meal on a free cell by chance. 🤖 Hazel plays for you: Hazel's robot (Snake.robot) heads for the food, but only where a flood from the next cell finds room for the whole snake; it grew a snake to 72 cells without a crash. Compiled ahead of time by hazel-jit: a step in 0.004 ms, the robot's choice in 0.11 (483 interpreted); compiled and interpreted agree on 72 answers.
+- **Bricks: full screen gathers its controls** into the left column, as the other games do (0.0.50 left Bricks out of the full-screen script's list).
+
 ## 0.0.50 (2026-11-22)
 
 - **Bricks: a paddle, a ball and a wall of bricks, its physics in Hazel** (ticket 824; Matthew: "let's do more classic games with simple physics and rules: break out, snake, tron"). Six levels, their bricks as Hazel data (rows, a pyramid, a checkerboard, a diamond between posts, a shelf of posts, a frame with a stair); a darker brick takes two hits, a grey post never breaks. Every step is Hazel's (Bricks.step): the paddle moved toward where you point, then the ball in four small steps off the walls, the paddle (its angle off it set by where it hits, up to 60 degrees) and the bricks; a ball lost, a level cleared (100 points). A finger or the mouse along the field moves the paddle, a tap sends the ball off; or ⬅️ ➡️ and the space bar; a wide paddle for a new player. 🤖 Hazel plays for you: Hazel's robot (Bricks.robot) works out where the ball will come down, off the walls, and sets the paddle to send it toward the column with the most bricks left; it cleared the first level without losing a ball. Compiled ahead of time by hazel-jit: a step in 0.004 ms; compiled and interpreted agree on 118 answers.

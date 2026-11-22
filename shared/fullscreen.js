@@ -42,7 +42,11 @@
     // (0.0.39) Mahjong solitaire: the stacks as large as the window allows
     "ms-ui": [".controls", "#status", "#info"],
     // (0.0.49) Downhill: the slope as tall as the window, its numbers above it and its buttons under it
-    "dh-ui": [".controls", "#status", "#info"] };
+    "dh-ui": [".controls", "#status", "#info"],
+    // (0.0.51) Snake and Light trails: the board as large as the window, the buttons under it
+    "sn-ui": [".controls", "#status", "#info"], "tr-ui": [".controls", "#status", "#info"],
+    // (0.0.51) Bricks, left out of 0.0.50: the field as tall as the window, its buttons under it
+    "bk-ui": [".controls", "#status", "#info"] };
   const partsOf = Object.entries(LEFT_PARTS).find(([c]) => ui.classList.contains(c));
   const left = document.createElement("div");
   left.className = "fs-left";
