@@ -28,14 +28,30 @@
   const last = m => m.path.length ? m.path[m.path.length - 1] : m.from;
 
   // ---- the state: Hazel's program, how far it looks, the game (a Hazel value), the moves to undo, the piece chosen
-  const S = { built: null, libAt: 0, libFailed: false, depth: kept("depth", 3), game: null, undo: [], legal: [], sel: -1, busy: false, note: "", thinkMs: 0, compiledError: "", auto: false, touched: false, looping: false };
-  if (![1, 2, 3, 4].concat(COMPILED ? [5, 6] : []).includes(S.depth)) S.depth = 3;
-  // (0.0.34) compiled, Hazel looks further: 5 ahead in about 13 ms and 6 in about 50 (node/compare-compiled.mjs), where
-  // hazeljs took 11 s for 4; interpreted, 5 and 6 fall back to 4
-  if (COMPILED && $("depth")) {
-    const four = $("depth").querySelector('option[value="4"]'); if (four) four.textContent = "4 moves ahead";
-    for (const d of [5, 6]) { const o = document.createElement("option"); o.value = String(d); o.textContent = `${d} moves ahead (compiled)`; $("depth").append(o); }
-  }
+  // ---- (0.0.46; Matthew, 2026-11-22, N, five and new to checkers, playing Hazel: "I'd like to have a slider for the opponent's
+  // skill level, with a low setting being an opponent that offers a chance to take their chips more often (it "makes mistakes"
+  // like a new player might)") How well Hazel plays: how far it looks ahead, and how often it slips: a move after which you can
+  // take one of its pieces, picked from its own moves, each tried by its own rules (after it, can you jump?), when there is one.
+  // (a player moving at random won, of 40 games against each, the first four: 36, 30, 14 and 2; looking 3 ahead, none: a node
+  // run of the compiled rules, 2026-11-22)
+  const SKILLS = [
+    { depth: 1, slip: 0.6, name: "🐣 a beginner", say: "🐣 a beginner: often leaves you a piece to take" },
+    { depth: 1, slip: 0.3, name: "🐥 learning", say: "🐥 learning: sometimes leaves you a piece to take" },
+    { depth: 2, slip: 0.3, name: "🙂 getting better", say: "🙂 getting better: looks 2 ahead, sometimes leaves you a piece" },
+    { depth: 2, slip: 0.12, name: "😊 careful", say: "😊 careful: looks 2 ahead, now and then leaves you a piece" },
+    { depth: 3, slip: 0, name: "looking 3 ahead", say: "🤔 looks 3 moves ahead" },
+    { depth: 4, slip: 0, name: "looking 4 ahead", say: "🧠 looks 4 moves ahead" },
+    { depth: 5, slip: 0, name: "looking 5 ahead", say: "🧠 looks 5 moves ahead" },
+    { depth: 6, slip: 0, name: "looking 6 ahead", say: "🏆 looks 6 moves ahead" },
+  ];
+  // (compiled, Hazel looks up to 6 ahead, 5 in about 13 ms and 6 in about 50; interpreted, hazeljs took 11 s for 4: up to 4)
+  const MAX_SKILL = COMPILED ? 8 : 6;
+  // (before 0.0.46 the page kept how far Hazel looked: 3, the first default, is the 5th skill)
+  const oldDepth = kept("depth", 3);
+  const S = { built: null, libAt: 0, libFailed: false, skill: kept("skill", oldDepth >= 3 ? oldDepth + 2 : 4), game: null, undo: [], legal: [], sel: -1, busy: false, note: "", thinkMs: 0, compiledError: "", auto: false, touched: false, looping: false };
+  if (!(S.skill >= 1 && S.skill <= MAX_SKILL)) S.skill = 5;
+  const SK = () => SKILLS[S.skill - 1];
+  $("skill").max = String(MAX_SKILL);
   const saved = kept("game", null);
   if (saved && saved.game && typeof saved.game.black === "number") Object.assign(S, { game: saved.game, undo: saved.undo || [], touched: !!saved.touched });
   const stats = kept("stats", {});
@@ -52,7 +68,7 @@
   const U = 60;
   function draw() {
     const g = S.game;
-    $("depth").value = String(S.depth);
+    $("skill").value = String(S.skill); $("skill-say").textContent = SK().say;
     if (!g) { board.replaceChildren(); bar(); info(); able(); return; }
     const jumpers = new Set(S.legal.filter(m => m.took.length).map(m => m.from));
     const targets = S.sel >= 0 ? new Set(S.legal.filter(m => m.from === S.sel).map(last)) : new Set();
@@ -66,8 +82,9 @@
       parts.push(`<rect x="${x}" y="${y}" width="${U}" height="${U}" fill="${lastMove.has(s) ? "#9a6a3a" : "#7a4a2a"}"/>`);
       const b = has(g.black, s), w = has(g.white, s);
       if (b || w) {
-        parts.push(`<circle cx="${cx}" cy="${cy + 3}" r="${U * 0.4}" fill="#000" opacity="0.35"/><circle cx="${cx}" cy="${cy}" r="${U * 0.4}" fill="url(#${b ? "pb" : "pw"})" stroke="${b ? "#000" : "#8c7a5c"}" stroke-width="1.5"/><circle cx="${cx}" cy="${cy}" r="${U * 0.26}" fill="none" stroke="${b ? "#4a4f58" : "#c9b48e"}" stroke-width="2.5"/>`);
+        parts.push(`<g class="pc" data-at="${s}"><circle cx="${cx}" cy="${cy + 3}" r="${U * 0.4}" fill="#000" opacity="0.35"/><circle cx="${cx}" cy="${cy}" r="${U * 0.4}" fill="url(#${b ? "pb" : "pw"})" stroke="${b ? "#000" : "#8c7a5c"}" stroke-width="1.5"/><circle cx="${cx}" cy="${cy}" r="${U * 0.26}" fill="none" stroke="${b ? "#4a4f58" : "#c9b48e"}" stroke-width="2.5"/>`);
         if (has(g.kings, s)) parts.push(`<path d="M${cx - 12} ${cy + 7} L${cx - 14} ${cy - 7} L${cx - 6} ${cy - 1} L${cx} ${cy - 10} L${cx + 6} ${cy - 1} L${cx + 14} ${cy - 7} L${cx + 12} ${cy + 7} Z" fill="#f2c14e" stroke="#7a5a10" stroke-width="1.8"/>`);
+        parts.push(`</g>`);   // (0.0.46: each piece a group of its own, to carry it, or fade it when taken: animateMove)
         if (s === S.sel) parts.push(`<circle cx="${cx}" cy="${cy}" r="${U * 0.46}" fill="none" stroke="#fbbf24" stroke-width="4"/>`);
         else if (b && jumpers.has(s)) parts.push(`<circle cx="${cx}" cy="${cy}" r="${U * 0.46}" fill="none" stroke="#fbbf24" stroke-width="2" stroke-dasharray="5 4"/>`);
       }
@@ -88,11 +105,11 @@
     $("hazel").textContent = "⚪ Hazel" + (tookW ? ` · took ${tookW}` : "");
     $("you").classList.toggle("now", mine() || (S.auto && !!g && !g.over && g.turn === 1));
     $("hazel").classList.toggle("now", !!g && !g.over && (g.turn === 2 || (S.busy && !S.auto)));
-    $("turn").textContent = !g ? "" : g.over ? "Game over" : S.auto ? (g.turn === 1 ? "⚫ Hazel's move, for you" : "⚪ Hazel's move") : S.busy ? "🤔 Hazel is thinking…" : g.turn === 1 ? (S.legal.some(m => m.took.length) ? "Your move: you must jump" : "Your move") : "Hazel's move"; $("turn").title = $("turn").textContent;
+    $("turn").textContent = !g ? "" : g.over ? "Game over" : S.auto ? (g.turn === 1 ? "⚫ Hazel's move, for you" : "⚪ Hazel's move") : S.moving ? "⚪ Hazel moves…" : S.busy ? "🤔 Hazel is thinking…" : g.turn === 1 ? (S.legal.some(m => m.took.length) ? "Your move: you must jump" : "Your move") : "Hazel's move"; $("turn").title = $("turn").textContent;
   }
   function info() {
-    const st = stats[S.depth] || { played: 0, won: 0 };
-    const tally = `against Hazel looking ${S.depth} ahead: you won ${st.won} of ${st.played} on this device`;
+    const st = stats["skill" + S.skill] || { played: 0, won: 0 };
+    const tally = `against Hazel, ${SK().name}: you won ${st.won} of ${st.played} on this device`;
     let line = S.note;
     const g = S.game;
     if (g && g.over) line = S.touched ? outcome(g) + (g.winner ? ": the other side has no move left." : ": 80 moves with no piece taken and no man moving.")
@@ -126,14 +143,63 @@
     refresh(); save(); draw();
     reply();
   }
+  // Hazel's move at the skill chosen: its own choice, looking as far ahead as the skill says; or, as often as the skill slips,
+  // one of its moves after which you can take a piece, when one has that
+  function hazelMove(g) {
+    const h = H(), sk = SK();
+    if (sk.slip && Math.random() < sk.slip) {
+      let all = []; try { all = h.moves(g) || []; } catch (e) { all = []; }
+      const gifts = all.filter(m => { try { const g2 = h.apply(g, m); return !!g2 && !g2.over && (h.moves(g2) || []).some(n => n.took.length); } catch (e) { return false; } });
+      if (gifts.length) return gifts[Math.floor(Math.random() * gifts.length)];
+    }
+    const rs = Array.from({ length: 48 }, () => Math.floor(Math.random() * 1000));
+    return h.choose(g, S.built.compiled ? sk.depth : Math.min(sk.depth, 4), rs);
+  }
+  // ---- (0.0.46; Matthew, 2026-11-22: "N wants a new feature -- animated AI gameplay, so that he can see what's happening as a
+  // 1 second or so animation, rather than an instant change that's harder to notice and understand") Hazel's move shown: its
+  // piece lifted, carried square by square along its way (a jump hops, and the piece it jumps fades as it goes over), and set
+  // down; about a second for a step, half a second more for each further jump. speed: 1, or quicker for Hazel playing for you.
+  const frame = () => new Promise(r => { let done = false; const go = () => { if (!done) { done = true; r(); } }; requestAnimationFrame(go); setTimeout(go, 50); });
+  const sqAt = (r, c) => 4 * r + (c - (r % 2 === 0 ? 1 : 0)) / 2;
+  const centre = s => { const [r, c] = rc(s); return [c * U + U / 2, r * U + U / 2]; };
+  async function animateMove(m, speed = 1) {
+    const svg = board.querySelector("svg"), pc = svg && m && m.from >= 0 ? svg.querySelector(`.pc[data-at="${m.from}"]`) : null;
+    if (!pc || document.hidden) return;
+    S.moving = true; bar();
+    svg.append(pc);   // (over every other piece and square)
+    const way = [m.from, ...m.path].map(centre), [x0, y0] = way[0];
+    const over = [];   // (each hop's piece jumped, if it is a jump)
+    for (let i = 1; i < way.length; i++) {
+      const [ra, ca] = rc([m.from, ...m.path][i - 1]), [rb, cb] = rc([m.from, ...m.path][i]);
+      over.push(Math.abs(rb - ra) === 2 ? svg.querySelector(`.pc[data-at="${sqAt((ra + rb) / 2, (ca + cb) / 2)}"]`) : null);
+    }
+    const LIFT = 180 / speed, HOP = (way.length > 2 ? 520 : 640) / speed, hops = way.length - 1, total = 2 * LIFT + hops * HOP;
+    const ease = u => u < 0.5 ? 2 * u * u : 1 - 2 * (1 - u) * (1 - u);
+    const put = (x, y, k, up) => pc.setAttribute("transform", `translate(${(x - x0).toFixed(1)} ${(y - y0 - up).toFixed(1)}) translate(${x0} ${y0}) scale(${k.toFixed(3)}) translate(${-x0} ${-y0})`);
+    const t0 = performance.now();
+    for (;;) {
+      await frame();
+      const t = performance.now() - t0;
+      if (t >= total) break;
+      if (t < LIFT) { const u = t / LIFT; put(x0, y0, 1 + 0.15 * u, 6 * u); continue; }
+      if (t >= LIFT + hops * HOP) { const u = (t - LIFT - hops * HOP) / LIFT, [x, y] = way[hops]; put(x, y, 1.15 - 0.15 * u, 6 * (1 - u)); continue; }
+      const i = Math.min(hops - 1, Math.floor((t - LIFT) / HOP)), u = ease((t - LIFT - i * HOP) / HOP);
+      const [xa, ya] = way[i], [xb, yb] = way[i + 1];
+      put(xa + (xb - xa) * u, ya + (yb - ya) * u, 1.15, 6 + (over[i] ? 18 : 4) * Math.sin(Math.PI * u));
+      for (let j = 0; j < i; j++) if (over[j]) over[j].setAttribute("opacity", "0");
+      if (over[i]) over[i].setAttribute("opacity", String(Math.max(0, 1 - Math.max(0, u - 0.4) / 0.5).toFixed(2)));
+    }
+    S.moving = false;
+  }
   async function reply() {
     const h = H(); let g = S.game; if (!h || !g || g.over || g.turn !== 2 || S.busy) return;
     S.busy = true; refresh(); draw(); await painted();
-    const rs = Array.from({ length: 48 }, () => Math.floor(Math.random() * 1000));
     const t = performance.now(); let m = null;
-    try { m = h.choose(g, S.built.compiled ? S.depth : Math.min(S.depth, 4), rs); } catch (e) { m = null; }
+    try { m = hazelMove(g); } catch (e) { m = null; }
     S.thinkMs = performance.now() - t;
-    if (m && m.from >= 0) { try { g = h.apply(g, m); } catch (e) { /* the game as it was */ } }
+    // (a moment of thinking shown, then the move, so a new player sees which piece goes, and where)
+    await new Promise(r => setTimeout(r, Math.max(0, 350 - S.thinkMs)));
+    if (m && m.from >= 0) { await animateMove(m); try { g = h.apply(g, m); } catch (e) { /* the game as it was */ } }
     S.busy = false; S.game = g;
     if (m && m.took && m.took.length > 1) S.note = `Hazel took ${m.took.length} in one move.`;
     if (g.over) finish();
@@ -142,9 +208,9 @@
   }
   function finish() {
     if (S.touched) { W.end(outcome(S.game)); return; }
-    const st = stats[S.depth] || { played: 0, won: 0 }; st.played++;
+    const st = stats["skill" + S.skill] || { played: 0, won: 0 }; st.played++;
     if (S.game.winner === 1) st.won++;
-    stats[S.depth] = st; keep("stats", stats);
+    stats["skill" + S.skill] = st; keep("stats", stats);
   }
   function newGame() {
     const h = H(); if (!h || S.busy) return;
@@ -163,10 +229,10 @@
     try {
       while (S.auto && S.game && !S.game.over && H()) {
         const h = H(), g = S.game, side = g.turn;
-        const rs = Array.from({ length: 48 }, () => Math.floor(Math.random() * 1000));
         const t = performance.now(); let m = null, g2 = null;
-        try { m = h.choose(g, S.built.compiled ? S.depth : Math.min(S.depth, 4), rs); if (m && m.from >= 0) g2 = h.apply(g, m); } catch (e) { g2 = null; }
+        try { m = hazelMove(g); if (m && m.from >= 0) g2 = h.apply(g, m); } catch (e) { g2 = null; }
         const ms = performance.now() - t;
+        if (g2 && W.pace >= 450) await animateMove(m, W.pace >= 900 ? 1 : 1.6);
         if (!g2) { S.note = "Hazel found no move here."; break; }
         W.think(side === 1 ? 0 : 1, ms); S.thinkMs = ms;
         S.undo.push(g); S.game = g2; S.touched = true;
@@ -196,7 +262,7 @@
   board.addEventListener("click", e => { const t = e.target.closest("[data-s]"); if (t) tap(+t.dataset.s); });
   $("new").addEventListener("click", newGame);
   $("undo").addEventListener("click", undo);
-  $("depth").addEventListener("change", () => { S.depth = +$("depth").value; keep("depth", S.depth); info(); });
+  $("skill").addEventListener("input", () => { S.skill = +$("skill").value; keep("skill", S.skill); $("skill-say").textContent = SK().say; info(); });
   if (window.OracleFs) window.OracleFs.offer({ label: "⚫ New game", title: "A new game", cast: newGame });
 
   // ---- Hazel: its library, the program built from the listings, and the status line

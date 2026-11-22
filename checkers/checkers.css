@@ -17,3 +17,18 @@ html.oracle-fs .ck-ui { grid-template-columns: minmax(200px, 0.55fr) minmax(0, 3
 html.oracle-fs .ck-ui > .ck-bar { grid-column: 2; grid-row: 1; justify-self: center; width: min(100%, calc(100vh - 110px)); margin: 0 0 8px; }   /* (as wide as the board) */
 html.oracle-fs .ck-ui > .ck-wrap { grid-column: 2; grid-row: 2; justify-self: center; align-self: start; width: min(100%, calc(100vh - 110px)); max-width: none; }
 html.oracle-fs .ck-ui > .fs-cast { grid-row: 1 / -1; }
+/* (0.0.46) Hazel's skill, a slider: a beginner who slips at the left, looking 6 ahead at the right; what it means beside it */
+.skill-pick { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.skill-pick input[type="range"] { width: 150px; accent-color: #f59e0b; }
+.skill-say { font-size: 0.92em; }
+/* (0.0.46; Matthew, 2026-11-22: "let's update checkers so that even the one column view offers fullscreen button") the button in
+   one column too; and full screen there, the board first, as large as the window lets it be, the controls under it */
+@media (max-width: 900px) {
+  html:not(.oracle-fs) .ck-ui .fs-bar { display: flex; }
+  html.oracle-fs .ck-ui { display: flex; flex-direction: column; align-items: center; overflow-y: auto; }
+  html.oracle-fs .ck-ui > .fs-bar { order: 0; align-self: flex-end; }
+  html.oracle-fs .ck-ui > .ck-bar { order: 1; width: min(100%, calc(100vh - 110px)); max-width: none; }
+  html.oracle-fs .ck-ui > .ck-wrap { order: 2; width: min(100%, calc(100vh - 110px)); max-width: none; flex: none; }
+  html.oracle-fs .ck-ui > .fs-cast { order: 3; }
+  html.oracle-fs .ck-ui > .fs-left { order: 4; width: min(100%, 560px); }
+}
