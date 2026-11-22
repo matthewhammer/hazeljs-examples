@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Light trails, against Hazel</title>
+<meta name="description" content="Light trails: you and Hazel each ride a light that leaves a wall behind it; the first to hit a wall or a trail loses the round. The rules and Hazel's rider are a Hazel program, compiled ahead of time to JavaScript by hazel-jit.">
+<link rel="stylesheet" href="../shared/style.css?v=0.0.14">
+<link rel="stylesheet" href="../shared/oracles.css?v=0.0.57">
+<link rel="stylesheet" href="trails.css?v=0.0.49">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="icon" href="icons/icon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="theme-color" content="#0b1020">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Trails">
+</head>
+<body><main class="oracle">
+<div class="app-head">
+<h1>Light trails, against Hazel</h1>
+<span class="app-links"><a href="../">Hazel activities</a> › <a href="../#opponents">Hazel AI opponents</a> · <a href="https://github.com/matthewhammer/hazeljs-examples">source on GitHub</a> · <a href="https://www.npmjs.com/package/hazeljs">hazeljs on npm</a></span>
+</div>
+<p class="sub">You ride the blue light, Hazel the orange one; each leaves a wall of light behind it. Turn with the arrow keys (or W A S D), a swipe, or the four buttons: the first to run into the edge or a trail loses the round, and both at once is a draw. First to three rounds wins. Each step of a round, and Hazel's rider (and yours, when 🤖 Hazel plays for you), are Hazel (<code>trails/rules/Trails.hz</code>). ⏸ or the space bar pauses.</p>
+
+<div class="oracle-grid">
+<section class="oracle-ui tr-ui" aria-label="The run">
+  <div class="controls">
+    <button type="button" id="new" class="primary">New game</button>
+    <label class="tr-speed">Speed <select id="speed"><option value="5">🐢 slow</option><option value="8">🐇 middling</option><option value="12">⚡ fast</option></select></label>
+    <label class="tr-speed" title="How far ahead Hazel's rider looks for room">Hazel <select id="skill"><option value="6:12">🐣 a beginner</option><option value="30:2">🙂 careful</option><option value="150:0">🏆 wise</option></select></label>
+  </div>
+  <div class="status wait" id="status">⏳ Loading the rules…</div>
+  <div class="tr-bar"><span class="tr-you" id="you">🔵 You 0</span><span id="round" class="muted"></span><span class="tr-hz" id="hazel">🟠 Hazel 0</span></div>
+  <div class="tr-wrap"><canvas id="arena" width="800" height="600" aria-label="The arena"></canvas></div>
+  <div class="tr-pad"><span></span><button type="button" data-dir="0" aria-label="Up" title="Up (↑ or W)">⬆️</button><span></span><button type="button" data-dir="3" aria-label="Left" title="Left (← or A)">⬅️</button><button type="button" data-dir="2" aria-label="Down" title="Down (↓ or S)">⬇️</button><button type="button" data-dir="1" aria-label="Right" title="Right (→ or D)">➡️</button></div>
+  <p class="sol-info" id="info"></p>
+  <p class="nojs muted">This app needs JavaScript, and a page served over http (python3 -m http.server, then localhost).</p>
+</section>
+<section class="oracle-code" aria-label="The rules, in Hazel">
+  <p class="muted" style="margin-top:0">The vocabulary the module sees (<code>trails/rules/preamble.hz</code>). The listings are text, highlighted, until <b>Edit in Hazel</b> opens each in Hazel's own editor; an edit changes the next step.</p>
+  <pre class="code hazel" data-program="trails">loading preamble.hz…</pre>
+  <div class="ed"><div class="ed-head"><b>Trails</b> <span class="muted">one step of a round (both riders moved, their turns, the crashes), and the robot that rides: the way with the most room ahead</span></div>
+  <pre class="code hazel" data-program="trails" data-module="Trails">loading Trails.hz…</pre></div>
+  <p><button type="button" id="reset-rules">Put the program back as it was</button></p>
+</section>
+</div>
+
+<div id="advanced" class="advanced-holder"></div>
+<p class="app-foot" id="app-foot">hazeljs-examples · <a href="../VERSIONS.md">versions</a> · Apache 2.0 (code), CC BY 4.0 (words, the icon) · by Matthew Hammer · an example for <a href="https://github.com/hazelgrove/hazeljs">hazeljs</a></p>
+</main>
+<script src="../shared/divider.js?v=0.0.8"></script>
+<script src="../shared/fullscreen.js?v=0.0.57"></script>
+<script src="../shared/offline.js?v=0.0.27"></script>
+<script src="../shared/advanced.js?v=0.0.45"></script>
+<script src="../shared/autoplay.js?v=0.0.54"></script>
+<script src="../shared/pause.js?v=0.0.53"></script>
+<script src="app.js?v=0.0.54"></script>
+</body>
+</html>
