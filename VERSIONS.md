@@ -2,6 +2,10 @@
 
 Each version lists what the apps do as of that version. The newest version is first.
 
+## 0.0.66 (2026-11-22)
+
+- **Gnome dig: the trees grown as Messed Up Dress Up grows its trees** (Matthew: "for the trees, use the 'pads' SVG routine from messed up dress up", "'leaf pads and branches' I should say"). Dress Up's routines (its leafyTree, pineTree, taper and leaf pads, by Matthew Hammer and family, Apache 2.0) ported to the game's canvas: an oak or a birch is a trunk flaring at the roots, curved tapering limbs forking up and out, and leaf pads, low scalloped clouds shaded beneath and lit on top, clustered at the tips of the limbs, darker behind and lighter in front; a pine is a trunk and tiers of drooping boughs, ragged at their tips. Each tree grows from its own number in Hazel's scene, so no two are alike; the birches white with dark marks and lighter leaves.
+
 ## 0.0.65 (2026-11-22)
 
 - **Gnome dig: the roots as deep as the ground goes** (Matthew: "the roots should go as deep as the screen"). In 0.0.64 they reached about halfway down: each segment's taper, taken in whole numbers, took off a whole unit of width (17, 16, 15 ...), so a root stopped after fifteen segments or so whatever its share said. Now the roots grow in hundredths of the scene's units, so the taper is as gentle as it should be, and each tree's taproot is a kind of its own, drawn downward two times in three, sixty segments long; its side roots, and theirs, fill the deep ground too. Every level's roots now reach the bottom row, 2300 to 5500 of them, thickest near the trees. The thumbnail's roots to match.

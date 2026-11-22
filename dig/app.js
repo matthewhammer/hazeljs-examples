@@ -137,28 +137,89 @@
     for (let x = 4; x < 1400; x += 9) { const hh = 6 + hsh(x, 3) * 9; c.moveTo(X(x), base); c.lineTo(X(x + (hsh(x, 4) - 0.5) * 6), base - PX(u, hh)); }
     c.stroke();
   }
+  // ---- (0.0.66; Matthew: "for the trees, use the 'pads' SVG routine from messed up dress up", "'leaf pads and branches' I
+  // should say") the trees as Messed Up Dress Up grows them (dress-up/js/10-nature.js leafyTree, pineTree, taperSvg;
+  // 09-backgrounds.js padInner; by Matthew Hammer and family, Apache 2.0), drawn here on the canvas: a trunk flaring at the
+  // roots, curved tapering limbs forking up and out, leaf pads (low scalloped clouds, shaded beneath, lit on top) clustered at
+  // their tips, darker behind and lighter in front; a pine's tiers of drooping boughs. In Dress Up's units: the foot at 0, 0, a
+  // leafy tree about 330 tall, a pine 200
+  const seededR = seed => i => { const v = Math.sin(seed * 71.3 + i * 13.7) * 43758.5453; return v - Math.floor(v); };
+  const poly = (c, pts, fill) => { c.fillStyle = fill; c.beginPath(); pts.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y)); c.closePath(); c.fill(); };
+  const mixHex = (h, to, t) => { const a = [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)), b = [1, 3, 5].map(i => parseInt(to.slice(i, i + 2), 16));
+    return "#" + a.map((v, i) => Math.round(v + (b[i] - v) * t).toString(16).padStart(2, "0")).join(""); };
+  // a curved, tapering limb: from p0 by way of p1 to p2, w0 wide to w1
+  function taper(c, p0, p1, p2, w0, w1, fill) {
+    const L = [], R = [];
+    for (let i = 0; i <= 8; i++) {
+      const u = i / 8, x = (1 - u) * (1 - u) * p0[0] + 2 * u * (1 - u) * p1[0] + u * u * p2[0], y = (1 - u) * (1 - u) * p0[1] + 2 * u * (1 - u) * p1[1] + u * u * p2[1];
+      const dx = 2 * (1 - u) * (p1[0] - p0[0]) + 2 * u * (p2[0] - p1[0]), dy = 2 * (1 - u) * (p1[1] - p0[1]) + 2 * u * (p2[1] - p1[1]), d = Math.hypot(dx, dy) || 1, w = (w0 + (w1 - w0) * u) / 2;
+      L.push([x - dy / d * w, y + dx / d * w]); R.push([x + dy / d * w, y - dx / d * w]);
+    }
+    poly(c, [...L, ...R.reverse()], fill);
+  }
+  // a leaf pad's shape j (of 8): a scalloped top over a flat bottom; its shade beneath and its lit top
+  const PADS = [...Array(8)].map((_, j) => {
+    const r = v => { const z = Math.sin(j * 57.1 + v * 13.9) * 43758.5453; return z - Math.floor(z); };
+    const w = 170 + 70 * r(1), h = 34 + 22 * r(2), bumps = 3 + j % 5, amp = 7 + 7 * r(3), lean = (r(4) - 0.5) * 0.6, top = [], bottom = [];
+    for (let i = 0; i <= 40; i++) { const u = i / 40, x = (u - 0.5) * w, env = Math.pow(Math.sin(Math.PI * Math.pow(u, 1 + lean)), 0.7); top.push([x, -h * env - amp * Math.abs(Math.sin(Math.PI * bumps * u)) * env]); }
+    for (let i = 12; i >= 0; i--) { const u = i / 12; bottom.push([(u - 0.5) * w, 5 * Math.sin(Math.PI * u)]); }
+    return { all: [...top, ...bottom], shade: [...top.map(([x, y]) => [x, y * 0.3]), ...bottom], lit: top.filter((_, i) => i > 4 && i < 30).map(([x, y]) => [x * 0.7 - w * 0.06, y * 0.85 - 4]) };
+  });
+  function pad(c, j, x, y, sx, sy, color) {
+    const P2 = PADS[((j % 8) + 8) % 8];
+    c.save(); c.translate(x, y); c.scale(sx, sy); poly(c, P2.all, color); poly(c, P2.shade, "rgba(0, 0, 0, 0.2)"); poly(c, P2.lit, "rgba(255, 255, 255, 0.13)"); c.restore();
+  }
+  // a broadleaf tree: a trunk flaring at the roots, limbs forking up and out, leaf pads clustered at their tips
+  function leafyTree(c, seed, o = {}) {
+    const r = seededR(seed), H2 = o.h ?? 320, wide = o.wide ?? 1, bark = o.bark ?? "#6b4a2b", dk = mixHex(bark, "#000000", 0.35);
+    const greens = o.greens ?? ["#285e2a", "#2f7d32", "#3a8a3c", "#47a047", "#58b050"];
+    const limbs = [], tips = [];
+    const grow = (x, y, a, len, w, lvl, id) => {
+      const bend = (r(id * 7 + 1) - 0.5) * 0.6, mx = x + Math.cos(a) * len * 0.5, my = y + Math.sin(a) * len * 0.5;
+      const ex = mx + Math.cos(a + bend) * len * 0.5, ey = my + Math.sin(a + bend) * len * 0.5;
+      limbs.push([[x, y], [mx, my], [ex, ey], w, w * 0.6]);
+      if (lvl === 0) { tips.push([ex, ey, len]); return; }
+      const n = 2 + (r(id * 7 + 2) > 0.45 ? 1 : 0);
+      for (let k = 0; k < n; k++) grow(ex, ey, a + bend + (k - (n - 1) / 2) * (0.55 + 0.3 * r(id * 7 + 3 + k)) * wide, len * (0.6 + 0.18 * r(id * 11 + k)), w * 0.6, lvl - 1, id * 3 + k + 1);
+    };
+    const lean = (r(1) - 0.5) * 0.18, top = [Math.sin(lean) * H2 * 0.45, -H2 * 0.44];
+    c.fillStyle = "rgba(0, 0, 0, 0.15)"; c.beginPath(); c.ellipse(0, 2, 70 * wide, 11, 0, 0, 7); c.fill();
+    for (const e of [-1, 1]) { c.fillStyle = bark; c.beginPath(); c.moveTo(e * 10, -24); c.quadraticCurveTo(e * 16, -4, e * (30 + 8 * r(2 + e)), 2); c.lineTo(e * 6, 2); c.closePath(); c.fill(); }
+    taper(c, [0, 2], [top[0] * 0.4, -H2 * 0.24], top, 30, 19, bark);
+    for (let k = 0; k < 3; k++) grow(top[0], top[1], -Math.PI / 2 + (k - 1) * 0.7 * wide + (r(10 + k) - 0.5) * 0.3, H2 * (0.25 + 0.06 * r(20 + k)), 16, 1, k + 2);
+    for (const [p0, p1, p2, w0, w1] of limbs) taper(c, p0, p1, p2, w0, w1, bark);
+    c.strokeStyle = dk; c.globalAlpha = 0.5; c.lineWidth = 3; c.beginPath(); c.moveTo(-4, -20); c.quadraticCurveTo(top[0] * 0.3 - 6, -H2 * 0.22, top[0] - 4, top[1] + 10); c.stroke(); c.globalAlpha = 1;
+    if (o.marks) { c.fillStyle = "#292524"; for (let i = 0; i < 7; i++) { const q = 0.08 + i * 0.12, x = top[0] * q * 0.9, y = -H2 * 0.44 * q - 6; c.fillRect(x - 8 + (i % 2) * 6, y, 9, 3); } }   // (a birch's dark marks)
+    const pads = [];
+    for (let i = 0; i < 4; i++) pads.push([top[0] + (r(30 + i) - 0.5) * 140 * wide, top[1] - 60 - 70 * r(34 + i), 0.55 + 0.2 * r(38 + i), 0]);
+    tips.forEach(([x, y], i) => { pads.push([x + (r(40 + i) - 0.5) * 30, y - 16, 0.42 + 0.16 * r(50 + i), 1]); pads.push([x + (r(60 + i) - 0.5) * 40, y + 8, 0.36 + 0.14 * r(70 + i), 2]); });
+    pads.sort((a, b) => a[3] - b[3] || a[1] - b[1]);
+    pads.forEach(([x, y, sc, layer], i) => { const j = Math.floor(r(80 + i) * 8), sx = sc * (r(90 + i) < 0.5 ? -1 : 1) * wide;
+      pad(c, j, x, y, sx, sc, greens[Math.min(greens.length - 1, layer + Math.floor(r(100 + i) * 3))]); });
+  }
+  // a pine: a trunk, then tiers of drooping boughs, ragged at their tips, darker underneath
+  function pineTree(c, seed, color, n = 5) {
+    const r = seededR(seed);
+    c.fillStyle = "#5e3d22"; c.fillRect(-6, -34, 12, 36);
+    for (let j = 0; j < n; j++) {
+      const u = j / n, y = -22 - u * 158, hw = 60 * (1 - u * 0.84), th = 62 - 22 * u, tip = y - th, right = [];
+      for (let q = 1; q <= 3; q++) { const v = q / 3, x = hw * v; right.push([x - hw / 6, y - 4 - 6 * r(j * 10 + q)], [x, y + 6 + 6 * r(j * 10 + q + 5) - 4 * v]); }
+      const pts = [[0, tip], ...right, ...[...right].reverse().map(([x, yy]) => [-x * (0.94 + 0.1 * r(j + 40)), yy + 2 * (r(j + 41) - 0.5)])];
+      c.lineJoin = "round"; c.strokeStyle = color; c.lineWidth = 3; poly(c, pts, color); c.stroke();
+      poly(c, [[-hw * 0.85, y + 2], [hw * 0.85, y + 2], [hw * 0.5, y - th * 0.3], [-hw * 0.5, y - th * 0.3]], "rgba(0, 0, 0, 0.16)");
+      poly(c, [[0, tip + 4], [-hw * 0.6, y - th * 0.15], [-hw * 0.18, y - th * 0.5]], "rgba(255, 255, 255, 0.1)");
+    }
+  }
   // a thing on top, its foot at x, base: trees, a bush, grass, a flower, a fern, mushrooms, the anthill
   function plant(c, x, base, u, t) {
     const k = t.size / 100, v = t.v, E = (cx, cy, rx, ry, col) => { c.fillStyle = col; c.beginPath(); c.ellipse(cx, cy, rx, ry, 0, 0, 7); c.fill(); };
-    if (t.kind === 0) {   // (an oak: a stout trunk, a broad round crown of leaves)
-      const H2 = u * 2.4 * k;
-      c.fillStyle = "#6b4423"; c.beginPath(); c.moveTo(x - u * 0.14 * k, base); c.lineTo(x - u * 0.09 * k, base - H2 * 0.55); c.lineTo(x + u * 0.09 * k, base - H2 * 0.55); c.lineTo(x + u * 0.14 * k, base); c.fill();
-      c.strokeStyle = "#6b4423"; c.lineWidth = u * 0.06 * k; c.beginPath(); c.moveTo(x, base - H2 * 0.45); c.lineTo(x - u * 0.35 * k, base - H2 * 0.7); c.moveTo(x, base - H2 * 0.5); c.lineTo(x + u * 0.3 * k, base - H2 * 0.72); c.stroke();
-      for (const [dx, dy, r, col] of [[-0.4, 0.7, 0.42, "#2f7d32"], [0.4, 0.68, 0.44, "#2f7d32"], [0, 0.82, 0.5, "#388e3c"], [-0.2, 0.95, 0.38, "#43a047"], [0.25, 0.92, 0.36, "#43a047"], [0, 0.62, 0.36, "#2e7031"]])
-        E(x + dx * u * k, base - dy * H2, r * u * k, r * u * k * 0.85, col);
-      c.fillStyle = "rgba(255, 255, 255, 0.12)"; for (let i = 0; i < 6; i++) { c.beginPath(); c.arc(x + (hsh(v, i) - 0.6) * u * 0.8 * k, base - H2 * (0.7 + hsh(i, v) * 0.25), u * 0.08 * k, 0, 7); c.fill(); }
-    } else if (t.kind === 1) {   // (a pine: a straight trunk, tiers of dark needles)
-      const H2 = u * 2.7 * k;
-      c.fillStyle = "#5b3a1e"; c.fillRect(x - u * 0.06 * k, base - H2 * 0.3, u * 0.12 * k, H2 * 0.3);
-      for (let i = 0; i < 4; i++) { const yb = base - H2 * (0.2 + i * 0.19), hw = u * (0.62 - i * 0.12) * k, ht = H2 * 0.32;
-        c.fillStyle = "#1f5f3a"; c.beginPath(); c.moveTo(x - hw, yb); c.lineTo(x + hw, yb); c.lineTo(x, yb - ht); c.fill();
-        c.fillStyle = "#2d7a4b"; c.beginPath(); c.moveTo(x, yb - ht); c.lineTo(x + hw, yb); c.lineTo(x + hw * 0.3, yb); c.fill(); }
-    } else if (t.kind === 2) {   // (a birch: a slim white trunk with dark marks, a light crown)
-      const H2 = u * 2.6 * k;
-      c.fillStyle = "#f5f5f4"; c.fillRect(x - u * 0.06 * k, base - H2 * 0.62, u * 0.12 * k, H2 * 0.62);
-      c.fillStyle = "#292524"; for (let i = 0; i < 6; i++) c.fillRect(x - u * 0.06 * k + (i % 2) * u * 0.05 * k, base - H2 * (0.08 + i * 0.09), u * 0.07 * k, u * 0.025);
-      for (const [dx, dy, rx, ry, col] of [[0, 0.75, 0.38, 0.32, "#84cc16"], [-0.2, 0.62, 0.28, 0.24, "#65a30d"], [0.22, 0.64, 0.27, 0.24, "#65a30d"], [0, 0.9, 0.26, 0.22, "#a3e635"]])
-        E(x + dx * u * k, base - dy * H2, rx * u * k, ry * u * k * 1.2, col);
+    if (t.kind <= 2) {   // (0.0.66: an oak, a pine or a birch, grown as Dress Up grows its trees, from the scene's own number for each)
+      const hgt = u * (t.kind === 1 ? 2.7 : 2.5) * k, sc = hgt / (t.kind === 1 ? 200 : 330);
+      c.save(); c.translate(x, base); c.scale(sc, sc);
+      if (t.kind === 1) pineTree(c, v + 1, ["#1f5f3a", "#245f34", "#2a6b3c"][v % 3]);
+      else if (t.kind === 0) leafyTree(c, v + 1, { wide: 0.95 + (v % 5) * 0.04 });
+      else leafyTree(c, v + 1, { wide: 0.8, bark: "#e9e4dc", marks: true, greens: ["#4d7c0f", "#5a8f2a", "#6aa832", "#7cbf3a", "#93d04a"] });
+      c.restore();
     } else if (t.kind === 3) {   // (a bush, with berries)
       for (const [dx, dy, r, col] of [[-0.22, 0.2, 0.24, "#3f7d2b"], [0.22, 0.2, 0.24, "#3f7d2b"], [0, 0.32, 0.27, "#4d8f33"]]) E(x + dx * u * k, base - dy * u * k, r * u * k, r * u * k * 0.8, col);
       c.fillStyle = "#dc2626"; for (let i = 0; i < 5; i++) { c.beginPath(); c.arc(x + (hsh(v, i) - 0.5) * u * 0.6 * k, base - (0.15 + hsh(i, v) * 0.3) * u * k, u * 0.035, 0, 7); c.fill(); }
