@@ -2,6 +2,10 @@
 
 Each version lists what the apps do as of that version. The newest version is first.
 
+## 0.0.47 (2026-11-22)
+
+- **Checkers: your moves shown moving too, and Hazel playing for you at each pace** (Matthew: "the animation looks good for the AI opponent. Let's also use it for 'You'", "In 'walk' automated mode, do the same animations at the same speed as interactive mode. And in 'brisk' automated mode, do the same animations but much faster."). Your piece is carried along its way as Hazel's is, about a second for a step. 🤖 Hazel plays for you: slowly and at a walk, each move at that same speed (at a walk, a move every one and a half seconds); briskly, four times as fast (a move every half second); at full speed, none.
+
 ## 0.0.46 (2026-11-22)
 
 - **Checkers: Hazel's moves shown moving** (N, five and new to checkers, playing Hazel; Matthew: "N wants a new feature -- animated AI gameplay, so that he can see what's happening as a 1 second or so animation, rather than an instant change that's harder to notice and understand"). After a moment of 🤔 thinking, Hazel's piece is lifted, carried square by square along its way, and set down, about a second for a step; a jump hops, and the piece it takes fades as it goes over it, half a second more for each further jump. 🤖 Hazel plays for you shows its moves the same way, moving slowly or at a walk.

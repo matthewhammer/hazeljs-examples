@@ -105,7 +105,7 @@
     $("hazel").textContent = "⚪ Hazel" + (tookW ? ` · took ${tookW}` : "");
     $("you").classList.toggle("now", mine() || (S.auto && !!g && !g.over && g.turn === 1));
     $("hazel").classList.toggle("now", !!g && !g.over && (g.turn === 2 || (S.busy && !S.auto)));
-    $("turn").textContent = !g ? "" : g.over ? "Game over" : S.auto ? (g.turn === 1 ? "⚫ Hazel's move, for you" : "⚪ Hazel's move") : S.moving ? "⚪ Hazel moves…" : S.busy ? "🤔 Hazel is thinking…" : g.turn === 1 ? (S.legal.some(m => m.took.length) ? "Your move: you must jump" : "Your move") : "Hazel's move"; $("turn").title = $("turn").textContent;
+    $("turn").textContent = !g ? "" : g.over ? "Game over" : S.auto ? (g.turn === 1 ? "⚫ Hazel's move, for you" : "⚪ Hazel's move") : S.moving === 1 ? "⚫ Your move…" : S.moving ? "⚪ Hazel moves…" : S.busy ? "🤔 Hazel is thinking…" : g.turn === 1 ? (S.legal.some(m => m.took.length) ? "Your move: you must jump" : "Your move") : "Hazel's move"; $("turn").title = $("turn").textContent;
   }
   function info() {
     const st = stats["skill" + S.skill] || { played: 0, won: 0 };
@@ -134,10 +134,15 @@
     draw();
     const t = board.querySelector(`[data-s="${s}"]`); if (t) t.classList.add("nope");
   }
-  function play(m) {
+  async function play(m) {
     const h = H(), g = S.game; let g2 = null;
     try { g2 = h.apply(g, m); } catch (e) { g2 = null; }
     if (!g2) return;
+    // (0.0.47; Matthew, 2026-11-22: "the animation looks good for the AI opponent. Let's also use it for 'You'") your move shown
+    // moving too, the way Hazel's is, the board still as it was until your piece is set down
+    S.sel = -1; S.busy = true; S.legal = []; draw();
+    await animateMove(m, 1, 1);
+    S.busy = false;
     S.undo.push(g); S.game = g2; S.sel = -1; S.note = m.took.length > 1 ? `You took ${m.took.length} in one move.` : "";
     if (g2.over) finish();
     refresh(); save(); draw();
@@ -162,10 +167,10 @@
   const frame = () => new Promise(r => { let done = false; const go = () => { if (!done) { done = true; r(); } }; requestAnimationFrame(go); setTimeout(go, 50); });
   const sqAt = (r, c) => 4 * r + (c - (r % 2 === 0 ? 1 : 0)) / 2;
   const centre = s => { const [r, c] = rc(s); return [c * U + U / 2, r * U + U / 2]; };
-  async function animateMove(m, speed = 1) {
+  async function animateMove(m, speed = 1, side = 2) {
     const svg = board.querySelector("svg"), pc = svg && m && m.from >= 0 ? svg.querySelector(`.pc[data-at="${m.from}"]`) : null;
     if (!pc || document.hidden) return;
-    S.moving = true; bar();
+    S.moving = side; bar();
     svg.append(pc);   // (over every other piece and square)
     const way = [m.from, ...m.path].map(centre), [x0, y0] = way[0];
     const over = [];   // (each hop's piece jumped, if it is a jump)
@@ -189,7 +194,7 @@
       for (let j = 0; j < i; j++) if (over[j]) over[j].setAttribute("opacity", "0");
       if (over[i]) over[i].setAttribute("opacity", String(Math.max(0, 1 - Math.max(0, u - 0.4) / 0.5).toFixed(2)));
     }
-    S.moving = false;
+    S.moving = 0;
   }
   async function reply() {
     const h = H(); let g = S.game; if (!h || !g || g.over || g.turn !== 2 || S.busy) return;
@@ -199,7 +204,7 @@
     S.thinkMs = performance.now() - t;
     // (a moment of thinking shown, then the move, so a new player sees which piece goes, and where)
     await new Promise(r => setTimeout(r, Math.max(0, 350 - S.thinkMs)));
-    if (m && m.from >= 0) { await animateMove(m); try { g = h.apply(g, m); } catch (e) { /* the game as it was */ } }
+    if (m && m.from >= 0) { await animateMove(m, 1, 2); try { g = h.apply(g, m); } catch (e) { /* the game as it was */ } }
     S.busy = false; S.game = g;
     if (m && m.took && m.took.length > 1) S.note = `Hazel took ${m.took.length} in one move.`;
     if (g.over) finish();
@@ -232,7 +237,11 @@
         const t = performance.now(); let m = null, g2 = null;
         try { m = hazelMove(g); if (m && m.from >= 0) g2 = h.apply(g, m); } catch (e) { g2 = null; }
         const ms = performance.now() - t;
-        if (g2 && W.pace >= 450) await animateMove(m, W.pace >= 900 ? 1 : 1.6);
+        // (0.0.47; Matthew: "In 'walk' automated mode, do the same animations at the same speed as interactive mode. And in 'brisk'
+        // automated mode, do the same animations but much faster.") slowly and at a walk, as you play; briskly, four times as fast;
+        // at full speed, none
+        const speed = W.pace >= 450 ? 1 : W.pace >= 120 ? 4 : 0;
+        if (g2 && speed) await animateMove(m, speed, side);
         if (!g2) { S.note = "Hazel found no move here."; break; }
         W.think(side === 1 ? 0 : 1, ms); S.thinkMs = ms;
         S.undo.push(g); S.game = g2; S.touched = true;
