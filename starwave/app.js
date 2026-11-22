@@ -183,6 +183,11 @@
       b.addEventListener("click", () => { set(!get()); b.setAttribute("aria-pressed", String(get())); if (get()) SND.gesture(S.game && !S.game.over ? S.game.wave : null); b.blur(); }); };
     sw("music", () => SND.musicOn, on => { SND.music(on); if (on && S.game && !S.game.over) SND.tune(S.game.wave); });
     sw("sfx", () => SND.soundsOn, on => SND.sounds(on));
+    // (0.0.56) a volume slider beside each switch (shared/volume.js): how loud the music, and the sounds, each kept on this device
+    if (window.HazelVolume) {
+      window.HazelVolume.slider($("music"), { label: "Music volume", get: () => SND.volumeOf("music"), set: v => SND.setVolume("music", v), isOn: () => SND.musicOn });
+      window.HazelVolume.slider($("sfx"), { label: "Sounds volume", get: () => SND.volumeOf("sfx"), set: v => SND.setVolume("sfx", v), isOn: () => SND.soundsOn, hear: () => SND.hit(2) });
+    }
     for (const ev of ["pointerdown", "keydown"]) addEventListener(ev, () => SND.gesture(S.game && !S.game.over ? S.game.wave : null), true);
   } else for (const id of ["music", "sfx"]) $(id).hidden = true;
   addEventListener("resize", () => draw());

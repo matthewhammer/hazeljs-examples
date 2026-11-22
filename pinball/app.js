@@ -538,6 +538,11 @@
       b.addEventListener("click", () => { set(!get()); b.setAttribute("aria-pressed", String(get())); if (get()) SND.gesture(S.game && !S.game.over ? S.board : null); }); };
     sw("music", () => SND.musicOn, on => { SND.music(on); if (on && S.game && !S.game.over) SND.tune(S.board); });
     sw("sfx", () => SND.soundsOn, on => SND.sounds(on));
+    // (0.0.56) a volume slider beside each switch (shared/volume.js): how loud the music, and the sounds, each kept on this device
+    if (window.HazelVolume) {
+      window.HazelVolume.slider($("music"), { label: "Music volume", get: () => SND.volumeOf("music"), set: v => SND.setVolume("music", v), isOn: () => SND.musicOn });
+      window.HazelVolume.slider($("sfx"), { label: "Sounds volume", get: () => SND.volumeOf("sfx"), set: v => SND.setVolume("sfx", v), isOn: () => SND.soundsOn, hear: () => SND.bump(0) });
+    }
     for (const ev of ["pointerdown", "keydown"]) addEventListener(ev, () => SND.gesture(S.game && !S.game.over ? S.board : null), true);
   } else for (const id of ["music", "sfx"]) $(id).hidden = true;
   $("boardpick").addEventListener("change", () => { S.board = +$("boardpick").value; keep("board", S.board); newGame(); });

@@ -175,13 +175,17 @@
   const SONGS = TUNES.map(T => ({ name: T.name, step: 60 / T.bpm / 4, steps: stepsOf(T) }));
 
 
-  // ---- the chip: one for a page, its 🎵 and 🔊 kept under the page's key
-  function make(KEY) {
+  // ---- the chip: one for a page, its 🎵 and 🔊 kept under the page's key; MIX the loudness of the music and of the sounds
+  // (0.0.56: Star wave's sounds louder than its music, Matthew: "the sound effects are too quiet compared to the music in star wave")
+  function make(KEY, MIX = {}) {
+    const LOUD = { music: MIX.music ?? 0.55, sfx: MIX.sfx ?? 0.8 };
     const kept = (k, d) => { try { const v = JSON.parse(localStorage.getItem(KEY + k)); return v === null ? d : v; } catch (e) { return d; } };
     const keep = (k, v) => { try { localStorage.setItem(KEY + k, JSON.stringify(v)); } catch (e) { /* this visit only */ } };
       let ctx = null, master, musicBus, sfxBus, noise, pulse = {}, timer = 0, song = null, at = 0, next = 0, playing = false;
 
-    const S = { music: kept("music", true), sfx: kept("sfx", true), tune: 0, notes: 0, sounds: 0 };
+    const S = { music: kept("music", true), sfx: kept("sfx", true), tune: 0, notes: 0, sounds: 0,
+                vol: { music: kept("music-volume", 1), sfx: kept("sfx-volume", 1) } };   // (0.0.56: each slider's level, 0 to 1)
+    const level = which => (which === "music" ? S.music : S.sfx) ? LOUD[which] * S.vol[which] : 0;
     function wave(duty) {   // (a pulse wave, on for `duty` of each cycle: its first 32 harmonics)
       const n = 32, re = new Float32Array(n), im = new Float32Array(n);
       for (let k = 1; k < n; k++) re[k] = 2 * Math.sin(Math.PI * k * duty) / (Math.PI * k);
@@ -194,8 +198,8 @@
       ctx = new AC();
       const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -12; comp.ratio.value = 4; comp.connect(ctx.destination);
       master = ctx.createGain(); master.gain.value = 0.8; master.connect(comp);
-      musicBus = ctx.createGain(); musicBus.gain.value = S.music ? 0.55 : 0; musicBus.connect(master);
-      sfxBus = ctx.createGain(); sfxBus.gain.value = S.sfx ? 0.8 : 0; sfxBus.connect(master);
+      musicBus = ctx.createGain(); musicBus.gain.value = level("music"); musicBus.connect(master);
+      sfxBus = ctx.createGain(); sfxBus.gain.value = level("sfx"); sfxBus.connect(master);
       noise = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
       const d = noise.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
       pulse = { quarter: wave(0.25), eighth: wave(0.125), half: wave(0.5) };
@@ -245,15 +249,21 @@
       clearInterval(timer); timer = setInterval(tick, 25); tick();
     }
     function stop() { playing = false; clearInterval(timer); timer = 0; }
-    const sfx = f => { if (!ctx || !S.sfx) return; S.sounds++; f(ctx.currentTime + 0.005); };
+    // (a game's sound; a big one (duck) dips the music under it for a moment)
+    const sfx = (f, duck = 0) => { if (!ctx || !S.sfx) return; S.sounds++; const t = ctx.currentTime + 0.005; f(t);
+      if (duck && S.music) { const g = musicBus.gain; g.cancelScheduledValues(t); g.setTargetAtTime(level("music") * (1 - duck), t, 0.01); g.setTargetAtTime(level("music"), t + duck * 0.5, 0.08); } };
     return {
       // (a tap or a key: the chip made, or woken, and tune i started if music is on and nothing plays)
       gesture(i) { if (!init()) return; if (ctx.state === "suspended") ctx.resume(); if (!playing && S.music && i != null) start(i); },
       tune(i) { if (ctx && S.music) start(i); else { S.tune = i in SONGS ? i : 0; song = SONGS[S.tune]; } },
       stop,
-      music(on) { S.music = !!on; keep("music", S.music); if (!ctx) return; musicBus.gain.setTargetAtTime(on ? 0.55 : 0, ctx.currentTime, 0.05); if (!on) stop(); },
-      sounds(on) { S.sfx = !!on; keep("sfx", S.sfx); if (ctx) sfxBus.gain.setTargetAtTime(on ? 0.8 : 0, ctx.currentTime, 0.05); },
+      music(on) { S.music = !!on; keep("music", S.music); if (!ctx) return; musicBus.gain.cancelScheduledValues(ctx.currentTime); musicBus.gain.setTargetAtTime(level("music"), ctx.currentTime, 0.05); if (!on) stop(); },
+      sounds(on) { S.sfx = !!on; keep("sfx", S.sfx); if (ctx) sfxBus.gain.setTargetAtTime(level("sfx"), ctx.currentTime, 0.05); },
       get musicOn() { return S.music; }, get soundsOn() { return S.sfx; },
+      // (0.0.56) how loud the music or the sounds are, 0 to 1, each its own slider's, kept on this device
+      volumeOf: which => S.vol[which],
+      setVolume(which, v) { S.vol[which] = Math.max(0, Math.min(1, v)); keep(which + "-volume", S.vol[which]);
+        if (ctx) { const b = which === "music" ? musicBus : sfxBus; b.gain.cancelScheduledValues(ctx.currentTime); b.gain.setTargetAtTime(level(which), ctx.currentTime, 0.03); } },
       status: () => ({ tune: SONGS[S.tune].name, playing, notes: S.notes, sounds: S.sounds, state: ctx ? ctx.state : "not made" }),
       // (a game's own sounds: f(t) at the audio clock's now, if sounds are on; and the chip's voices for them, on the sounds' bus)
       sfx,

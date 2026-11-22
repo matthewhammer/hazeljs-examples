@@ -44,6 +44,7 @@
     stop: C.stop,
     music: on => C.music(on), sounds: on => C.sounds(on),
     get musicOn() { return C.musicOn; }, get soundsOn() { return C.soundsOn; },
+    volumeOf: C.volumeOf, setVolume: C.setVolume,
     status: C.status,
     ...SFX,
     TUNES: window.HazelChip.TUNES, SONGS: window.HazelChip.SONGS

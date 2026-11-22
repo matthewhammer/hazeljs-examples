@@ -2,6 +2,11 @@
 
 Each version lists what the apps do as of that version. The newest version is first.
 
+## 0.0.56 (2026-11-22)
+
+- **A volume slider for the music and one for the sounds** (Matthew: "for each game with music and sound effects -- provide separate volume sliders for each, as well as the existing toggle"). Beside 🎵 and 🔊 in Pinball and Star wave, and beside 🔊 in Mahjong solitaire (sounds, no music): a slider from 0 to 100, kept on this device. The switches stay as they were; moving a slider while its switch is off turns it on, and letting go of the sounds' slider plays a sound at the new loudness.
+- **Star wave: its sounds louder than its music** (Matthew: "the sound effects are too quiet compared to the music in star wave"). The music is quieter than Pinball's, every sound two to three times as loud as in 0.0.55, and a hit, a loss, a wave cleared and the end dip the music under them for a moment. Pinball's mix is as it was.
+
 ## 0.0.55 (2026-11-22)
 
 - **Star wave: sounds and music** (Matthew: "for Star wave, let's have sound effects, and let's have music. Let's create another set of melodies and chord progressions, in the style of mega man. Let's share these songs with the other game that has them: pinball"). Five new songs of our own, all original, in the style of an 8-bit action game: Steel sky, Circuit run, Neon fortress, Comet chase and Last light, quick (150 to 184 beats a minute), in minor keys, each twelve bars with a bridge, a pulse-wave lead over a pulse-wave harmony, a triangle bass on eighths, and noise drums. Each wave of Star wave has its own song. The sounds: your shot, a hit (pitched by the invader's kind), a bomb dropped, the formation's march (two low notes, quicker as it speeds up), the cannon lost, a wave cleared. 🎵 and 🔊 beside the board switch each off, kept on this device; ⏸ Pause stops the music.

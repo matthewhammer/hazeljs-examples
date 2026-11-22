@@ -23,7 +23,7 @@
   // ---- the state
   const LAYOUTS = ["🐢 Turtle", "🔺 Pyramid", "🏯 Fortress"];
   const S = { built: null, libFailed: false, compiledError: "", layout: kept("layout", 0), game: null, places: null, seed: 0, sel: -1, clue: null, undo: [],
-              moves: 0, shuffles: 0, t0: 0, spent: 0, over: "", lit: kept("lit", false), sfx: kept("sfx", true), frees: new Set(), pairs: 0, gone: new Map(), wrong: null, busy: false };
+              moves: 0, shuffles: 0, t0: 0, spent: 0, over: "", lit: kept("lit", false), sfx: kept("sfx", true), vol: kept("sfx-volume", 1), frees: new Set(), pairs: 0, gone: new Map(), wrong: null, busy: false };
   const H = () => S.built && S.built.ok ? S.built.value : null;
   LAYOUTS.forEach((n, i) => { const o = document.createElement("option"); o.value = String(i); o.textContent = n; $("layoutpick").append(o); });
   if (!(S.layout >= 0 && S.layout < LAYOUTS.length)) S.layout = 0;
@@ -151,6 +151,8 @@
   const toggle = (id, get, set) => { const b = $(id); b.setAttribute("aria-pressed", String(get())); b.addEventListener("click", () => { set(!get()); b.setAttribute("aria-pressed", String(get())); }); };
   toggle("lit", () => S.lit, v => { S.lit = v; keep("lit", v); draw(); });
   toggle("sfx", () => S.sfx, v => { S.sfx = v; keep("sfx", v); });
+  // (0.0.56) a volume slider beside the switch (shared/volume.js), kept on this device
+  if (window.HazelVolume) window.HazelVolume.slider($("sfx"), { label: "Sounds volume", get: () => S.vol, set: v => { S.vol = v; keep("sfx-volume", v); }, isOn: () => S.sfx, hear: () => sound("take") });
   $("new").addEventListener("click", () => newGame());
   $("layoutpick").addEventListener("change", () => { S.layout = +$("layoutpick").value; keep("layout", S.layout); newGame(); });
   addEventListener("resize", () => draw());
@@ -159,8 +161,8 @@
   // ---- sounds: a click of tiles (two short taps of noise and wood), a soft no, a run of notes for a shuffle and a win
   let ac = null;
   function sound(what) {
-    if (!S.sfx) return; try { ac = ac || new (window.AudioContext || window.webkitAudioContext)(); if (ac.state === "suspended") ac.resume(); } catch (e) { return; }
-    const t = ac.currentTime + 0.01, tone = (f, at, d, v, type = "triangle") => { const o = ac.createOscillator(), g = ac.createGain(); o.type = type; o.frequency.value = f; g.gain.setValueAtTime(v, at); g.gain.exponentialRampToValueAtTime(0.001, at + d); o.connect(g); g.connect(ac.destination); o.start(at); o.stop(at + d + 0.02); };
+    if (!S.sfx || S.vol <= 0) return; try { ac = ac || new (window.AudioContext || window.webkitAudioContext)(); if (ac.state === "suspended") ac.resume(); } catch (e) { return; }
+    const t = ac.currentTime + 0.01, tone = (f, at, d, v, type = "triangle") => { const o = ac.createOscillator(), g = ac.createGain(); o.type = type; o.frequency.value = f; g.gain.setValueAtTime(Math.max(0.0011, v * S.vol), at); g.gain.exponentialRampToValueAtTime(0.001, at + d); o.connect(g); g.connect(ac.destination); o.start(at); o.stop(at + d + 0.02); };
     if (what === "pick") tone(1250, t, 0.05, 0.08, "square");
     else if (what === "take") { tone(900, t, 0.06, 0.12, "square"); tone(1400, t + 0.07, 0.07, 0.1, "square"); }
     else if (what === "no") tone(180, t, 0.12, 0.12, "sawtooth");

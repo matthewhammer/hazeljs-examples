@@ -7,7 +7,9 @@
 (() => {
   "use strict";
   if (!window.HazelChip) return;
-  const C = window.HazelChip.make("hazeljs-examples/starwave/");
+  // (0.0.56: the music quieter and the sounds louder than Pinball's mix, Matthew: "the sound effects are too quiet compared to
+  // the music in star wave"; a hit, a loss, a wave cleared and the end dip the music under them)
+  const C = window.HazelChip.make("hazeljs-examples/starwave/", { music: 0.34, sfx: 1 });
   const { hz } = window.HazelChip;
   const { sfx, tone, hiss, seq } = C;
   // (the tunes written for Star wave: the shared list's fourth to eighth)
@@ -15,15 +17,15 @@
   const tuneOf = wave => WAVE_TUNES[((wave % WAVE_TUNES.length) + WAVE_TUNES.length) % WAVE_TUNES.length];
   let marchBeat = 0;
   const SFX = {
-    shot: () => sfx(t => { tone("eighth", hz(84), hz(96), t, 0.07, 0.09); hiss(t, 0.04, 0.05, "highpass", 6000); }),
+    shot: () => sfx(t => { tone("eighth", hz(84), hz(98), t, 0.09, 0.22); hiss(t, 0.05, 0.12, "highpass", 6000); }),
     // (an invader hit: a crunch of noise and a drop, higher for the higher kinds)
-    hit: kind => sfx(t => { hiss(t, 0.16, 0.2, "bandpass", 1400 + 500 * kind, 0.9); tone("quarter", hz(72 + 4 * kind), hz(48 + 4 * kind), t, 0.14, 0.11); }),
-    bomb: () => sfx(t => tone("triangle", hz(70), hz(58), t, 0.09, 0.06)),
-    march: () => sfx(t => { const n = [40, 38][marchBeat++ % 2]; tone("triangle", hz(n), hz(n), t, 0.07, 0.25); }),
-    boom: () => sfx(t => { hiss(t, 0.6, 0.35, "lowpass", 900, 0.7); tone("half", hz(52), hz(28), t, 0.5, 0.16); seq(t + 0.45, [64, 61, 57], 0.08, "quarter", 0.08); }),
-    cleared: () => sfx(t => { seq(t, [72, 76, 79, 84, 88, 91], 0.06, "quarter", 0.11); tone("quarter", hz(96), hz(96), t + 0.36, 0.4, 0.1, 14); }),
-    start: () => sfx(t => { seq(t, [60, 64, 67], 0.09, "quarter", 0.12); tone("quarter", hz(72), hz(72), t + 0.27, 0.4, 0.12, 14); }),
-    over: () => sfx(t => { seq(t, [67, 66, 65], 0.2, "quarter", 0.12); tone("quarter", hz(64), hz(64), t + 0.6, 0.7, 0.12, 18); tone("triangle", hz(40), hz(40), t + 0.6, 0.7, 0.3); }),
+    hit: kind => sfx(t => { hiss(t, 0.18, 0.55, "bandpass", 1400 + 500 * kind, 0.9); tone("quarter", hz(72 + 4 * kind), hz(48 + 4 * kind), t, 0.16, 0.26); }, 0.4),
+    bomb: () => sfx(t => tone("triangle", hz(70), hz(58), t, 0.1, 0.18)),
+    march: () => sfx(t => { const n = [40, 38][marchBeat++ % 2]; tone("triangle", hz(n), hz(n), t, 0.08, 0.42); }),
+    boom: () => sfx(t => { hiss(t, 0.6, 0.7, "lowpass", 900, 0.7); tone("half", hz(52), hz(28), t, 0.5, 0.32); seq(t + 0.45, [64, 61, 57], 0.08, "quarter", 0.2); }, 0.6),
+    cleared: () => sfx(t => { seq(t, [72, 76, 79, 84, 88, 91], 0.06, "quarter", 0.24); tone("quarter", hz(96), hz(96), t + 0.36, 0.4, 0.22, 14); }, 0.6),
+    start: () => sfx(t => { seq(t, [60, 64, 67], 0.09, "quarter", 0.24); tone("quarter", hz(72), hz(72), t + 0.27, 0.4, 0.24, 14); }),
+    over: () => sfx(t => { seq(t, [67, 66, 65], 0.2, "quarter", 0.24); tone("quarter", hz(64), hz(64), t + 0.6, 0.7, 0.24, 18); tone("triangle", hz(40), hz(40), t + 0.6, 0.7, 0.45); }, 0.6),
   };
   window.StarWaveSound = {
     // (a tap or a key: the chip made, or woken, and the wave's tune started if music is on and nothing plays)
@@ -32,6 +34,7 @@
     stop: C.stop,
     music: on => C.music(on), sounds: on => C.sounds(on),
     get musicOn() { return C.musicOn; }, get soundsOn() { return C.soundsOn; },
+    volumeOf: C.volumeOf, setVolume: C.setVolume,
     status: C.status,
     ...SFX,
   };
