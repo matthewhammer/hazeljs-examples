@@ -37,6 +37,9 @@ const SETUP = {
   "solitaire": { modules: ["Cards", "Deal", "Moves"], tail: "(deal = Deal.deal, moves = Moves.moves, moves_from = Moves.moves_from, apply = Moves.apply, won = Moves.won)" },
   "pinball": { modules: ["Pinball"], tail: "(start = Pinball.start, step = Pinball.step, board = Pinball.board)" },
   "downhill": { modules: ["Downhill"], tail: "(start = Downhill.start, step = Downhill.step, course = Downhill.course, robot = Downhill.robot)" },
+  "dig": { modules: ["Dig"], tail: "(start = Dig.start, step = Dig.step, robot = Dig.robot)" },
+  "bugs": { modules: ["Bugs"], tail: "(start = Bugs.start, step = Bugs.step, robot = Bugs.robot)" },
+  "starwave": { modules: ["StarWave"], tail: "(start = StarWave.start, step = StarWave.step, robot = StarWave.robot)" },
   "trails": { modules: ["Trails"], tail: "(start = Trails.start, step = Trails.step, robot = Trails.robot)" },
   "snake": { modules: ["Snake"], tail: "(start = Snake.start, step = Snake.step, robot = Snake.robot)" },
   "bricks": { modules: ["Bricks"], tail: "(start = Bricks.start, step = Bricks.step, layout = Bricks.layout, robot = Bricks.robot)" },
@@ -280,23 +283,57 @@ if (APP === "checkers") {
   let g = C.start(5, false); for (let k = 0; k < 200 && !g.over; k++) g = C.step(g, C.robot(g));
   console.log(`a step: ${HN} ${time(() => H.step(g, 1), 10).toFixed(1)} ms, compiled ${time(() => C.step(g, 1), 500).toFixed(3)} ms; the robot (${g.body.length} long): ${HN} ${time(() => H.robot(g), 3).toFixed(1)} ms, compiled ${time(() => C.robot(g), 200).toFixed(3)} ms`);
 } else if (APP === "trails") {
-  // (ticket 826) rounds ridden by the compiled robots at three cares (now and then a turn by chance for the blue rider), and at
-  // steps spread across them both riders' choices and the next step both ways; then many rounds compiled, who wins at which care
+  // (ticket 826) rounds ridden by the compiled robots at three skills (now and then a slip), and at steps spread across them both
+  // riders' choices and the next step both ways; then many rounds compiled, who wins at which skill
   const per = CAP || 30; let steps = 0;
-  for (const [ca, cb] of [[6, 150], [30, 30], [150, 6]]) {
+  const luck = () => Math.floor(draw() * 100);
+  for (const [[ca, sa], [cb, sb]] of [[[6, 12], [150, 0]], [[30, 2], [30, 2]], [[150, 0], [6, 12]]]) {
     let g = C.start(0); const run = [];
-    while (!g.over && g.t < 1300) { const a = draw() < 0.05 ? Math.floor(draw() * 4) : C.robot(g, 1, ca), b = C.robot(g, 2, cb); run.push([g, a, b]); g = C.step(g, a, b); }
+    while (!g.over && g.t < 1300) { const la = luck(), lb = luck(); const a = C.robot(g, 1, ca, sa, la), b = C.robot(g, 2, cb, sb, lb); run.push([g, a, b, la, lb]); g = C.step(g, a, b); }
     const pick = run.filter((_, k) => k < 3 || k % Math.max(1, Math.floor(run.length / per)) === 0).slice(0, per + 3);
-    for (const [g0, a, b] of pick) { steps++;
-      check(`robot 1 at ${JSON.stringify(g0)}`, H.robot(g0, 1, ca), C.robot(g0, 1, ca)); check(`robot 2 at ${JSON.stringify(g0)}`, H.robot(g0, 2, cb), C.robot(g0, 2, cb));
+    for (const [g0, a, b, la, lb] of pick) { steps++;
+      check(`robot 1 at ${JSON.stringify(g0)}`, H.robot(g0, 1, ca, sa, la), C.robot(g0, 1, ca, sa, la)); check(`robot 2 at ${JSON.stringify(g0)}`, H.robot(g0, 2, cb, sb, lb), C.robot(g0, 2, cb, sb, lb));
       check(`step from ${JSON.stringify(g0)} ${a} ${b}`, H.step(g0, a, b), C.step(g0, a, b)); }
   }
   console.log(`${checked} answers compared: ${steps} steps with both riders' choices at each, ${differ} differ`);
-  for (const [ca, cb] of [[6, 30], [6, 150], [30, 150], [150, 150]]) { const wins = [0, 0, 0];
-    for (let k = 0; k < 40; k++) { let g = C.start(k); while (!g.over && g.t < 1300) g = C.step(g, draw() < 0.03 ? Math.floor(draw() * 4) : C.robot(g, 1, ca), draw() < 0.03 ? Math.floor(draw() * 4) : C.robot(g, 2, cb)); wins[g.winner]++; }
-    console.log(`blue looking ${ca}, orange ${cb}: blue won ${wins[1]}, orange ${wins[2]}, draws ${wins[0]} of 40 (a turn by chance 3% of the time each)`); }
+  for (const [[ca, sa], [cb, sb]] of [[[150, 0], [6, 12]], [[150, 0], [30, 2]], [[30, 2], [6, 12]], [[150, 0], [150, 0]]]) { const wins = [0, 0, 0];
+    for (let k = 0; k < 60; k++) { let g = C.start(k); while (!g.over && g.t < 1300) g = C.step(g, C.robot(g, 1, ca, sa, luck()), C.robot(g, 2, cb, sb, luck())); wins[g.winner]++; }
+    console.log(`blue ${ca}:${sa} (looking, slips in 100), orange ${cb}:${sb}: blue won ${wins[1]}, orange ${wins[2]}, draws ${wins[0]} of 60`); }
   const g = C.start(0);
-  console.log(`a step: ${HN} ${time(() => H.step(g, 1, 3), 5).toFixed(1)} ms, compiled ${time(() => C.step(g, 1, 3), 500).toFixed(3)} ms; the robot looking 150: ${HN} ${time(() => H.robot(g, 2, 150), 2).toFixed(1)} ms, compiled ${time(() => C.robot(g, 2, 150), 50).toFixed(3)} ms`);
+  console.log(`a step: ${HN} ${time(() => H.step(g, 1, 3), 5).toFixed(1)} ms, compiled ${time(() => C.step(g, 1, 3), 500).toFixed(3)} ms; the robot looking 150: ${HN} ${time(() => H.robot(g, 2, 150, 0, 50), 2).toFixed(1)} ms, compiled ${time(() => C.robot(g, 2, 150, 0, 50), 50).toFixed(3)} ms`);
+} else if (APP === "starwave") {
+  // (ticket 827) a game played by the compiled robot (now and then a move or a shot by chance), and at steps spread across it the
+  // robot's choice and the next step both ways
+  const per = CAP || 40; let steps = 0;
+  let g = C.start(42); const run = [];
+  for (let k = 0; k < 3000 && !g.over; k++) { const c = C.robot(g), move = draw() < 0.05 ? Math.floor(draw() * 3) - 1 : c.move, fire = draw() < 0.05 ? !c.fire : c.fire; run.push([g, move, fire]); g = C.step(g, move, fire); }
+  const pick = run.filter((_, k) => k < 3 || k % Math.max(1, Math.floor(run.length / per)) === 0 || run[k][0].hit).slice(0, per + 3);
+  for (const [g0, move, fire] of pick) { steps++; check(`robot at ${JSON.stringify(g0)}`, H.robot(g0), C.robot(g0)); check(`step from ${JSON.stringify(g0)} ${move} ${fire}`, H.step(g0, move, fire), C.step(g0, move, fire)); }
+  console.log(`${checked} answers compared: ${steps} steps with the robot's choice at each, ${differ} differ; the compiled robot's game: ${g.score} points, wave ${g.wave + 1}, ${g.lives} lives, ${g.t} steps`);
+  const g1 = C.start(7);
+  console.log(`a step: ${HN} ${time(() => H.step(g1, 1, true), 10).toFixed(1)} ms, compiled ${time(() => C.step(g1, 1, true), 500).toFixed(3)} ms; the robot: ${HN} ${time(() => H.robot(g1), 10).toFixed(1)} ms, compiled ${time(() => C.robot(g1), 500).toFixed(3)} ms`);
+} else if (APP === "bugs") {
+  // (ticket 828) a game played by the compiled robot (now and then a move or a shot by chance), and at steps spread across it the
+  // robot's choice and the next step both ways
+  const per = CAP || 40; let steps = 0;
+  let g = C.start(42); const run = [];
+  for (let k = 0; k < 3000 && !g.over; k++) { const c = C.robot(g), mx = draw() < 0.05 ? Math.floor(draw() * 3) - 1 : c.mx, my = c.my, fire = draw() < 0.05 ? !c.fire : c.fire; run.push([g, mx, my, fire]); g = C.step(g, mx, my, fire); }
+  const pick = run.filter((_, k) => k < 3 || k % Math.max(1, Math.floor(run.length / per)) === 0 || run[k][0].hit).slice(0, per + 3);
+  for (const [g0, mx, my, fire] of pick) { steps++; check(`robot at ${JSON.stringify(g0)}`, H.robot(g0), C.robot(g0)); check(`step from ${JSON.stringify(g0)} ${mx} ${my} ${fire}`, H.step(g0, mx, my, fire), C.step(g0, mx, my, fire)); }
+  console.log(`${checked} answers compared: ${steps} steps with the robot's choice at each, ${differ} differ; the compiled robot's game: ${g.score} points, wave ${g.wave + 1}, ${g.lives} lives, ${g.t} steps`);
+  const g1 = C.start(7);
+  console.log(`a step: ${HN} ${time(() => H.step(g1, 1, 0, true), 10).toFixed(1)} ms, compiled ${time(() => C.step(g1, 1, 0, true), 500).toFixed(3)} ms; the robot: ${HN} ${time(() => H.robot(g1), 10).toFixed(1)} ms, compiled ${time(() => C.robot(g1), 500).toFixed(3)} ms`);
+} else if (APP === "dig") {
+  // (ticket 829) a game played by the compiled robot (now and then a way or a flash by chance), and at steps spread across it the
+  // robot's choice and the next step both ways
+  const per = CAP || 40; let steps = 0;
+  let g = C.start(42); const run = [];
+  for (let k = 0; k < 3000 && !g.over; k++) { const c = C.robot(g), dir = draw() < 0.05 ? Math.floor(draw() * 5) - 1 : c.dir, flash = draw() < 0.02 ? true : c.flash; run.push([g, dir, flash]); g = C.step(g, dir, flash); }
+  const pick = run.filter((_, k) => k < 3 || k % Math.max(1, Math.floor(run.length / per)) === 0 || run[k][0].hit).slice(0, per + 3);
+  for (const [g0, dir, flash] of pick) { steps++; check(`robot at ${JSON.stringify(g0)}`, H.robot(g0), C.robot(g0)); check(`step from ${JSON.stringify(g0)} ${dir} ${flash}`, H.step(g0, dir, flash), C.step(g0, dir, flash)); }
+  console.log(`${checked} answers compared: ${steps} steps with the robot's choice at each, ${differ} differ; the compiled robot's game: ${g.score} points, level ${g.level + 1}, ${g.lives} lives, ${g.t} steps`);
+  const g1 = C.start(7);
+  console.log(`a step: ${HN} ${time(() => H.step(g1, 2, false), 5).toFixed(1)} ms, compiled ${time(() => C.step(g1, 2, false), 300).toFixed(3)} ms; the robot: ${HN} ${time(() => H.robot(g1), 5).toFixed(1)} ms, compiled ${time(() => C.robot(g1), 300).toFixed(3)} ms`);
 } else if (APP === "mahjong-solitaire") {
   // (ticket 803) each layout's places both ways; a deal both ways from the same seed; from that game the free places, the pairs,
   // Hazel's choice, the game after taking it, a shuffle of that, and whether it is won, each both ways (hazeljs is slow here:

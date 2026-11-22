@@ -46,7 +46,9 @@
     // (0.0.51) Snake and Light trails: the board as large as the window, the buttons under it
     "sn-ui": [".controls", "#status", "#info"], "tr-ui": [".controls", "#status", "#info"],
     // (0.0.51) Bricks, left out of 0.0.50: the field as tall as the window, its buttons under it
-    "bk-ui": [".controls", "#status", "#info"] };
+    "bk-ui": [".controls", "#status", "#info"],
+    // (0.0.53) Star wave, the segmented bug and the digging game: the field as tall as the window, its buttons under it
+    "sw-ui": [".controls", "#status", "#info"], "cp-ui": [".controls", "#status", "#info"], "dg-ui": [".controls", "#status", "#info"] };
   const partsOf = Object.entries(LEFT_PARTS).find(([c]) => ui.classList.contains(c));
   const left = document.createElement("div");
   left.className = "fs-left";

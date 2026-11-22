@@ -21,7 +21,7 @@ labeled tuple as an object; hazel-jit's code has {c}, a chain of {h, t} cells, a
 import argparse, os, subprocess
 
 ap = argparse.ArgumentParser()
-ap.add_argument("--app", default="i-ching", choices=["i-ching", "tarot", "astrology", "checkers", "go", "minesweeper", "mahjong", "solitaire", "pinball", "mahjong-solitaire", "downhill", "bricks", "snake", "trails"])
+ap.add_argument("--app", default="i-ching", choices=["i-ching", "tarot", "astrology", "checkers", "go", "minesweeper", "mahjong", "solitaire", "pinball", "mahjong-solitaire", "downhill", "bricks", "snake", "trails", "starwave", "bugs", "dig"])
 ap.add_argument("--hazel", required=True, help="a checkout of hazelgrove/hazel with the commit")
 ap.add_argument("--commit", required=True, help="the commit whose hazel-jit compiled the program")
 ap.add_argument("--branch", default="trial/765-iching-aot", help="the branch whose test printed it")
@@ -277,16 +277,54 @@ ADAPTERS = {
   const ROUND = ["ax", "ay", "ad", "bx", "by", "bd", "lit", "over", "winner", "t"];
   const roundIn = g => $R.tup(ROUND.map(k => k === "lit" ? list(g.lit) : g[k]), ROUND);
   const roundOut = r => Object.fromEntries(ROUND.map(k => [k, k === "lit" ? array(r.lit).map(int) : k === "over" ? r[k] : int(r[k])]));
-  // start : Int -> Round; step : (Round, Int, Int) -> Round (the ways each rider asks to turn, or -1); robot : (Round, Int, Int) -> Int
-  // (the rider, 1 or 2, and how far it looks)
+  // start : Int -> Round; step : (Round, Int, Int) -> Round (the ways each rider asks to turn, or -1); robot : (Round, Int, Int, Int,
+  // Int) -> Int (the rider, 1 or 2; how far it looks; its slips in a hundred; a number 0 to 99 drawn this step)
   const start = seed => roundOut(P.start(seed));
   const step = (g, a, b) => roundOut(P.step([roundIn(g), a, b]));
-  const robot = (g, who, care) => int(P.robot([roundIn(g), who, care]));
+  const robot = (g, who, care, slip, luck) => int(P.robot([roundIn(g), who, care, slip, luck]));
+  const api = { start, step, robot, made };"""),
+  "starwave": ("StarWaveCompiled", """
+  // (ticket 827) Game = (cx, sx, sy = Int, bombs = [Bomb], aliens = [Int], fx, fy, fdir, march = Int, shields = [Int], lives, score,
+  // wave, seed, wait = Int, over = Bool, hit, t = Int); Bomb = (x, y = Int); Choice = (move = Int, fire = Bool)
+  const GAME = ["cx", "sx", "sy", "bombs", "aliens", "fx", "fy", "fdir", "march", "shields", "lives", "score", "wave", "seed", "wait", "over", "hit", "t"];
+  const gameIn = g => $R.tup(GAME.map(k => k === "bombs" ? list(g.bombs.map(b => $R.tup([b.x, b.y], ["x", "y"]))) : k === "aliens" || k === "shields" ? list(g[k]) : g[k]), GAME);
+  const gameOut = r => Object.fromEntries(GAME.map(k => [k, k === "bombs" ? array(r.bombs).map(b => ({ x: int(b.x), y: int(b.y) })) : k === "aliens" || k === "shields" ? array(r[k]).map(int) : k === "over" ? r[k] : int(r[k])]));
+  // start : Int -> Game (a seed); step : (Game, Int, Bool) -> Game (a move, -1, 0 or 1, and a shot); robot : Game -> Choice
+  const start = seed => gameOut(P.start(seed));
+  const step = (g, move, fire) => gameOut(P.step([gameIn(g), move, fire]));
+  const robot = g => { const c = P.robot(gameIn(g)); return { move: int(c.move), fire: c.fire }; };
+  const api = { start, step, robot, made };"""),
+  "bugs": ("BugsCompiled", """
+  // (ticket 828) Game = (px, py, sx, sy = Int, segs = [Seg], stones = [Stone], lives, score, wave, seed, tick, pace, wait = Int, over = Bool,
+  // hit, t = Int); Seg = (c, r, d, v = Int); Stone = (c, r, hp = Int); Choice = (mx, my = Int, fire = Bool)
+  const GAME = ["px", "py", "sx", "sy", "segs", "stones", "lives", "score", "wave", "seed", "tick", "pace", "wait", "over", "hit", "t"];
+  const SEG = ["c", "r", "d", "v"], STONE = ["c", "r", "hp"];
+  const recIn = (o, ks) => $R.tup(ks.map(k => o[k]), ks), recOut = (r, ks) => Object.fromEntries(ks.map(k => [k, int(r[k])]));
+  const gameIn = g => $R.tup(GAME.map(k => k === "segs" ? list(g.segs.map(s => recIn(s, SEG))) : k === "stones" ? list(g.stones.map(s => recIn(s, STONE))) : g[k]), GAME);
+  const gameOut = r => Object.fromEntries(GAME.map(k => [k, k === "segs" ? array(r.segs).map(s => recOut(s, SEG)) : k === "stones" ? array(r.stones).map(s => recOut(s, STONE)) : k === "over" ? r[k] : int(r[k])]));
+  // start : Int -> Game (a seed); step : (Game, Int, Int, Bool) -> Game (the moves across and up or down, a shot); robot : Game -> Choice
+  const start = seed => gameOut(P.start(seed));
+  const step = (g, mx, my, fire) => gameOut(P.step([gameIn(g), mx, my, fire]));
+  const robot = g => { const c = P.robot(gameIn(g)); return { mx: int(c.mx), my: int(c.my), fire: c.fire }; };
+  const api = { start, step, robot, made };"""),
+  "dig": ("DigCompiled", """
+  // (ticket 829) Game = (px, py, pd, pwait = Int, cells = [Int], rocks = [Rock], mons = [Mon], gems, score, lives, level, seed, flash, mwait,
+  // mpace, dead = Int, over = Bool, hit, t = Int); Rock = (c, r, wob = Int, falling = Bool); Mon = (c, r, stun = Int); Choice = (dir = Int, flash = Bool)
+  const GAME = ["px", "py", "pd", "pwait", "cells", "rocks", "mons", "gems", "score", "lives", "level", "seed", "flash", "mwait", "mpace", "dead", "over", "hit", "t"];
+  const ROCK = ["c", "r", "wob", "falling"], MON = ["c", "r", "stun"];
+  const recIn = (o, ks) => $R.tup(ks.map(k => o[k]), ks);
+  const gameIn = g => $R.tup(GAME.map(k => k === "cells" ? list(g.cells) : k === "rocks" ? list(g.rocks.map(x => recIn(x, ROCK))) : k === "mons" ? list(g.mons.map(m => recIn(m, MON))) : g[k]), GAME);
+  const rockOut = x => ({ c: int(x.c), r: int(x.r), wob: int(x.wob), falling: x.falling }), monOut = m => ({ c: int(m.c), r: int(m.r), stun: int(m.stun) });
+  const gameOut = r => Object.fromEntries(GAME.map(k => [k, k === "cells" ? array(r.cells).map(int) : k === "rocks" ? array(r.rocks).map(rockOut) : k === "mons" ? array(r.mons).map(monOut) : k === "over" ? r[k] : int(r[k])]));
+  // start : Int -> Game (a seed); step : (Game, Int, Bool) -> Game (a way, or -1, and the lantern); robot : Game -> Choice
+  const start = seed => gameOut(P.start(seed));
+  const step = (g, dir, flash) => gameOut(P.step([gameIn(g), dir, flash]));
+  const robot = g => { const c = P.robot(gameIn(g)); return { dir: int(c.dir), flash: c.flash }; };
   const api = { start, step, robot, made };"""),
 }
 GLOBAL, ADAPT = ADAPTERS[a.app]
-TITLE = {"i-ching": "the I Ching", "tarot": "the Tarot", "astrology": "astrology", "checkers": "Checkers", "go": "Go", "minesweeper": "Minesweeper", "mahjong": "Mahjong", "solitaire": "Solitaire", "pinball": "Pinball", "mahjong-solitaire": "Mahjong solitaire", "downhill": "Downhill", "bricks": "Bricks", "snake": "Snake", "trails": "Light trails"}[a.app]
-TICKET = {"i-ching": "765", "tarot": "765", "astrology": "768", "checkers": "794", "go": "794", "minesweeper": "794", "mahjong": "794", "solitaire": "794", "pinball": "793", "mahjong-solitaire": "803", "downhill": "823", "bricks": "824", "snake": "825", "trails": "826"}[a.app]
+TITLE = {"i-ching": "the I Ching", "tarot": "the Tarot", "astrology": "astrology", "checkers": "Checkers", "go": "Go", "minesweeper": "Minesweeper", "mahjong": "Mahjong", "solitaire": "Solitaire", "pinball": "Pinball", "mahjong-solitaire": "Mahjong solitaire", "downhill": "Downhill", "bricks": "Bricks", "snake": "Snake", "trails": "Light trails", "starwave": "Star wave", "bugs": "Bug run", "dig": "Deep dig"}[a.app]
+TICKET = {"i-ching": "765", "tarot": "765", "astrology": "768", "checkers": "794", "go": "794", "minesweeper": "794", "mahjong": "794", "solitaire": "794", "pinball": "793", "mahjong-solitaire": "803", "downhill": "823", "bricks": "824", "snake": "825", "trails": "826", "starwave": "827", "bugs": "828", "dig": "829"}[a.app]
 
 jit = subprocess.run(["git", "-C", a.hazel, "show", f"{a.commit}:src/language/dynamics/HazelJit.re"], capture_output=True, text=True, check=True).stdout
 i = jit.index("let source = {|") + len("let source = {|")

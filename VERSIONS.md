@@ -2,6 +2,10 @@
 
 Each version lists what the apps do as of that version. The newest version is first.
 
+## 0.0.52 (2026-11-22)
+
+- **Star wave, a fixed shooter of our own, its rules in Hazel** (ticket 827; Matthew: "Next: space invaders clone ...", and "all with hazel rules and hazel AI that plays the game"). A formation of 45 invaders of our own (diamonds, six-sided drones, three-legged blobs, each with two poses) marches across the sky and steps down at each edge, faster as it thins, dropping bombs; your cannon fires one shot at a time from behind four shields, which bombs and shots wear away. Three lives; the invaders reaching the ground ends the game; each wave starts a little lower. Every step is Hazel's (StarWave.step). 🤖 Hazel plays for you: Hazel's robot (StarWave.robot) gets out from under a bomb coming down, else goes under the nearest column of invaders (allowing for their march while the shot rises) and fires. ⬅️ ➡️ (or a finger along the field) and ⬆️, the space bar or a tap. Compiled ahead of time by hazel-jit: a step in 0.015 ms; compiled and interpreted agree on 56 answers.
+
 ## 0.0.51 (2026-11-22)
 
 - **Snake, its rules in Hazel** (ticket 825; Matthew: "let's do more classic games with simple physics and rules: break out, snake, tron"). Steer to the apple: the arrow keys or W A S D, a swipe on the board, or four big buttons (a quick double turn is kept). A meal is 10 points and three cells longer; a wall or the snake's own body ends the game, unless the walls wrap round. Three speeds. Every step is Hazel's (Snake.step), the next meal on a free cell by chance. 🤖 Hazel plays for you: Hazel's robot (Snake.robot) heads for the food, but only where a flood from the next cell finds room for the whole snake; it grew a snake to 72 cells without a crash. Compiled ahead of time by hazel-jit: a step in 0.004 ms, the robot's choice in 0.11 (483 interpreted); compiled and interpreted agree on 72 answers.

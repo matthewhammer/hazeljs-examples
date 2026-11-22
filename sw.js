@@ -8,7 +8,7 @@
 // (0.0.45) The front page is an app of its own (manifest.webmanifest): one icon on a tablet's home screen holding every
 // activity. So the worker saves, at once, the front page's own files, offline.js, and Hazel's library, which the Petri net
 // runs its rules with (and every app falls back to): before, those were saved only once a page had asked for them online.
-const VERSION = "0.0.51";
+const VERSION = "0.0.52";
 const CACHE = "hazeljs-examples-" + VERSION;
 // (files a page saves on request, the Tarot's woodcut faces, and every face a page has shown: kept across versions)
 const EXTRA = "hazeljs-examples-extra";
@@ -162,6 +162,19 @@ const PRECACHE = [
   "mahjong/icons/apple-touch-icon.png",
   "mahjong/rules/preamble.hz",
   "mahjong/rules/Mahjong.hz",
+  "starwave/",
+  "starwave/index.html",
+  "starwave/app.js",
+  "starwave/compiled.js",
+  "starwave/starwave.css",
+  "starwave/manifest.webmanifest",
+  "starwave/icons/apple-touch-icon.png",
+  "starwave/icons/icon-192.png",
+  "starwave/icons/icon-32.png",
+  "starwave/icons/icon-512.png",
+  "starwave/icons/icon.svg",
+  "starwave/rules/StarWave.hz",
+  "starwave/rules/preamble.hz",
   "snake/",
   "snake/index.html",
   "snake/app.js",
