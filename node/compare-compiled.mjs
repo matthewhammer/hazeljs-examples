@@ -36,6 +36,8 @@ const SETUP = {
   "mahjong": { modules: ["Mahjong"], tail: "(start = Mahjong.start, step = Mahjong.step, options = Mahjong.options, next_hand = Mahjong.next_hand)" },
   "solitaire": { modules: ["Cards", "Deal", "Moves"], tail: "(deal = Deal.deal, moves = Moves.moves, moves_from = Moves.moves_from, apply = Moves.apply, won = Moves.won)" },
   "pinball": { modules: ["Pinball"], tail: "(start = Pinball.start, step = Pinball.step, board = Pinball.board)" },
+  "downhill": { modules: ["Downhill"], tail: "(start = Downhill.start, step = Downhill.step, course = Downhill.course, robot = Downhill.robot)" },
+  "bricks": { modules: ["Bricks"], tail: "(start = Bricks.start, step = Bricks.step, layout = Bricks.layout, robot = Bricks.robot)" },
   "mahjong-solitaire": { modules: ["MahjongSolitaire"], tail: "(deal = MahjongSolitaire.deal, take = MahjongSolitaire.take, frees = MahjongSolitaire.free_places, pairs = MahjongSolitaire.pairs, best = MahjongSolitaire.best, shuffle = MahjongSolitaire.shuffle, places = MahjongSolitaire.layout, won = MahjongSolitaire.won)" },
   "astrology": { modules: ["Zodiac", "Aspects", "Chart", "Orbit", "MoonOrbit", "Planets", "Outer", "PlutoOrbit", "Sky", "Wheel", "Reading"], tail: null },
 }[APP];
@@ -223,6 +225,45 @@ if (APP === "checkers") {
   const g = C.step(0, C.start(0), false, false, 60);
   console.log(`a step: ${HN} ${time(() => H.step(0, g, true, false, 0), 10).toFixed(1)} ms, compiled ${time(() => C.step(0, g, true, false, 0), 500).toFixed(3)} ms`);
   console.log(`a board: ${HN} ${time(() => H.board(4), 10).toFixed(1)} ms, compiled ${time(() => C.board(4), 500).toFixed(3)} ms`);
+} else if (APP === "downhill") {
+  // (ticket 823) the course's stretches both ways; a run skied by the compiled robot (each step's turn and crouch its choice,
+  // and now and then a press of the player's own), and at steps spread across it the robot's choice and the next step both
+  // ways, from the same run and keys; then a run put at 1500 m, so the snowball's steps are compared too
+  const per = CAP || 40; let steps = 0;
+  for (let k = 0; k < 12; k++) check(`course(9, ${k})`, H.course(9, k), C.course(9, k));
+  for (const [seed, chase, y0] of [[9, true, 0], [31, true, 7480000]]) {
+    let g = { ...C.start(seed, chase), y: y0 }; const run = [];
+    for (let k = 0; k < 1500 && !g.over; k++) {
+      const c = C.robot(g), turn = draw() < 0.05 ? (draw() < 0.5 ? -1 : 1) : c.turn, tuck = draw() < 0.1 ? !c.tuck : c.tuck;
+      run.push([g, turn, tuck]); g = C.step(g, turn, tuck);
+    }
+    const pick = run.filter((_, k) => k < 3 || k % Math.max(1, Math.floor(run.length / per)) === 0 || run[k][0].hit).slice(0, per + 3);
+    for (const [g0, turn, tuck] of pick) { steps++;
+      check(`robot at ${JSON.stringify(g0)}`, H.robot(g0), C.robot(g0));
+      check(`step from ${JSON.stringify(g0)} ${turn} ${tuck}`, H.step(g0, turn, tuck), C.step(g0, turn, tuck)); }
+  }
+  console.log(`${checked} answers compared: 12 stretches, and ${steps} steps with the robot's choice at each, ${differ} differ`);
+  const g = C.start(9, true);
+  console.log(`a step: ${HN} ${time(() => H.step(g, 1, false), 10).toFixed(1)} ms, compiled ${time(() => C.step(g, 1, false), 500).toFixed(3)} ms; the robot: ${HN} ${time(() => H.robot(g), 10).toFixed(1)} ms, compiled ${time(() => C.robot(g), 500).toFixed(3)} ms`);
+} else if (APP === "bricks") {
+  // (ticket 824) each level's bricks both ways; a game played by the compiled robot (now and then the paddle sent elsewhere),
+  // and at steps spread across it the robot's choice and the next step both ways
+  const per = CAP || 40; let steps = 0;
+  for (let l = 0; l < 6; l++) check(`layout(${l})`, H.layout(l), C.layout(l));
+  for (const lv of [0, 3]) {
+    let g = C.start(lv, lv > 0); const run = [];
+    for (let k = 0; k < 2000 && !g.over; k++) {
+      const c = C.robot(g), target = draw() < 0.05 ? Math.floor(draw() * 600) : c.target;
+      run.push([g, target, c.launch]); g = C.step(g, target, c.launch);
+    }
+    const pick = run.filter((_, k) => k < 3 || k % Math.max(1, Math.floor(run.length / per)) === 0 || run[k][0].hit >= 3).slice(0, per + 3);
+    for (const [g0, target, launch] of pick) { steps++;
+      check(`robot at ${JSON.stringify(g0)}`, H.robot(g0), C.robot(g0));
+      check(`step from ${JSON.stringify(g0)} ${target} ${launch}`, H.step(g0, target, launch), C.step(g0, target, launch)); }
+  }
+  console.log(`${checked} answers compared: 6 layouts, and ${steps} steps with the robot's choice at each, ${differ} differ`);
+  const g = C.start(0, false);
+  console.log(`a step: ${HN} ${time(() => H.step(g, 200, true), 10).toFixed(1)} ms, compiled ${time(() => C.step(g, 200, true), 500).toFixed(3)} ms; the robot: ${HN} ${time(() => H.robot(g), 10).toFixed(1)} ms, compiled ${time(() => C.robot(g), 500).toFixed(3)} ms`);
 } else if (APP === "mahjong-solitaire") {
   // (ticket 803) each layout's places both ways; a deal both ways from the same seed; from that game the free places, the pairs,
   // Hazel's choice, the game after taking it, a shuffle of that, and whether it is won, each both ways (hazeljs is slow here:

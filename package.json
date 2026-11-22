@@ -19,7 +19,9 @@
     "mahjong": "node node/mahjong.mjs",
     "pinball": "node node/pinball.mjs",
     "mahjong-solitaire": "node node/mahjong-solitaire.mjs",
-    "pinball-lab": "node tools/pinball-lab.mjs play"
+    "pinball-lab": "node tools/pinball-lab.mjs play",
+    "downhill": "node node/downhill.mjs",
+    "downhill-moments": "node node/downhill-moments.mjs"
   },
   "dependencies": {
     "hazeljs": "0.0.4"

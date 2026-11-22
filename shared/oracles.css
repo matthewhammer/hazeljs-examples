@@ -370,7 +370,7 @@ html.oracle-fs .tarot-ui > .faces-credit { grid-column: 2; grid-row: 2; margin: 
   html.oracle-fs .oracle-ui > * { flex: none; }
   html.oracle-fs .oracle-ui > .fs-bar { order: -1; align-self: flex-end; margin: 0 0 6px; }
   html.oracle-fs .oracle-ui > .fs-cast:not([hidden]) { max-width: 100%; box-sizing: border-box; white-space: normal; }
-  html.oracle-fs :is(.go-ui, .ck-ui, .mj-ui, .ms-ui, .pb-ui, .solitaire-ui, .sweeper-ui) > .fs-left { order: 10; margin-top: 10px; }
+  html.oracle-fs :is(.go-ui, .ck-ui, .mj-ui, .ms-ui, .pb-ui, .dh-ui, .solitaire-ui, .sweeper-ui) > .fs-left { order: 10; margin-top: 10px; }
   html.oracle-fs .oracle-ui .reading { display: block; }
   html.oracle-fs .fs-left { overflow: visible; }
   html.oracle-fs .fs-divider { display: none; }

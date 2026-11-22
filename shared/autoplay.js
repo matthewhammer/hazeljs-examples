@@ -46,7 +46,7 @@
   // (["⚫", "⚪"]); pace, the page's own pace ({ get }) when it has one (Mahjong's), else the switch brings its own select;
   // onChange(on), called when the switch is flipped; sides may be one name (Minesweeper: Hazel alone); more(), words the page
   // adds to the clock (its guesses); label, the switch's words
-  function make({ into, key, sides, pace, onChange, more, label }) {
+  function make({ into, key, sides, pace, onChange, more, label, what }) {
     style();
     const box = document.createElement("div"); box.className = "autoplay";
     const sw = document.createElement("label"); sw.className = "switch";
@@ -76,7 +76,7 @@
       const wall = (done || performance.now()) - t0, logic = think[0] + think[1];
       const share = wall > 0 ? Math.round(100 * logic / wall) : 0;
       const head = done ? `🏁 ${endText ? endText + ": " : ""}${moves} move${moves === 1 ? "" : "s"}${from ? ` from move ${from + 1}` : ""} in ${secs(wall)} on the clock, ${paceName(paceAtStart)}`
-        : `🤖 Hazel plays ${sides.length > 1 ? "both sides" : "the board"}, ${paceName(paceNow())} · move ${from + moves} · ${secs(wall)} on the clock`;
+        : `🤖 Hazel plays ${sides.length > 1 ? "both sides" : what || "the board"}, ${paceName(paceNow())} · move ${from + moves} · ${secs(wall)} on the clock`;
       // (one side, Minesweeper's: Hazel's thinking in all; more(), the page's own words, such as its guesses)
       const thinking = sides.length > 1 ? `Hazel's thinking: ${sides[0]} ${secs(think[0])}, ${sides[1]} ${secs(think[1])}` : `Hazel's thinking ${secs(think[0])}`;
       return `${head} · ${thinking}` + (moves ? ` (${share}% of the clock; slowest move ${secs(slowest)})` : "") + (more ? more() : "") + (done ? "." : "");

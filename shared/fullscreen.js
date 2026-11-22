@@ -40,7 +40,9 @@
     // (0.0.36) Pinball: the table as tall as the window, its score above it and its buttons under it
     "pb-ui": [".controls", "#status", "#info"],
     // (0.0.39) Mahjong solitaire: the stacks as large as the window allows
-    "ms-ui": [".controls", "#status", "#info"] };
+    "ms-ui": [".controls", "#status", "#info"],
+    // (0.0.49) Downhill: the slope as tall as the window, its numbers above it and its buttons under it
+    "dh-ui": [".controls", "#status", "#info"] };
   const partsOf = Object.entries(LEFT_PARTS).find(([c]) => ui.classList.contains(c));
   const left = document.createElement("div");
   left.className = "fs-left";

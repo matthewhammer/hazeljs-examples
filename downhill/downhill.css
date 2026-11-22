@@ -1,0 +1,22 @@
+/* hazeljs-examples, Downhill (0.0.49): the slope, a canvas; its numbers above it; three big buttons under it */
+.dh-check { display: inline-flex; align-items: center; gap: 6px; }
+.dh-bar { display: flex; gap: 14px; flex-wrap: wrap; align-items: baseline; font-variant-numeric: tabular-nums; margin: 6px 0; }
+.dh-bar #metres { font-size: 1.5em; font-weight: 700; }
+.dh-wrap { display: flex; justify-content: center; }
+.dh-wrap canvas { width: min(100%, 520px, calc((100vh - 170px) * 0.75)); height: auto; aspect-ratio: 3 / 4; border-radius: 14px; touch-action: none; box-shadow: 0 2px 12px rgb(0 0 0 / 0.25); background: #f4f8fd; }
+.dh-wrap canvas, .dh-pad button { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+.dh-pad { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; max-width: 520px; margin: 10px auto 0; }
+.dh-pad button { font: inherit; font-size: 1.5em; padding: 14px 0; border-radius: 12px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); touch-action: none; user-select: none; }
+.dh-pad button.held { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 20%, var(--paper)); }
+/* full screen, two columns: the controls at the left, the slope as tall as the window, its buttons under it */
+html.oracle-fs .dh-ui { grid-template-columns: minmax(200px, 0.55fr) minmax(0, 3fr); grid-template-rows: auto minmax(0, 1fr) auto; }
+html.oracle-fs .dh-ui > .dh-bar { grid-column: 2; grid-row: 1; justify-self: center; margin: 0 0 6px; }
+html.oracle-fs .dh-ui > .dh-wrap { grid-column: 2; grid-row: 2; align-self: stretch; min-height: 0; container-type: size; align-items: center; }
+/* (the slope keeps its shape, 3 by 4, as large as its cell allows either way, as Pinball's table does) */
+html.oracle-fs .dh-ui .dh-wrap canvas { width: min(100cqw, 75cqh); height: auto; max-width: none; }
+html.oracle-fs .dh-ui > .dh-pad { grid-column: 2; grid-row: 3; width: min(100%, 560px); }
+html.oracle-fs .dh-ui > .fs-cast { grid-row: 1 / -1; }
+@media (max-width: 900px) {
+  html.oracle-fs .dh-ui > .dh-wrap { container-type: normal; }
+  html.oracle-fs .dh-ui .dh-wrap canvas { width: min(100%, calc((100vh - 190px) * 0.75)); }
+}
