@@ -7,7 +7,7 @@
 <meta name="description" content="Butterfly garden: caterpillars winding down through a garden of buds; send nectar up from your watering can, and each segment fed curls into a cocoon and flies off as a butterfly, opening a bud. Every step a Hazel program, compiled ahead of time to JavaScript by hazel-jit, and a robot in Hazel that plays it.">
 <link rel="stylesheet" href="../shared/style.css?v=0.0.14">
 <link rel="stylesheet" href="../shared/oracles.css?v=0.0.59">
-<link rel="stylesheet" href="bugs.css?v=0.0.49">
+<link rel="stylesheet" href="bugs.css?v=0.0.63">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
 <link rel="icon" href="icons/icon-32.png" sizes="32x32" type="image/png">
@@ -28,6 +28,8 @@
 <section class="oracle-ui cp-ui" aria-label="The garden">
   <div class="controls">
     <button type="button" id="new" class="primary">New game</button>
+    <button type="button" id="music" class="cp-toggle" aria-pressed="true" title="Music: happy tunes of our own on a little chip, reggae first, a new one each garden">🎵</button>
+    <button type="button" id="sfx" class="cp-toggle" aria-pressed="true" title="Sounds: your drops of nectar, the caterpillars fed, the butterflies, the buds opening…">🔊</button>
   </div>
   <div class="status wait" id="status">⏳ Loading the rules…</div>
   <div class="cp-bar"><span id="points">⭐ 0</span><span id="lives"></span><span id="level"></span><span id="left" class="muted"></span></div>
@@ -54,6 +56,9 @@
 <script src="../shared/advanced.js?v=0.0.45"></script>
 <script src="../shared/autoplay.js?v=0.0.54"></script>
 <script src="../shared/pause.js?v=0.0.53"></script>
-<script src="app.js?v=0.0.62"></script>
+<script src="../shared/chip.js?v=0.0.63"></script>
+<script src="sound.js?v=0.0.63"></script>
+<script src="../shared/volume.js?v=0.0.56"></script>
+<script src="app.js?v=0.0.63"></script>
 </body>
 </html>

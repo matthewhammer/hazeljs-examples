@@ -20,3 +20,6 @@ html.oracle-fs .cp-ui > .fs-cast { grid-row: 1 / -1; }
   html.oracle-fs .cp-ui > .cp-wrap { container-type: normal; }
   html.oracle-fs .cp-ui .cp-wrap canvas { width: min(100%, calc((100vh - 190px) * 0.75)); }
 }
+/* (0.0.63) the music's and the sounds' switches, as Star wave's */
+.cp-toggle { font-size: 1.15em; padding: 2px 8px; }
+.cp-toggle[aria-pressed="false"] { opacity: 0.45; text-decoration: line-through; }

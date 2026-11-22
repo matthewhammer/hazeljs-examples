@@ -25,6 +25,7 @@
               held: { left: false, right: false, up: false, down: false }, aimX: null, aimY: null, fire: false, pops: [], stepMs: [], restartAt: 0, banner: null,
               flies: [], bursts: [], arriving: new Map(), sparks: [] };
   const H = () => S.built && S.built.ok ? S.built.value : null;
+  const SND = window.GardenSound || null;   // (0.0.63, sound.js: the music, a tune each garden, reggae first, and the garden's sounds)
 
   // ---- drawing: the lawn, its grass and daisies, the path at the foot where your can goes; the buds, opening a little with each
   // drop, and the flowers (five colours, by their place); the cocoons, wobbling as they ripen; the caterpillars (a round body
@@ -161,6 +162,7 @@
   function newGame() {
     const h = H(); if (!h) return;
     S.game = h.start(1 + Math.floor(Math.random() * 2000000000)); S.pops = []; S.flies = []; S.bursts = []; S.sparks = []; S.arriving.clear(); S.banner = null; S.fire = false; S.restartAt = 0;
+    if (SND) { SND.start(); SND.tune(0); }
     if (W && W.on) W.start(0);
     bar(); draw();
   }
@@ -169,6 +171,17 @@
   // caterpillar)
   function heard(g, g2) {
     const now = performance.now();
+    if (SND) {   // (0.0.63: the sounds of a step)
+      if (g2.hit === 1) SND.fed(g2.score - g.score - 5 * (g2.freed - g.freed) >= 100);
+      for (let i = 0; i < Math.min(2, g2.freed - g.freed); i++) SND.flutter();
+      if (g2.hit !== 3) { const opened = g2.buds.some(b => b.hp === 0 && g.buds.some(o => o.c === b.c && o.r === b.r && o.hp > 0));
+        const watered = g2.buds.some(b => b.hp > 0 && g.buds.some(o => o.c === b.c && o.r === b.r && o.hp > b.hp));
+        if (opened && g2.freed === g.freed) SND.bloom(); else if (watered) SND.plip(); }
+      if (g2.hit === 2) SND.bump();
+      if (g2.hit === 6) SND.more();
+      if (g2.over && !g.over) { SND.stop(); SND.over(); }
+      else if (g2.hit === 3) { SND.full(); SND.tune(g2.wave); }
+    }
     if (g2.hit === 1) { const x = g.sx, y = Math.max(0, g.sy - 18); S.sparks.push({ x, y, t: now }); S.pops.push({ x, y: y - 10, text: "+" + (g2.score - g.score - 5 * (g2.freed - g.freed)), t: now, col: "#9d174d" }); }
     if (g2.hit !== 3) {
       const gone = g.cocoons.filter(q => q.hp <= 1);
@@ -195,6 +208,7 @@
       my = S.held.up ? -1 : S.held.down ? 1 : S.aimY !== null ? (S.aimY > g.py + 4 ? 1 : S.aimY < g.py - 4 ? -1 : 0) : 0;
       fire = S.fire; if (g.sy < 0 || !S.fire) S.fire = false;
     }
+    if (SND && fire && g.sy < 0 && !(g.wait > 0)) SND.drop();
     const t0 = performance.now(), g2 = h.step(g, mx, my, fire);
     S.stepMs.push(performance.now() - t0); if (S.stepMs.length > 60) S.stepMs.shift();
     heard(g, g2); S.game = g2;
@@ -257,7 +271,20 @@
     },
   }) : null;
   // (0.0.53) ⏸ the pause (shared/pause.js): its button and the space bar; no step runs while paused
-  const P = window.HazelPause ? window.HazelPause.make({ into: $("new").parentElement, over: $("field").parentElement }) : null;
+  const P = window.HazelPause ? window.HazelPause.make({ into: $("new").parentElement, over: $("field").parentElement,
+    onChange: paused => { if (!SND) return; if (paused) SND.stop(); else if (S.game && !S.game.over) SND.tune(S.game.wave); } }) : null;   // (the music stops while paused)
+  // (0.0.63: the music and the sounds, each a switch and a slider, remembered; any tap or key wakes the chip, which browsers ask for first)
+  if (SND) {
+    const sw = (id, get, set) => { const b = $(id); b.setAttribute("aria-pressed", String(get()));
+      b.addEventListener("click", () => { set(!get()); b.setAttribute("aria-pressed", String(get())); if (get()) SND.gesture(S.game && !S.game.over ? S.game.wave : null); b.blur(); }); };
+    sw("music", () => SND.musicOn, on => { SND.music(on); if (on && S.game && !S.game.over) SND.tune(S.game.wave); });
+    sw("sfx", () => SND.soundsOn, on => SND.sounds(on));
+    if (window.HazelVolume) {
+      window.HazelVolume.slider($("music"), { label: "Music volume", get: () => SND.volumeOf("music"), set: v => SND.setVolume("music", v), isOn: () => SND.musicOn });
+      window.HazelVolume.slider($("sfx"), { label: "Sounds volume", get: () => SND.volumeOf("sfx"), set: v => SND.setVolume("sfx", v), isOn: () => SND.soundsOn, hear: () => SND.flutter() });
+    }
+    for (const ev of ["pointerdown", "keydown"]) addEventListener(ev, () => SND.gesture(S.game && !S.game.over ? S.game.wave : null), true);
+  } else for (const id of ["music", "sfx"]) $(id).hidden = true;
 
   // ---- the rules: compiled ahead of time when compiled.js is here, else (and once they are edited) built by hazeljs
   function drawStatus() {

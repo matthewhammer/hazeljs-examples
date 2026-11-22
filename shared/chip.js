@@ -1,7 +1,7 @@
 // hazeljs-examples: the little chip that plays the games' music and makes their sounds (0.0.55; moved here from Pinball's
 // sound.js, ticket 793, Matthew: "let's have music and sound effects for pin ball. fast-paced, mega-man themed style, but
 // original MIDI constructions"; then, for Star wave: "let's create another set of melodies and chord progressions, in the style
-// of mega man. Let's share these songs with the other game that has them: pinball"). Fourteen tunes of our own (the last six, 0.0.57, in major keys: ska, New Orleans funk, progressive house), written below as
+// of mega man. Let's share these songs with the other game that has them: pinball"). Sixteen tunes of our own (six, 0.0.57, in major keys: ska, New Orleans funk, progressive house; two, 0.0.63, reggae), written below as
 // notes (MIDI numbers, from names such as "e5" and "c#4") on a grid of sixteenths, with a chord for each bar; and the chip,
 // made of the Web Audio API, that plays them: a lead on a pulse wave a quarter on, an arpeggio on a thinner pulse (an eighth
 // on), a triangle bass bouncing in octaves, and drums of noise (kick, snare, hats). A game's own sounds are made on the same
@@ -252,7 +252,42 @@
         "e6 - - - c6 . g5 . a#5 - . g5 e5 . c5 .",
         "e5 . g5 . c6 . e6 . g6 - . e6 . c6 . .",
         "d6 - - - b5 . g5 . f5 - . d5 b4 . g4 .",
-        "g4 . b4 . d5 . f5 . g5 . b5 . d6 . f6 ."] }] }];
+        "g4 . b4 . d5 . f5 . g5 . b5 . d6 . f6 ."] }] },
+    // ---- (0.0.63; Matthew, for the Butterfly garden: "add music and sound effects, a la star wave", "but happy and reggae to
+    // start") two of our own in the reggae style (STYLES.reggae): a one drop, the chord chopped on two and four, an organ
+    // bubbling, a round bass; major keys, a happy, laid-back lead
+    { name: "Garden sun", style: "reggae", bpm: 88, swing: 0.12, sections: [
+      { chords: ["G", "C", "G", "D"], lead: [
+        "b4 - - d5 - - g5 - . . a5 - g5 - d5 -",
+        "e5 - - g5 - - c6 - . . b5 - a5 - g5 -",
+        "d5 - - g5 - - b5 - . . a5 - g5 - b5 -",
+        "a5 - - - f#5 - d5 - . . . . . . . ."] },
+      { chords: ["G", "C", "D", "G"], lead: [
+        "g5 - a5 - b5 - d6 - . b5 - . a5 - g5 -",
+        "e5 - g5 - c6 - e6 - . c6 - . b5 - a5 -",
+        "f#5 - a5 - d6 - f#6 - . d6 - . c6 - a5 -",
+        "g5 - - - - - - - . . d5 - e5 - f#5 -"] },
+      { chords: ["C", "G", "D", "G"], lead: [
+        "e6 - - - d6 - c6 - . . g5 - e5 - . .",
+        "d6 - - - b5 - g5 - . . d5 - g5 - . .",
+        "a5 - - - f#5 - a5 - d6 - - - c6 - a5 -",
+        "g5 - - - - - - - . . . . . . . ."] }] },
+    { name: "Honey breeze", style: "reggae", bpm: 92, swing: 0.12, sections: [
+      { chords: ["D", "G", "A", "D"], lead: [
+        ". . f#5 - a5 - . d6 - . a5 - f#5 - . .",
+        ". . g5 - b5 - . d6 - . b5 - g5 - . .",
+        ". . e5 - a5 - . c#6 - . a5 - e5 - . .",
+        "d5 - - - f#5 - - - a5 - - - . . . ."] },
+      { chords: ["Bm", "G", "A", "D"], lead: [
+        "f#5 - - - d5 - b4 - d5 - f#5 - b5 - - -",
+        "g5 - - - d5 - b4 - d5 - g5 - b5 - - -",
+        "a5 - - - e5 - c#5 - e5 - a5 - c#6 - - -",
+        "d6 - - - - - - - . . a5 - b5 - c#6 -"] },
+      { chords: ["G", "A", "D", "D"], lead: [
+        "d6 - b5 - g5 - b5 - d6 - - - . . . .",
+        "c#6 - a5 - e5 - a5 - c#6 - - - . . . .",
+        "a5 - f#5 - d5 - f#5 - a5 - d6 - f#6 - - -",
+        "d6 - - - - - - - . . . . . . . ."] }] }];
   // ---- a tune as steps: for every sixteenth, the notes that start on it (an instrument, a note, how many steps it lasts)
   const ARP = [0, 1, 2, 3, 2, 1, 2, 1];
   // (0.0.57) the bands under the lead, by a tune's style: what the bass, the chords and the drums play in a bar, put(k, note) on
@@ -285,6 +320,19 @@
       for (let k = 0; k < 16; k++) if (k !== 14) put(k, ["hat", k % 2 ? 0.03 : 0.055]);
       put(14, ["ohat"]);
       if (last) for (const k of [11, 13, 15]) put(k, ["snare"]);
+    },
+    // (0.0.63) reggae, laid back: the one drop (the kick and a rim click together on three, nothing on one), the hats on the
+    // eighths and an open hat on the and of four; the chord chopped on two and four; an organ bubbling on the off sixteenths
+    // (the root and the fifth, low then high); a round bass that leaves room (root, third, fifth, sixth, fifth, the octave)
+    reggae(put, at, last) {
+      put(8, ["kick"]); put(8, ["rim"]);
+      for (const k of [0, 2, 4, 6, 10, 12]) put(k, ["hat", 0.035]);
+      put(14, ["ohat"]);
+      for (const k of [4, 12]) { const c = at(k); put(k, ["chord", VOICE(c, [0, c.third, 7], 64), 1, "half", 0.045]); }
+      for (const k of [2, 3, 6, 7, 10, 11, 14, 15]) { const c = at(k); put(k, ["bubble", 55 + ((c.root - 7 + 12) % 12) + (k % 2 ? 19 : 12)]); }
+      const bass = [[0, 0, 3], [3, null, 1], [6, 7, 2], [10, 9, 1], [12, 7, 1], [14, 12, 2]];
+      for (const [k, iv, len] of bass) { const c = at(k); put(k, ["bass", BASS(c) + (iv === null ? c.third : iv), len]); }
+      if (last) { put(13, ["rim"]); put(15, ["rim"]); }
     },
     // progressive house: the kick on every beat, a clap on two and four, open hats on the off-beats; a bass rolling on the
     // off-beats; a pad (the chord with a ninth) swelling up between kicks, so it pumps; a plucked arpeggio in sixteenths
@@ -384,6 +432,8 @@
       else if (inst === "ohat") hiss(musicBus, t, 0.11, 0.06, "highpass", 6500);
       else if (inst === "ghost") hiss(musicBus, t, 0.06, 0.06, "bandpass", 2000, 0.7);
       else if (inst === "clap") for (const d of [0, 0.012, 0.024]) hiss(musicBus, t + d, 0.1, 0.15, "bandpass", 1300, 0.9);
+      else if (inst === "rim") { hiss(musicBus, t, 0.04, 0.14, "bandpass", 2600, 3); tone(musicBus, "triangle", 900, 700, t, 0.025, 0.08); }
+      else if (inst === "bubble") tone(musicBus, "quarter", hz(n), hz(n), t, step * 0.45, 0.026);
       else if (inst === "arp") tone(musicBus, "eighth", hz(n), hz(n), t, step * 0.8, 0.032);
       else if (inst === "bass") tone(musicBus, "triangle", hz(n), hz(n), t, len * step * 0.9, 0.3);
       else if (inst === "kick") { tone(musicBus, "sine", 160, 45, t, 0.1, 0.5); }
