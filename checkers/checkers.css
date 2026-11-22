@@ -24,7 +24,6 @@ html.oracle-fs .ck-ui > .fs-cast { grid-row: 1 / -1; }
 /* (0.0.46; Matthew, 2026-11-22: "let's update checkers so that even the one column view offers fullscreen button") the button in
    one column too; and full screen there, the board first, as large as the window lets it be, the controls under it */
 @media (max-width: 900px) {
-  html:not(.oracle-fs) .ck-ui .fs-bar { display: flex; }
   html.oracle-fs .ck-ui { display: flex; flex-direction: column; align-items: center; overflow-y: auto; }
   html.oracle-fs .ck-ui > .fs-bar { order: 0; align-self: flex-end; }
   html.oracle-fs .ck-ui > .ck-bar { order: 1; width: min(100%, calc(100vh - 110px)); max-width: none; }

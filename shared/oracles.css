@@ -274,7 +274,8 @@ h2[id] { scroll-margin-top: 12px; }
 .fs-bar { display: flex; justify-content: flex-end; margin: 0 0 4px; }
 .fs-button { font: inherit; font-size: 0.85em; padding: 3px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); cursor: pointer; }
 .fs-button:hover, .fs-button:focus-visible { border-color: var(--accent); }
-@media (max-width: 900px) { html:not(.oracle-fs) .fs-bar { display: none; } }
+/* (0.0.48; Matthew, 2026-11-22: "let's offer full screen for every activity in single column mode") the button in one column too:
+   it was shown only in two-column mode; full screen in one column is laid out below ("a window narrower than two columns") */
 html.oracle-fs, html.oracle-fs body { height: 100%; overflow: hidden; }
 html.oracle-fs main.oracle { max-width: none; margin: 0; padding: 0; }
 html.oracle-fs main.oracle > :not(.oracle-grid), html.oracle-fs .oracle-code, html.oracle-fs .oracle-divider { display: none !important; }
@@ -361,6 +362,15 @@ html.oracle-fs .tarot-ui > .faces-credit { grid-column: 2; grid-row: 2; margin: 
 /* full screen in a window narrower than two columns (made narrow after the button was pressed): one column, scrolling, no dividers */
 @media (max-width: 900px) {
   html.oracle-fs .oracle-ui { display: block; overflow-y: auto; }
+  /* (0.0.48) one column from the start too, now the button shows there: ✕ Leave full screen at the top; the parts in a column,
+     each its own height; the big button within the width; and in a game (the opponents, the one-player games), the board or
+     table first, as large as the window lets it be, its controls and status under it. An oracle keeps its question and its
+     controls first: they are filled in before the cast. */
+  html.oracle-fs .oracle-ui { display: flex; flex-direction: column; }
+  html.oracle-fs .oracle-ui > * { flex: none; }
+  html.oracle-fs .oracle-ui > .fs-bar { order: -1; align-self: flex-end; margin: 0 0 6px; }
+  html.oracle-fs .oracle-ui > .fs-cast:not([hidden]) { max-width: 100%; box-sizing: border-box; white-space: normal; }
+  html.oracle-fs :is(.go-ui, .ck-ui, .mj-ui, .ms-ui, .pb-ui, .solitaire-ui, .sweeper-ui) > .fs-left { order: 10; margin-top: 10px; }
   html.oracle-fs .oracle-ui .reading { display: block; }
   html.oracle-fs .fs-left { overflow: visible; }
   html.oracle-fs .fs-divider { display: none; }

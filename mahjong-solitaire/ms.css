@@ -12,10 +12,12 @@ html.oracle-fs .ms-ui > .ms-bar { grid-column: 2; grid-row: 1; justify-self: cen
 html.oracle-fs .ms-ui > .ms-wrap { grid-column: 2; grid-row: 2; align-self: stretch; min-height: 0; align-items: center; }
 html.oracle-fs .ms-ui > .fs-cast { grid-row: 1 / -1; }
 @media (orientation: portrait) {
-  html.oracle-fs .oracle-ui.ms-ui { display: grid; overflow: hidden; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto minmax(0, 1fr); padding: 8px; }
-  html.oracle-fs .ms-ui > .fs-left { grid-column: 1; grid-row: 1; align-self: start; overflow: visible; padding: 0; }
+  html.oracle-fs .oracle-ui.ms-ui { display: grid; overflow: hidden; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto auto minmax(0, 1fr); padding: 8px; }
+  /* (0.0.48) ✕ Leave full screen in a row of its own at the top, as every activity has it in one column */
+  html.oracle-fs .ms-ui > .fs-bar { grid-column: 1; grid-row: 1; justify-self: end; position: static; margin: 0 0 4px; }
+  html.oracle-fs .ms-ui > .fs-left { grid-column: 1; grid-row: 2; align-self: start; overflow: visible; padding: 0; }
   html.oracle-fs .ms-ui .fs-left .status.ok, html.oracle-fs .ms-ui .fs-left #info { display: none; }
-  html.oracle-fs .ms-ui > .ms-bar { grid-column: 1; grid-row: 2; }
-  html.oracle-fs .ms-ui > .ms-wrap { grid-column: 1; grid-row: 3; }
+  html.oracle-fs .ms-ui > .ms-bar { grid-column: 1; grid-row: 3; }
+  html.oracle-fs .ms-ui > .ms-wrap { grid-column: 1; grid-row: 4; }
   html.oracle-fs .ms-ui > .fs-cast { grid-column: 1; }
 }

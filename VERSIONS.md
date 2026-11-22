@@ -2,6 +2,10 @@
 
 Each version lists what the apps do as of that version. The newest version is first.
 
+## 0.0.48 (2026-11-22)
+
+- **Full screen in one column, for every activity** (Matthew: "let's offer full screen for every activity in single column mode"). The ⛶ Full screen button now shows on a phone, or a tablet held upright, in all ten activities; it was shown only where the page has two columns (checkers had it since 0.0.46). Full screen there: ✕ Leave full screen at the top; in the games (Go, Checkers, Mahjong, Mahjong solitaire, Solitaire, Minesweeper), the board or table first, as large as the screen lets it be, and the controls under it; the oracles keep their question and controls first, filled in before the cast; Pinball, its own layout, the table as tall as the screen. Nothing scrolls sideways (the Tarot's big button had, by 2 px).
+
 ## 0.0.47 (2026-11-22)
 
 - **Checkers: your moves shown moving too, and Hazel playing for you at each pace** (Matthew: "the animation looks good for the AI opponent. Let's also use it for 'You'", "In 'walk' automated mode, do the same animations at the same speed as interactive mode. And in 'brisk' automated mode, do the same animations but much faster."). Your piece is carried along its way as Hazel's is, about a second for a step. 🤖 Hazel plays for you: slowly and at a walk, each move at that same speed (at a walk, a move every one and a half seconds); briskly, four times as fast (a move every half second); at full speed, none.
