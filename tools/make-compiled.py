@@ -21,7 +21,7 @@ labeled tuple as an object; hazel-jit's code has {c}, a chain of {h, t} cells, a
 import argparse, os, subprocess
 
 ap = argparse.ArgumentParser()
-ap.add_argument("--app", default="i-ching", choices=["i-ching", "tarot", "astrology", "checkers", "go", "minesweeper", "mahjong", "solitaire", "pinball", "mahjong-solitaire", "downhill"])
+ap.add_argument("--app", default="i-ching", choices=["i-ching", "tarot", "astrology", "checkers", "go", "minesweeper", "mahjong", "solitaire", "pinball", "mahjong-solitaire", "downhill", "bricks", "snake", "trails"])
 ap.add_argument("--hazel", required=True, help="a checkout of hazelgrove/hazel with the commit")
 ap.add_argument("--commit", required=True, help="the commit whose hazel-jit compiled the program")
 ap.add_argument("--branch", default="trial/765-iching-aot", help="the branch whose test printed it")
@@ -249,9 +249,22 @@ ADAPTERS = {
   const course = (seed, k) => array(P.course([seed, k])).map(t => ({ kind: int(t.kind), x: int(t.x), y: int(t.y), w: int(t.w) }));
   const robot = g => { const c = P.robot(runIn(g)); return { turn: int(c.turn), tuck: c.tuck }; };
   const api = { start, step, course, robot, made };"""),
+  "bricks": ("BricksCompiled", """
+  // (ticket 824) Game = (bx, by, vx, vy, px, pw = Int, bricks = [Int], balls, score, level = Int, held, over = Bool, hit, t = Int);
+  // Choice = (target = Int, launch = Bool)
+  const GAME = ["bx", "by", "vx", "vy", "px", "pw", "bricks", "balls", "score", "level", "held", "over", "hit", "t"];
+  const gameIn = g => $R.tup(GAME.map(k => k === "bricks" ? list(g.bricks) : g[k]), GAME);
+  const gameOut = r => Object.fromEntries(GAME.map(k => [k, k === "bricks" ? array(r.bricks).map(int) : k === "held" || k === "over" ? r[k] : int(r[k])]));
+  // start : (Int, Bool) -> Game (a level, a wide paddle); step : (Game, Int, Bool) -> Game (where the paddle goes, a launch);
+  // layout : Int -> [Int]; robot : Game -> Choice
+  const start = (l, wide) => gameOut(P.start([l, wide]));
+  const step = (g, target, launch) => gameOut(P.step([gameIn(g), target, launch]));
+  const layout = l => array(P.layout(l)).map(int);
+  const robot = g => { const c = P.robot(gameIn(g)); return { target: int(c.target), launch: c.launch }; };
+  const api = { start, step, layout, robot, made };"""),
 }
 GLOBAL, ADAPT = ADAPTERS[a.app]
-TITLE = {"i-ching": "the I Ching", "tarot": "the Tarot", "astrology": "astrology", "checkers": "Checkers", "go": "Go", "minesweeper": "Minesweeper", "mahjong": "Mahjong", "solitaire": "Solitaire", "pinball": "Pinball", "mahjong-solitaire": "Mahjong solitaire", "downhill": "Downhill"}[a.app]
+TITLE = {"i-ching": "the I Ching", "tarot": "the Tarot", "astrology": "astrology", "checkers": "Checkers", "go": "Go", "minesweeper": "Minesweeper", "mahjong": "Mahjong", "solitaire": "Solitaire", "pinball": "Pinball", "mahjong-solitaire": "Mahjong solitaire", "downhill": "Downhill", "bricks": "Bricks", "snake": "Snake", "trails": "Light trails"}[a.app]
 TICKET = {"i-ching": "765", "tarot": "765", "astrology": "768", "checkers": "794", "go": "794", "minesweeper": "794", "mahjong": "794", "solitaire": "794", "pinball": "793", "mahjong-solitaire": "803", "downhill": "823", "bricks": "824", "snake": "825", "trails": "826"}[a.app]
 
 jit = subprocess.run(["git", "-C", a.hazel, "show", f"{a.commit}:src/language/dynamics/HazelJit.re"], capture_output=True, text=True, check=True).stdout
