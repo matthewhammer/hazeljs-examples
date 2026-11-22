@@ -437,6 +437,7 @@
     requestAnimationFrame(frame);
     const h = H(), g = S.game;
     if (!h || !g || g.over || document.hidden) { if (g && g.over) draw(); return; }
+    if (P && P.paused()) { draw(); return; }
     const auto = W && W.on, pace = auto ? W.pace : 450;
     try {
       if (pace === 900) { half = !half; if (half) oneStep(h); }
@@ -505,12 +506,12 @@
     if (f && f !== document.body && f.matches && f.matches("select, button")) f.blur();
     if (["z", "Z", "ArrowLeft"].includes(e.key)) { flip(-1, true); e.preventDefault(); }
     else if (["/", "ArrowRight"].includes(e.key)) { flip(1, true); e.preventDefault(); }
-    else if ([" ", "ArrowDown"].includes(e.key)) { plungeDown(); e.preventDefault(); }
+    else if (e.key === "ArrowDown") { plungeDown(); e.preventDefault(); }
   });
   addEventListener("keyup", e => {
     if (["z", "Z", "ArrowLeft"].includes(e.key)) flip(-1, false);
     else if (["/", "ArrowRight"].includes(e.key)) flip(1, false);
-    else if ([" ", "ArrowDown"].includes(e.key)) plungeUp();
+    else if (e.key === "ArrowDown") plungeUp();
   });
   const hold = (el, down, up) => { el.addEventListener("pointerdown", e => { e.preventDefault(); el.setPointerCapture(e.pointerId); down(); });
     for (const ev of ["pointerup", "pointercancel", "lostpointercapture"]) el.addEventListener(ev, up); };
@@ -551,6 +552,8 @@
       W.start(0);
     },
   }) : null;
+  // (0.0.53) ⏸ the pause (shared/pause.js): its button and the space bar; no step runs while paused
+  const P = window.HazelPause ? window.HazelPause.make({ into: $("new").parentElement, over: $("board").parentElement }) : null;
 
   // ---- the rules: compiled ahead of time when compiled.js is here, else (and once they are edited) built by hazeljs
   function drawStatus() {

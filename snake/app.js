@@ -103,6 +103,7 @@
     const h = H(), g = S.game;
     if (g && g.over && W && W.on && S.restartAt && t > S.restartAt) newGame();
     if (!h || !g || document.hidden) return;
+    if (P && P.paused()) { S.lastStep = t; draw(); return; }
     if (!g.over) {
       // (a step every 1/speed of a second; 🤖's pace: slowly half speed, at a walk the speed chosen, briskly twice, at full speed
       // four times; waiting for the first turn when you play)
@@ -155,6 +156,8 @@
       W.start(0);
     },
   }) : null;
+  // (0.0.53) ⏸ the pause (shared/pause.js): its button and the space bar; no step runs while paused
+  const P = window.HazelPause ? window.HazelPause.make({ into: $("new").parentElement, over: $("board").parentElement }) : null;
 
   // ---- the rules: compiled ahead of time when compiled.js is here, else (and once they are edited) built by hazeljs
   function drawStatus() {

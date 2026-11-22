@@ -6,7 +6,7 @@
 <title>Pinball, its physics in Hazel</title>
 <meta name="description" content="Pinball whose ten boards are Hazel data and whose physics is a Hazel program: gravity, the walls, the bumpers, the flippers, the portals, the drain, compiled ahead of time to JavaScript by hazel-jit to run at 60 frames a second. An example for hazeljs.">
 <link rel="stylesheet" href="../shared/style.css?v=0.0.14">
-<link rel="stylesheet" href="../shared/oracles.css?v=0.0.52">
+<link rel="stylesheet" href="../shared/oracles.css?v=0.0.53">
 <link rel="stylesheet" href="pinball.css?v=0.0.37">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
@@ -22,7 +22,7 @@
 <h1>Pinball, its physics in Hazel</h1>
 <span class="app-links"><a href="../">Hazel activities</a> › <a href="../#physics">Physics simulation</a> · <a href="https://github.com/matthewhammer/hazeljs-examples">source on GitHub</a> · <a href="https://www.npmjs.com/package/hazeljs">hazeljs on npm</a></span>
 </div>
-<p class="sub">Ten boards, each a piece of Hazel data: its walls, bumpers, flippers, portals and lamps. Many have chambers with flippers of their own, whose gutters drop to the chamber below: every left flipper moves with ⬅️, every right one with ➡️. Every frame, a Hazel program moves the ball: gravity, then the walls, the bumpers and the flippers it meets, and the portals, which hold it a moment before it comes out. Launch it <b>soft</b>, <b>mid</b> or <b>full</b> (the 1, 2, 3 keys), or hold <b>🚀</b> (or the space bar) and let go, the longer the harder. The flippers are <b>⬅️</b> and <b>➡️</b>, or the <b>←</b> and <b>→</b> keys (or Z and /), or a tap on the table: on a paddle, or anywhere on its side. A ball lost within 8 seconds of its launch comes back, once; light every lamp in a row to make it blink. Three balls a game.</p>
+<p class="sub">Ten boards, each a piece of Hazel data: its walls, bumpers, flippers, portals and lamps. Many have chambers with flippers of their own, whose gutters drop to the chamber below: every left flipper moves with ⬅️, every right one with ➡️. Every frame, a Hazel program moves the ball: gravity, then the walls, the bumpers and the flippers it meets, and the portals, which hold it a moment before it comes out. Launch it <b>soft</b>, <b>mid</b> or <b>full</b> (the 1, 2, 3 keys), or hold <b>🚀</b> (or ↓) and let go, the longer the harder. The flippers are <b>⬅️</b> and <b>➡️</b>, or the <b>←</b> and <b>→</b> keys (or Z and /), or a tap on the table: on a paddle, or anywhere on its side. A ball lost within 8 seconds of its launch comes back, once; light every lamp in a row to make it blink. Three balls a game. ⏸ or the space bar pauses.</p>
 
 <div class="oracle-grid">
 <section class="oracle-ui pb-ui" aria-label="The game">
@@ -35,7 +35,7 @@
   <div class="status wait" id="status">⏳ Loading the rules…</div>
   <div class="pb-bar"><span id="score">0</span><span id="balls"></span><span id="fps" class="muted"></span></div>
   <div class="pb-wrap"><canvas id="board" width="600" height="1000" aria-label="The pinball table"></canvas></div>
-  <div class="pb-pad"><button type="button" id="flipL" aria-label="Left flipper" title="Left flipper (the ← key)">⬅️</button><div class="pb-launch"><button type="button" id="launch" title="Hold to pull the plunger, the longer the harder; let go to launch (the space bar)">🚀 hold</button><span class="pb-power"><button type="button" data-power="soft" title="Launch softly: just out of the lane (the 1 key)">soft</button><button type="button" data-power="mid" title="Launch at half strength (the 2 key)">mid</button><button type="button" data-power="full" title="Launch at full strength, round the arch (the 3 key)">full</button></span></div><button type="button" id="flipR" aria-label="Right flipper" title="Right flipper (the → key)">➡️</button></div>
+  <div class="pb-pad"><button type="button" id="flipL" aria-label="Left flipper" title="Left flipper (the ← key)">⬅️</button><div class="pb-launch"><button type="button" id="launch" title="Hold to pull the plunger, the longer the harder; let go to launch">🚀 hold</button><span class="pb-power"><button type="button" data-power="soft" title="Launch softly: just out of the lane (the 1 key)">soft</button><button type="button" data-power="mid" title="Launch at half strength (the 2 key)">mid</button><button type="button" data-power="full" title="Launch at full strength, round the arch (the 3 key)">full</button></span></div><button type="button" id="flipR" aria-label="Right flipper" title="Right flipper (the → key)">➡️</button></div>
   <p class="sol-info" id="info"></p>
   <p class="nojs muted">This app needs JavaScript, and a page served over http (python3 -m http.server, then localhost).</p>
 </section>
@@ -58,6 +58,7 @@
 <script src="../shared/autoplay.js?v=0.0.37"></script>
 <script src="robot.js?v=0.0.37"></script>
 <script src="sound.js?v=0.0.37"></script>
-<script src="app.js?v=0.0.40"></script>
+<script src="../shared/pause.js?v=0.0.53"></script>
+<script src="app.js?v=0.0.53"></script>
 </body>
 </html>

@@ -2,6 +2,10 @@
 
 Each version lists what the apps do as of that version. The newest version is first.
 
+## 0.0.53 (2026-11-22)
+
+- **A pause for every game whose time runs on its own** (Matthew: "for each physics based game (any game with time advancing automatically) --- let's offer a pause feature, as a button and as space bar."). Pinball, Downhill, Bricks, Snake and Star wave (and the games to come: Light trails, Bug run, Deep dig) have a ⏸ Pause button beside New game, and the space bar pauses and goes on; paused, a card over the board says so, and a tap on it goes on. Leaving the page (another app, the screen off) pauses too. 🤖 Hazel playing for you pauses the same way. The space bar's old uses moved: Pinball's plunger to ↓, Downhill's crouch to ↓, Bricks' launch and Star wave's shot to ↑ or Enter (or F).
+
 ## 0.0.52 (2026-11-22)
 
 - **Star wave, a fixed shooter of our own, its rules in Hazel** (ticket 827; Matthew: "Next: space invaders clone ...", and "all with hazel rules and hazel AI that plays the game"). A formation of 45 invaders of our own (diamonds, six-sided drones, three-legged blobs, each with two poses) marches across the sky and steps down at each edge, faster as it thins, dropping bombs; your cannon fires one shot at a time from behind four shields, which bombs and shots wear away. Three lives; the invaders reaching the ground ends the game; each wave starts a little lower. Every step is Hazel's (StarWave.step). 🤖 Hazel plays for you: Hazel's robot (StarWave.robot) gets out from under a bomb coming down, else goes under the nearest column of invaders (allowing for their march while the shot rises) and fires. ⬅️ ➡️ (or a finger along the field) and ⬆️, the space bar or a tap. Compiled ahead of time by hazel-jit: a step in 0.015 ms; compiled and interpreted agree on 56 answers.

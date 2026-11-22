@@ -130,6 +130,7 @@
     const h = H(), g = S.game;
     if (g && g.over && W && W.on && S.restartAt && t > S.restartAt) newGame();
     if (!h || !g || g.over || document.hidden) { lastT = t; if (g) draw(); return; }
+    if (P && P.paused()) { lastT = t; draw(); return; }
     const auto = W && W.on, rate = auto ? ({ 900: 0.5, 450: 1, 120: 2, 0: 4 }[W.pace] || 1) : 1;
     acc += Math.min(100, t - (lastT || t)) * rate * 60 / 1000; lastT = t;
     let n = 0;
@@ -152,8 +153,8 @@
     if (typing(e) || (W && W.on)) return;
     if (e.key === "ArrowLeft") { e.preventDefault(); S.held.left = true; }
     else if (e.key === "ArrowRight") { e.preventDefault(); S.held.right = true; }
-    else if (e.key === " " || e.key === "ArrowUp") { e.preventDefault(); S.fire = true; }
     else if (e.key === "Enter" && S.game && S.game.over) newGame();
+    else if (e.key === "ArrowUp" || e.key === "Enter" || e.key === "f" || e.key === "F") { e.preventDefault(); S.fire = true; }
   });
   addEventListener("keyup", e => { if (e.key === "ArrowLeft") S.held.left = false; else if (e.key === "ArrowRight") S.held.right = false; });
   const hold = (id, side) => { const b = $(id);
@@ -175,6 +176,8 @@
       W.start(0);
     },
   }) : null;
+  // (0.0.53) ⏸ the pause (shared/pause.js): its button and the space bar; no step runs while paused
+  const P = window.HazelPause ? window.HazelPause.make({ into: $("new").parentElement, over: $("field").parentElement }) : null;
 
   // ---- the rules: compiled ahead of time when compiled.js is here, else (and once they are edited) built by hazeljs
   function drawStatus() {

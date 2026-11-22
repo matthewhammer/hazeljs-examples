@@ -6,7 +6,7 @@
 <title>Snake, its rules in Hazel</title>
 <meta name="description" content="Snake, its rules a Hazel program: the snake moved a cell a step, a meal growing it by three, a wall or its own body ending the game, the next meal on a free cell; compiled ahead of time to JavaScript by hazel-jit, and a robot in Hazel that plays it.">
 <link rel="stylesheet" href="../shared/style.css?v=0.0.14">
-<link rel="stylesheet" href="../shared/oracles.css?v=0.0.52">
+<link rel="stylesheet" href="../shared/oracles.css?v=0.0.53">
 <link rel="stylesheet" href="snake.css?v=0.0.49">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
@@ -22,7 +22,7 @@
 <h1>Snake, its rules in Hazel</h1>
 <span class="app-links"><a href="../">Hazel activities</a> › <a href="../#games">One-player games</a> · <a href="https://github.com/matthewhammer/hazeljs-examples">source on GitHub</a> · <a href="https://www.npmjs.com/package/hazeljs">hazeljs on npm</a></span>
 </div>
-<p class="sub">Steer the snake to the food: the arrow keys (or W A S D), a swipe on the board, or the four buttons. Each meal makes it three cells longer and is 10 points; running into a wall, or into itself, ends the game (unless the walls wrap round, so you come out on the other side). Choose how fast it goes. Each step of the game, and the robot that plays it for you, are Hazel (<code>snake/rules/Snake.hz</code>).</p>
+<p class="sub">Steer the snake to the food: the arrow keys (or W A S D), a swipe on the board, or the four buttons. Each meal makes it three cells longer and is 10 points; running into a wall, or into itself, ends the game (unless the walls wrap round, so you come out on the other side). Choose how fast it goes. Each step of the game, and the robot that plays it for you, are Hazel (<code>snake/rules/Snake.hz</code>). ⏸ or the space bar pauses.</p>
 
 <div class="oracle-grid">
 <section class="oracle-ui sn-ui" aria-label="The run">
@@ -55,6 +55,7 @@
 <script src="../shared/offline.js?v=0.0.27"></script>
 <script src="../shared/advanced.js?v=0.0.45"></script>
 <script src="../shared/autoplay.js?v=0.0.49"></script>
-<script src="app.js?v=0.0.49"></script>
+<script src="../shared/pause.js?v=0.0.53"></script>
+<script src="app.js?v=0.0.53"></script>
 </body>
 </html>

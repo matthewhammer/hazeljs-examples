@@ -6,7 +6,7 @@
 <title>Star wave, its rules in Hazel</title>
 <meta name="description" content="Star wave: a formation of invaders marching across and down, your cannon behind four shields; every step a Hazel program, compiled ahead of time to JavaScript by hazel-jit, and a robot in Hazel that plays it.">
 <link rel="stylesheet" href="../shared/style.css?v=0.0.14">
-<link rel="stylesheet" href="../shared/oracles.css?v=0.0.52">
+<link rel="stylesheet" href="../shared/oracles.css?v=0.0.53">
 <link rel="stylesheet" href="starwave.css?v=0.0.49">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
@@ -22,7 +22,7 @@
 <h1>Star wave, its rules in Hazel</h1>
 <span class="app-links"><a href="../">Hazel activities</a> › <a href="../#games">One-player games</a> · <a href="https://github.com/matthewhammer/hazeljs-examples">source on GitHub</a> · <a href="https://www.npmjs.com/package/hazeljs">hazeljs on npm</a></span>
 </div>
-<p class="sub">Wave after wave of invaders march across the sky and step down at each edge, faster as there are fewer of them, dropping bombs. Move your cannon with ⬅️ ➡️ (or drag along the field) and fire with ⬆️, the space bar or a tap: one shot at a time. The four shields wear away under bombs and shots alike. Three lives; the game ends if the invaders reach the ground. Each step, and the robot that plays it for you, are Hazel (<code>starwave/rules/StarWave.hz</code>).</p>
+<p class="sub">Wave after wave of invaders march across the sky and step down at each edge, faster as there are fewer of them, dropping bombs. Move your cannon with ⬅️ ➡️ (or drag along the field) and fire with ⬆️, Enter or a tap, one shot at a time; the space bar pauses. The four shields wear away under bombs and shots alike. Three lives; the game ends if the invaders reach the ground. Each step, and the robot that plays it for you, are Hazel (<code>starwave/rules/StarWave.hz</code>).</p>
 
 <div class="oracle-grid">
 <section class="oracle-ui sw-ui" aria-label="The run">
@@ -32,7 +32,7 @@
   <div class="status wait" id="status">⏳ Loading the rules…</div>
   <div class="sw-bar"><span id="points">⭐ 0</span><span id="lives"></span><span id="level"></span><span id="left" class="muted"></span></div>
   <div class="sw-wrap"><canvas id="field" width="600" height="800" aria-label="The sky and the field"></canvas></div>
-  <div class="sw-pad"><button type="button" id="left" aria-label="Move left" title="Move left (the ← key)">⬅️</button><button type="button" id="launch" aria-label="Fire" title="Fire (the space bar or ↑)">⬆️</button><button type="button" id="right" aria-label="Move right" title="Move right (the → key)">➡️</button></div>
+  <div class="sw-pad"><button type="button" id="left" aria-label="Move left" title="Move left (the ← key)">⬅️</button><button type="button" id="launch" aria-label="Fire" title="Fire (↑ or Enter)">⬆️</button><button type="button" id="right" aria-label="Move right" title="Move right (the → key)">➡️</button></div>
   <p class="sol-info" id="info"></p>
   <p class="nojs muted">This app needs JavaScript, and a page served over http (python3 -m http.server, then localhost).</p>
 </section>
@@ -53,6 +53,7 @@
 <script src="../shared/offline.js?v=0.0.27"></script>
 <script src="../shared/advanced.js?v=0.0.45"></script>
 <script src="../shared/autoplay.js?v=0.0.49"></script>
-<script src="app.js?v=0.0.49"></script>
+<script src="../shared/pause.js?v=0.0.53"></script>
+<script src="app.js?v=0.0.53"></script>
 </body>
 </html>

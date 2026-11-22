@@ -6,7 +6,7 @@
 <title>Bricks, its physics in Hazel</title>
 <meta name="description" content="Bricks: a paddle and a ball against a wall of bricks, six levels of them as Hazel data, and every step's physics a Hazel program (the walls, the paddle's angle, each brick's hits), compiled ahead of time to JavaScript by hazel-jit to run at 60 frames a second, and a robot in Hazel that plays it.">
 <link rel="stylesheet" href="../shared/style.css?v=0.0.14">
-<link rel="stylesheet" href="../shared/oracles.css?v=0.0.52">
+<link rel="stylesheet" href="../shared/oracles.css?v=0.0.53">
 <link rel="stylesheet" href="bricks.css?v=0.0.49">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
@@ -22,7 +22,7 @@
 <h1>Bricks, its physics in Hazel</h1>
 <span class="app-links"><a href="../">Hazel activities</a> › <a href="../#physics">Physics simulation</a> · <a href="https://github.com/matthewhammer/hazeljs-examples">source on GitHub</a> · <a href="https://www.npmjs.com/package/hazeljs">hazeljs on npm</a></span>
 </div>
-<p class="sub">Move the paddle under the ball and keep it in play: drag along the field, or ⬅️ ➡️; tap the field, ⬆️, or the space bar to send the ball off. Where the ball meets the paddle sets its angle: near an end, off to that side. A brick takes one hit or two (the darker ones); grey posts never break. Break every brick to go on to the next of six levels. The levels, each step of the ball and the robot that plays for you are all Hazel (<code>bricks/rules/Bricks.hz</code>).</p>
+<p class="sub">Move the paddle under the ball and keep it in play: drag along the field, or ⬅️ ➡️; tap the field, ⬆️, or Enter to send the ball off; the space bar pauses. Where the ball meets the paddle sets its angle: near an end, off to that side. A brick takes one hit or two (the darker ones); grey posts never break. Break every brick to go on to the next of six levels. The levels, each step of the ball and the robot that plays for you are all Hazel (<code>bricks/rules/Bricks.hz</code>).</p>
 
 <div class="oracle-grid">
 <section class="oracle-ui bk-ui" aria-label="The run">
@@ -33,7 +33,7 @@
   <div class="status wait" id="status">⏳ Loading the rules…</div>
   <div class="bk-bar"><span id="points">⭐ 0</span><span id="balls"></span><span id="level"></span><span id="left" class="muted"></span></div>
   <div class="bk-wrap"><canvas id="field" width="600" height="800" aria-label="The field"></canvas></div>
-  <div class="bk-pad"><button type="button" id="left" aria-label="Move left" title="Move left (the ← key)">⬅️</button><button type="button" id="launch" aria-label="Send the ball off" title="Send the ball off (the space bar)">⬆️</button><button type="button" id="right" aria-label="Move right" title="Move right (the → key)">➡️</button></div>
+  <div class="bk-pad"><button type="button" id="left" aria-label="Move left" title="Move left (the ← key)">⬅️</button><button type="button" id="launch" aria-label="Send the ball off" title="Send the ball off (↑ or Enter)">⬆️</button><button type="button" id="right" aria-label="Move right" title="Move right (the → key)">➡️</button></div>
   <p class="sol-info" id="info"></p>
   <p class="nojs muted">This app needs JavaScript, and a page served over http (python3 -m http.server, then localhost).</p>
 </section>
@@ -54,6 +54,7 @@
 <script src="../shared/offline.js?v=0.0.27"></script>
 <script src="../shared/advanced.js?v=0.0.45"></script>
 <script src="../shared/autoplay.js?v=0.0.49"></script>
-<script src="app.js?v=0.0.49"></script>
+<script src="../shared/pause.js?v=0.0.53"></script>
+<script src="app.js?v=0.0.53"></script>
 </body>
 </html>

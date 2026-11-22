@@ -231,6 +231,7 @@
     // (🤖 at a run's end: a new run, three seconds on)
     if (g && g.over && W && W.on && S.restartAt && t > S.restartAt) newRun();
     if (!h || !g || g.over || document.hidden) { lastT = t; if (g) draw(); return; }
+    if (P && P.paused()) { lastT = t; draw(); return; }
     // (steps at 60 a second whatever the screen's rate; 🤖's pace: slowly half speed, at a walk the run's own, briskly twice, at
     // full speed four times; at most a few a frame, so a slow device runs slower rather than skipping)
     const auto = W && W.on, rate = auto ? ({ 900: 0.5, 450: 1, 120: 2, 0: 4 }[W.pace] || 1) : 1;
@@ -250,12 +251,12 @@
   addEventListener("keydown", e => {
     if (typing(e) || (W && W.on)) return;
     if (e.key === "ArrowLeft" || e.key === "ArrowRight") { e.preventDefault(); if (!e.repeat) { S.turn = e.key === "ArrowLeft" ? -1 : 1; S.repeat = 0; } S.held[e.key === "ArrowLeft" ? "left" : "right"] = true; }
-    else if (e.key === "ArrowDown" || e.key === " ") { e.preventDefault(); S.held.tuck = true; }
+    else if (e.key === "ArrowDown") { e.preventDefault(); S.held.tuck = true; }
     else if (e.key === "Enter" && S.game && S.game.over) newRun();
   });
   addEventListener("keyup", e => {
     if (e.key === "ArrowLeft") S.held.left = false; else if (e.key === "ArrowRight") S.held.right = false;
-    else if (e.key === "ArrowDown" || e.key === " ") S.held.tuck = false;
+    else if (e.key === "ArrowDown") S.held.tuck = false;
   });
   const hold = (id, on, off) => { const b = $(id);
     b.addEventListener("pointerdown", e => { e.preventDefault(); b.setPointerCapture && b.setPointerCapture(e.pointerId); b.classList.add("held"); on(); });
@@ -285,6 +286,8 @@
       W.start(0);
     },
   }) : null;
+  // (0.0.53) ⏸ the pause (shared/pause.js): its button and the space bar; no step runs while paused
+  const P = window.HazelPause ? window.HazelPause.make({ into: $("new").parentElement, over: $("slope").parentElement }) : null;
 
   // ---- the rules: compiled ahead of time when compiled.js is here, else (and once they are edited) built by hazeljs
   function drawStatus() {
