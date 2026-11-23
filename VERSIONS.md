@@ -2,6 +2,10 @@
 
 Each version lists what the apps do as of that version. The newest version is first.
 
+## 0.0.85 (2026-11-23)
+
+- **Gnome world: things to be found stand out** (Matthew: "the items themselves need more emph in the game"): the diving gear and the tree-climbing pack are drawn half again as large, on a pulsing golden halo with sparkles going round them, bobbing, a sign over each with its name; each glows in the dark underground; and while one is off the screen, a pointer at the screen's edge shows the way to it and how far it is.
+
 ## 0.0.84 (2026-11-23)
 
 - **Gnome world: the wind** (Matthew: "let's have wind effects that are variable": "they affect hanging willow branches", "and waves on water surface", "and grass/other light veg moving", "and trees moving --- see messed up dress up, which did some branch animation effects"). The wind wanders between calm and a gale, its way east or west, toward a new aim every six to sixteen seconds, with gusts that die away; the words at the top say how it blows (🍃 calm, a breeze, windy, a gale, and arrows). Every tree sways and bends with it, more toward its crown, at its own pace (drawn in bands, each sheared, so the bend has no seams); a willow's tassels swing out most, toward their tips; the great trees only a little; bushes too. The grass leans and flutters; the water's surface carries waves that grow with the wind and run the way it blows, white-capped in a gale; rain slants and chimney smoke drifts with it; in a gale, leaves blow off the trees.

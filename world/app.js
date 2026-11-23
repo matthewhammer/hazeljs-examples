@@ -1235,11 +1235,24 @@
     for (const B of S.beavers) { const c = Math.floor(B.px), R = riverAt(c + 0.5), y = R ? R.level + 0.35 : surf0[Math.max(0, Math.min(WW - 1, c))]; B.py = B.py ? B.py + (y - B.py) * 0.25 : y; if (c < c0 - 3 || c > c1 + 3) continue; drawBeaver(B, (B.px + 0.5) * s, B.py * s, !!R); }
     for (const b of S.boulders) { if (b.c < c0 - 1 || b.c > c1 + 1 || b.r < r0 - 1 || b.r > r1 + 1) continue; const sh = b.wob > 0 ? Math.sin(now / 30) * 0.05 * s : 0, x = (b.c + 0.5) * s + sh, y = (b.r + b.oy + 0.5) * s;
       ctx.fillStyle = "#7d7b78"; ctx.beginPath(); ctx.ellipse(x, y + 0.04 * s, 0.47 * s, 0.44 * s, 0, 0, 7); ctx.fill(); ctx.fillStyle = "#a8a5a0"; ctx.beginPath(); ctx.ellipse(x - 0.12 * s, y - 0.12 * s, 0.22 * s, 0.16 * s, -0.4, 0, 7); ctx.fill(); }
-    for (const it of S.items) if (!it.taken && it.kind === "climb") { const x = it.x * s, y = it.y * s + Math.sin(now / 300) * 0.06 * s;
-      ctx.fillStyle = "#7a4a28"; ctx.beginPath(); ctx.roundRect(x - 0.25 * s, y - 0.3 * s, 0.5 * s, 0.6 * s, 0.12 * s); ctx.fill(); ctx.fillStyle = "#a0703f"; ctx.fillRect(x - 0.18 * s, y - 0.05 * s, 0.36 * s, 0.18 * s);
-      ctx.strokeStyle = "#d8c49a"; ctx.lineWidth = Math.max(1, s / 18); ctx.beginPath(); ctx.arc(x + 0.32 * s, y, 0.16 * s, 0, 7); ctx.stroke(); ctx.font = `${Math.round(0.5 * s)}px sans-serif`; ctx.fillText("✨", x - 0.6 * s, y - 0.35 * s); }
-    for (const it of S.items) if (!it.taken && it.kind !== "climb") { const x = it.x * s, y = it.y * s + Math.sin(now / 300) * 0.06 * s; ctx.fillStyle = "#facc15"; ctx.beginPath(); ctx.roundRect(x - 0.18 * s, y - 0.35 * s, 0.36 * s, 0.7 * s, 0.15 * s); ctx.fill();
-      ctx.fillStyle = "#0284c7"; ctx.beginPath(); ctx.roundRect(x + 0.2 * s, y - 0.3 * s, 0.45 * s, 0.25 * s, 0.1 * s); ctx.fill(); ctx.font = `${Math.round(0.6 * s)}px sans-serif`; ctx.fillText("✨", x - 0.6 * s, y - 0.4 * s); }
+    // (Matthew: "the items themselves need more emph in the game") each thing to be found: on a golden halo, pulsing, sparkles
+    // going round it, drawn half again as large, bobbing, a sign over it with its name (and in the dark it glows: the lights,
+    // below; off the screen, a pointer at the edge, in hud)
+    for (const it of S.items) { if (it.taken) continue; const x = it.x * s, y = it.y * s + Math.sin(now / 300) * 0.08 * s, pulse = 0.75 + 0.25 * Math.sin(now / 260);
+      const halo = ctx.createRadialGradient(x, y, 0, x, y, s * 1.3 * pulse); halo.addColorStop(0, "rgba(255,236,150,0.85)"); halo.addColorStop(0.45, "rgba(255,214,90,0.35)"); halo.addColorStop(1, "rgba(255,214,90,0)");
+      ctx.fillStyle = halo; ctx.beginPath(); ctx.arc(x, y, s * 1.3 * pulse, 0, 7); ctx.fill();
+      for (let j = 0; j < 5; j++) { const a = now / 700 + j * 1.2566, rx = x + Math.cos(a) * s * 0.85, ry = y + Math.sin(a) * s * 0.55, z = s * (0.07 + 0.04 * Math.sin(now / 150 + j));
+        ctx.fillStyle = "#fff8d0"; ctx.beginPath(); ctx.moveTo(rx, ry - z * 2); ctx.lineTo(rx + z * 0.5, ry - z * 0.5); ctx.lineTo(rx + z * 2, ry); ctx.lineTo(rx + z * 0.5, ry + z * 0.5); ctx.lineTo(rx, ry + z * 2); ctx.lineTo(rx - z * 0.5, ry + z * 0.5); ctx.lineTo(rx - z * 2, ry); ctx.lineTo(rx - z * 0.5, ry - z * 0.5); ctx.closePath(); ctx.fill(); }
+      ctx.save(); ctx.translate(x, y); ctx.scale(1.5, 1.5); ctx.strokeStyle = "rgba(40,25,10,0.8)"; ctx.lineWidth = Math.max(1, s / 22);
+      if (it.kind === "climb") { ctx.fillStyle = "#7a4a28"; ctx.beginPath(); ctx.roundRect(-0.25 * s, -0.3 * s, 0.5 * s, 0.6 * s, 0.12 * s); ctx.fill(); ctx.stroke(); ctx.fillStyle = "#a0703f"; ctx.fillRect(-0.18 * s, -0.05 * s, 0.36 * s, 0.18 * s);
+        ctx.strokeStyle = "#d8c49a"; ctx.lineWidth = Math.max(1, s / 16); ctx.beginPath(); ctx.arc(0.32 * s, 0, 0.16 * s, 0, 7); ctx.stroke(); ctx.strokeStyle = "#9ca3af"; ctx.beginPath(); ctx.moveTo(-0.25 * s, -0.2 * s); ctx.lineTo(-0.38 * s, 0.25 * s); ctx.stroke(); }
+      else { ctx.fillStyle = "#facc15"; ctx.beginPath(); ctx.roundRect(-0.18 * s, -0.35 * s, 0.36 * s, 0.7 * s, 0.15 * s); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = "#0284c7"; ctx.beginPath(); ctx.roundRect(0.2 * s, -0.3 * s, 0.45 * s, 0.25 * s, 0.1 * s); ctx.fill(); ctx.stroke(); ctx.fillStyle = "rgba(224,242,254,0.7)"; ctx.fillRect(0.26 * s, -0.25 * s, 0.33 * s, 0.13 * s); }
+      ctx.restore();
+      const label = it.kind === "climb" ? "🧗 tree-climbing pack" : "🤿 diving gear", ly = y - s * 1.25 + Math.sin(now / 300) * 0.05 * s;
+      ctx.font = `bold ${Math.round(0.36 * s)}px sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; const tw = ctx.measureText(label).width;
+      ctx.fillStyle = "rgba(30,20,8,0.72)"; ctx.beginPath(); ctx.roundRect(x - tw / 2 - s * 0.18, ly - s * 0.26, tw + s * 0.36, s * 0.52, s * 0.18); ctx.fill(); ctx.strokeStyle = "#fde68a"; ctx.lineWidth = Math.max(1, s / 24); ctx.stroke();
+      ctx.fillStyle = "#fff8d0"; ctx.fillText(label, x, ly); ctx.textAlign = "left"; ctx.textBaseline = "alphabetic"; }
     const blink = performance.now() - S.hurtAt < 1500 && Math.floor(now / 100) % 2 === 0;
     if (!S.faintAt && !blink) {
       const moving = Math.abs(g.vx) > 10 || (g.climb && (S.keys.up || S.keys.down)), d = g.climb && !g.ground ? 0 : g.face > 0 ? 1 : 3;
@@ -1275,7 +1288,7 @@
     // shafts; drawn as a tiny picture, a pixel a tile, stretched smooth over the view
     {
       const lw = c1 - c0 + 3, lh = r1 - r0 + 3, img = darkImg(lw, lh), d = img.data;
-      const lights = [{ x: gx, y: gy, r: 6.5 }, ...S.lamps.filter(l => l.x > c0 - 8 && l.x < c1 + 8 && l.y > r0 - 8 && l.y < r1 + 8)];
+      const lights = [{ x: gx, y: gy, r: 6.5 }, ...S.lamps.filter(l => l.x > c0 - 8 && l.x < c1 + 8 && l.y > r0 - 8 && l.y < r1 + 8), ...S.items.filter(it => !it.taken).map(it => ({ x: it.x, y: it.y, r: 3.5 }))];
       for (let j = 0; j < lh; j++) for (let k = 0; k < lw; k++) { const c = c0 - 1 + k, r = r0 - 1 + j; let a = 0;
         if (c >= 0 && c < WW && r >= 0 && r < WH) { const sky = Math.min(top[c], surf0[c]); a = r <= sky ? 0 : Math.min(0.9, (r - sky) / 6);
           if (a > 0) { let L = 0; for (const l of lights) { const dx = c + 0.5 - l.x, dy = r + 0.5 - l.y, q = 1 - Math.sqrt(dx * dx + dy * dy) / l.r; if (q > L) L = q; } a *= 1 - Math.min(1, L * 1.3); } }
@@ -1286,6 +1299,15 @@
     ctx.textAlign = "center"; ctx.font = `bold ${Math.round(0.55 * s)}px sans-serif`;
     for (let k = words.length - 1; k >= 0; k--) { const w = words[k], f = (now - w.at) / 1200; if (f > 1) { words.splice(k, 1); continue; } ctx.globalAlpha = 1 - f; ctx.fillStyle = "#fff"; ctx.strokeStyle = "rgba(0,0,0,0.6)"; ctx.lineWidth = 3; ctx.strokeText(w.t, w.x * s, (w.y - f) * s); ctx.fillText(w.t, w.x * s, (w.y - f) * s); ctx.globalAlpha = 1; }
     ctx.restore();
+    // (each thing to be found that is off the screen: a pointer at the screen's edge, toward it, its sign and how far)
+    for (const it of S.items) { if (it.taken) continue; const dx = it.x - (camX + VW / 2), dy = it.y - (camY + VH / 2);
+      if (Math.abs(dx) < VW / 2 - 0.5 && Math.abs(dy) < VH / 2 - 0.5) continue;
+      const k = Math.min((VW / 2 - 1.4) / Math.max(0.001, Math.abs(dx)), (VH / 2 - 1.4) / Math.max(0.001, Math.abs(dy))), px = (VW / 2 + dx * k) * s, py = (VH / 2 + dy * k) * s, a = Math.atan2(dy, dx), pulse = 1 + 0.08 * Math.sin(now / 200);
+      ctx.save(); ctx.translate(px, py); ctx.fillStyle = "rgba(30,20,8,0.7)"; ctx.beginPath(); ctx.arc(0, 0, s * 0.62 * pulse, 0, 7); ctx.fill(); ctx.strokeStyle = "#fde68a"; ctx.lineWidth = Math.max(2, s / 14); ctx.stroke();
+      ctx.save(); ctx.rotate(a); ctx.fillStyle = "#fde68a"; ctx.beginPath(); ctx.moveTo(s * 0.95 * pulse, 0); ctx.lineTo(s * 0.62, -s * 0.22); ctx.lineTo(s * 0.62, s * 0.22); ctx.closePath(); ctx.fill(); ctx.restore();
+      ctx.font = `${Math.round(0.6 * s)}px sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillStyle = "#fff"; ctx.fillText(it.kind === "climb" ? "🧗" : "🤿", 0, -s * 0.02);
+      ctx.font = `bold ${Math.round(0.28 * s)}px sans-serif`; ctx.fillStyle = "#fff8d0"; ctx.fillText(`${Math.round(Math.hypot(it.x - S.g.x / 1000, it.y - S.g.y / 1000))} m`, 0, s * 0.85); ctx.restore(); }
+    ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
     hud(now);
   }
   const darkCv = document.createElement("canvas"), darkCtx = darkCv.getContext("2d"); let darkData = null;
