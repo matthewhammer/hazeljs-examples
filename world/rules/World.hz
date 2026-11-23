@@ -262,8 +262,8 @@ let step : (Gnome, Near, Pad) -> Gnome = fun (g, n, p) ->
   let ny = (if land then fr * 1000 else if bump then (hr + 1) * 1000 + hh else ny0) in
   let below = ny / 1000 in
   let ground_now = md(ny, 1000) == 0 && (solid(l, below) || solid(rr, below) || ((what(l, below) == 11 || what(rr, below) == 11) && !p.down)) in
-  # digging: pushing across into a tile that can be dug (standing or climbing), down into the one underfoot (standing or climbing), or up into the one over its head #
-  let side = (if p.dx != 0 && hc >= 0 && (g.ground || climbing) then (if digs(hc, feet) > 0 then hc * 1000 + feet else if digs(hc, head) > 0 then hc * 1000 + head else none) else none) in
+  # digging: pushing across into a tile that can be dug (standing, climbing or (Matthew: "when I'm swimming I should be able to dig sideways") swimming), down into the one underfoot (standing or climbing), or up into the one over its head #
+  let side = (if p.dx != 0 && hc >= 0 && (g.ground || climbing || midw) then (if digs(hc, feet) > 0 then hc * 1000 + feet else if digs(hc, head) > 0 then hc * 1000 + head else none) else none) in
   let underfoot = g.y / 1000 in
   let target = (if side >= 0 then side
     else if p.down && (g.ground || climbing) && md(g.y, 1000) == 0 && digs(cx, underfoot) > 0 then cx * 1000 + underfoot

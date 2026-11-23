@@ -2,6 +2,13 @@
 
 Each version lists what the apps do as of that version. The newest version is first.
 
+## 0.0.78 (2026-11-23)
+
+- **Gnome world: weeping willows, as real ones grow** (Matthew: "the willow trees should look much better"; "look at real examples", and three photographs): a broad dome; a thick, gnarled trunk leaning a little, mossy on its lit side, splitting low into sinuous limbs that arch out and droop; the leaves in tassels hanging in layers to nearly the ground, gaps showing the limbs inside; yellow-green, or silvery blue-green.
+- **Under a tree, the cutaway** (Matthew: "when we go under a tree, we should reveal the 'cut away'"; "same for other trees, but especially willows"; "on the ground surface", "esp near water"): each tree is painted in two parts, its back (a willow's back curtains, trunk and limbs; another tree bare) and its front; with the gnome under it, on the land or in the water beside it, the front fades away and the inside shows.
+- **The gnome's works** (Matthew: "when i dig sideways I should build reinforcements. and upwards in the ground should indicate stairs and reinforcements too"): as in Gnome dig, a tile dug along gets a timber set (a post either side, a cap, a sill, pegged), a tile dug up or down a ladder, here against cribbing posts.
+- **Digging while swimming** (Matthew: "when I'm swimming I should be able to dig sideways"): pushing across into a bank in the water digs it.
+
 ## 0.0.77 (2026-11-23)
 
 - **Gnome world: Gnome dig's ground and roots** (Matthew: "the tree roots have regressed, a lot, from the original gnome dig prototype game"; "the artwork behind those roots was a key part of the aesthetic"; "it had foreground and background elements, and accommodations for dug out earth tiles"). Each tree's roots grow in Hazel as Gnome dig's do (`World.roots`, ported from `dig/rules/Scene.hz`): a taproot and six side roots, a segment at a time, wandering, drawn downward, thinning, branching; and each mushroom's mycelium (`World.threads`). They are drawn as Gnome dig draws them: one dark layer laid faintly over the earth, the threads pale; a dug tile has a darker back wall with the roots seen behind it, shaded edges and a lit floor; the roots that ran through a tunnel cross it as wood, in front of the gnome. The water now seeps faster along the roots themselves. The ground is Gnome dig's warm earth, darker deeper, each kind of rock its own hue in it, with faint marks.

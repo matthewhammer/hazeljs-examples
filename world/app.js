@@ -47,7 +47,7 @@
   const PORES = new Float32Array(10), FLOW = new Float32Array(10), CLING = new Float32Array(10), DIG = new Uint8Array(10), COLOR = [], NAME = [];
   const S = { built: null, lib: "", libFailed: false, plan: null, seed: kept("seed", 7), rivers: [], dams: [], lodges: [], beavers: [], rooms: [], villages: [],
     greats: [], trees: [], bushes: [], shrooms: [], rootSets: [], threadSets: [], rootPlan: [], boulders: [], ducts: [], lamps: [], items: [], houses: [], bridges: [], smoke: [], parts: [], drops: [], rain: 0, rainAt: 0,
-    styles: [], dry: [], g: null, hearts: 5, gems: kept("gems", 0), hurtAt: -1e9, faintAt: 0, start: { x: 12500, y: 0 }, keys: { left: false, right: false, up: false, down: false },
+    styles: [], dry: [], works: new Map(), g: null, hearts: 5, gems: kept("gems", 0), hurtAt: -1e9, faintAt: 0, start: { x: 12500, y: 0 }, keys: { left: false, right: false, up: false, down: false },
     jumpQueued: false, cam: { x: 0, y: 0, set: false }, frame: 0, map: kept("map", true), banner: null, places: [], stepMs: [], beaverAt: 0, damAt: 0, minimapAt: -1e9, dirty: true };
   const H = () => S.built && S.built.ok ? S.built.value : null;
   let seedRand = 1;
@@ -150,7 +150,7 @@
     const g0 = { x: 12500, y: top[12] * 1000 };
     S.start = g0;
     S.g = { x: g0.x, y: g0.y, vx: 0, vy: 0, face: 1, ground: true, climb: false, swim: false, under: false, air: 600, gear: false, dc: -1, dr: -1, dt: 0, ev: 0 };
-    S.hearts = 5; S.cam.set = false; S.smoke = []; S.parts = []; S.minimapAt = -1e9; S.rain = 0; S.rainAt = S.frame + 60 * 60; S.banner = { text: "🌍 Gnome world", t: performance.now() };
+    S.works = new Map(); S.hearts = 5; S.cam.set = false; S.smoke = []; S.parts = []; S.minimapAt = -1e9; S.rain = 0; S.rainAt = S.frame + 60 * 60; S.banner = { text: "🌍 Gnome world", t: performance.now() };
   }
   const riverAt = x => S.rivers.find(R => x >= R.x - 0.5 && x < R.x + R.w + 0.5) || null;
   const topOf = c => { for (let r = 0; r < WH; r++) if (mat[at(c, r)] !== AIR) return r; return WH; };
@@ -273,6 +273,12 @@
   function digOut(c, r) {
     const i = at(c, r), m = mat[i];
     if (m === AIR) return;
+    // (Matthew: "when i dig sideways I should build reinforcements. and upwards in the ground should indicate stairs and
+    // reinforcements too") Gnome dig's works: a tile dug along, a timber set in it and in the one the gnome stands in; a tile
+    // dug up or down, a ladder in both, its rails against cribbing
+    { const g = S.g, gc = Math.floor(g.x / 1000), gr = Math.floor((g.y - 1) / 1000), here = inside(gc, gr) ? at(gc, gr) : -1, up = c === gc && r !== gr;
+      if (up) { S.works.set(i, "ladder"); if (here >= 0 && bg[here] === B_DUG) S.works.set(here, "ladder"); }
+      else { if (!S.works.has(i)) S.works.set(i, "frame"); if (here >= 0 && bg[here] === B_DUG && !S.works.has(here)) S.works.set(here, "frame"); } }
     const water = wat[i] * PORES[m];
     mat[i] = AIR; bg[i] = B_DUG; wat[i] = water;
     if (gem[i]) { S.gems++; keep("gems", S.gems); popWord("💎", c + 0.5, r + 0.3); if (SND) SND.gem(); gem[i] = 0; }
@@ -415,6 +421,26 @@
         let x0 = L[k], y0 = L[k + 1], x1 = L[k + 2], y1 = L[k + 3]; if (mirror) { x0 = 2 * R.tx - x0; x1 = 2 * R.tx - x1; y0 += 45; y1 += 45; }
         c.moveTo(x0 / 100 * s + dx, y0 / 100 * s + dy); c.lineTo(x1 / 100 * s + dx, y1 / 100 * s + dy); }
       if (cur >= 0) c.stroke(); }
+  }
+  // (Gnome dig's drawWorks: a ladder, its two rails and four rungs, against a cribbing post each side; a timber set: a post
+  // either side, a cap under the earth above, a sill on the earth below, their joints pegged)
+  function drawWorks(c0, c1, r0, r1, u) {
+    const c = ctx, dug = (k, r) => inside(k, r) && mat[at(k, r)] === AIR;
+    const plank = (x, y, w2, h2, col, edge) => { c.fillStyle = col; c.fillRect(x, y, w2, h2); c.fillStyle = edge; c.fillRect(x, y + h2 * 0.72, w2, h2 * 0.28); };
+    for (const [i, kind] of S.works) {
+      const k = i % WW, r = Math.floor(i / WW); if (k < c0 || k > c1 || r < r0 || r > r1 || mat[i] !== AIR) continue;
+      const x = k * u, y = r * u;
+      if (kind === "ladder") {
+        for (const px of [0.02, 0.9]) plank(x + px * u, y - 0.5, u * 0.08, u + 1, "#8f6233", "#5f3d1c");
+        for (const rx of [0.24, 0.7]) plank(x + rx * u, y - 0.5, u * 0.07, u + 1, "#b07d45", "#8a5c2e");
+        for (let j = 0; j < 4; j++) { const ry = y + (j + 0.4) * u / 4; plank(x + 0.24 * u, ry, u * 0.53, u * 0.055, "#c48f55", "#8a5c2e"); }
+      } else {
+        for (const px of [0.06, 0.86]) plank(x + px * u, y + u * 0.06, u * 0.08, u * 0.9, "#9a6a37", "#6e4721");
+        if (!dug(k, r - 1)) plank(x - 0.5, y + u * 0.02, u + 1, u * 0.1, "#a8743e", "#6e4721");
+        if (!dug(k, r + 1)) plank(x - 0.5, y + u * 0.9, u + 1, u * 0.08, "#8f6233", "#5f3d1c");
+        c.strokeStyle = "rgba(110, 71, 33, 0.85)"; c.lineWidth = u * 0.035; c.beginPath(); c.moveTo(x + u * 0.12, y + u * 0.14); c.lineTo(x + u * 0.3, y + u * 0.12); c.moveTo(x + u * 0.88, y + u * 0.14); c.lineTo(x + u * 0.7, y + u * 0.12); c.stroke();
+      }
+    }
   }
   // (a dug tile's shaded edges, made once for the tile's size)
   let edgeSet = null;
@@ -576,6 +602,7 @@
     for (const [p0, p1, p2, w0, w1] of limbs) taper(c, p0, p1, p2, w0, w1, bark);
     c.strokeStyle = dk; c.globalAlpha = 0.5; c.lineWidth = 3; c.beginPath(); c.moveTo(-4, -20); c.quadraticCurveTo(top[0] * 0.3 - 6, -H2 * 0.22, top[0] - 4, top[1] + 10); c.stroke(); c.globalAlpha = 1;
     if (o.marks) { c.fillStyle = "#292524"; for (let i = 0; i < 7; i++) { const q = 0.08 + i * 0.12, x = top[0] * q * 0.9, y = -H2 * 0.44 * q - 6; c.fillRect(x - 8 + (i % 2) * 6, y, 9, 3); } }   // (a birch's dark marks)
+    if (o.bare) return;   // (Gnome world: the tree bare, its limbs seen when the gnome is under it)
     const pads = [];
     for (let i = 0; i < 4; i++) pads.push([top[0] + (r(30 + i) - 0.5) * 140 * wide, top[1] - 60 - 70 * r(34 + i), 0.55 + 0.2 * r(38 + i), 0]);
     tips.forEach(([x, y], i) => { pads.push([x + (r(40 + i) - 0.5) * 30, y - 16, 0.42 + 0.16 * r(50 + i), 1]); pads.push([x + (r(60 + i) - 0.5) * 40, y + 8, 0.36 + 0.14 * r(70 + i), 2]); });
@@ -609,16 +636,74 @@
   const drawSprite = (sp, x, y, k = 1) => { const f = T / sp.res * k; ctx.drawImage(sp.cv, x - sp.ox * T * k, y - sp.oy * T * k, sp.cv.width * f, sp.cv.height * f); };
   const TREE_LOOK = { 0: { wide: 1.05 }, 2: { wide: 0.8, bark: "#e9e4dc", marks: true, greens: ["#4d7c0f", "#5a8f2a", "#6aa832", "#7cbf3a", "#93d04a"] },
     3: { wide: 0.75, bark: "#c9c7b3", greens: ["#5a7a1f", "#6f9228", "#86a83a", "#a3c24e", "#c2d86a"] }, 4: { wide: 1.25, bark: "#5e4630", greens: ["#3f5e2c", "#4f6f33", "#5f803b", "#74934a", "#8aa85a"] } };
-  function treeSprite(t) {
-    const hT = t.h * (t.tall ? 1.45 : 1), wT = (t.kind === 1 ? 0.45 : 0.8 * (TREE_LOOK[t.kind] || TREE_LOOK[0]).wide) * hT + 1.2;
-    return sprite(`tree:${t.kind}:${t.h}:${t.seed}:${t.tall ? 1 : 0}`, wT * 2, hT * 1.3 + 1, wT, hT * 1.3 + 0.6, (g, u) => {
-      if (t.kind === 1) { const sc = hT * 1.1 * u / 200; g.scale(sc, sc); pineTree(g, t.seed + 1, ["#1f5f3a", "#245f34", "#2a6b3c"][t.seed % 3], 5 + Math.floor(t.h / 3)); return; }
-      const sc = hT * u / 330; g.scale(sc, sc); leafyTree(g, t.seed + 1, TREE_LOOK[t.kind] || TREE_LOOK[0]);
-      if (t.kind === 4) {   // (a willow: strands hanging from its pads)
-        const r = seededR(t.seed + 9); g.lineCap = "round";
-        for (let k = 0; k < 60; k++) { const x0 = (r(k) - 0.5) * 300, y0 = -150 - 120 * r(k + 100), len = 90 + 120 * r(k + 200);
-          g.strokeStyle = ["#5f803b", "#74934a", "#8aa85a"][k % 3]; g.lineWidth = 3 + 2 * r(k + 300); g.beginPath(); g.moveTo(x0, y0); g.quadraticCurveTo(x0 + (x0 > 0 ? 18 : -18), y0 + len * 0.4, x0 + (x0 > 0 ? 10 : -10), y0 + len); g.stroke(); } }
+  // (Matthew: "the willow trees should look much better"; "look at real examples", and three photographs of weeping willows)
+  // A weeping willow as the photographs have it: a broad dome, as wide as it is tall or wider; a thick, gnarled trunk leaning a
+  // little, mossy on its lit side, splitting low into sinuous limbs that arch up and out and droop at their tips; and the leaves
+  // in tassels hanging in layers from the limbs, behind and in front, the curtain reaching nearly to the ground, gaps in it
+  // showing the trunk and limbs inside; yellow-green, or (one in three) silvery blue-green; lit from the east, where the sun is.
+  // In two parts: its back (the back curtains, the trunk, the limbs) and its front (the front curtains, the light on them)
+  function taper3(g, p0, p1, p2, p3, w0, w1, fill) {
+    const L = [], R = [];
+    for (let i = 0; i <= 14; i++) { const t = i / 14, mt = 1 - t;
+      const x = mt * mt * mt * p0[0] + 3 * mt * mt * t * p1[0] + 3 * mt * t * t * p2[0] + t * t * t * p3[0], y = mt * mt * mt * p0[1] + 3 * mt * mt * t * p1[1] + 3 * mt * t * t * p2[1] + t * t * t * p3[1];
+      const dx = 3 * mt * mt * (p1[0] - p0[0]) + 6 * mt * t * (p2[0] - p1[0]) + 3 * t * t * (p3[0] - p2[0]), dy = 3 * mt * mt * (p1[1] - p0[1]) + 6 * mt * t * (p2[1] - p1[1]) + 3 * t * t * (p3[1] - p2[1]);
+      const d = Math.hypot(dx, dy) || 1, w = (w0 + (w1 - w0) * t) / 2; L.push([x - dy / d * w, y + dx / d * w]); R.push([x + dy / d * w, y - dx / d * w]); }
+    poly(g, [...L, ...R.reverse()], fill);
+  }
+  function weepingWillow(g, t, hT, u, part) {
+    const r = seededR(t.seed + 9), h = hT * u, W = h * (0.62 + 0.12 * r(1)), lean = (r(2) - 0.5) * u * 1.2, blue = t.seed % 3 === 0;
+    const back = blue ? ["#3e5a55", "#4d6c66", "#5d7d76"] : ["#4a6418", "#5a7820", "#6b8a26"], front = blue ? ["#6f948b", "#86a9a0", "#a3c2b9"] : ["#86a92e", "#a2c23e", "#bcd75a"], hi = blue ? "#cfe0da" : "#dcec86";
+    const bark = "#4e3e2c", moss = "rgba(120,140,60,0.45)";
+    const top = x => -h * (0.98 - 0.55 * (x / W) ** 2) + (r(x / u * 1.7 + 3) - 0.5) * u * 0.6;   // (the dome)
+    // (a tassel: a narrow strip of small leaves, tapering, hanging from y0 to y1, swaying a little; its edges ragged)
+    const tassel = (x, y0, y1, col, wid) => { const n = Math.max(4, Math.round((y1 - y0) / (u * 0.22))), sway = (r(x * 1.3 + y0) - 0.5) * u * 0.5, L = [], R = [];
+      for (let k = 0; k <= n; k++) { const q = k / n, cx = x + sway * q * q, cy = y0 + (y1 - y0) * q, w = wid * (1 - 0.75 * q) * (k % 2 ? 1.25 : 0.8); L.push([cx - w, cy]); R.push([cx + w, cy + u * 0.06]); }
+      poly(g, [...L, ...R.reverse()], col); };
+    const layer = (cols, y0off, gap, dw, step) => { for (let x = -W; x <= W; x += u * step) { if (r(x * 2.9 + y0off) < gap) continue;
+      const xx = x + (r(x * 5.1) - 0.5) * u * 0.2, edge = Math.abs(xx) / W, y0 = top(xx) + y0off * h + r(x * 3.7) * u * 0.6;
+      const y1 = -u * (0.15 + 0.9 * r(x * 7.3 + y0off)) - (1 - edge) * h * 0.08 * r(x * 1.1);
+      if (y1 - y0 < u) continue; tassel(xx, y0, y1, cols[Math.floor(r(x * 4.3 + y0off) * 3)], u * dw); } };
+    if (part === "back") {
+      layer(back, 0, 0.08, 0.2, 0.26);
+      // the trunk, gnarled and leaning, its foot flaring, moss on its lit side; the limbs, sinuous, arching out and drooping
+      const fx = lean, fy = -h * 0.3;
+      taper3(g, [0, u * 0.05], [u * 0.25, -h * 0.1], [lean * 0.5 - u * 0.2, -h * 0.2], [fx, fy], u * 1.05, u * 0.75, bark);
+      for (const e of [-1, 1]) { g.fillStyle = bark; g.beginPath(); g.moveTo(e * u * 0.3, -u * 0.8); g.quadraticCurveTo(e * u * 0.45, -u * 0.15, e * u * 1.0, u * 0.05); g.lineTo(e * u * 0.1, u * 0.05); g.closePath(); g.fill(); }
+      g.strokeStyle = "rgba(25,18,10,0.5)"; g.lineWidth = Math.max(1, u / 18);
+      for (let j = 0; j < 5; j++) { const f = (j / 4 - 0.5) * 0.8; g.beginPath(); g.moveTo(f * u, 0); g.bezierCurveTo(f * u + u * 0.2, -h * 0.1, lean * 0.5 + f * u * 0.6, -h * 0.2, fx + f * u * 0.5, fy); g.stroke(); }
+      g.fillStyle = moss; g.beginPath(); g.ellipse(u * 0.25, -h * 0.12, u * 0.18, h * 0.09, 0.1, 0, 7); g.fill();
+      for (let k = 0; k < 5; k++) { const side = k - 2, a = -Math.PI / 2 + side * 0.5 + (r(k + 20) - 0.5) * 0.25, reach = W * (0.55 + 0.35 * r(k + 30));
+        const p3 = [fx + Math.cos(a) * reach * 1.25, fy + Math.sin(a) * h * 0.5 + h * 0.12 * Math.abs(side) * 0.6];
+        taper3(g, [fx, fy], [fx + Math.cos(a) * reach * 0.25, fy - h * (0.3 + 0.1 * r(k + 40))], [p3[0] * 0.8, p3[1] - h * 0.25], p3, u * (0.55 - 0.06 * Math.abs(side)), u * 0.1, bark);
+        g.fillStyle = moss; g.beginPath(); g.ellipse(fx + Math.cos(a) * reach * 0.3 + u * 0.1, fy - h * 0.2, u * 0.12, u * 0.4, a + 1.6, 0, 7); g.fill();
+        g.strokeStyle = bark; g.lineWidth = Math.max(1, u / 16); g.beginPath(); for (let j = 0; j < 4; j++) { const q = 0.45 + j * 0.14, x0 = fx + (p3[0] - fx) * q, y0 = fy - h * 0.28 + (p3[1] - fy + h * 0.28) * q;
+          g.moveTo(x0, y0); g.quadraticCurveTo(x0 + (r(k * 9 + j) - 0.5) * u * 1.4, y0 - u * 0.6, x0 + (r(k * 7 + j) - 0.5) * u * 1.8, y0 + u * 0.9); } g.stroke(); }
+      return; }
+    // the curtains in front, gaps in them; the light along the east and the top
+    layer(front, 0.06, 0.3, 0.22, 0.3);
+    layer([front[2], hi, front[1]], 0.1, 0.62, 0.16, 0.34);
+    g.globalAlpha = 0.55; for (let x = W * 0.1; x <= W; x += u * 0.4) { if (r(x * 8.1) < 0.4) continue; const y0 = top(x) + u * 0.2, y1 = y0 + h * (0.2 + 0.3 * r(x * 6.6)); tassel(x, y0, y1, hi, u * 0.1); } g.globalAlpha = 1;
+  }
+  // (two pictures of each tree: its back, seen always, and its front, faded away while the gnome is under the tree, so the
+  // inside shows, as a cutaway (Matthew: "when we go under a tree, we should reveal the 'cut away'"; "same for other trees,
+  // but especially willows since they have low hanging leaves"; "on the ground surface", "esp near water"): a willow's back
+  // curtains, trunk and limbs, and its front curtains; another tree bare, its trunk and limbs, and whole)
+  function treeSprite(t, part = "front") {
+    const hT = t.h * (t.tall ? 1.45 : 1) * (t.kind === 4 ? 1.1 : 1), wT = (t.kind === 1 ? 0.45 : t.kind === 4 ? 1.0 : 0.8 * (TREE_LOOK[t.kind] || TREE_LOOK[0]).wide) * hT + 1.2;
+    return sprite(`tree:${t.kind}:${t.h}:${t.seed}:${t.tall ? 1 : 0}:${part}`, wT * 2, hT * 1.3 + 1, wT, hT * 1.3 + 0.6, (g, u) => {
+      if (t.kind === 4) { weepingWillow(g, t, hT, u, part); return; }
+      if (t.kind === 1) { const sc = hT * 1.1 * u / 200; g.scale(sc, sc);
+        if (part === "back") { g.fillStyle = "#5e3d22"; g.beginPath(); g.moveTo(-6, 2); g.lineTo(-2, -190); g.lineTo(2, -190); g.lineTo(6, 2); g.fill();
+          g.strokeStyle = "#5e3d22"; g.lineWidth = 3; g.beginPath(); for (let j = 0; j < 7; j++) { const y = -30 - j * 22, w = 50 * (1 - j / 8); g.moveTo(0, y); g.lineTo(-w, y + 10); g.moveTo(0, y - 6); g.lineTo(w, y + 4); } g.stroke(); return; }
+        pineTree(g, t.seed + 1, ["#1f5f3a", "#245f34", "#2a6b3c"][t.seed % 3], 5 + Math.floor(t.h / 3)); return; }
+      const sc = hT * u / 330; g.scale(sc, sc); leafyTree(g, t.seed + 1, { ...(TREE_LOOK[t.kind] || TREE_LOOK[0]), bare: part === "back" });
     });
+  }
+  // (how far each tree is opened: the gnome under its crown, on the land or in the water beside it)
+  function underTree(t) {
+    const g = S.g; if (!g) return false;
+    const hT = t.h * (t.kind === 4 ? 1.1 : 1), half = (t.kind === 1 ? 0.35 : t.kind === 4 ? 0.75 : 0.55) * hT, gx = g.x / 1000, gy = g.y / 1000, foot = surf0[t.x];
+    return Math.abs(gx - (t.x + 0.5)) < half && gy <= foot + 2.5 && gy >= foot - hT * 0.8;
   }
   const bushSprite = b => sprite(`bush:${b.x}:${b.v}`, 3, 2, 1.5, 1.7, (g, u) => { const r = seededR(b.x * 7 + b.v), sc = u / 120; g.scale(sc, sc);
     const greens = ["#285e2a", "#2f7d32", "#3a8a3c", "#47a047", "#58b050"];
@@ -633,7 +718,10 @@
       c.strokeStyle = "#a8875e"; c.lineWidth = 1; c.beginPath(); c.ellipse(x, y - 0.35 * T, 0.1 * T, 0.04 * T, 0, 0, 7); c.stroke();
       if (f < 1) { c.save(); c.translate(x, y - 0.35 * T); c.rotate((t.fallDir || 1) * f * Math.PI / 2); c.globalAlpha = 1 - f * 0.6; drawSprite(treeSprite(t), 0, 0.35 * T); c.restore(); }
       return; }
-    drawSprite(treeSprite(t), x, y, t.tall ? 1 : t.grow);
+    const k = t.tall ? 1 : t.grow;
+    t.open = (t.open || 0) + ((underTree(t) ? 1 : 0) - (t.open || 0)) * 0.12;
+    if (t.open > 0.02 || t.kind === 4) { drawSprite(treeSprite(t, "back"), x, y, k); ctx.globalAlpha = 1 - 0.85 * t.open; }
+    drawSprite(treeSprite(t, "front"), x, y, k); ctx.globalAlpha = 1;
   }
   // a mushroom on the land: a fly agaric (red, flecked white) or a bolete (brown, stout)
   function drawShroom(m, x, y) {
@@ -866,7 +954,8 @@
       const E = edges(), open = (cc, rr) => inside(cc, rr) && mat[at(cc, rr)] === AIR;
       for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) { const i = at(c, r); if (mat[i] !== AIR || bg[i] !== B_DUG) continue;
         if (!open(c, r - 1)) ctx.drawImage(E.top, c * s, r * s); if (!open(c - 1, r)) ctx.drawImage(E.left, c * s, r * s); if (!open(c + 1, r)) ctx.drawImage(E.right, c * s + s * 0.84, r * s);
-        if (!open(c, r + 1)) { ctx.fillStyle = "rgba(255,228,196,0.07)"; ctx.fillRect(c * s, r * s + s * 0.9, s + 0.5, s * 0.1); } } }
+        if (!open(c, r + 1)) { ctx.fillStyle = "rgba(255,228,196,0.07)"; ctx.fillRect(c * s, r * s + s * 0.9, s + 0.5, s * 0.1); } }
+      drawWorks(c0, c1, r0, r1, s); }
     // on the ground: grass along the land, the water in it (blue, darker the fuller), gems, a digging's cracks
     const dc = g.dt > 0 ? g.dc : -1, dr = g.dr;
     for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) { const i = at(c, r), m = mat[i]; if (m === AIR) continue;
