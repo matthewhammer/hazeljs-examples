@@ -2,6 +2,19 @@
 
 Each version lists what the apps do as of that version. The newest version is first.
 
+## 0.0.93 (2026-11-23)
+
+- **Gnome world: frame times on the screen** (Matthew: "it seems like there are performance challenges now with gnome world"; "can we add a FPS HUD please?"). In the lower left: frames a second; the frame's time from one to the next; the worst frame of the last second; the world's steps and the drawing in each frame. The drawing is timed in parts (sky, trees, bushes, fallen trees, flowers, great trees, ground, roots, tunnels, surface, rooms, ladders, lodges, creatures, water, dark), each part smoothed over a second, and the three costliest are shown. Green from 55 fps, amber from 40, red below. F hides it.
+- **Faster, especially underground and by the water.** The HUD found the cost: every frame, every line of every root and thread in view was stroked again, three times over the ground and three more for the tunnels. That took 40 to 90 ms of a frame. The changes:
+  - The roots and threads are drawn once into pictures of the world twelve tiles square (at up to 48 pixels a tile). Each square holds the roots over its earth, kept to its earth's tiles (a slope's to under its diagonal). Where it has tunnels, it also holds the roots seen behind their back walls and the roots across them in front of the gnome, kept to the tunnels. A square is drawn again only when a tile in it is dug, or roots grow into it. The clip to the ground's outline (0.0.91) is gone with it.
+  - A beaver lodge's 140 sticks are drawn once for each height of its water; the beavers asleep in it are drawn live.
+  - Each tree's mangrove roots are drawn once (the forty last seen kept).
+  - A fallen tree is drawn once for each piece cut from it.
+  - A tree sways in six bands (was ten); a willow's front curtains in seven and its back in four.
+
+  Measured on this laptop, at 1280 by 760, the drawing of a frame: under the stair tree, its tunnels dug, 93 → 7 ms; by the creek and its willows 47 → 20; by the river and its lodge 35 → 14; in the village 21 → 10; up in a great tree's crown 16 → 2. The first frame in a new place costs more while its squares are drawn.
+- **The villagers' faces** (Matthew: "the NPC gnomes should have faces"; "I dislike the gnome style where the hat is pulled over the face"): each cap sits up on the head, above the brows; under them the eyes are open, whites and all, a glint in each, looking the way the villager faces.
+
 ## 0.0.92 (2026-11-23)
 
 - **Gnome world: stones settle on a heap** (Matthew: "fallen rock keeps oscillating after reaching bottom surface"; then "same bug"): 0.0.91 kept a stone already lying on the heap still, but a stone falling onto the heap was only caught once it reached the floor below. It was then put back on top of the heap, half a tile up, fell again fast enough to bounce, and did so for ever. A falling stone now lands as it reaches the top of the stones already lying there, rolls a little off to one side, and lies still. Checked in a dry hole and a wet one: every stone at rest, none moving in 400 frames.

@@ -160,7 +160,7 @@
     const g0 = { x: 12500, y: top[12] * 1000 };
     S.start = g0;
     S.g = { x: g0.x, y: g0.y, vx: 0, vy: 0, face: 1, ground: true, climb: false, swim: false, under: false, air: 600, gear: false, dc: -1, dr: -1, dt: 0, ev: 0 };
-    S.works = new Map(); S.hearts = 5; S.cam.set = false; S.smoke = []; S.parts = []; S.pebbles = []; S.piles = []; S.fallen = []; S.talk = null; S.minimapAt = -1e9; S.rain = 0; S.rainAt = S.frame + 60 * 60; S.banner = { text: "🌍 Gnome world", t: performance.now() };
+    S.works = new Map(); S.hearts = 5; S.cam.set = false; S.smoke = []; S.parts = []; S.pebbles = []; S.piles = []; S.fallen = []; S.talk = null; rootChunks.clear(); S.minimapAt = -1e9; S.rain = 0; S.rainAt = S.frame + 60 * 60; S.banner = { text: "🌍 Gnome world", t: performance.now() };
   }
   const riverAt = x => S.rivers.find(R => x >= R.x - 0.5 && x < R.x + R.w + 0.5) || null;
   const topOf = c => { for (let r = 0; r < WH; r++) if (mat[at(c, r)] !== AIR) return r; return WH; };
@@ -314,7 +314,7 @@
       if (up) { S.works.set(i, "ladder"); if (here >= 0 && bg[here] === B_DUG) S.works.set(here, "ladder"); }
       else { if (!S.works.has(i)) S.works.set(i, "frame"); if (here >= 0 && bg[here] === B_DUG && !S.works.has(here)) S.works.set(here, "frame"); } }
     const water = wat[i] * PORES[m];
-    mat[i] = AIR; bg[i] = B_DUG; wat[i] = water; shape[i] = 0;
+    mat[i] = AIR; bg[i] = B_DUG; wat[i] = water; shape[i] = 0; dirtyRootsAt(c, r);
     if (stone[i]) { dropStones(c, r, stone[i]); stone[i] = 0; }
     if (gem[i]) { S.gems++; keep("gems", S.gems); popWord("💎", c + 0.5, r + 0.3); if (SND) SND.gem(); gem[i] = 0; }
     else if (SND && S.frame - (S.digSndAt || 0) > 8) { SND.dig(); S.digSndAt = S.frame; }
@@ -591,8 +591,8 @@
   const sway = (seed, k = 1) => { const w = S.windNow || 0, t = performance.now(); return k * (w * 0.05 + (0.012 + 0.03 * Math.abs(w)) * Math.sin(t / (900 - 380 * Math.min(1, Math.abs(w))) + seed * 1.7)); };
   // (a picture drawn in bands, each pushed across by the sway, more toward its top (a tree bending), or, for a willow's
   // tassels, more toward their tips, below)
-  function drawSwaying(sp, x, y, k, lean, tassels = false) {
-    const f = T / sp.res * k, n = 10, w = sp.cv.width, h = sp.cv.height, hT = h / sp.res * k;
+  function drawSwaying(sp, x, y, k, lean, tassels = false, n = 6) {
+    const f = T / sp.res * k, w = sp.cv.width, h = sp.cv.height, hT = h / sp.res * k;
     const push = v => (tassels ? Math.max(0, (v - 0.12) / 0.88) ** 1.3 * 1.6 + (1 - v) * 0.3 : (1 - v) * (1 - v)) * lean * hT * T;   // (v: 0 at the top, 1 at the foot)
     const X = x - sp.ox * T * k, Y = y - sp.oy * T * k;
     if (Math.abs(lean) < 0.0005) { ctx.drawImage(sp.cv, X, Y, w * f, h * f); return; }
@@ -724,7 +724,49 @@
       lines.forEach((l, i) => { L[i * 5] = l.x0; L[i * 5 + 1] = l.y0; L[i * 5 + 2] = l.x1; L[i * 5 + 3] = l.y1; L[i * 5 + 4] = l.w; lo = Math.min(lo, l.x0 / 100, l.x1 / 100); hi = Math.max(hi, l.x0 / 100, l.x1 / 100);
         if (t.kind !== "shroom") for (let q = 0; q <= 2; q++) { const c = Math.floor((l.x0 + (l.x1 - l.x0) * q / 2) / 100), r = Math.floor((l.y0 + (l.y1 - l.y0) * q / 2) / 100);
           if (inside(c, r) && PORES[mat[at(c, r)]] > 0) root[at(c, r)] = Math.min(3, root[at(c, r)] + (l.w >= 10 ? 2 : 1)); } });
-      (t.kind === "shroom" ? S.threadSets : S.rootSets).push({ tx: t.x * 100 + 50, x0: Math.floor(lo) - 1, x1: Math.ceil(hi) + 1, lines: L }); }
+      (t.kind === "shroom" ? S.threadSets : S.rootSets).push({ tx: t.x * 100 + 50, x0: Math.floor(lo) - 1, x1: Math.ceil(hi) + 1, lines: L }); dirtyRootsX(Math.floor(lo) - 1, Math.ceil(hi) + 1); }
+  }
+  // (Matthew: "it seems like there are performance challenges now with gnome world") The roots and threads, drawn once into
+  // pictures of the world twelve tiles square, at up to 48 pixels a tile, and drawn again only where they change: they were
+  // stroked again every frame, every line of every root in view, three times over the ground and three more in the tunnels, 40
+  // to 90 ms a frame. Each square has the roots over its ground (the dark roots and their lighter edge, laid on at 0.3, the
+  // threads at 0.4, kept to its ground's tiles, a slope's to under its diagonal), and, where it has tunnels, the roots seen
+  // behind their back walls and the roots across them, in front of the gnome, kept to the tunnels. A square is drawn again when
+  // a tile in it is dug, or when roots grow into it (ensureRoots, as the gnome goes)
+  const RCH = 12, rootChunks = new Map();
+  const dirtyRootsAt = (c, r) => { const ch = rootChunks.get(Math.floor(c / RCH) + "," + Math.floor(r / RCH)); if (ch) ch.dirty = true; };
+  const dirtyRootsX = (x0, x1) => { for (const [k, ch] of rootChunks) { const cx = +k.split(",")[0]; if ((cx + 1) * RCH >= x0 && cx * RCH <= x1) ch.dirty = true; } };
+  function rootChunk(cx, cy) {
+    const k = cx + "," + cy, res = Math.min(T, 48); let ch = rootChunks.get(k);
+    if (ch && ch.res === res && !ch.dirty) { rootChunks.delete(k); rootChunks.set(k, ch); return ch; }
+    const x0 = cx * RCH, y0 = cy * RCH, W = Math.ceil(RCH * res), sets = S.rootSets.filter(R => R.x1 >= x0 - 1 && R.x0 <= x0 + RCH + 1), tsets = S.threadSets.filter(R => R.x1 >= x0 - 1 && R.x0 <= x0 + RCH + 1);
+    const mk = () => { const c = document.createElement("canvas"); c.width = c.height = W; return c; }, tmp = mk(), tg = tmp.getContext("2d");
+    const pass = fn => { tg.setTransform(1, 0, 0, 1, 0, 0); tg.clearRect(0, 0, W, W); tg.setTransform(1, 0, 0, 1, -x0 * res, -y0 * res); fn(tg); };
+    const mask = (g, keep) => { g.globalCompositeOperation = "destination-in"; g.fillStyle = "#000"; g.beginPath();
+      for (let r = y0; r < y0 + RCH; r++) for (let c = x0; c < x0 + RCH; c++) { if (!inside(c, r) || !keep(at(c, r))) continue; const X = (c - x0) * res, Y = (r - y0) * res, sk = shape[at(c, r)];
+        if (sk === 1) { g.moveTo(X, Y + res + 0.5); g.lineTo(X + res + 0.5, Y); g.lineTo(X + res + 0.5, Y + res + 0.5); g.closePath(); }
+        else if (sk === 2) { g.moveTo(X, Y); g.lineTo(X + res + 0.5, Y + res + 0.5); g.lineTo(X, Y + res + 0.5); g.closePath(); } else g.rect(X, Y, res + 0.5, res + 0.5); }
+      g.fill(); g.globalCompositeOperation = "source-over"; };
+    const ground = mk(), gg = ground.getContext("2d");
+    pass(t => { strokeLines(t, sets, "#24120a", 1, 0, 0, 0, false, res); strokeLines(t, sets, "#3d2414", 0.35, -1, -1, 9, false, res); }); gg.globalAlpha = 0.3; gg.drawImage(tmp, 0, 0);
+    pass(t => strokeLines(t, tsets, "#fafaf5", 1, 0, 0, 0, false, res, 3)); gg.globalAlpha = 0.4; gg.drawImage(tmp, 0, 0); gg.globalAlpha = 1;
+    mask(gg, i => mat[i] >= SOIL && mat[i] <= GRANITE);
+    let back = null, front = null; const dug = i => mat[i] === AIR && bg[i] === B_DUG;
+    let any = false; for (let r = y0; r < y0 + RCH && !any; r++) for (let c = x0; c < x0 + RCH; c++) if (inside(c, r) && dug(at(c, r))) { any = true; break; }
+    if (any) { back = mk(); const bgc = back.getContext("2d");
+      pass(t => strokeLines(t, sets, "#24120a", 1, 0, 0, 0, true, res)); bgc.globalAlpha = 0.42; bgc.drawImage(tmp, 0, 0);
+      pass(t => strokeLines(t, sets, "#b08a63", 1, 0, 0, 0, false, res)); bgc.globalAlpha = 0.2; bgc.drawImage(tmp, 0, 0);
+      pass(t => strokeLines(t, tsets, "#fafaf5", 1, 0, 0, 0, false, res, 3)); bgc.globalAlpha = 0.14; bgc.drawImage(tmp, 0, 0); bgc.globalAlpha = 1; mask(bgc, dug);
+      front = mk(); const fg = front.getContext("2d"); fg.setTransform(1, 0, 0, 1, -x0 * res, -y0 * res);
+      strokeLines(fg, sets, "rgba(5,2,1,0.45)", 1.05, res * 0.05, res * 0.07, 5, false, res); strokeLines(fg, sets, "#5b3a22", 1, 0, 0, 5, false, res); strokeLines(fg, sets, "#8a6440", 0.35, -res * 0.012, -res * 0.012, 5, false, res);
+      fg.setTransform(1, 0, 0, 1, 0, 0); mask(fg, dug); }
+    ch = { res, ground, back, front, dirty: false }; rootChunks.set(k, ch);
+    if (rootChunks.size > 30) rootChunks.delete(rootChunks.keys().next().value);
+    return ch;
+  }
+  function drawRootChunks(c0, c1, r0, r1, s, which) {
+    for (let cy = Math.floor(r0 / RCH); cy <= Math.floor(r1 / RCH); cy++) for (let cx = Math.floor(c0 / RCH); cx <= Math.floor(c1 / RCH); cx++) {
+      const ch = rootChunk(cx, cy), img = ch[which]; if (img) ctx.drawImage(img, cx * RCH * s, cy * RCH * s, RCH * s, RCH * s); }
   }
   // (the gnome, Gnome dig's own, copied from dig/app.js: its cap, beard and lantern; and, for the water, a swimmer's arms and a tilt)
   const loverAt = () => {};
@@ -1115,8 +1157,16 @@
   // do: two or three each side, from a little way up the trunk, out a tile or two and down to the ground where they land (lower,
   // and longer, where the ground falls away, down a bank); by the water, more of them and longer, down into the water to the
   // bed. Each a tapering curve of bark, a rootlet off the bigger ones, its top lit
+  const propLRU = [];   // (the trees whose prop roots are painted: the forty last seen)
   function drawPropRoots(t, x, y, s) {
     if (!t.alive || t.grow < 0.6) return;
+    const key = s + ":" + y, P2 = t.props;
+    if (!P2 || P2.key !== key) { const ox = 6 * s, oy = 2.5 * s, cv2 = document.createElement("canvas"); cv2.width = Math.ceil(12 * s); cv2.height = Math.ceil(8 * s);
+      const g = cv2.getContext("2d"); g.translate(ox - x, oy - y); paintPropRoots(g, t, x, y, s); t.props = { key, cv: cv2, ox, oy };
+      propLRU.push(t); if (propLRU.length > 40) { const o = propLRU.shift(); if (o !== t) o.props = null; } }
+    ctx.drawImage(t.props.cv, x - t.props.ox, y - t.props.oy);
+  }
+  function paintPropRoots(ctx, t, x, y, s) {
     const r = seededR(t.seed * 3 + 17), hT = t.h * (t.tall ? 1.45 : 1) * (t.kind === 4 ? 1.1 : 1), trunkW = t.tall ? Math.max(0.9, hT * 0.026) : t.kind === 1 ? 0.3 : Math.min(1.1, 0.075 * hT);
     const wet = S.rivers.some(R => Math.abs(t.x + 0.5 - (R.x + R.w / 2)) < R.w / 2 + 7), per = (wet ? 4 : 2) + (t.kind === 4 ? 1 : 0), bark = t.kind === 2 ? "#cfc8bc" : t.kind === 3 ? "#b9b6a3" : "#5e4630";
     for (const sd of [-1, 1]) for (let k = 0; k < per; k++) { const q = j => r(sd * 50 + k * 7 + j);
@@ -1153,8 +1203,10 @@
     const k = t.tall ? 1 : t.grow;
     t.open = (t.open || 0) + ((underTree(t) ? 1 : 0) - (t.open || 0)) * 0.12;
     const lean = sway(t.seed, t.kind === 1 ? 0.6 : t.kind === 4 ? 0.8 : 1);
-    if (t.open > 0.02 || t.kind === 4) { drawSwaying(treeSprite(t, "back"), x, y, k, lean); ctx.globalAlpha = 1 - 0.85 * t.open; }
-    drawSwaying(treeSprite(t, "front"), x, y, k, t.kind === 4 ? lean * 1.8 : lean, t.kind === 4); ctx.globalAlpha = 1;
+    // (in bands, each pushed across by the sway: a willow's front curtains in seven, its back in four, a tree in six; ten each had
+    // cost 4 ms a willow a frame)
+    if (t.open > 0.02 || t.kind === 4) { drawSwaying(treeSprite(t, "back"), x, y, k, lean, false, 4); ctx.globalAlpha = 1 - 0.85 * t.open; }
+    drawSwaying(treeSprite(t, "front"), x, y, k, t.kind === 4 ? lean * 1.8 : lean, t.kind === 4, t.kind === 4 ? 7 : 6); ctx.globalAlpha = 1;
   }
   // (Matthew: "let's draw more flowers that also are affected by wind"; "esp strong wind blows the flowers dramatically") The
   // flowers of a tile (World.plan: a daisy, a poppy, a bluebell, a buttercup, a lupine; one to three of them), each on its stem,
@@ -1335,17 +1387,19 @@
     if (v.kind === 0) { poly2(L.beard, [[-0.12, hy + 0.01], [0.12, hy + 0.01], [0.06, hy + 0.08 + L.beardLen], [0, hy + 0.12 + L.beardLen], [-0.06, hy + 0.08 + L.beardLen]]);
       for (const e of [-1, 1]) ell(L.beard, e * 0.05, hy + 0.045, 0.06, 0.028, e * 0.3);
       c.strokeStyle = "rgba(0,0,0,0.12)"; c.lineWidth = Math.max(1, u / 60); for (const e of [-0.04, 0, 0.04]) { c.beginPath(); c.moveTo(x + e * u, y + (hy + 0.08) * u); c.lineTo(x + e * 0.8 * u, y + (hy + 0.05 + L.beardLen) * u); c.stroke(); } }
-    const ex = f * 0.012; for (const e of [-1, 1]) { if (blink) { c.strokeStyle = "#3a2a1a"; c.lineWidth = Math.max(1, u / 40); c.beginPath(); c.moveTo(x + (e * 0.05 - 0.018 + ex) * u, y + (hy - 0.02) * u); c.lineTo(x + (e * 0.05 + 0.018 + ex) * u, y + (hy - 0.02) * u); c.stroke(); }
-      else { ell("#1a1a1a", e * 0.05 + ex, hy - 0.02, 0.016, 0.019); ell("#fff", e * 0.05 + ex + 0.005, hy - 0.026, 0.005, 0.005); }
-      ell(v.kind === 0 ? L.beard : L.hair, e * 0.055, hy - 0.06, 0.04, 0.014, e * -0.2); }
+    // (Matthew: "the NPC gnomes should have faces"; "I dislike the gnome style where the hat is pulled over the face") the eyes
+    // open under the brows, whites and all, the cap well up on the head above them
+    const ex = f * 0.012; for (const e of [-1, 1]) { if (blink) { c.strokeStyle = "#3a2a1a"; c.lineWidth = Math.max(1, u / 40); c.beginPath(); c.moveTo(x + (e * 0.052 - 0.02) * u, y + (hy - 0.015) * u); c.lineTo(x + (e * 0.052 + 0.02) * u, y + (hy - 0.015) * u); c.stroke(); }
+      else { ell("#fffaf0", e * 0.052, hy - 0.015, 0.027, 0.023); ell("#2a1a10", e * 0.052 + ex, hy - 0.013, 0.015, 0.017); ell("#fff", e * 0.052 + ex + 0.006, hy - 0.02, 0.005, 0.005); }
+      ell(v.kind === 0 ? L.beard : L.hair, e * 0.055, hy - 0.052, 0.038, 0.013, e * -0.2); }
     ell("#e8a08a", ex * 1.5, hy + 0.025, L.nose, L.nose * 0.9); ell("rgba(255,255,255,0.35)", ex * 1.5 - 0.015, hy + 0.01, L.nose * 0.3, L.nose * 0.25);
     if (v.kind !== 0) { c.strokeStyle = "#a0524a"; c.lineWidth = Math.max(1, u / 45); c.beginPath(); c.arc(x + ex * u, y + (hy + 0.06) * u, 0.03 * u, 0.2, Math.PI - 0.2); c.stroke(); }
-    const capH = v.kind === 2 ? 0.34 : 0.48, tipX = (L.droop + f * 0.06) * 0.3;
-    poly2(L.cap, [[-0.15, hy - 0.04], [0.15, hy - 0.04], [tipX, hy - 0.04 - capH]]);
-    if (L.stripe) { c.save(); c.beginPath(); c.moveTo(x - 0.15 * u, y + (hy - 0.04) * u); c.lineTo(x + 0.15 * u, y + (hy - 0.04) * u); c.lineTo(x + tipX * u, y + (hy - 0.04 - capH) * u); c.closePath(); c.clip(); c.fillStyle = "rgba(255,255,255,0.35)"; for (let k = 1; k < 4; k++) c.fillRect(x - 0.2 * u, y + (hy - 0.04 - k * capH / 4) * u, 0.4 * u, 0.035 * u); c.restore(); }
-    if (L.patch) { c.fillStyle = "#c8a032"; c.fillRect(x + 0.02 * u, y + (hy - 0.2) * u, 0.06 * u, 0.06 * u); c.strokeStyle = "rgba(0,0,0,0.3)"; c.lineWidth = Math.max(1, u / 70); c.strokeRect(x + 0.02 * u, y + (hy - 0.2) * u, 0.06 * u, 0.06 * u); }
-    poly2("rgba(255,255,255,0.15)", [[0.04, hy - 0.05], [0.12, hy - 0.05], [tipX, hy - 0.04 - capH]]);
-    ell(mixHex(L.cap, "#000000", 0.25), 0, hy - 0.04, 0.16, 0.03);
+    const capH = v.kind === 2 ? 0.34 : 0.48, tipX = (L.droop + f * 0.06) * 0.3, cb = hy - 0.095;
+    poly2(L.cap, [[-0.155, cb], [0.155, cb], [tipX, cb - capH]]);
+    if (L.stripe) { c.save(); c.beginPath(); c.moveTo(x - 0.155 * u, y + cb * u); c.lineTo(x + 0.155 * u, y + cb * u); c.lineTo(x + tipX * u, y + (cb - capH) * u); c.closePath(); c.clip(); c.fillStyle = "rgba(255,255,255,0.35)"; for (let k = 1; k < 4; k++) c.fillRect(x - 0.2 * u, y + (cb - k * capH / 4) * u, 0.4 * u, 0.035 * u); c.restore(); }
+    if (L.patch) { c.fillStyle = "#c8a032"; c.fillRect(x + 0.02 * u, y + (cb - 0.16) * u, 0.06 * u, 0.06 * u); c.strokeStyle = "rgba(0,0,0,0.3)"; c.lineWidth = Math.max(1, u / 70); c.strokeRect(x + 0.02 * u, y + (cb - 0.16) * u, 0.06 * u, 0.06 * u); }
+    poly2("rgba(255,255,255,0.15)", [[0.04, cb - 0.01], [0.12, cb - 0.01], [tipX, cb - capH]]);
+    ell(mixHex(L.cap, "#000000", 0.25), 0, cb, 0.16, 0.026);
     // (what it holds, in the hand on the side it faces)
     const hx = f * 0.26, hy2 = -0.25, I = v.kind === 2 ? (L.item % 3 === 0 ? 4 : 9) : v.kind === 1 ? [1, 1, 3, 5, 6, 9, 1, 6, 9][L.item] : [0, 2, 3, 5, 0, 2, 9, 6, 0][L.item];
     if (I === 0) { c.strokeStyle = "#5a3a1e"; c.lineWidth = 0.025 * u; c.beginPath(); c.moveTo(x + f * 0.03 * u, y + (hy + 0.07) * u); c.quadraticCurveTo(x + f * 0.12 * u, y + (hy + 0.12) * u, x + f * 0.17 * u, y + (hy + 0.06) * u); c.stroke(); ell("#5a3a1e", f * 0.18, hy + 0.04, 0.03, 0.035);
@@ -1831,11 +1885,29 @@
   // chamber, dry, just above the water: the feeding floor, peeled sticks on it, and the nest, higher, its bedding of shredded
   // wood; two tunnels from the floor down through the base to the entrances under the water; the air vent at the top, where
   // the sticks are loose; and the beavers resting in it, curled up asleep
-  function drawLodge(L, s) {
-    const c = ctx, R = L.river, mid = L.x + L.w / 2, k = Math.floor(mid) - R.x, inCh = k >= 0 && k < R.w;
+  function lodgeBeavers(c, s, mid, cx, fy, chW) {
+    let n = 0;
+    for (const B of S.beavers) { if (B.b.job !== 0 || Math.abs(B.b.lodge - mid) > 4) continue; const x = cx + chW * (0.45 + 0.22 * n) - (n > 1 ? chW * 0.9 : 0), y = fy - s * (n > 1 ? 0.12 : 0.36); n++;
+      c.fillStyle = "#3b2a1e"; c.beginPath(); c.ellipse(x - s * 0.2, y - s * 0.05, s * 0.2, s * 0.07, -0.4, 0, 7); c.fill();
+      c.fillStyle = "#7a4a28"; c.beginPath(); c.ellipse(x, y - s * 0.17, s * 0.3, s * 0.18, 0, 0, 7); c.fill(); c.beginPath(); c.ellipse(x + s * 0.24, y - s * 0.12, s * 0.13, s * 0.1, 0, 0, 7); c.fill();
+      c.strokeStyle = "#1a1008"; c.lineWidth = Math.max(1, s / 30); c.beginPath(); c.arc(x + s * 0.27, y - s * 0.15, s * 0.03, 0.2, Math.PI - 0.2); c.stroke();
+      if (Math.floor(performance.now() / 900 + n) % 3 === 0) { c.fillStyle = "rgba(255,255,255,0.7)"; c.font = `${Math.round(0.28 * s)}px sans-serif`; c.fillText("z", x + s * 0.3, y - s * 0.45); } }
+  }
+  // (a lodge drawn once for each height of its water, its 140 sticks among them, and the beavers asleep in it drawn over it each
+  // frame: performance, Matthew: "it seems like there are performance challenges now")
+  function drawLodgeCached(L, s) {
+    const R = L.river, mid = L.x + L.w / 2, k = Math.floor(mid) - R.x, inCh = k >= 0 && k < R.w, base = inCh ? R.bed[k] : surf0[Math.max(0, Math.min(WW - 1, Math.floor(mid)))], lvl = R.level;
+    const W = (L.w / 2 + 1.1) * s, cx = mid * s, by = base * s, topY = (Math.min(lvl, base) - 3.3) * s, key = lvl + ":" + base + ":" + s;
+    if (!L.cache || L.cache.key !== key) { const x0 = cx - W - s, y0 = topY - s, cv2 = document.createElement("canvas"); cv2.width = Math.ceil(2 * W + 2 * s); cv2.height = Math.ceil(by - topY + 2.5 * s);
+      const g = cv2.getContext("2d"); g.translate(-x0, -y0); drawLodge(L, s, g, "body"); L.cache = { key, cv: cv2, x0, y0 }; }
+    ctx.drawImage(L.cache.cv, L.cache.x0, L.cache.y0); drawLodge(L, s, ctx, "beavers");
+  }
+  function drawLodge(L, s, cc = ctx, part = "all") {
+    const c = cc, R = L.river, mid = L.x + L.w / 2, k = Math.floor(mid) - R.x, inCh = k >= 0 && k < R.w;
     const base = inCh ? R.bed[k] : surf0[Math.max(0, Math.min(WW - 1, Math.floor(mid)))], lvl = R.level, r = seededR(L.x * 7 + 3);
     const cx = mid * s, by = base * s, W = (L.w / 2 + 1.1) * s, topY = (Math.min(lvl, base) - 3.3) * s, ry = by - topY;
     const dome = () => { c.beginPath(); c.moveTo(cx - W, by); c.bezierCurveTo(cx - W, by - ry * 0.75, cx - W * 0.55, topY, cx, topY); c.bezierCurveTo(cx + W * 0.55, topY, cx + W, by - ry * 0.75, cx + W, by); c.closePath(); };
+    if (part === "beavers") { lodgeBeavers(c, s, mid, cx, (lvl - 0.15) * s, W * 0.62); return; }
     // (the mass: mud packed among the sticks)
     c.fillStyle = "#5e4128"; dome(); c.fill();
     c.save(); dome(); c.clip();
@@ -1857,12 +1929,7 @@
     // (the air vent, loose sticks at the top)
     c.strokeStyle = "rgba(255,240,210,0.25)"; c.lineWidth = Math.max(1, s / 20); c.beginPath(); for (let j = 0; j < 5; j++) { const x = cx + (j - 2) * s * 0.12; c.moveTo(x, topY + s * 0.1); c.lineTo(x + s * 0.05, topY + s * 0.5); } c.stroke();
     // (the beavers resting, curled up asleep in the nest)
-    let n = 0;
-    for (const B of S.beavers) { if (B.b.job !== 0 || Math.abs(B.b.lodge - mid) > 4) continue; const x = cx + chW * (0.45 + 0.22 * n) - (n > 1 ? chW * 0.9 : 0), y = fy - s * (n > 1 ? 0.12 : 0.36); n++;
-      c.fillStyle = "#3b2a1e"; c.beginPath(); c.ellipse(x - s * 0.2, y - s * 0.05, s * 0.2, s * 0.07, -0.4, 0, 7); c.fill();
-      c.fillStyle = "#7a4a28"; c.beginPath(); c.ellipse(x, y - s * 0.17, s * 0.3, s * 0.18, 0, 0, 7); c.fill(); c.beginPath(); c.ellipse(x + s * 0.24, y - s * 0.12, s * 0.13, s * 0.1, 0, 0, 7); c.fill();
-      c.strokeStyle = "#1a1008"; c.lineWidth = Math.max(1, s / 30); c.beginPath(); c.arc(x + s * 0.27, y - s * 0.15, s * 0.03, 0.2, Math.PI - 0.2); c.stroke();
-      if (Math.floor(performance.now() / 900 + n) % 3 === 0) { c.fillStyle = "rgba(255,255,255,0.7)"; c.font = `${Math.round(0.28 * s)}px sans-serif`; c.fillText("z", x + s * 0.3, y - s * 0.45); } }
+    if (part === "all") lodgeBeavers(c, s, mid, cx, fy, chW);
     c.restore();
     c.strokeStyle = "#3a2818"; c.lineWidth = Math.max(1, s / 14); dome(); c.stroke();
     // (stones round its foot)
@@ -1893,6 +1960,12 @@
   }
   function cutPiece(fl) { const p = fl.F.pieces[fl.k++]; if (!p) return; if (p.i === 0) fl.F.trunk = p.to; else fl.F.gone[p.i] = 1; }
   function drawFallen(fl, s) {
+    const t = fl.t, hT = t.h * (t.kind === 4 ? 1.1 : 1) + 3, x = (t.x + 0.5) * s, gy = landY(t.x) * s, key = fl.k + ":" + s;
+    if (!fl.pic || fl.pic.key !== key) { const ox = hT * s, oy = hT * 0.8 * s, cv2 = document.createElement("canvas"); cv2.width = Math.ceil(2 * hT * s); cv2.height = Math.ceil((hT * 0.8 + 2.5) * s);
+      const g = cv2.getContext("2d"); g.translate(ox - x, oy - gy); paintFallen(g, fl, s); fl.pic = { key, cv: cv2, ox, oy }; }
+    ctx.drawImage(fl.pic.cv, x - fl.pic.ox, gy - fl.pic.oy);
+  }
+  function paintFallen(ctx, fl, s) {
     const t = fl.t, F = fl.F, dir = t.fallDir || 1, gy = landY(t.x), x = (t.x + 0.5) * s, half = F.segs[0].w0 / 2;
     const seen = i => { for (let j = i; j > 0; j = F.segs[j].parent) if (F.gone[j]) return false; return i === 0 ? F.trunk > 0 : !F.gone[i]; };
     const L = { segs: [], tips: [], mids: [], joints: [] };
@@ -1948,6 +2021,7 @@
     if (S.camFix) { S.cam.x = S.camFix.x; S.cam.y = S.camFix.y; }   // (the tests' fixed view)
     const camX = Math.round(S.cam.x * s) / s, camY = Math.round(S.cam.y * s) / s;
     const c0 = Math.max(0, Math.floor(camX) - 1), c1 = Math.min(WW - 1, Math.ceil(camX + VW) + 1), r0 = Math.max(0, Math.floor(camY) - 1), r1 = Math.min(WH - 1, Math.ceil(camY + VH) + 1);
+    pmark("sky");
     // the sky, the sun, far hills (slower, behind), clouds
     const sk = ctx.createLinearGradient(0, 0, 0, Hh); sk.addColorStop(0, "#5fa8e0"); sk.addColorStop(1, "#cfe9f7"); ctx.fillStyle = sk; ctx.fillRect(0, 0, W, Hh);
     const skyY = y => (y - camY) * s;
@@ -1958,13 +2032,20 @@
     for (let k = 0; k < 9; k++) { const cx = ((k * 61 + now / 900) % (WW * 0.6)) * 1.6 - camX * 0.35 * s / s; const x = (cx - camX * 0.0) * s * 0.5 + ((k * 137) % W), y = skyY(4 + (k * 7) % 12) * 0.6 + s;
       ctx.fillStyle = "rgba(255,255,255,0.75)"; ctx.beginPath(); ctx.ellipse(((x % (W + 400)) + W + 400) % (W + 400) - 200, y, s * 1.6, s * 0.45, 0, 0, 7); ctx.fill(); }
     ctx.save(); ctx.translate(-camX * s, -camY * s);
+    pmark("trees");
     // above the land: the trees, bushes and mushrooms (painted once, sprites), then the great trees over them
     for (const t of S.trees) if (t.x >= c0 - 9 && t.x <= c1 + 9) { drawTree(t, (t.x + 0.5) * s, landY(t.x) * s); drawPropRoots(t, (t.x + 0.5) * s, landY(t.x) * s, s); };
+    pmark("bushes");
     for (const b of S.bushes) if (b.x >= c0 - 2 && b.x <= c1 + 2) drawSwaying(bushSprite(b), (b.x + 0.5) * s, landY(b.x) * s, 1, sway(b.x * 3, 1.4));
+    pmark("shrooms");
     for (const m of S.shrooms) if (m.x >= c0 - 1 && m.x <= c1 + 1) drawShroom(m, (m.x + 0.5) * s, landY(m.x) * s);
+    pmark("fallen");
     for (const fl of S.fallen) if (fl.x >= c0 - 16 && fl.x <= c1 + 16 && S.frame - fl.t.fallAt >= 50) drawFallen(fl, s);
+    pmark("piles");
     for (const p of S.piles) if (p.x >= c0 - 2 && p.x <= c1 + 2) drawPile(p, (p.x + 0.5) * s, landY(p.x) * s);
+    pmark("flowers");
     for (const f of S.flowers) if (f.x >= c0 - 1 && f.x <= c1 + 1 && top[f.x] >= surf0[f.x]) drawFlowers(f, (f.x + 0.5) * s, landY(f.x) * s, now);
+    pmark("greats");
     for (const G of S.greats) { if (G.x + 22 < c0 || G.x - 22 > c1) continue; const x = (G.x + 0.5) * s, y = G.foot * s;
       drawSwaying(greatSprite(G), x, y, 1, sway(G.v, 0.18));
       if (G.kind === 31) {   // (the stair inside: the trunk cut away, a winding stair round a post, a door to each limb)
@@ -1981,12 +2062,13 @@
         ctx.restore();
         for (const L of G.limbs) { const ly = y - L.y * s; ctx.fillStyle = "#4a2e1a"; ctx.beginPath(); ctx.roundRect(x + L.side * (iw / 2) - (L.side > 0 ? 0 : 0.35 * s), ly - 1 * s, 0.35 * s, 1 * s, [0.15 * s, 0.15 * s, 0, 0]); ctx.fill(); } }
     }
+    pmark("ground");
     // the ground, as Gnome dig paints it: each kind flat, darker deeper, a fleck or two, its own faint marks
-    const groundPath = new Path2D(), dk = new Path2D(), lt = new Path2D(), ln = new Path2D(), sp = Math.max(1, s * 0.08);
+    const dk = new Path2D(), lt = new Path2D(), ln = new Path2D(), sp = Math.max(1, s * 0.08);
     for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) { const m = mat[at(c, r)]; if (m < SOIL || m > GRANITE) continue;
       const x = c * s, y = r * s, hsh = (c * 73 + r * 151) % 97;
-      ctx.fillStyle = groundCol(m, r - surf0[c]); const sk = shape[at(c, r)]; if (sk) { slopeTri(ctx, x, y, s, sk); ctx.fill(); if (sk === 1) { groundPath.moveTo(x, y + s + 0.5); groundPath.lineTo(x + s + 0.5, y); groundPath.lineTo(x + s + 0.5, y + s + 0.5); groundPath.closePath(); } else { groundPath.moveTo(x, y); groundPath.lineTo(x + s + 0.5, y + s + 0.5); groundPath.lineTo(x, y + s + 0.5); groundPath.closePath(); } ctx.strokeStyle = "rgba(0,0,0,0.12)"; ctx.lineWidth = Math.max(1, s * 0.03); ctx.beginPath(); if (sk === 1) { ctx.moveTo(x, y + s); ctx.lineTo(x + s, y); } else { ctx.moveTo(x, y); ctx.lineTo(x + s, y + s); } ctx.stroke(); continue; }
-      ctx.fillRect(x, y, s + 0.5, s + 0.5); groundPath.rect(x, y, s + 0.5, s + 0.5);
+      ctx.fillStyle = groundCol(m, r - surf0[c]); const sk = shape[at(c, r)]; if (sk) { slopeTri(ctx, x, y, s, sk); ctx.fill(); ctx.strokeStyle = "rgba(0,0,0,0.12)"; ctx.lineWidth = Math.max(1, s * 0.03); ctx.beginPath(); if (sk === 1) { ctx.moveTo(x, y + s); ctx.lineTo(x + s, y); } else { ctx.moveTo(x, y); ctx.lineTo(x + s, y + s); } ctx.stroke(); continue; }
+      ctx.fillRect(x, y, s + 0.5, s + 0.5);
       dk.rect(x + s * (0.15 + (hsh % 5) * 0.03), y + s * 0.3, sp, sp); dk.rect(x + s * 0.65, y + s * (0.6 + (hsh % 3) * 0.08), sp, sp);
       if (m === SAND) { lt.rect(x + s * 0.4, y + s * 0.15, sp * 1.3, sp); dk.rect(x + s * 0.8, y + s * 0.45, sp * 1.2, sp * 1.2); lt.rect(x + s * 0.25, y + s * 0.75, sp, sp); }
       else if (m === SSTONE) lt.rect(x, y + s * (0.2 + (hsh % 6) * 0.1), s, Math.max(1, s * 0.04));
@@ -2000,33 +2082,31 @@
     // as Gnome dig draws them: one dark layer laid on faintly, a shade darker than the earth they cross, the threads pale;
     // behind a tunnel, its back wall darker and in it the roots seen from behind; across a tunnel, the roots that ran through it
     // as wood, over the gnome
+    pmark("roots");
     ensureRoots(c0 - 14, c1 + 14);
-    const sets = S.rootSets.filter(R => R.x1 >= c0 - 1 && R.x0 <= c1 + 1), tsets = S.threadSets.filter(R => R.x1 >= c0 - 1 && R.x0 <= c1 + 1);
-    const lay = layer(0, camX, camY); strokeLines(lay, sets, "#24120a", 1, 0, 0, 0, false, s); strokeLines(lay, sets, "#3d2414", 0.35, -1, -1, 9, false, s);
-    const lay2 = layer(1, camX, camY); strokeLines(lay2, tsets, "#fafaf5", 1, 0, 0, 0, false, s, 3);
-    // (only over the ground: the roots grown before a bank was cut back do not cross the air over it)
-    ctx.save(); ctx.clip(groundPath); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 0.3; ctx.drawImage(layerCv[0], 0, 0); ctx.globalAlpha = 0.4; ctx.drawImage(layerCv[1], 0, 0); ctx.restore();
+    // (only over the ground: the roots grown before a bank was cut back do not cross the air over it; drawn once, rootChunk)
+    drawRootChunks(c0, c1, r0, r1, s, "ground");
+    pmark("walls");
     // masonry and timber, and what is behind each open tile under the land: rooms' walls, the stair's stones, a cave's rock
     for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) { const i = at(c, r), m = mat[i];
       if (m === MASON || m === TIMBER) { ctx.drawImage(tex(m, (c * 3 + r * 5) & 3), c * s, r * s); continue; }
       if (m !== AIR) continue; const b = bg[i];
       if (b === B_PLASTER || b === B_WOOD || b === B_STAIR || b === B_CAVE) ctx.drawImage(tex(b === B_PLASTER ? 101 : b === B_WOOD ? 102 : b === B_STAIR ? 103 : 104, (c * 7 + r * 3) & 3), c * s, r * s); }
+    pmark("tunnels");
     // the dug tiles (Gnome dig's dugLayer): a back wall of darker earth, the roots seen from behind it, the near roots faint and
     // light, the threads; each edge against the ground shaded, the floor lit a little
     const dugPath = new Path2D(); let dugN = 0;
     for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) { const i = at(c, r); if (mat[i] !== AIR || bg[i] !== B_DUG) continue;
       ctx.fillStyle = backCol(r - surf0[c]); ctx.fillRect(c * s, r * s, s + 0.5, s + 0.5); dugPath.rect(c * s, r * s, s + 0.5, s + 0.5); dugN++; }
     if (dugN) {
-      const far = layer(0, camX, camY); strokeLines(far, sets, "#24120a", 1, 0, 0, 0, true, s);
-      ctx.save(); ctx.clip(dugPath); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 0.42; ctx.drawImage(layerCv[0], 0, 0);
-      const near = layer(0, camX, camY); strokeLines(near, sets, "#b08a63", 1, 0, 0, 0, false, s);
-      ctx.globalAlpha = 0.2; ctx.drawImage(layerCv[0], 0, 0); ctx.globalAlpha = 0.14; ctx.drawImage(layerCv[1], 0, 0); ctx.restore();
+      drawRootChunks(c0, c1, r0, r1, s, "back");
       const E = edges(), open = (cc, rr) => inside(cc, rr) && mat[at(cc, rr)] === AIR;
       for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) { const i = at(c, r); if (mat[i] !== AIR || bg[i] !== B_DUG) continue;
         if (!open(c, r - 1)) ctx.drawImage(E.top, c * s, r * s); if (!open(c - 1, r)) ctx.drawImage(E.left, c * s, r * s); if (!open(c + 1, r)) ctx.drawImage(E.right, c * s + s * 0.84, r * s);
         if (!open(c, r + 1)) { ctx.fillStyle = "rgba(255,228,196,0.07)"; ctx.fillRect(c * s, r * s + s * 0.9, s + 0.5, s * 0.1); } }
       drawWorks(c0, c1, r0, r1, s); }
     drawPebbles(false, c0, c1, r0, r1);
+    pmark("surface");
     // on the ground: grass along the land, the water in it (blue, darker the fuller), gems, a digging's cracks
     const dc = g.dt > 0 ? g.dc : -1, dr = g.dr;
     for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) { const i = at(c, r), m = mat[i]; if (m === AIR) continue;
@@ -2055,12 +2135,14 @@
       if (stone[i]) ctx.drawImage(stoneTile(stone[i]), c * s, r * s);
       if (c === dc && r === dr) { ctx.strokeStyle = "rgba(0,0,0,0.6)"; ctx.lineWidth = Math.max(1, s / 14); const f = Math.min(1, g.dt / Math.max(1, DIG[m])); ctx.beginPath();
         for (let j = 0; j < 1 + Math.floor(f * 4); j++) { const a = j * 1.7; ctx.moveTo(c * s + s / 2, r * s + s / 2); ctx.lineTo(c * s + s / 2 + Math.cos(a) * s * 0.45 * f, r * s + s / 2 + Math.sin(a) * s * 0.45 * f); } ctx.stroke(); } }
+    pmark("rooms");
     // the rooms' things, the doorways' frames, a lamp in each room
     for (const R of S.rooms) { if (R.x + R.w < c0 || R.x > c1 || R.y + 5 < r0 || R.y > r1) continue;
       for (const t of R.things) drawThing(t.kind, (R.x + t.at / 10) * s, (R.y + 4) * s, t.w / 10 * s);
       const lx = (R.x + R.w / 2) * s, ly = R.y * s; ctx.strokeStyle = "#333"; ctx.lineWidth = Math.max(1, s / 24); ctx.beginPath(); ctx.moveTo(lx, ly); ctx.lineTo(lx, ly + 0.45 * s); ctx.stroke();
       ctx.fillStyle = "#3a3a3a"; ctx.fillRect(lx - 0.12 * s, ly + 0.45 * s, 0.24 * s, 0.32 * s); ctx.fillStyle = "#fde68a"; ctx.fillRect(lx - 0.08 * s, ly + 0.5 * s, 0.16 * s, 0.22 * s); }
     for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) if (fix[at(c, r)] === F_DOOR && fix[at(c, r - 1)] !== F_DOOR) { ctx.fillStyle = "#6b4a2b"; ctx.fillRect(c * s, r * s, s, 0.15 * s); ctx.fillRect(c * s, r * s, 0.12 * s, 3 * s); ctx.fillRect(c * s + s - 0.12 * s, r * s, 0.12 * s, 3 * s); }
+    pmark("ladders");
     // ladders, the stair's steps, platforms, the hatch, rope bridges
     for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) { const f = fix[at(c, r)]; if (!f) continue; const x = c * s, y = r * s;
       if (f === F_LADDER) { if (ladderTree(c, r)) continue; ctx.fillStyle = "#8b5e34"; ctx.fillRect(x + 0.18 * s, y, 0.1 * s, s); ctx.fillRect(x + 0.72 * s, y, 0.1 * s, s); ctx.fillStyle = "#a0703f"; ctx.fillRect(x + 0.18 * s, y + 0.2 * s, 0.64 * s, 0.09 * s); ctx.fillRect(x + 0.18 * s, y + 0.7 * s, 0.64 * s, 0.09 * s); }
@@ -2084,11 +2166,13 @@
       if (d.kind === 1) { const R = d.room; const gr = ctx.createLinearGradient(0, R.y * s, 0, (R.y + 4) * s); gr.addColorStop(0, "rgba(255,240,180,0.45)"); gr.addColorStop(1, "rgba(255,240,180,0)"); ctx.fillStyle = gr;
         ctx.beginPath(); ctx.moveTo(x + 0.2 * s, R.y * s); ctx.lineTo(x + 0.8 * s, R.y * s); ctx.lineTo(x + 1.8 * s, (R.y + 4) * s); ctx.lineTo(x - 0.8 * s, (R.y + 4) * s); ctx.fill(); } }
     for (const sm of S.smoke) { ctx.fillStyle = `rgba(200,200,200,${(0.5 * (1 - sm.life / 200)).toFixed(3)})`; ctx.beginPath(); ctx.arc(sm.x * s, sm.y * s, sm.r * s, 0, 7); ctx.fill(); }
+    pmark("lodges");
     // the beavers' lodges (domes of sticks) and dams (logs across the river, up to the water), behind the water
-    for (const L of S.lodges) { if (!L.river || L.x > c1 + 8 || L.x + L.w < c0 - 8) continue; drawLodge(L, s); }
+    for (const L of S.lodges) { if (!L.river || L.x > c1 + 8 || L.x + L.w < c0 - 8) continue; drawLodgeCached(L, s); }
     for (const d of S.dams) { const R = d.river; if (!R || R.x > c1 + 2 || R.x + R.w < c0 - 2) continue; ctx.globalAlpha = 0.45;
       for (let k = 0; k < R.w; k++) { const c = R.x + k; for (let rr = R.bed[k] - 1; rr >= R.level - 0.5; rr -= 0.5) { ctx.fillStyle = (k + Math.floor(rr * 2)) % 2 ? "#7a5230" : "#8b6040"; ctx.beginPath(); ctx.roundRect(c * s - 0.05 * s, rr * s, s * 1.1, 0.46 * s, 0.2 * s); ctx.fill(); } }
       ctx.globalAlpha = 1; ctx.strokeStyle = "#5e3d22"; ctx.lineWidth = Math.max(1, s / 10); for (let k = 0; k < R.w * 2; k++) { const x = (R.x + k / 2) * s; ctx.beginPath(); ctx.moveTo(x, (R.level - 0.4) * s); ctx.lineTo(x + 0.3 * s, (R.level - 0.9 - (k % 3) * 0.2) * s); ctx.stroke(); } }
+    pmark("creatures");
     // the beavers, the boulders, the diving gear, the gnome, the dirt flying
     for (const B of S.beavers) { const c = Math.floor(B.px), R = riverAt(c + 0.5), y = R ? R.level + 0.35 : landY(Math.max(0, Math.min(WW - 1, c))); B.py = B.py ? B.py + (y - B.py) * 0.25 : y; if (c < c0 - 3 || c > c1 + 3) continue; drawBeaver(B, (B.px + 0.5) * s, B.py * s, !!R); }
     for (const b of S.boulders) { if (b.c < c0 - 1 || b.c > c1 + 1 || b.r < r0 - 1 || b.r > r1 + 1) continue; const sh = b.wob > 0 ? Math.sin(now / 30) * 0.05 * s : 0, x = (b.c + 0.5) * s + sh, y = (b.r + b.oy + 0.5) * s;
@@ -2138,8 +2222,8 @@
     for (const p of S.parts) { ctx.fillStyle = p.col; ctx.fillRect(p.x * s, p.y * s, s * 0.1, s * 0.1); }
     // (Gnome dig's front layer: the roots that ran through a tunnel still crossing it, as wood, its shadow on the wall behind, its
     // bark, its top lit; the gnome goes behind them)
-    if (dugN) { ctx.save(); ctx.clip(dugPath); strokeLines(ctx, sets, "rgba(5,2,1,0.45)", 1.05, s * 0.05, s * 0.07, 5, false, s); strokeLines(ctx, sets, "#5b3a22", 1, 0, 0, 5, false, s);
-      strokeLines(ctx, sets, "#8a6440", 0.35, -s * 0.012, -s * 0.012, 5, false, s); ctx.restore(); }
+    if (dugN) drawRootChunks(c0, c1, r0, r1, s, "front");
+    pmark("water");
     // the water in the open (rivers, caves, tunnels flooded): over everything in it, so what is under it shows through, bluer
     for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) { const i = at(c, r);
       if (shape[i]) { const nc = shape[i] === 1 ? c - 1 : c + 1, nb = inside(nc, r) ? at(nc, r) : -1, up = r > 0 ? at(c, r - 1) : -1;
@@ -2159,6 +2243,7 @@
     // rain, in a shower
     if (S.rain) { ctx.strokeStyle = "rgba(200,220,255,0.6)"; ctx.lineWidth = Math.max(1, s / 24); ctx.beginPath(); for (let k = 0; k < 120; k++) { const x = (c0 + ((k * 37.7 + S.frame * 0.3 * (k % 3 + 1)) % (c1 - c0 + 1))) * s, y = (r0 + ((k * 13.3 + S.frame * 0.5) % (r1 - r0 + 1))) * s; const col = Math.floor(x / s); if (col >= 0 && col < WW && y / s < top[col]) { ctx.moveTo(x, y); ctx.lineTo(x + (S.windNow || 0) * 0.45 * s - 0.05 * s, y + 0.5 * s); } } ctx.stroke(); }
     for (const l of S.leaves) { ctx.save(); ctx.translate(l.x * s, l.y * s); ctx.rotate(l.a); ctx.fillStyle = l.col; ctx.beginPath(); ctx.ellipse(0, 0, s * (l.petal ? 0.06 : 0.12), s * (l.petal ? 0.035 : 0.05), 0, 0, 7); ctx.fill(); ctx.restore(); }
+    pmark("dark");
     // the dark under the ground: each tile darker the further it is under the sky, lit by the lantern, the lamps and the light
     // shafts; drawn as a tiny picture, a pixel a tile, stretched smooth over the view
     {
@@ -2170,6 +2255,7 @@
         const o = (j * lw + k) * 4; d[o] = 6; d[o + 1] = 4; d[o + 2] = 12; d[o + 3] = Math.round(a * 255); }
       darkCtx.putImageData(img, 0, 0); ctx.imageSmoothingEnabled = true; ctx.drawImage(darkCv, 0, 0, lw, lh, (c0 - 1) * s, (r0 - 1) * s, lw * s, lh * s);
     }
+    pmark("hud");
     // words floating up
     ctx.textAlign = "center"; ctx.font = `bold ${Math.round(0.55 * s)}px sans-serif`;
     for (let k = words.length - 1; k >= 0; k--) { const w = words[k], f = (now - w.at) / 1200; if (f > 1) { words.splice(k, 1); continue; } ctx.globalAlpha = 1 - f; ctx.fillStyle = "#fff"; ctx.strokeStyle = "rgba(0,0,0,0.6)"; ctx.lineWidth = 3; ctx.strokeText(w.t, w.x * s, (w.y - f) * s); ctx.fillText(w.t, w.x * s, (w.y - f) * s); ctx.globalAlpha = 1; }
@@ -2268,18 +2354,34 @@
     if (S.frame % 15 === 0) { $("gems").textContent = `💎 ${S.gems}`; $("hearts").textContent = hearts; $("where").textContent = place || where; }
   }
 
+  // (Matthew: "it seems like there are performance challenges now with gnome world"; "can we add a FPS HUD please?") The frame's
+  // times: frames a second, the frame's time from one to the next, the world's steps in it and its drawing, the worst frame of the
+  // last second; and the drawing in parts (pmark: each part's time, smoothed over a second), the three costliest shown. F hides it
+  const PERF = { on: true, frames: [], ticks: [], draws: [], parts: {}, last: 0, name: null };
+  function pmark(name) { const t = performance.now(); if (PERF.name) PERF.parts[PERF.name] = (PERF.parts[PERF.name] || 0) * 0.95 + (t - PERF.last) * 0.05; PERF.name = name; PERF.last = t; }
+  function drawPerf() {
+    if (!PERF.on || !PERF.frames.length) return; const c = ctx, avg = a => a.reduce((x, y) => x + y, 0) / Math.max(1, a.length);
+    const fr = avg(PERF.frames), fps = 1000 / Math.max(1, fr), worst = Math.max(...PERF.frames), top = Object.entries(PERF.parts).sort((a, b) => b[1] - a[1]).slice(0, 3);
+    const lines = [`${fps.toFixed(0)} fps · ${fr.toFixed(1)} ms a frame · worst ${worst.toFixed(0)} ms`, `world ${avg(PERF.ticks).toFixed(1)} ms · drawing ${avg(PERF.draws).toFixed(1)} ms`, top.map(([k, v]) => `${k} ${v.toFixed(1)}`).join(" · ")];
+    c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.font = `${Math.round(Math.max(11, cv.height / 60))}px ui-monospace, monospace`; const lh = Math.max(13, cv.height / 50), w = Math.max(...lines.map(l => c.measureText(l).width)) + 16, x = 10, y = cv.height - 10 - lh * lines.length - 8;
+    c.fillStyle = "rgba(0,0,0,0.6)"; c.beginPath(); c.roundRect(x, y, w, lh * lines.length + 8, 6); c.fill();
+    c.fillStyle = fps >= 55 ? "#9be89b" : fps >= 40 ? "#f2c12e" : "#ff7a6a"; c.textBaseline = "top"; lines.forEach((l, i) => { c.fillText(l, x + 8, y + 4 + i * lh); if (!i) c.fillStyle = "#e8e2d0"; }); c.restore();
+  }
   // ---- the loop: a step each sixtieth of a second (several to catch up, at most four a frame), then the picture
   let acc = 0, lastT = 0;
   function frame(t) {
     requestAnimationFrame(frame);
+    if (PERF.prevT) { PERF.frames.push(t - PERF.prevT); if (PERF.frames.length > 60) PERF.frames.shift(); } PERF.prevT = t;
     const h = H();
-    if (!h || !S.g || document.hidden || (P && P.paused())) { lastT = t; draw(); return; }
+    if (!h || !S.g || document.hidden || (P && P.paused())) { lastT = t; timedDraw(); return; }
     acc += Math.min(100, t - (lastT || t)) * 60 / 1000; lastT = t;
-    let n = 0;
+    let n = 0; const tt = performance.now();
     try { if (BOT.on) { const tq = performance.now(); while (performance.now() - tq < 12 && BOT.on) { tick(h); n++; } acc = 0; } else while (acc >= 1 && n < 4) { tick(h); acc -= 1; n++; } } catch (e) { S.built = { ...S.built, ok: false, threw: String(e && e.message || e) }; drawStatus(); console.error(e); return; }
     if (n >= 4 && !BOT.on) acc = 0;
-    draw();
+    PERF.ticks.push(performance.now() - tt); if (PERF.ticks.length > 60) PERF.ticks.shift();
+    timedDraw();
   }
+  function timedDraw() { const t0 = performance.now(); PERF.name = null; draw(); pmark(null); PERF.draws.push(performance.now() - t0); if (PERF.draws.length > 60) PERF.draws.shift(); drawPerf(); }
   requestAnimationFrame(frame);
 
   // ---- the keys and the buttons
@@ -2290,6 +2392,7 @@
     const k = KEYS[e.key];
     if (k) { if (e.key.startsWith("Arrow")) e.preventDefault(); if (k === "up" && !S.keys.up) S.jumpQueued = true; S.keys[k] = true; }
     else if (e.key === "m" || e.key === "M") toggleMap();
+    else if (e.key === "f" || e.key === "F") PERF.on = !PERF.on;
     else if (e.key === "b" || e.key === "B") { e.preventDefault(); buildHere(); }
   });
   addEventListener("keyup", e => { const k = KEYS[e.key]; if (k) S.keys[k] = false; });
@@ -2385,7 +2488,7 @@
       return { data: { step: +ms.toFixed(4) }, text: [`a step of the gnome through Hazel: ${ms.toFixed(3)} ms`] };
     },
   });
-  if (Q.has("test")) window.WorldTest = { BOT, botPlan, dist, botEnter, botStand, botClimb, profile: gnomeProfile, front: gnome, map: () => { minimap(); return map2Cv; }, look: (x, y) => { S.camFix = x == null ? null : { x, y }; draw(); }, paintHouse, paintSmallHouse, squirrelBody, drawVillager, S, tick: n => { const h = H(); for (let i = 0; i < n; i++) tick(h); draw(); }, draw, near, code, at, mat, wat, fix, bg, stone, shape, surf0, treeMask, digOut, tile: () => T, drawPebbles };
+  if (Q.has("test")) window.WorldTest = { BOT, botPlan, dist, botEnter, botStand, botClimb, profile: gnomeProfile, front: gnome, map: () => { minimap(); return map2Cv; }, look: (x, y) => { S.camFix = x == null ? null : { x, y }; draw(); }, paintHouse, paintSmallHouse, squirrelBody, drawVillager, S, tick: n => { const h = H(); for (let i = 0; i < n; i++) tick(h); draw(); }, draw, near, code, at, mat, wat, fix, bg, stone, shape, surf0, treeMask, digOut, tile: () => T, drawPebbles, PERF, timedDraw: () => timedDraw() };
   document.body.classList.add("js");
   draw();
 })();
