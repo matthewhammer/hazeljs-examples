@@ -11,7 +11,7 @@ import { pathToFileURL } from "node:url";
 const Hazel = process.env.HAZELJS ? (await import(pathToFileURL(path.resolve(process.env.HAZELJS, "index.mjs")).href)).default : HazelNpm;
 import { readFileSync } from "node:fs";
 const read = f => readFileSync(new URL("../world/rules/" + f, import.meta.url), "utf8").replace(/\s+$/, "");
-const TAIL = "(plan = World.plan, ground = World.ground, village = World.village, furnish = World.furnish, limbs = World.limbs, styles = World.styles, beaver = World.beaver, water_row = World.water_row, step = World.step)";
+const TAIL = "(plan = World.plan, ground = World.ground, village = World.village, furnish = World.furnish, limbs = World.limbs, styles = World.styles, beaver = World.beaver, water_row = World.water_row, step = World.step, roots = World.roots, threads = World.threads)";
 const t0 = performance.now();
 const r = Hazel.runProgram({ preamble: read("preamble.hz"), modules: [{ name: "World", text: read("World.hz") }], tail: TAIL });
 console.log("built:", r.ok, `${(performance.now() - t0).toFixed(0)} ms`, (r.errors || []).map(e => `${e.module}: ${String(e.message).replace(/\s+/g, " ")}`).join(" | ").slice(0, 2500));
@@ -115,7 +115,12 @@ if (Hazel.jitProgram) {
       if (JSON.stringify(a) !== JSON.stringify(b)) { diff++; if (diff < 3) console.log("jit differs at", i, JSON.stringify(a), JSON.stringify(b)); a = b; } }
     if (diff) bad(`the jit's step differs from the interpreter's ${diff} times`);
     const tp = performance.now(); J.value.plan(7); console.log(`jit: plan ${(performance.now() - tp).toFixed(1)} ms`);
+    { const t = performance.now(); let n = 0; for (let i = 0; i < 10; i++) n += J.value.roots(3450 + i * 1000, 40, 100, i).length; console.log(`jit: ten trees' roots ${n} lines, ${(performance.now() - t).toFixed(1)} ms`); }
   }
 }
+{ const t = performance.now(); const R = G.roots(3450, 40, 110, 7), M = G.threads(9050, 40, 7);
+  console.log(`roots: ${R.length} lines, deepest ${Math.max(...R.map(l => l.y1)) / 100} rows, widest ${Math.max(...R.map(l => l.w))}; threads ${M.length}; ${(performance.now() - t).toFixed(1)} ms`);
+  if (R.length < 60 || M.length < 20) bad(`roots ${R.length}, threads ${M.length}`);
+  for (const l of R) if (l.y0 < 4004 || l.y1 > 12400) bad(`a root line out of the ground: ${JSON.stringify(l)}`); }
 console.log(fail ? `${fail} FAILED` : "all good");
 process.exit(fail ? 1 : 0);

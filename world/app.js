@@ -9,6 +9,12 @@
 // (World.beaver), and how high a dam holds its river is Hazel (World.water_row); here, the water seeping through the ground,
 // the boulders falling, the camera, and the drawing.
 //
+// (Matthew: "please get inspired by the artwork of Rien Poortvliet ... This is a key inspiration. And we should give credit";
+// "We aren't copying any image/illustration, but we are drawing inspiration and giving credit") The pictures are inspired by
+// Rien Poortvliet's paintings for Gnomes (Wil Huygen and Rien Poortvliet, 1976): the woods, the gnomes' homes among the roots,
+// the earth in cutaway. All of them are our own, drawn here; none of his is copied. The roots, the ground and the trees are
+// Gnome dig's (and its trees Messed Up Dress Up's).
+//
 // (Matthew: "Or just use hazel jit as you prototype the game logic") The rules run compiled by hazel-jit: Hazel's library
 // from the hazeljs branch's build (hazelgrove/hazel#2857), whose Hazel.jitProgram compiles them as the page loads; where that
 // does not load, hazeljs 0.0.4 from npm runs them interpreted (?lib=npm asks for it), slower: a step 4 ms, not 0.02.
@@ -16,7 +22,7 @@
   "use strict";
   const LIB_JIT = "https://build.hazel.org/hazeljs/hazel-lib.js", LIB_NPM = "https://cdn.jsdelivr.net/npm/hazeljs@0.0.4/hazel-lib.js";
   const PROGRAM = "world", MODULES = ["World"];
-  const TAIL = "(plan = World.plan, ground = World.ground, village = World.village, furnish = World.furnish, limbs = World.limbs, styles = World.styles, beaver = World.beaver, water_row = World.water_row, step = World.step)";
+  const TAIL = "(plan = World.plan, ground = World.ground, village = World.village, furnish = World.furnish, limbs = World.limbs, styles = World.styles, beaver = World.beaver, water_row = World.water_row, step = World.step, roots = World.roots, threads = World.threads)";
   const KEY = "hazeljs-examples/world/";
   const Q = new URLSearchParams(location.search);
   const $ = id => document.getElementById(id);
@@ -40,8 +46,8 @@
   // share that clings, the steps to dig it, its color
   const PORES = new Float32Array(10), FLOW = new Float32Array(10), CLING = new Float32Array(10), DIG = new Uint8Array(10), COLOR = [], NAME = [];
   const S = { built: null, lib: "", libFailed: false, plan: null, seed: kept("seed", 7), rivers: [], dams: [], lodges: [], beavers: [], rooms: [], villages: [],
-    greats: [], trees: [], bushes: [], boulders: [], ducts: [], lamps: [], items: [], houses: [], bridges: [], smoke: [], parts: [], drops: [], rain: 0, rainAt: 0,
-    styles: [], g: null, hearts: 5, gems: kept("gems", 0), hurtAt: -1e9, faintAt: 0, start: { x: 12500, y: 0 }, keys: { left: false, right: false, up: false, down: false },
+    greats: [], trees: [], bushes: [], shrooms: [], rootSets: [], threadSets: [], rootPlan: [], boulders: [], ducts: [], lamps: [], items: [], houses: [], bridges: [], smoke: [], parts: [], drops: [], rain: 0, rainAt: 0,
+    styles: [], dry: [], g: null, hearts: 5, gems: kept("gems", 0), hurtAt: -1e9, faintAt: 0, start: { x: 12500, y: 0 }, keys: { left: false, right: false, up: false, down: false },
     jumpQueued: false, cam: { x: 0, y: 0, set: false }, frame: 0, map: kept("map", true), banner: null, places: [], stepMs: [], beaverAt: 0, damAt: 0, minimapAt: -1e9, dirty: true };
   const H = () => S.built && S.built.ok ? S.built.value : null;
   let seedRand = 1;
@@ -109,8 +115,12 @@
     S.trees = byKind(50).map(q => ({ x: q.x, kind: q.v, h: q.h, alive: true, grow: 1, fallAt: 0, regrow: 0, seed: q.x * 13 + q.h }));
     for (const q of [...byKind(30), ...byKind(31)]) greatTree(h, q);
     S.bushes = byKind(51).map(q => ({ x: q.x, v: q.v }));
+    S.shrooms = byKind(53).map(q => ({ x: q.x, v: q.v }));
+    S.rootSets = []; S.threadSets = [];
+    S.rootPlan = [...S.greats.map(G => ({ x: G.x, row: G.foot, k: 150, seed: G.v })), ...S.trees.map(t => ({ x: t.x, row: surf0[t.x], k: 70 + t.h * 4 + (t.tall ? 30 : 0), seed: t.seed })),
+      ...S.shrooms.map(m => ({ x: m.x, row: surf0[m.x], seed: m.x * 3 + m.v, kind: "shroom" }))];
     // roots: under each tree, spreading and thinning down; water goes down them faster
-    for (const t of [...S.trees, ...S.greats.map(g => ({ x: g.x, h: g.h * 0.7 }))]) { const deep = Math.min(14, Math.round(t.h * 0.9)), s = surf0[t.x];
+    if (!(S.built && S.built.compiled)) for (const t of [...S.trees, ...S.greats.map(g => ({ x: g.x, h: g.h * 0.7 }))]) { const deep = Math.min(14, Math.round(t.h * 0.9)), s = surf0[t.x];
       for (let r = s; r < s + deep && r < WH - 4; r++) { const spread = 1 + Math.floor((r - s) / 3);
         for (let c = t.x - spread; c <= t.x + spread; c++) if (inside(c, r) && PORES[mat[at(c, r)]] > 0) root[at(c, r)] = Math.min(3, root[at(c, r)] + (Math.abs(c - t.x) <= 1 ? 2 : 1)); } }
     // gems in veins, and boulders, each in the ground (never in a room's walls)
@@ -130,6 +140,7 @@
     }
     for (const R of S.rivers) holdRiver(R);
     for (let c = 0; c < WW; c++) top[c] = topOf(c);
+    S.dry = []; for (let i = 0; i < NN; i++) if (mat[i] === AIR && (bg[i] === B_PLASTER || bg[i] === B_WOOD || bg[i] === B_STAIR)) S.dry.push(i);
     // where things are, for the words at the top of the picture
     S.places = [
       ...S.rivers.map(R => ({ x0: R.x - 3, x1: R.x + R.w + 3, name: R.dam ? `${R.name} and the beavers' dam` : R.name })),
@@ -232,6 +243,9 @@
           const qv = (wat[a] - sn) * Math.min(pa, pn) * 0.5 * k;
           wat[a] -= qv / pa; wat[n2] += qv / pn; } } }
     for (const R of S.rivers) holdRiver(R);
+    // (Matthew: "The gnome's basement levels are flooded!") the villages' pumps: every room's and the stair's water drawn down a
+    // little each step, as the gnomes' hand pumps at the stair's foot lift it up and out to the meadow
+    for (const i of S.dry) if (wat[i] > 0) wat[i] = Math.max(0, wat[i] - 0.004);
     // a shower now and then (fourteen seconds, every two minutes or so), and drying at the surface
     const now = S.frame;
     if (!S.rain && now > S.rainAt) { S.rain = 14 * 60; S.rainAt = now + (100 + Math.floor(rand() * 80)) * 60; }
@@ -376,6 +390,55 @@
     texCache.set(key, t); return t;
   }
   const GEMS = ["", "#ef4444", "#22c55e", "#3b82f6", "#a855f7", "#f59e0b"];
+  // (Gnome dig's earth, darker deeper: its four bands, and deeper still; each other kind of ground its own hue toward them, and
+  // darker with the depth too)
+  const hexRGB = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)), mixRGB = (a, b, f) => a.map((v, i) => Math.round(v + (b[i] - v) * f));
+  const BANDS = [[0, "#a16207"], [6, "#92400e"], [14, "#7c2d12"], [26, "#5b2112"], [50, "#40170e"], [90, "#2a100a"]].map(([d, h]) => [d, hexRGB(h)]);
+  const bandAt = d => { d = Math.max(0, d); for (let k = 1; k < BANDS.length; k++) if (d <= BANDS[k][0]) { const [d0, a] = BANDS[k - 1], [d1, b] = BANDS[k]; return mixRGB(a, b, (d - d0) / (d1 - d0)); } return BANDS[BANDS.length - 1][1]; };
+  const HUE = { [CLAY]: "#9a4a2c", [SAND]: "#bf9050", [SSTONE]: "#b8662c", [SHALE]: "#5e4a3e", [LIME]: "#b9ae94", [GRANITE]: "#77706f" };
+  const colCache = new Map(), rgbOf = a => `rgb(${a[0]},${a[1]},${a[2]})`;
+  function groundCol(m, d) { const k = m * 256 + Math.max(0, Math.min(255, d)); let v = colCache.get(k); if (v) return v;
+    const band = bandAt(d); v = rgbOf(m === SOIL ? band : mixRGB(mixRGB(hexRGB(HUE[m]), band, 0.3), [20, 10, 5], Math.min(0.5, Math.max(0, d) / 110))); colCache.set(k, v); return v; }
+  const backCol = d => { const k = 100000 + Math.max(0, Math.min(255, d)); let v = colCache.get(k); if (!v) { v = rgbOf(mixRGB(bandAt(d), [20, 10, 5], 0.62)); colCache.set(k, v); } return v; };
+  // (layers the size of the picture, for the roots and the threads, laid on at once, so that overlaps do not darken)
+  const layerCv = [document.createElement("canvas"), document.createElement("canvas")];
+  function layer(k, camX, camY) { const L = layerCv[k]; if (L.width !== cv.width || L.height !== cv.height) { L.width = cv.width; L.height = cv.height; }
+    const c = L.getContext("2d"); c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, L.width, L.height); c.setTransform(1, 0, 0, 1, -camX * T, -camY * T); return c; }
+  // (the lines of each set, thinnest first, in as few strokes as their widths allow; mirrored about their tree, and a little
+  // lower, for the roots seen behind a tunnel's back wall)
+  function strokeLines(c, sets, col, wMul, dx, dy, minW, mirror, s, fixedW = 0) {
+    c.strokeStyle = col; c.lineCap = "round";
+    for (const R of sets) { const L = R.lines; let cur = -1;
+      for (let k = 0; k < L.length; k += 5) { const w = L[k + 4]; if (w < minW) continue;
+        const q = fixedW ? Math.max(0.8, fixedW * s / 100) : Math.max(1, Math.round(w / 100 * s * wMul * 2) / 2);
+        if (q !== cur) { if (cur >= 0) c.stroke(); c.lineWidth = q; c.beginPath(); cur = q; }
+        let x0 = L[k], y0 = L[k + 1], x1 = L[k + 2], y1 = L[k + 3]; if (mirror) { x0 = 2 * R.tx - x0; x1 = 2 * R.tx - x1; y0 += 45; y1 += 45; }
+        c.moveTo(x0 / 100 * s + dx, y0 / 100 * s + dy); c.lineTo(x1 / 100 * s + dx, y1 / 100 * s + dy); }
+      if (cur >= 0) c.stroke(); }
+  }
+  // (a dug tile's shaded edges, made once for the tile's size)
+  let edgeSet = null;
+  function edges() {
+    if (edgeSet && edgeSet.T === T) return edgeSet;
+    const mk = (w, h, x0, y0, x1, y1, a) => { const c = document.createElement("canvas"); c.width = Math.max(1, Math.ceil(w)); c.height = Math.max(1, Math.ceil(h)); const g = c.getContext("2d");
+      const gr = g.createLinearGradient(x0, y0, x1, y1); gr.addColorStop(0, `rgba(8,4,2,${a})`); gr.addColorStop(1, "rgba(8,4,2,0)"); g.fillStyle = gr; g.fillRect(0, 0, c.width, c.height); return c; };
+    edgeSet = { T, top: mk(T + 0.5, T * 0.34, 0, 0, 0, T * 0.34, 0.55), left: mk(T * 0.16, T + 0.5, 0, 0, T * 0.16, 0, 0.35), right: mk(T * 0.16 + 0.5, T + 0.5, T * 0.16, 0, 0, 0, 0.35) };
+    return edgeSet;
+  }
+  // (each tree's roots and each mushroom's threads, grown in Hazel as they come near the view, a few a frame; the roots tell the
+  // water where to go faster)
+  function ensureRoots(x0, x1) {
+    const h = H(); if (!h || !h.roots || !(S.built && S.built.compiled)) return;
+    let n = 0;
+    for (const t of S.rootPlan) { if (t.done || t.x < x0 || t.x > x1) continue; if (n++ >= 3) break; t.done = true;
+      const lines = t.kind === "shroom" ? h.threads(t.x * 100 + 50, t.row, t.seed) : h.roots(t.x * 100 + 50, t.row, t.k, t.seed);
+      lines.sort((a, b) => a.w - b.w);
+      const L = new Float32Array(lines.length * 5); let lo = t.x, hi = t.x;
+      lines.forEach((l, i) => { L[i * 5] = l.x0; L[i * 5 + 1] = l.y0; L[i * 5 + 2] = l.x1; L[i * 5 + 3] = l.y1; L[i * 5 + 4] = l.w; lo = Math.min(lo, l.x0 / 100, l.x1 / 100); hi = Math.max(hi, l.x0 / 100, l.x1 / 100);
+        if (t.kind !== "shroom") for (let q = 0; q <= 2; q++) { const c = Math.floor((l.x0 + (l.x1 - l.x0) * q / 2) / 100), r = Math.floor((l.y0 + (l.y1 - l.y0) * q / 2) / 100);
+          if (inside(c, r) && PORES[mat[at(c, r)]] > 0) root[at(c, r)] = Math.min(3, root[at(c, r)] + (l.w >= 10 ? 2 : 1)); } });
+      (t.kind === "shroom" ? S.threadSets : S.rootSets).push({ tx: t.x * 100 + 50, x0: Math.floor(lo) - 1, x1: Math.ceil(hi) + 1, lines: L }); }
+  }
   // (the gnome, Gnome dig's own, copied from dig/app.js: its cap, beard and lantern; and, for the water, a swimmer's arms and a tilt)
   const loverAt = () => {};
   function gnome(c, x, y, u, d, ready, moving, now, diving, loves, lamp = true, cheer = false, pose = null) {
@@ -457,23 +520,153 @@
     c.strokeStyle = "rgba(255, 255, 255, 0.25)"; c.lineWidth = 1; c.beginPath(); c.moveTo(-6, -17.5); c.quadraticCurveTo(-4, -26, -0.5, -32); c.stroke();
     c.restore();
   }
+  // ---- (Matthew, 2026-11-23: "let's spend more polygons on the trees above surface too", "more realism"; "the trees leaves
+  // should use the fractal branches and pads from Messed Up Dress Up, not these circles that look quite prototypy";
+  // "foreground trees should have crowns, not trunks that just end like stumps") The trees as Messed Up Dress Up grows them
+  // (dress-up/js/10-nature.js leafyTree, pineTree, taperSvg; 09-backgrounds.js padInner; by Matthew Hammer and family, Apache
+  // 2.0), by way of Gnome dig's canvas port of them (dig/app.js, copied here): a trunk flaring at its roots, curved tapering
+  // limbs forking up and out, leaf pads (low scalloped clouds, shaded beneath, lit on top) at their tips, darker behind and
+  // lighter in front; a pine's tiers of drooping boughs. Each tree painted once into a picture of its own (a sprite), at its
+  // own height here, and drawn from it. (Matthew: "please get inspired by the artwork of Rien Poortvliet"): in the spirit of
+  // his woods for Gnomes (Wil Huygen and Rien Poortvliet, 1976), our own pictures, none of his copied.
+  const seededR = seed => i => { const v = Math.sin(seed * 71.3 + i * 13.7) * 43758.5453; return v - Math.floor(v); };
+  const poly = (c, pts, fill) => { c.fillStyle = fill; c.beginPath(); pts.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y)); c.closePath(); c.fill(); };
+  const mixHex = (h, to, t) => { const a = [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)), b = [1, 3, 5].map(i => parseInt(to.slice(i, i + 2), 16));
+    return "#" + a.map((v, i) => Math.round(v + (b[i] - v) * t).toString(16).padStart(2, "0")).join(""); };
+  // a curved, tapering limb: from p0 by way of p1 to p2, w0 wide to w1
+  function taper(c, p0, p1, p2, w0, w1, fill) {
+    const L = [], R = [];
+    for (let i = 0; i <= 8; i++) {
+      const u = i / 8, x = (1 - u) * (1 - u) * p0[0] + 2 * u * (1 - u) * p1[0] + u * u * p2[0], y = (1 - u) * (1 - u) * p0[1] + 2 * u * (1 - u) * p1[1] + u * u * p2[1];
+      const dx = 2 * (1 - u) * (p1[0] - p0[0]) + 2 * u * (p2[0] - p1[0]), dy = 2 * (1 - u) * (p1[1] - p0[1]) + 2 * u * (p2[1] - p1[1]), d = Math.hypot(dx, dy) || 1, w = (w0 + (w1 - w0) * u) / 2;
+      L.push([x - dy / d * w, y + dx / d * w]); R.push([x + dy / d * w, y - dx / d * w]);
+    }
+    poly(c, [...L, ...R.reverse()], fill);
+  }
+  // a leaf pad's shape j (of 8): a scalloped top over a flat bottom; its shade beneath and its lit top
+  const PADS = [...Array(8)].map((_, j) => {
+    const r = v => { const z = Math.sin(j * 57.1 + v * 13.9) * 43758.5453; return z - Math.floor(z); };
+    const w = 170 + 70 * r(1), h = 34 + 22 * r(2), bumps = 3 + j % 5, amp = 7 + 7 * r(3), lean = (r(4) - 0.5) * 0.6, top = [], bottom = [];
+    for (let i = 0; i <= 40; i++) { const u = i / 40, x = (u - 0.5) * w, env = Math.pow(Math.sin(Math.PI * Math.pow(u, 1 + lean)), 0.7); top.push([x, -h * env - amp * Math.abs(Math.sin(Math.PI * bumps * u)) * env]); }
+    for (let i = 12; i >= 0; i--) { const u = i / 12; bottom.push([(u - 0.5) * w, 5 * Math.sin(Math.PI * u)]); }
+    return { all: [...top, ...bottom], shade: [...top.map(([x, y]) => [x, y * 0.3]), ...bottom], lit: top.filter((_, i) => i > 4 && i < 30).map(([x, y]) => [x * 0.7 - w * 0.06, y * 0.85 - 4]) };
+  });
+  function pad(c, j, x, y, sx, sy, color) {
+    const P2 = PADS[((j % 8) + 8) % 8];
+    c.save(); c.translate(x, y); c.scale(sx, sy); poly(c, P2.all, color); poly(c, P2.shade, "rgba(0, 0, 0, 0.2)"); poly(c, P2.lit, "rgba(255, 255, 255, 0.13)"); c.restore();
+  }
+  // a broadleaf tree: a trunk flaring at the roots, limbs forking up and out, leaf pads clustered at their tips
+  function leafyTree(c, seed, o = {}) {
+    const r = seededR(seed), H2 = o.h ?? 320, wide = o.wide ?? 1, bark = o.bark ?? "#6b4a2b", dk = mixHex(bark, "#000000", 0.35);
+    const greens = o.greens ?? ["#285e2a", "#2f7d32", "#3a8a3c", "#47a047", "#58b050"];
+    const limbs = [], tips = [];
+    const grow = (x, y, a, len, w, lvl, id) => {
+      const bend = (r(id * 7 + 1) - 0.5) * 0.6, mx = x + Math.cos(a) * len * 0.5, my = y + Math.sin(a) * len * 0.5;
+      const ex = mx + Math.cos(a + bend) * len * 0.5, ey = my + Math.sin(a + bend) * len * 0.5;
+      limbs.push([[x, y], [mx, my], [ex, ey], w, w * 0.6]);
+      if (lvl === 0) { tips.push([ex, ey, len]); return; }
+      const n = 2 + (r(id * 7 + 2) > 0.45 ? 1 : 0);
+      for (let k = 0; k < n; k++) grow(ex, ey, a + bend + (k - (n - 1) / 2) * (0.55 + 0.3 * r(id * 7 + 3 + k)) * wide, len * (0.6 + 0.18 * r(id * 11 + k)), w * 0.6, lvl - 1, id * 3 + k + 1);
+    };
+    const lean = (r(1) - 0.5) * 0.18, top = [Math.sin(lean) * H2 * 0.45, -H2 * 0.44];
+    if (o.shadow !== false) { c.fillStyle = "rgba(0, 0, 0, 0.15)"; c.beginPath(); c.ellipse(0, 2, 70 * wide, 11, 0, 0, 7); c.fill(); }   // (Gnome world: none for a great tree's crown, up in the air)
+    for (const e of [-1, 1]) { c.fillStyle = bark; c.beginPath(); c.moveTo(e * 10, -24); c.quadraticCurveTo(e * 16, -4, e * (30 + 8 * r(2 + e)), 2); c.lineTo(e * 6, 2); c.closePath(); c.fill(); }
+    taper(c, [0, 2], [top[0] * 0.4, -H2 * 0.24], top, 30, 19, bark);
+    for (let k = 0; k < 3; k++) grow(top[0], top[1], -Math.PI / 2 + (k - 1) * 0.7 * wide + (r(10 + k) - 0.5) * 0.3, H2 * (0.25 + 0.06 * r(20 + k)), 16, 1, k + 2);
+    for (const [p0, p1, p2, w0, w1] of limbs) taper(c, p0, p1, p2, w0, w1, bark);
+    c.strokeStyle = dk; c.globalAlpha = 0.5; c.lineWidth = 3; c.beginPath(); c.moveTo(-4, -20); c.quadraticCurveTo(top[0] * 0.3 - 6, -H2 * 0.22, top[0] - 4, top[1] + 10); c.stroke(); c.globalAlpha = 1;
+    if (o.marks) { c.fillStyle = "#292524"; for (let i = 0; i < 7; i++) { const q = 0.08 + i * 0.12, x = top[0] * q * 0.9, y = -H2 * 0.44 * q - 6; c.fillRect(x - 8 + (i % 2) * 6, y, 9, 3); } }   // (a birch's dark marks)
+    const pads = [];
+    for (let i = 0; i < 4; i++) pads.push([top[0] + (r(30 + i) - 0.5) * 140 * wide, top[1] - 60 - 70 * r(34 + i), 0.55 + 0.2 * r(38 + i), 0]);
+    tips.forEach(([x, y], i) => { pads.push([x + (r(40 + i) - 0.5) * 30, y - 16, 0.42 + 0.16 * r(50 + i), 1]); pads.push([x + (r(60 + i) - 0.5) * 40, y + 8, 0.36 + 0.14 * r(70 + i), 2]); });
+    pads.sort((a, b) => a[3] - b[3] || a[1] - b[1]);
+    pads.forEach(([x, y, sc, layer], i) => { const j = Math.floor(r(80 + i) * 8), sx = sc * (r(90 + i) < 0.5 ? -1 : 1) * wide;
+      pad(c, j, x, y, sx, sc, greens[Math.min(greens.length - 1, layer + Math.floor(r(100 + i) * 3))]); });
+  }
+  // a pine: a trunk, then tiers of drooping boughs, ragged at their tips, darker underneath
+  function pineTree(c, seed, color, n = 5) {
+    const r = seededR(seed);
+    c.fillStyle = "#5e3d22"; c.fillRect(-6, -34, 12, 36);
+    for (let j = 0; j < n; j++) {
+      const u = j / n, y = -22 - u * 158, hw = 60 * (1 - u * 0.84), th = 62 - 22 * u, tip = y - th, right = [];
+      for (let q = 1; q <= 3; q++) { const v = q / 3, x = hw * v; right.push([x - hw / 6, y - 4 - 6 * r(j * 10 + q)], [x, y + 6 + 6 * r(j * 10 + q + 5) - 4 * v]); }
+      const pts = [[0, tip], ...right, ...[...right].reverse().map(([x, yy]) => [-x * (0.94 + 0.1 * r(j + 40)), yy + 2 * (r(j + 41) - 0.5)])];
+      c.lineJoin = "round"; c.strokeStyle = color; c.lineWidth = 3; poly(c, pts, color); c.stroke();
+      poly(c, [[-hw * 0.85, y + 2], [hw * 0.85, y + 2], [hw * 0.5, y - th * 0.3], [-hw * 0.5, y - th * 0.3]], "rgba(0, 0, 0, 0.16)");
+      poly(c, [[0, tip + 4], [-hw * 0.6, y - th * 0.15], [-hw * 0.18, y - th * 0.5]], "rgba(255, 255, 255, 0.1)");
+    }
+  }
+  const spriteCache = new Map();
+  function sprite(key, wT, hT, ox, oy, paint) {
+    let sp = spriteCache.get(key);
+    if (sp && sp.T === T) { spriteCache.delete(key); spriteCache.set(key, sp); return sp; }
+    const res = Math.min(T, 44), c = document.createElement("canvas"); c.width = Math.ceil(wT * res); c.height = Math.ceil(hT * res);
+    const g = c.getContext("2d"); g.translate(ox * res, oy * res); paint(g, res);
+    sp = { cv: c, ox, oy, res, T }; spriteCache.set(key, sp);
+    if (spriteCache.size > 70) spriteCache.delete(spriteCache.keys().next().value);
+    return sp;
+  }
+  const drawSprite = (sp, x, y, k = 1) => { const f = T / sp.res * k; ctx.drawImage(sp.cv, x - sp.ox * T * k, y - sp.oy * T * k, sp.cv.width * f, sp.cv.height * f); };
+  const TREE_LOOK = { 0: { wide: 1.05 }, 2: { wide: 0.8, bark: "#e9e4dc", marks: true, greens: ["#4d7c0f", "#5a8f2a", "#6aa832", "#7cbf3a", "#93d04a"] },
+    3: { wide: 0.75, bark: "#c9c7b3", greens: ["#5a7a1f", "#6f9228", "#86a83a", "#a3c24e", "#c2d86a"] }, 4: { wide: 1.25, bark: "#5e4630", greens: ["#3f5e2c", "#4f6f33", "#5f803b", "#74934a", "#8aa85a"] } };
+  function treeSprite(t) {
+    const hT = t.h * (t.tall ? 1.45 : 1), wT = (t.kind === 1 ? 0.45 : 0.8 * (TREE_LOOK[t.kind] || TREE_LOOK[0]).wide) * hT + 1.2;
+    return sprite(`tree:${t.kind}:${t.h}:${t.seed}:${t.tall ? 1 : 0}`, wT * 2, hT * 1.3 + 1, wT, hT * 1.3 + 0.6, (g, u) => {
+      if (t.kind === 1) { const sc = hT * 1.1 * u / 200; g.scale(sc, sc); pineTree(g, t.seed + 1, ["#1f5f3a", "#245f34", "#2a6b3c"][t.seed % 3], 5 + Math.floor(t.h / 3)); return; }
+      const sc = hT * u / 330; g.scale(sc, sc); leafyTree(g, t.seed + 1, TREE_LOOK[t.kind] || TREE_LOOK[0]);
+      if (t.kind === 4) {   // (a willow: strands hanging from its pads)
+        const r = seededR(t.seed + 9); g.lineCap = "round";
+        for (let k = 0; k < 60; k++) { const x0 = (r(k) - 0.5) * 300, y0 = -150 - 120 * r(k + 100), len = 90 + 120 * r(k + 200);
+          g.strokeStyle = ["#5f803b", "#74934a", "#8aa85a"][k % 3]; g.lineWidth = 3 + 2 * r(k + 300); g.beginPath(); g.moveTo(x0, y0); g.quadraticCurveTo(x0 + (x0 > 0 ? 18 : -18), y0 + len * 0.4, x0 + (x0 > 0 ? 10 : -10), y0 + len); g.stroke(); } }
+    });
+  }
+  const bushSprite = b => sprite(`bush:${b.x}:${b.v}`, 3, 2, 1.5, 1.7, (g, u) => { const r = seededR(b.x * 7 + b.v), sc = u / 120; g.scale(sc, sc);
+    const greens = ["#285e2a", "#2f7d32", "#3a8a3c", "#47a047", "#58b050"];
+    for (let i = 0; i < 5; i++) pad(g, Math.floor(r(i) * 8), (r(i + 10) - 0.5) * 110, -20 - 45 * r(i + 20) - (i > 2 ? 25 : 0), 0.4 + 0.18 * r(i + 30), 0.55 + 0.25 * r(i + 40), greens[Math.min(4, i)]);
+    if (b.v === 2) { g.fillStyle = "#b91c1c"; for (let i = 0; i < 8; i++) { g.beginPath(); g.arc((r(i + 50) - 0.5) * 120, -20 - 50 * r(i + 60), 5, 0, 7); g.fill(); } } });
+  // (a felled tree: falling for a second, then a stump; a sapling grows, its picture drawn small)
   function drawTree(t, x, y) {
-    const k = t.tall ? 1 : t.grow, hh = t.h * k * T, c = ctx;
-    if (!t.alive) {   // (felled: a falling trunk for a second, then a stump)
+    const c = ctx;
+    if (!t.alive) {
       const f = Math.min(1, (S.frame - t.fallAt) / 50);
-      c.fillStyle = "#6b4a2b"; c.fillRect(x - 0.18 * T, y - 0.35 * T, 0.36 * T, 0.35 * T); c.fillStyle = "#d9b98a"; c.beginPath(); c.ellipse(x, y - 0.35 * T, 0.18 * T, 0.07 * T, 0, 0, 7); c.fill();
-      if (f < 1) { c.save(); c.translate(x, y - 0.35 * T); c.rotate((t.fallDir || 1) * f * Math.PI / 2); c.globalAlpha = 1 - f * 0.6; c.fillStyle = "#7a5a3a"; c.fillRect(-0.15 * T, -hh, 0.3 * T, hh); c.restore(); }
+      c.fillStyle = "#5e4630"; c.fillRect(x - 0.2 * T, y - 0.35 * T, 0.4 * T, 0.35 * T); c.fillStyle = "#d9b98a"; c.beginPath(); c.ellipse(x, y - 0.35 * T, 0.2 * T, 0.08 * T, 0, 0, 7); c.fill();
+      c.strokeStyle = "#a8875e"; c.lineWidth = 1; c.beginPath(); c.ellipse(x, y - 0.35 * T, 0.1 * T, 0.04 * T, 0, 0, 7); c.stroke();
+      if (f < 1) { c.save(); c.translate(x, y - 0.35 * T); c.rotate((t.fallDir || 1) * f * Math.PI / 2); c.globalAlpha = 1 - f * 0.6; drawSprite(treeSprite(t), 0, 0.35 * T); c.restore(); }
       return; }
-    const trunk = t.kind === 2 ? "#e9e4da" : t.kind === 3 ? "#cfc8b8" : "#6b4a2b";
-    c.fillStyle = trunk; c.beginPath(); c.moveTo(x - 0.22 * T * k, y); c.lineTo(x - 0.1 * T * k, y - hh * 0.75); c.lineTo(x + 0.1 * T * k, y - hh * 0.75); c.lineTo(x + 0.22 * T * k, y); c.fill();
-    if (t.kind === 2) { c.fillStyle = "#333"; for (let j = 1; j < 6; j++) c.fillRect(x - 0.12 * T * k, y - hh * j / 8, 0.12 * T * k, 0.05 * T); }
-    const greens = [["#2f7d32", "#3c9a40", "#4fb04f"], ["#1f5f3a", "#2a6e45", "#33804f"], ["#7cb342", "#9ccc65", "#8bc34a"], ["#a5c34a", "#c0d860", "#93b33a"], ["#6a9a4a", "#87b25d", "#5c8a3d"]][t.kind];
-    if (t.kind === 1) { for (let j = 0; j < 4; j++) { const w = (1.6 - j * 0.32) * T * k, yy = y - hh * (0.25 + j * 0.2); c.fillStyle = greens[j % 3]; c.beginPath(); c.moveTo(x - w, yy); c.lineTo(x, yy - hh * 0.32); c.lineTo(x + w, yy); c.fill(); } return; }
-    if (t.kind === 4) { c.fillStyle = greens[0]; c.beginPath(); c.ellipse(x, y - hh * 0.82, 1.6 * T * k, hh * 0.3, 0, 0, 7); c.fill();
-      c.strokeStyle = greens[2]; c.lineWidth = Math.max(1, T / 14); for (let j = -6; j <= 6; j++) { c.beginPath(); c.moveTo(x + j * 0.25 * T * k, y - hh * 0.85); c.quadraticCurveTo(x + j * 0.32 * T * k, y - hh * 0.5, x + j * 0.3 * T * k, y - hh * 0.3); c.stroke(); } return; }
-    let r = t.seed; const R = () => { r = (r * 16807 + 7) % 2147483647; return r / 2147483647; };
-    const n = t.tall ? 16 : 8;
-    for (let j = 0; j < n; j++) { c.fillStyle = greens[j % 3]; c.beginPath(); c.arc(x + (R() - 0.5) * 1.8 * T * k * (t.tall ? 2 : 1), y - hh * (0.65 + R() * 0.3), (0.55 + R() * 0.4) * T * k * (t.tall ? 1.4 : 1), 0, 7); c.fill(); }
+    drawSprite(treeSprite(t), x, y, t.tall ? 1 : t.grow);
+  }
+  // a mushroom on the land: a fly agaric (red, flecked white) or a bolete (brown, stout)
+  function drawShroom(m, x, y) {
+    const c = ctx, s0 = T * (0.7 + (m.x % 3) * 0.12);
+    if (m.v === 0) { c.fillStyle = "#f3efe4"; c.beginPath(); c.moveTo(x - s0 * 0.08, y); c.lineTo(x - s0 * 0.06, y - s0 * 0.45); c.lineTo(x + s0 * 0.06, y - s0 * 0.45); c.lineTo(x + s0 * 0.1, y); c.fill();
+      c.fillStyle = "#e9e1cf"; c.fillRect(x - s0 * 0.1, y - s0 * 0.3, s0 * 0.2, s0 * 0.04);
+      c.fillStyle = "#c8321e"; c.beginPath(); c.ellipse(x, y - s0 * 0.45, s0 * 0.3, s0 * 0.2, 0, Math.PI, 0); c.fill();
+      c.fillStyle = "rgba(0,0,0,0.18)"; c.beginPath(); c.ellipse(x, y - s0 * 0.46, s0 * 0.3, s0 * 0.05, 0, 0, Math.PI); c.fill();
+      c.fillStyle = "#fffaf0"; for (const [dx, dy, r] of [[-0.15, -0.52, 0.035], [0.02, -0.6, 0.03], [0.16, -0.5, 0.03], [-0.04, -0.5, 0.025], [0.1, -0.56, 0.02]]) { c.beginPath(); c.arc(x + dx * s0, y + dy * s0, r * s0, 0, 7); c.fill(); } }
+    else { c.fillStyle = "#e5d6b8"; c.beginPath(); c.ellipse(x, y - s0 * 0.16, s0 * 0.11, s0 * 0.17, 0, 0, 7); c.fill();
+      c.fillStyle = "#7a4a26"; c.beginPath(); c.ellipse(x, y - s0 * 0.34, s0 * 0.22, s0 * 0.14, 0, Math.PI, 0); c.fill(); c.fillStyle = "#9a6438"; c.beginPath(); c.ellipse(x + s0 * 0.05, y - s0 * 0.4, s0 * 0.08, s0 * 0.04, 0, 0, 7); c.fill(); }
+  }
+  // a great tree: a wide leafy crown at the top of it (Dress Up's leafy tree, large), pads over each house, the trunk wide and
+  // buttressed, furrowed, a curved limb out under each platform
+  function greatSprite(G) {
+    const maxLen = Math.max(...G.limbs.map(l => l.len)), w = G.half + maxLen + 7, hh = G.h * 1.35 + 2;
+    return sprite(`great:${G.x}:${G.v}`, w * 2, hh + 1, w, hh, (g, u) => {
+      const h = G.h * u, bw = (G.half + 0.75) * u, bark = "#6b4a2b", dk = "#45301c", r = seededR(G.v + 5);
+      g.save(); g.translate(0, -h * 0.42); const sc = h * 0.95 / 330; g.scale(sc, sc); leafyTree(g, G.v + 3, { wide: 1.9, shadow: false }); g.restore();
+      const greens = ["#285e2a", "#2f7d32", "#3a8a3c", "#47a047", "#58b050"];
+      for (const L of G.limbs) { const ly = -L.y * u, ex = L.side * (G.half + L.len) * u;
+        for (let i = 0; i < 4; i++) { g.save(); g.translate(ex * (0.55 + 0.18 * i), ly - u * (4.4 + 0.6 * r(L.y + i))); const k = u / 75; g.scale(k, k); pad(g, Math.floor(r(L.y * 3 + i) * 8), 0, 0, 0.55 * (r(i + L.y) < 0.5 ? -1 : 1), 0.6, greens[1 + (i % 4)]); g.restore(); } }
+      g.fillStyle = bark; g.beginPath(); g.moveTo(-bw - 2.2 * u, u * 0.1); g.bezierCurveTo(-bw - 0.6 * u, -u * 0.1, -bw - 0.1 * u, -u * 0.6, -bw * 0.95, -u * 1.6);
+      g.bezierCurveTo(-bw * 0.8, -h * 0.4, -bw * 0.62, -h * 0.7, -u * 0.55, -h * 0.98); g.lineTo(u * 0.55, -h * 0.98);
+      g.bezierCurveTo(bw * 0.62, -h * 0.7, bw * 0.8, -h * 0.4, bw * 0.95, -u * 1.6); g.bezierCurveTo(bw + 0.1 * u, -u * 0.6, bw + 0.6 * u, -u * 0.1, bw + 2.2 * u, u * 0.1); g.closePath(); g.fill();
+      g.fillStyle = "rgba(255,240,220,0.08)"; g.beginPath(); g.moveTo(bw * 0.2, -u); g.bezierCurveTo(bw * 0.5, -h * 0.4, bw * 0.4, -h * 0.7, u * 0.3, -h * 0.97); g.lineTo(u * 0.5, -h * 0.97); g.bezierCurveTo(bw * 0.6, -h * 0.7, bw * 0.78, -h * 0.4, bw * 0.9, -u); g.fill();
+      g.strokeStyle = dk; g.globalAlpha = 0.5; g.lineWidth = Math.max(1, u / 14);
+      for (let j = 0; j < 13; j++) { const f = j / 12 * 2 - 1; g.beginPath(); g.moveTo(f * (bw + 1.1 * u), u * 0.05); for (let k = 1; k <= 14; k++) { const y = -h * 0.97 * k / 14, wv = bw * (1 - 0.55 * k / 14); g.lineTo(f * wv + (r(j * 20 + k) - 0.5) * u * 0.1, y); } g.stroke(); }
+      g.globalAlpha = 1;
+      for (const L of G.limbs) { const ly = -L.y * u, ex = L.side * (G.half + L.len + 0.3) * u;
+        taper(g, [L.side * bw * 0.4, ly + 1.6 * u], [ex * 0.45, ly + 0.9 * u], [ex, ly + 0.28 * u], u * 0.85, u * 0.3, bark);
+        taper(g, [ex * 0.55, ly + 0.7 * u], [ex * 0.68, ly - 1.2 * u], [ex * 0.62, ly - 3.6 * u], u * 0.3, u * 0.12, bark); }
+    });
   }
   // a tree house (one of the sixteen styles, World.styles), its floor at y, its middle at x
   function drawHouse(H0, x, y) {
@@ -617,48 +810,75 @@
     for (let k = 0; k < 9; k++) { const cx = ((k * 61 + now / 900) % (WW * 0.6)) * 1.6 - camX * 0.35 * s / s; const x = (cx - camX * 0.0) * s * 0.5 + ((k * 137) % W), y = skyY(4 + (k * 7) % 12) * 0.6 + s;
       ctx.fillStyle = "rgba(255,255,255,0.75)"; ctx.beginPath(); ctx.ellipse(((x % (W + 400)) + W + 400) % (W + 400) - 200, y, s * 1.6, s * 0.45, 0, 0, 7); ctx.fill(); }
     ctx.save(); ctx.translate(-camX * s, -camY * s);
-    // (behind the open tiles below the land: the earth dug, the rooms' walls, the stair's stones, a cave's rock)
-    for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) { const i = at(c, r); if (mat[i] !== AIR) continue; const b = bg[i];
-      if (b === B_NONE && (r < surf0[c] || riverAt(c))) continue;
-      const k = b === B_PLASTER ? 101 : b === B_WOOD ? 102 : b === B_STAIR ? 103 : b === B_CAVE ? 104 : 100;
-      ctx.drawImage(tex(k, (c * 7 + r * 3) & 3), c * s, r * s); }
-    // the trees and bushes on the land (behind the great trees)
-    for (const t of S.trees) if (t.x >= c0 - 4 && t.x <= c1 + 4) drawTree(t, (t.x + 0.5) * s, surf0[t.x] * s);
-    for (const b of S.bushes) if (b.x >= c0 - 2 && b.x <= c1 + 2) { const x = (b.x + 0.5) * s, y = surf0[b.x] * s; ctx.fillStyle = ["#3c8a3a", "#4f9a3a", "#2f7d32"][b.v];
-      for (const [dx, dy, rr] of [[-0.35, -0.3, 0.38], [0.3, -0.32, 0.36], [0, -0.55, 0.4]]) { ctx.beginPath(); ctx.arc(x + dx * s, y + dy * s, rr * s, 0, 7); ctx.fill(); } }
-    // the great trees: trunk, roots flaring, limbs under the platforms, leaves, then (after the ground) the platforms and houses
-    for (const G of S.greats) { if (G.x + 12 < c0 || G.x - 12 > c1) continue;
-      const x = (G.x + 0.5) * s, y = G.foot * s, hh = G.h * s, bw = (G.half + 0.6) * s;
-      ctx.fillStyle = "#2f7d32"; for (let j = 0; j < 26; j++) { const a = j * 2.4, rr = (0.9 + (j % 5) * 0.25) * s * 1.6; ctx.fillStyle = ["#2f7d32", "#3c9a40", "#266b30", "#4fb04f"][j % 4]; ctx.beginPath(); ctx.arc(x + Math.cos(a) * (2 + j % 7) * s * 0.9, y - hh * (0.78 + 0.22 * Math.sin(a * 1.3)), rr, 0, 7); ctx.fill(); }
-      for (const L of G.limbs) { const ly = y - L.y * s, ex = x + L.side * (G.half + L.len + 0.3) * s; ctx.strokeStyle = "#5e3d22"; ctx.lineCap = "round";
-        ctx.lineWidth = 0.55 * s; ctx.beginPath(); ctx.moveTo(x, ly + 1.4 * s); ctx.quadraticCurveTo(x + L.side * (G.half + L.len * 0.4) * s, ly + 0.9 * s, ex, ly + 0.25 * s); ctx.stroke();
-        ctx.lineWidth = 0.22 * s; ctx.beginPath(); ctx.moveTo(x + L.side * (G.half + L.len * 0.5) * s, ly + 0.6 * s); ctx.lineTo(x + L.side * (G.half + L.len * 0.8) * s, ly - 1.8 * s); ctx.stroke();
-        for (let j = 0; j < 5; j++) { ctx.fillStyle = ["#3c9a40", "#2f7d32", "#4fb04f"][j % 3]; ctx.beginPath(); ctx.arc(ex + (j - 2) * 0.5 * s, ly - (2.4 + (j % 2) * 0.6) * s, 0.85 * s, 0, 7); ctx.fill(); } }
-      ctx.fillStyle = "#6e4a2c"; ctx.beginPath(); ctx.moveTo(x - bw - 1.2 * s, y); ctx.quadraticCurveTo(x - bw, y - 0.5 * s, x - bw * 0.9, y - 1.2 * s); ctx.lineTo(x - 0.45 * s, y - hh); ctx.lineTo(x + 0.45 * s, y - hh); ctx.lineTo(x + bw * 0.9, y - 1.2 * s); ctx.quadraticCurveTo(x + bw, y - 0.5 * s, x + bw + 1.2 * s, y); ctx.fill();
-      ctx.strokeStyle = "rgba(40,25,10,0.45)"; ctx.lineWidth = Math.max(1, s / 12); for (let j = -2; j <= 2; j++) { ctx.beginPath(); ctx.moveTo(x + j * bw * 0.35, y); ctx.quadraticCurveTo(x + j * bw * 0.25, y - hh * 0.5, x + j * 0.1 * s, y - hh); ctx.stroke(); }
+    // above the land: the trees, bushes and mushrooms (painted once, sprites), then the great trees over them
+    for (const t of S.trees) if (t.x >= c0 - 9 && t.x <= c1 + 9) drawTree(t, (t.x + 0.5) * s, surf0[t.x] * s);
+    for (const b of S.bushes) if (b.x >= c0 - 2 && b.x <= c1 + 2) drawSprite(bushSprite(b), (b.x + 0.5) * s, surf0[b.x] * s);
+    for (const m of S.shrooms) if (m.x >= c0 - 1 && m.x <= c1 + 1) drawShroom(m, (m.x + 0.5) * s, surf0[m.x] * s);
+    for (const G of S.greats) { if (G.x + 22 < c0 || G.x - 22 > c1) continue; const x = (G.x + 0.5) * s, y = G.foot * s;
+      drawSprite(greatSprite(G), x, y);
       if (G.kind === 31) {   // (the stair inside: the trunk cut away, a winding stair round a post, a door to each limb)
         const top0 = y - (Math.max(...G.limbs.map(l => l.y)) + 1.2) * s, iw = (G.half + 0.2) * 2 * s * 0.75;
-        ctx.fillStyle = "#2a1a0e"; ctx.beginPath(); ctx.roundRect(x - iw / 2, top0, iw, y - top0, [iw / 2, iw / 2, 0, 0]); ctx.fill();
+        ctx.fillStyle = "#24160c"; ctx.beginPath(); ctx.roundRect(x - iw / 2, top0, iw, y - top0, [iw / 2, iw / 2, 0, 0]); ctx.fill();
+        ctx.strokeStyle = "#5e3d22"; ctx.lineWidth = Math.max(2, s / 8); ctx.stroke();
         ctx.fillStyle = "#5e3d22"; ctx.fillRect(x - 0.12 * s, top0 + 0.3 * s, 0.24 * s, y - top0 - 0.3 * s);
         for (let yy = y - 0.5 * s, j = 0; yy > top0 + 0.4 * s; yy -= 0.5 * s, j++) { const a = j * 0.9, sx = Math.sin(a); ctx.fillStyle = Math.cos(a) > 0 ? "#b07a48" : "#7a5230";
           ctx.beginPath(); ctx.moveTo(x, yy); ctx.lineTo(x + sx * iw * 0.46, yy - 0.12 * s); ctx.lineTo(x + sx * iw * 0.46, yy + 0.02 * s); ctx.lineTo(x, yy + 0.12 * s); ctx.fill(); }
         for (const L of G.limbs) { const ly = y - L.y * s; ctx.fillStyle = "#4a2e1a"; ctx.beginPath(); ctx.roundRect(x + L.side * (iw / 2) - (L.side > 0 ? 0 : 0.35 * s), ly - 1 * s, 0.35 * s, 1 * s, [0.15 * s, 0.15 * s, 0, 0]); ctx.fill(); } }
     }
-    // the ground: each solid tile's texture, grass where the sky is over it, its gem, the cracks of a digging, and its water as blue
+    // the ground, as Gnome dig paints it: each kind flat, darker deeper, a fleck or two, its own faint marks
+    const dk = new Path2D(), lt = new Path2D(), ln = new Path2D(), sp = Math.max(1, s * 0.08);
+    for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) { const m = mat[at(c, r)]; if (m < SOIL || m > GRANITE) continue;
+      const x = c * s, y = r * s, hsh = (c * 73 + r * 151) % 97;
+      ctx.fillStyle = groundCol(m, r - surf0[c]); ctx.fillRect(x, y, s + 0.5, s + 0.5);
+      dk.rect(x + s * (0.15 + (hsh % 5) * 0.03), y + s * 0.3, sp, sp); dk.rect(x + s * 0.65, y + s * (0.6 + (hsh % 3) * 0.08), sp, sp);
+      if (m === SAND) { lt.rect(x + s * 0.4, y + s * 0.15, sp * 1.3, sp); dk.rect(x + s * 0.8, y + s * 0.45, sp * 1.2, sp * 1.2); lt.rect(x + s * 0.25, y + s * 0.75, sp, sp); }
+      else if (m === SSTONE) lt.rect(x, y + s * (0.2 + (hsh % 6) * 0.1), s, Math.max(1, s * 0.04));
+      else if (m === SHALE) { ln.rect(x, y + s * 0.35, s, Math.max(1, s * 0.035)); ln.rect(x, y + s * 0.72, s, Math.max(1, s * 0.035)); }
+      else if (m === LIME) { lt.rect(x + s * 0.5, y + s * 0.2, sp, sp); lt.rect(x + s * 0.3, y + s * 0.62, sp * 1.5, sp * 0.6); }
+      else if (m === GRANITE) { lt.rect(x + s * 0.3, y + s * 0.15, sp, sp); lt.rect(x + s * 0.75, y + s * 0.5, sp, sp); dk.rect(x + s * 0.45, y + s * 0.8, sp, sp); } }
+    ctx.fillStyle = "rgba(0,0,0,0.12)"; ctx.fill(dk); ctx.fillStyle = "rgba(255,232,200,0.1)"; ctx.fill(lt); ctx.fillStyle = "rgba(0,0,0,0.14)"; ctx.fill(ln);
+    // (Matthew: "the tree roots have regressed, a lot, from the original gnome dig prototype game"; "it had foreground and
+    // background elements, and accommodations for dug out earth tiles"; "the artwork behind those roots was a key part of the
+    // aesthetic that I wanted to adopt") Gnome dig's roots and mycelium, grown in Hazel (World.roots, World.threads), and drawn
+    // as Gnome dig draws them: one dark layer laid on faintly, a shade darker than the earth they cross, the threads pale;
+    // behind a tunnel, its back wall darker and in it the roots seen from behind; across a tunnel, the roots that ran through it
+    // as wood, over the gnome
+    ensureRoots(c0 - 14, c1 + 14);
+    const sets = S.rootSets.filter(R => R.x1 >= c0 - 1 && R.x0 <= c1 + 1), tsets = S.threadSets.filter(R => R.x1 >= c0 - 1 && R.x0 <= c1 + 1);
+    const lay = layer(0, camX, camY); strokeLines(lay, sets, "#24120a", 1, 0, 0, 0, false, s); strokeLines(lay, sets, "#3d2414", 0.35, -1, -1, 9, false, s);
+    const lay2 = layer(1, camX, camY); strokeLines(lay2, tsets, "#fafaf5", 1, 0, 0, 0, false, s, 3);
+    ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 0.3; ctx.drawImage(layerCv[0], 0, 0); ctx.globalAlpha = 0.4; ctx.drawImage(layerCv[1], 0, 0); ctx.restore();
+    // masonry and timber, and what is behind each open tile under the land: rooms' walls, the stair's stones, a cave's rock
+    for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) { const i = at(c, r), m = mat[i];
+      if (m === MASON || m === TIMBER) { ctx.drawImage(tex(m, (c * 3 + r * 5) & 3), c * s, r * s); continue; }
+      if (m !== AIR) continue; const b = bg[i];
+      if (b === B_PLASTER || b === B_WOOD || b === B_STAIR || b === B_CAVE) ctx.drawImage(tex(b === B_PLASTER ? 101 : b === B_WOOD ? 102 : b === B_STAIR ? 103 : 104, (c * 7 + r * 3) & 3), c * s, r * s); }
+    // the dug tiles (Gnome dig's dugLayer): a back wall of darker earth, the roots seen from behind it, the near roots faint and
+    // light, the threads; each edge against the ground shaded, the floor lit a little
+    const dugPath = new Path2D(); let dugN = 0;
+    for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) { const i = at(c, r); if (mat[i] !== AIR || bg[i] !== B_DUG) continue;
+      ctx.fillStyle = backCol(r - surf0[c]); ctx.fillRect(c * s, r * s, s + 0.5, s + 0.5); dugPath.rect(c * s, r * s, s + 0.5, s + 0.5); dugN++; }
+    if (dugN) {
+      const far = layer(0, camX, camY); strokeLines(far, sets, "#24120a", 1, 0, 0, 0, true, s);
+      ctx.save(); ctx.clip(dugPath); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 0.42; ctx.drawImage(layerCv[0], 0, 0);
+      const near = layer(0, camX, camY); strokeLines(near, sets, "#b08a63", 1, 0, 0, 0, false, s);
+      ctx.globalAlpha = 0.2; ctx.drawImage(layerCv[0], 0, 0); ctx.globalAlpha = 0.14; ctx.drawImage(layerCv[1], 0, 0); ctx.restore();
+      const E = edges(), open = (cc, rr) => inside(cc, rr) && mat[at(cc, rr)] === AIR;
+      for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) { const i = at(c, r); if (mat[i] !== AIR || bg[i] !== B_DUG) continue;
+        if (!open(c, r - 1)) ctx.drawImage(E.top, c * s, r * s); if (!open(c - 1, r)) ctx.drawImage(E.left, c * s, r * s); if (!open(c + 1, r)) ctx.drawImage(E.right, c * s + s * 0.84, r * s);
+        if (!open(c, r + 1)) { ctx.fillStyle = "rgba(255,228,196,0.07)"; ctx.fillRect(c * s, r * s + s * 0.9, s + 0.5, s * 0.1); } } }
+    // on the ground: grass along the land, the water in it (blue, darker the fuller), gems, a digging's cracks
     const dc = g.dt > 0 ? g.dc : -1, dr = g.dr;
     for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) { const i = at(c, r), m = mat[i]; if (m === AIR) continue;
-      ctx.drawImage(tex(m, (c * 3 + r * 5) & 3), c * s, r * s);
-      if (r === top[c] && r <= surf0[c] + 1 && m <= SSTONE) { ctx.fillStyle = "#4caf50"; ctx.fillRect(c * s, r * s, s, s * 0.22); ctx.fillStyle = "#66bb6a"; for (let j = 0; j < 4; j++) ctx.fillRect(c * s + j * s / 4 + s / 16, r * s - s * 0.12, s / 12, s * 0.16); }
-      const w0 = wat[i]; if (PORES[m] > 0 && w0 > 0.05) { ctx.fillStyle = `rgba(30,90,200,${(0.08 + 0.5 * w0 * w0).toFixed(3)})`; ctx.fillRect(c * s, r * s, s, s);
-        if (w0 > 0.95 && ((c * 7 + r * 3 + (S.frame >> 4)) % 9 === 0)) { ctx.fillStyle = "rgba(200,230,255,0.6)"; ctx.fillRect(c * s + s * 0.4, r * s + s * 0.4, s * 0.12, s * 0.12); } }
+      if (r === top[c] && r <= surf0[c] + 1 && m <= SSTONE) { ctx.fillStyle = "#4d7c0f"; ctx.fillRect(c * s, r * s - s * 0.04, s + 0.5, s * 0.14);
+        ctx.strokeStyle = "#65a30d"; ctx.lineWidth = Math.max(1, s * 0.035); ctx.beginPath();
+        for (let j = 0; j < 7; j++) { const bx = c * s + (j + 0.3) * s / 7, bh = s * (0.1 + ((c * 7 + j * 13) % 5) * 0.035); ctx.moveTo(bx, r * s); ctx.lineTo(bx + s * 0.03 * (((c + j) % 3) - 1), r * s - bh); } ctx.stroke(); }
+      const w0 = wat[i]; if (PORES[m] > 0 && w0 > 0.05) { ctx.fillStyle = `rgba(37,99,235,${(0.03 + 0.2 * w0 * w0).toFixed(3)})`; ctx.fillRect(c * s, r * s, s + 0.5, s + 0.5);
+        if (w0 > 0.95 && ((c * 7 + r * 3 + (S.frame >> 4)) % 11 === 0)) { ctx.fillStyle = "rgba(200,230,255,0.45)"; ctx.fillRect(c * s + s * 0.4, r * s + s * 0.4, s * 0.1, s * 0.1); } }
       if (gem[i]) { const tw = 0.5 + 0.5 * Math.sin(now / 300 + c + r); ctx.fillStyle = GEMS[gem[i]]; ctx.beginPath(); ctx.moveTo(c * s + s * 0.5, r * s + s * 0.2); ctx.lineTo(c * s + s * 0.78, r * s + s * 0.45); ctx.lineTo(c * s + s * 0.5, r * s + s * 0.8); ctx.lineTo(c * s + s * 0.22, r * s + s * 0.45); ctx.fill();
         ctx.fillStyle = `rgba(255,255,255,${(0.4 + 0.5 * tw).toFixed(2)})`; ctx.fillRect(c * s + s * 0.42, r * s + s * 0.32, s * 0.1, s * 0.1); }
       if (c === dc && r === dr) { ctx.strokeStyle = "rgba(0,0,0,0.6)"; ctx.lineWidth = Math.max(1, s / 14); const f = Math.min(1, g.dt / Math.max(1, DIG[m])); ctx.beginPath();
         for (let j = 0; j < 1 + Math.floor(f * 4); j++) { const a = j * 1.7; ctx.moveTo(c * s + s / 2, r * s + s / 2); ctx.lineTo(c * s + s / 2 + Math.cos(a) * s * 0.45 * f, r * s + s / 2 + Math.sin(a) * s * 0.45 * f); } ctx.stroke(); } }
-    // roots, faint, through the ground
-    ctx.strokeStyle = "rgba(230,200,150,0.35)"; ctx.lineWidth = Math.max(1, s / 18);
-    for (const t of S.trees) { if (t.x < c0 - 3 || t.x > c1 + 3 || !t.alive) continue; const x = (t.x + 0.5) * s, y = surf0[t.x] * s; let rr = t.seed;
-      for (let j = 0; j < 5; j++) { rr = (rr * 16807) % 2147483647; const a = (rr % 1000) / 1000; ctx.beginPath(); ctx.moveTo(x, y); ctx.quadraticCurveTo(x + (a - 0.5) * 3 * s, y + t.h * 0.4 * s, x + (a - 0.5) * 4 * s, y + t.h * (0.6 + a * 0.5) * s); ctx.stroke(); } }
     // the rooms' things, the doorways' frames, a lamp in each room
     for (const R of S.rooms) { if (R.x + R.w < c0 || R.x > c1 || R.y + 5 < r0 || R.y > r1) continue;
       for (const t of R.things) drawThing(t.kind, (R.x + t.at / 10) * s, (R.y + 4) * s, t.w / 10 * s);
@@ -708,6 +928,10 @@
         for (const sd of [-1, 1]) { ctx.beginPath(); ctx.arc(sx + sd * (0.45 + (now % 900) / 900 * 0.5) * s, sy, 0.18 * s, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke(); } }
     }
     for (const p of S.parts) { ctx.fillStyle = p.col; ctx.fillRect(p.x * s, p.y * s, s * 0.1, s * 0.1); }
+    // (Gnome dig's front layer: the roots that ran through a tunnel still crossing it, as wood, its shadow on the wall behind, its
+    // bark, its top lit; the gnome goes behind them)
+    if (dugN) { ctx.save(); ctx.clip(dugPath); strokeLines(ctx, sets, "rgba(5,2,1,0.45)", 1.05, s * 0.05, s * 0.07, 5, false, s); strokeLines(ctx, sets, "#5b3a22", 1, 0, 0, 5, false, s);
+      strokeLines(ctx, sets, "#8a6440", 0.35, -s * 0.012, -s * 0.012, 5, false, s); ctx.restore(); }
     // the water in the open (rivers, caves, tunnels flooded): over everything in it, so what is under it shows through, bluer
     for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) { const i = at(c, r); if (mat[i] !== AIR) continue; const w0 = wat[i]; if (w0 < 0.03) continue;
       const above = r > 0 && mat[at(c, r - 1)] === AIR && wat[at(c, r - 1)] > 0.5, hgt = above ? 1 : Math.min(1, w0);

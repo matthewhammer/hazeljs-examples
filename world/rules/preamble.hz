@@ -27,3 +27,6 @@ type Gnome = (x = Int, y = Int, vx = Int, vy = Int, face = Int, ground = Bool, c
 type Near = (cx = Int, cy = Int, r0 = Int, r1 = Int, r2 = Int, r3 = Int, r4 = Int) in
 # The keys held: the way across (-1, 0, 1), up, down, and whether up was pressed just now (a jump) #
 type Pad = (dx = Int, up = Bool, down = Bool, jump = Bool) in
+# ---- Roots and mycelium (as Gnome dig's scene grows them, dig/rules/Scene.hz) ---- #
+# A line of a root or a thread of mycelium: from x0, y0 to x1, y1, and its width, all in hundredths of a tile (x across the whole world, y down from the top of the sky) #
+type Line = (x0 = Int, y0 = Int, x1 = Int, y1 = Int, w = Int) in

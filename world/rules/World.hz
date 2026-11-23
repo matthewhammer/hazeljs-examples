@@ -70,6 +70,8 @@ let plan : Int -> Plan = fun seed ->
      if r < dense && !blocked(x) then (kind = 50, x = x, y = 0, w = 1, h = 6 + md(r, 5), v = species(x)) :: trees(x + 3 + md(r / 3, 3)) else trees(x + 2 + md(r / 3, 3))) in
   let bushes : Int -> [Place] = fun x -> if x >= 446 then [] else
     (let r = hash(seed, 800 + x) in if r < 260 && !blocked(x) then (kind = 51, x = x, y = 0, w = 1, h = 1, v = md(r, 3)) :: bushes(x + 5 + md(r, 4)) else bushes(x + 3)) in
+  let shrooms : Int -> [Place] = fun x -> if x >= 446 then [] else
+    (let r = hash(seed, 1100 + x) in if r < (if x >= 128 && x <= 205 then 300 else 120) && !blocked(x) then (kind = 53, x = x, y = 0, w = 1, h = 1, v = md(r, 2)) :: shrooms(x + 4 + md(r, 5)) else shrooms(x + 3)) in
   let under = cat(scatter(seed, (kind = 40, n = 8, x0 = 8, xr = 430, y0 = 48, yr = 14, w0 = 8, wr = 7, h0 = 4, hr = 3, v0 = 0, vr = 1), 0),
               cat(scatter(seed, (kind = 41, n = 6, x0 = 0, xr = 430, y0 = 56, yr = 16, w0 = 14, wr = 13, h0 = 2, hr = 2, v0 = 0, vr = 1), 0),
               cat(scatter(seed, (kind = 42, n = 5, x0 = 10, xr = 410, y0 = 78, yr = 20, w0 = 18, wr = 17, h0 = 6, hr = 5, v0 = 0, vr = 1000), 0),
@@ -84,7 +86,7 @@ let plan : Int -> Plan = fun seed ->
              (kind = 5, thick = thick(seed, 7, 3, 7, 0)), (kind = 4, thick = thick(seed, 8, 8, 16, 0)), (kind = 2, thick = thick(seed, 9, 1, 4, 0)),
              (kind = 4, thick = thick(seed, 10, 40, 40, 0))],
    table = table(0),
-   places = cat(rivers, cat(beavers, cat(greats, cat(villages, cat(trees(2), cat(bushes(5), under)))))));
+   places = cat(rivers, cat(beavers, cat(greats, cat(villages, cat(trees(2), cat(bushes(5), cat(shrooms(3), under))))))));
 # ---- The gnomes' houses, deep under the ground ---- #
 # A village's rooms (which 0, the village: four floors; 1, a hamlet: two): each floor six rows under the one above, its rooms side by side eastward from the stair (columns x0 to x0 + 2, a ladder down from the door), a wall between each; the kitchens, the sitting room and the workshop with a chimney, the hall, the library and the nursery with a light shaft, the dining room, the bedrooms and the bath house with an air shaft #
 let village : (Int, Int, Int, Int) -> [Room] = fun (x0, top, which, seed) ->
@@ -166,6 +168,39 @@ let beaver : (Beaver, [Int]) -> Beaver = fun (b, trees) ->
   else (let to = b.lodge * 100 in if absi(to - b.x) <= 30 then be(to, b.face, 0, 80, none, none, false) else be(go(to, 30), face(to), 5, 0, none, none, false));
 # How high a dam holds its river: the water's own row (natural), a row higher for every three logs, but never over the lower bank (its row, bank) #
 let water_row : (Int, Int, Int) -> Int = fun (natural, bank, logs) -> (let r = natural - logs / 3 in if r < bank + 1 then bank + 1 else r);
+# ---- Roots and mycelium, as Gnome dig's scene grows them (dig/rules/Scene.hz), a segment at a time ---- #
+# directions every 10 degrees: 0 to the right, 9 straight down, 18 to the left (y grows downward); their cosines and sines, in thousandths #
+let cosines : [Int] = [1000, 985, 940, 866, 766, 643, 500, 342, 174, 0, 0 - 174, 0 - 342, 0 - 500, 0 - 643, 0 - 766, 0 - 866, 0 - 940, 0 - 985, 0 - 1000, 0 - 985, 0 - 940, 0 - 866, 0 - 766, 0 - 643, 0 - 500, 0 - 342, 0 - 174, 0, 174, 342, 500, 643, 766, 866, 940, 985];
+let cosd : Int -> Int = fun a -> (let nth : ([Int], Int) -> Int = fun (xs, i) -> case xs | [] => 0 | x :: rest => if i <= 0 then x else nth(rest, i - 1) end in nth(cosines, md(md(a, 36) + 36, 36)));
+# (Matthew, 2026-11-23: "the tree roots have regressed, a lot, from the original gnome dig prototype game") From x, y heading a, segments len long and w wide (these two in hundredths of a hundredth of a tile, so that taking a little off each segment, in whole numbers, does not take off a whole unit), n more of them; the lines onto acc. A root (kind 0) wanders a little, is drawn downward a third of the time, grows thinner and shorter, and 30 segments in 100 put out a side root, 30 to 50 degrees off, thinner; a taproot (kind 2) the same, but drawn downward two times in three, so it goes deep, its side roots ordinary roots; a thread of mycelium (kind 1) wanders more, stays as fine all along, and 30 in 100 branch. Each stops at the world's edges, above the ground it starts from (top) and at the rock at the bottom #
+let grow : (Int, Int, Int, Int, Int, Int, Int, Int, Int, [Line]) -> [Line] = fun (x, y, a, len, w, n, seed, kind, top, acc) ->
+  if n <= 0 || w < 200 || y > (tall - 4) * 100 || y < top || x < 0 || x > wide * 100 then acc else
+  let s1 = next(seed) in
+  let wander = (if kind == 1 then md(s1 / 11, 5) - 2 else md(s1 / 11, 3) - 1) in
+  let pull = (if (kind == 0 && md(s1 / 13, 3) == 0) || (kind == 2 && md(s1 / 13, 3) != 0) then (if a < 9 then 1 else if a > 9 then 0 - 1 else 0) else 0) in
+  let a1 = (let b = a + wander + pull in if b < 1 then 1 else if b > 17 then 17 else b) in
+  let x1 = x + cosd(a1) * len / 100000 in let y1 = y + cosd(a1 - 9) * len / 100000 in
+  let line = (x0 = x, y0 = y, x1 = x1, y1 = y1, w = w / 100) in
+  let side = (if md(s1 / 211, 2) == 0 then 1 else 0 - 1) in
+  let acc1 = (if n > 2 && md(s1 / 101, 100) < 30
+              then grow(x1, y1, a1 + side * (3 + md(s1 / 307, 3)), len * 8 / 10, (if kind == 1 then w else w * 6 / 10), n / 2, next(s1 + 7), (if kind == 2 then 0 else kind), top, line :: acc)
+              else line :: acc) in
+  grow(x1, y1, a1, len * (if kind == 1 then 970 else 985) / 1000, (if kind == 1 then w else w * 965 / 1000), n - 1, s1, kind, top, acc1);
+# A tree's roots, from its foot (x in hundredths of a tile, the row of the ground it stands on), k its size (Gnome dig's trees 80 to 120; a great tree more): a taproot straight down, as deep as it goes, and six side roots spreading out and down from it, 10, 20 and 40 degrees below level either way; as Gnome dig's, but in segments 1.6 times as long and as many fewer, a world having so many more trees #
+let roots : (Int, Int, Int, Int) -> [Line] = fun (x, row, k, seed) ->
+  let y = row * 100 + 4 in
+  let side : (Int, Int, [Line]) -> [Line] = fun (a, s, l) -> grow(x, y, a, 88 * k, 15 * k, 19, s, 0, y, l) in
+  let s1 = next(seed + x) in
+  let l0 = grow(x, y, 9, 93 * k, 22 * k, 37, s1, 2, y, []) in
+  let l1 = side(1, next(s1 + 1), side(17, next(s1 + 2), l0)) in
+  let l2 = side(2, next(s1 + 3), side(16, next(s1 + 4), l1)) in
+  side(4, next(s1 + 5), side(14, next(s1 + 6), l2));
+# A mushroom's mycelium: seven fine threads spreading out under it, from straight across to straight down #
+let threads : (Int, Int, Int) -> [Line] = fun (x, row, seed) ->
+  let y = row * 100 + 8 in
+  let one : (Int, Int, [Line]) -> [Line] = fun (a, s, l) -> grow(x, y, a, 2400, 300, 14, s, 1, y, l) in
+  let s1 = next(seed + x) in
+  one(1, next(s1 + 1), one(4, next(s1 + 2), one(7, next(s1 + 3), one(9, next(s1 + 4), one(11, next(s1 + 5), one(14, next(s1 + 6), one(17, next(s1 + 7), [])))))));
 # ---- The gnome ---- #
 # a tile in the window round the gnome (dc -1 to 1 across, dr -3 to 1 down, from the tile its feet are in); outside it, open #
 let tile : (Near, Int, Int) -> Int = fun (n, dc, dr) ->
