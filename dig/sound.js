@@ -5,7 +5,7 @@
 // crunch), a gem (a bright chime), the lantern's flash (a shimmer up), a stunned monster caught (a jingle), a boulder loosened
 // (a rattle) and landing (a thud), a monster squashed (a thud and a boing), you caught, a level cleared, an animal let go (a
 // whistle down) or under a boulder (a sad fall), into the water (a splash), your breath running low (a bubble), out of breath,
-// the diving gear found (a sparkle), the start and the end. Nothing plays before a tap or a key; 🎵 and 🔊 turn each off, a
+// the diving gear found (a sparkle), (0.0.74) the love blast (a sweep up) and a ghost won over (an aww), the start and the end; and a level cleared, the party's own tune (Confetti skank) until you go on. Nothing plays before a tap or a key; 🎵 and 🔊 turn each off, a
 // slider beside each, remembered on this device.
 (() => {
   "use strict";
@@ -40,6 +40,9 @@
     burn: () => sfx(t => { hiss(t, 0.45, 0.2, "highpass", 3500); tone("triangle", hz(72), hz(96), t + 0.05, 0.35, 0.16); seq(t + 0.3, [84, 88, 91], 0.06, "eighth", 0.14); }, 0.4),
     love: () => sfx(t => { seq(t, [76, 80, 83, 88], 0.07, "quarter", 0.2); tone("sine", hz(92), hz(92), t + 0.3, 0.4, 0.14, 14); }, 0.4),
     pew: () => sfx(t => tone("sine", hz(88), hz(100), t, 0.08, 0.08)),
+    // (0.0.74) the love blast: a bright sweep up with a sparkle; a ghost won over: a happy little "aww" up and a chime
+    blast: () => sfx(t => { tone("sine", hz(76), hz(100), t, 0.18, 0.16); seq(t + 0.08, [91, 95, 98], 0.04, "eighth", 0.12); hiss(t, 0.15, 0.06, "highpass", 6500); }, 0.2),
+    won: () => sfx(t => { tone("triangle", hz(79), hz(86), t, 0.22, 0.2); seq(t + 0.22, [84, 88, 91, 96], 0.07, "quarter", 0.2); tone("sine", hz(96), hz(96), t + 0.5, 0.45, 0.12, 14); }, 0.5),
     start: () => sfx(t => { seq(t, [67, 72, 76], 0.09, "quarter", 0.22); tone("quarter", hz(79), hz(79), t + 0.27, 0.4, 0.22, 14); }),
     over: () => sfx(t => { seq(t, [79, 76, 72], 0.2, "quarter", 0.22); tone("quarter", hz(67), hz(67), t + 0.6, 0.7, 0.22, 18); tone("triangle", hz(43), hz(43), t + 0.6, 0.7, 0.4); }, 0.6),
   };
@@ -47,6 +50,8 @@
     // (a tap or a key: the chip made, or woken, and the level's tune started if music is on and nothing plays)
     gesture(lv) { C.gesture(lv != null ? tuneOf(lv) : null); },
     tune(lv) { C.tune(tuneOf(lv)); },
+    // (0.0.74) a level cleared: the party's own tune, round and round until you go on
+    celebrate() { const i = byName("Confetti skank"); if (i >= 0) C.tune(i); },
     stop: C.stop,
     music: on => C.music(on), sounds: on => C.sounds(on),
     get musicOn() { return C.musicOn; }, get soundsOn() { return C.soundsOn; },

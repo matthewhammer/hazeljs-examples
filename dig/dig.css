@@ -11,6 +11,7 @@
 .dg-pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; max-width: 300px; margin: 10px auto 0; }
 .dg-pad button { font: inherit; font-size: 1.5em; padding: 10px 0; border-radius: 12px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); touch-action: none; user-select: none; }
 .dg-pad button:disabled { opacity: 0.35; filter: grayscale(1); }   /* (0.0.73: 💡 before the lantern is found) */
+#blast:not(:disabled) { border-color: #f472b6; background: color-mix(in srgb, #f472b6 16%, var(--paper)); }   /* (0.0.74: the love blast, ready) */
 .dg-pad button.held { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 20%, var(--paper)); }
 /* full screen, two columns: the controls at the left, the board as large as the window, its buttons under it */
 html.oracle-fs .dg-ui { grid-template-columns: minmax(200px, 0.55fr) minmax(0, 3fr); grid-template-rows: auto minmax(0, 1fr) auto; }

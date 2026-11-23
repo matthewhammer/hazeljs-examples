@@ -329,32 +329,46 @@ if (APP === "checkers") {
   // robot's choice and the next step both ways
   const per = CAP || 40; let steps = 0;
   let g = C.start(42); const run = [];
-  for (let k = 0; k < 12000 && !g.over; k++) { const c = C.robot(g), dir = draw() < 0.05 ? Math.floor(draw() * 5) - 1 : c.dir, flash = draw() < 0.02 ? true : c.flash; run.push([g, dir, flash]); g = C.step(g, dir, flash); }
+  for (let k = 0; k < 12000 && !g.over; k++) { const c = C.robot(g), dir = draw() < 0.05 ? Math.floor(draw() * 5) - 1 : c.dir, flash = draw() < 0.02 ? true : c.flash, blast = draw() < 0.02 ? true : c.blast; run.push([g, dir, flash, blast]); g = C.step(g, dir, flash, blast); }
   const pick = run.filter((_, k) => k < 3 || k % Math.max(1, Math.floor(run.length / per)) === 0 || run[k][0].hit).slice(0, per + 3);
-  for (const [g0, dir, flash] of pick) { steps++; check(`robot at ${JSON.stringify(g0)}`, H.robot(g0), C.robot(g0)); check(`step from ${JSON.stringify(g0)} ${dir} ${flash}`, H.step(g0, dir, flash), C.step(g0, dir, flash)); }
+  for (const [g0, dir, flash, blast] of pick) { steps++; check(`robot at ${JSON.stringify(g0)}`, H.robot(g0), C.robot(g0)); check(`step from ${JSON.stringify(g0)} ${dir} ${flash} ${blast}`, H.step(g0, dir, flash, blast), C.step(g0, dir, flash, blast)); }
   // (0.0.63) the scene, for three levels' seeds, both ways (interpreted, it takes some seconds each)
   for (const [sd, lv] of [[42, 0], [7, 3], [99, 9]]) { const an = C.start(sd).animals; check(`scene ${sd} ${lv}`, H.scene(sd, lv, an), C.scene(sd, lv, an)); }
   // (0.0.69) the animals let go into sunlit holes: a ground opened up toward the sun over each, 140 steps both ways
   { let q = C.start(5); const cs = q.cells.slice();
     for (const a of q.animals) { for (let rr = 1; rr < a.r; rr++) for (let k = a.c; k < 14; k++) cs[rr * 14 + k] = 0; for (let k = 0; k < 14; k++) cs[a.r * 14 + k] = 0; }
     q = { ...q, cells: cs, rocks: [], mons: [] };
-    for (let k = 0; k < 140; k++) { const q2 = C.step(q, -1, false); if (k % 10 === 0) check(`sunlit step ${k}`, H.step(q, -1, false), q2); q = q2; } }
+    for (let k = 0; k < 140; k++) { const q2 = C.step(q, -1, false, false); if (k % 10 === 0) check(`sunlit step ${k}`, H.step(q, -1, false, false), q2); q = q2; } }
   // (0.0.70) ghosts with the sun let in on them: a ground open toward the sun with monsters in it, one stunned; 200 steps both ways
   { let q = C.start(11); const cs = q.cells.slice(); for (let rr = 1; rr < 9; rr++) for (let k = 4; k < 14; k++) cs[rr * 14 + k] = 0;
     q = { ...q, cells: cs, rocks: [], mons: [{ c: 6, r: 6, stun: 0 }, { c: 9, r: 3, stun: 0 }, { c: 12, r: 8, stun: 50 }, ...q.mons], px: 0, py: 15 };
-    for (let k = 0; k < 200; k++) { const q2 = C.step(q, -1, false); if (k % 10 === 0 || q2.hit === 11) check(`ghosts in the sun, step ${k}`, H.step(q, -1, false), q2); q = q2; } }
+    for (let k = 0; k < 200; k++) { const q2 = C.step(q, -1, false, false); if (k % 10 === 0 || q2.hit === 11) check(`ghosts in the sun, step ${k}`, H.step(q, -1, false, false), q2); q = q2; } }
   // (0.0.71) the love shooter: a level with one, a tunnel dug to it with two monsters along it, the gnome walking in; 160 steps both ways
-  { let g0 = C.start(42); for (let k = 0; k < 12000 && !(g0.level >= 1 && g0.lover >= 0); k++) { const c = C.robot(g0); g0 = C.step(g0, c.dir, c.flash); }
+  { let g0 = C.start(42); for (let k = 0; k < 12000 && !(g0.level >= 1 && g0.lover >= 0); k++) { const c = C.robot(g0); g0 = C.step(g0, c.dir, c.flash, c.blast); }
     if (g0.lover >= 0) {
       const lc = g0.lover % 14, lr = Math.floor(g0.lover / 14), cs = g0.cells.slice(); for (let k = 0; k < 14; k++) if (k !== lc) cs[lr * 14 + k] = 0;
       let q2 = { ...g0, cells: cs, rocks: [], px: lc === 0 ? 1 : lc - 1, py: lr, pwait: 0, dead: 0, mons: [{ c: lc === 13 ? 10 : 13, r: lr, stun: 0 }, { c: lc < 7 ? lc + 3 : lc - 3, r: lr, stun: 0 }] };
-      for (let k = 0; k < 160; k++) { const want = k === 0 ? (lc === 0 ? 3 : 1) : -1, n = C.step(q2, want, false); if (k % 10 === 0 || n.hit === 12) check(`love step ${k}`, H.step(q2, want, false), n); q2 = n; }
+      for (let k = 0; k < 160; k++) { const want = k === 0 ? (lc === 0 ? 3 : 1) : -1, n = C.step(q2, want, false, false); if (k % 10 === 0 || n.hit === 12) check(`love step ${k}`, H.step(q2, want, false, false), n); q2 = n; }
     } else console.log("(no level with a love shooter reached in this game)"); }
+  // (0.0.74) the love blast: a straight tunnel along a row, the gnome at one end holding the shooter, facing along, ghosts in it
+  // (one stunned), one past the earth that stops the hearts, one in the next row; fired, fired again at once, and the robot's aim
+  { const row = 6, q0 = C.start(42), cs = q0.cells.slice(); for (let k = 0; k < 10; k++) cs[row * 14 + k] = 0; cs[row * 14 + 10] = 1; cs[row * 14 + 11] = 0;
+    const base = { ...q0, cells: cs, rocks: [], px: 0, py: row, pd: 1, pwait: 5, loves: true, lover: -1, mwait: 999, mons: [{ c: 4, r: row, stun: 0 }, { c: 8, r: row, stun: 90 }, { c: 11, r: row, stun: 0 }, { c: 4, r: row + 1, stun: 0 }] };
+    const a1 = C.step(base, -1, false, true); check("love blast", H.step(base, -1, false, true), a1); check("love blast again", H.step(a1, -1, false, true), C.step(a1, -1, false, true));
+    check("robot's aim", H.robot({ ...base, pd: 2 }), C.robot({ ...base, pd: 2 }));
+    if (a1.hit !== 14 || a1.mons.length !== 2) { differ++; console.log("love blast: expected two won over, hit 14; got", a1.mons.length, a1.hit); } }
+  // (0.0.74) falling under the ground water: a boulder over a shaft dug down into it, and an animal let go beside it; 160 steps both ways
+  { let g0 = C.start(42); for (let k = 0; k < 12000 && !(g0.wt < 16); k++) { const c = C.robot(g0); g0 = C.step(g0, c.dir, c.flash, c.blast); }
+    if (g0.wt < 16) {
+      const col = 3, kc = 5, cs = g0.cells.slice(); for (let rr = 5; rr < 16; rr++) { cs[rr * 14 + col] = 0; cs[rr * 14 + kc] = 0; }
+      let q2 = { ...g0, cells: cs, mons: [], rocks: [{ c: col, r: 4, wob: -1, falling: false }], animals: [{ kind: 15, c: kc, r: 5, fall: -1, walk: -1 }], px: 0, py: 0, pwait: 0, dead: 0, lover: -1, gear: -1 };
+      for (let k = 0; k < 160; k++) { const n = C.step(q2, -1, false, false); if (k % 8 === 0) check(`water fall ${k}`, H.step(q2, -1, false, false), n); q2 = n; }
+    } else console.log("(no level with ground water reached in this game)"); }
   // (0.0.67) where things land, on grounds from that game dug further and further
   for (let k = 0; k < run.length; k += Math.max(1, Math.floor(run.length / 12))) { const cells = run[k][0].cells; check(`landing at step ${k}`, H.landing(cells), C.landing(cells)); }
   console.log(`${checked} answers compared: ${steps} steps with the robot's choice at each, ${differ} differ; the compiled robot's game: ${g.score} points, level ${g.level + 1}, ${g.lives} lives, ${g.t} steps`);
   const g1 = C.start(7);
-  console.log(`a step: ${HN} ${time(() => H.step(g1, 2, false), 5).toFixed(1)} ms, compiled ${time(() => C.step(g1, 2, false), 300).toFixed(3)} ms; the robot: ${HN} ${time(() => H.robot(g1), 5).toFixed(1)} ms, compiled ${time(() => C.robot(g1), 300).toFixed(3)} ms`);
+  console.log(`a step: ${HN} ${time(() => H.step(g1, 2, false, false), 5).toFixed(1)} ms, compiled ${time(() => C.step(g1, 2, false, false), 300).toFixed(3)} ms; the robot: ${HN} ${time(() => H.robot(g1), 5).toFixed(1)} ms, compiled ${time(() => C.robot(g1), 300).toFixed(3)} ms`);
 } else if (APP === "mahjong-solitaire") {
   // (ticket 803) each layout's places both ways; a deal both ways from the same seed; from that game the free places, the pairs,
   // Hazel's choice, the game after taking it, a shuffle of that, and whether it is won, each both ways (hazeljs is slow here:

@@ -23,7 +23,8 @@
   const W_ = 14, H_ = 16, TOP = 3;   // (0.0.64: three rows of sky above the game's ground, for the trees)
   const S = { built: null, libAt: 0, libFailed: false, compiledError: "", game: null, best: kept("best", 0),
               dir: -1, keys: [], flash: false, pops: [], stepMs: [], restartAt: 0, banner: null, swipe: null, startSeed: 1, scene: null, sceneKey: "", layers: null,
-              land: null, landKey: "", landAt: 0, drops: new Map(), dug: null, restarts: 0, works: new Map(), worksN: 0, scared: new Map(), puffs: [], pewAt: 0 };
+              land: null, landKey: "", landAt: 0, drops: new Map(), dug: null, restarts: 0, works: new Map(), worksN: 0, scared: new Map(), puffs: [], pewAt: 0,
+              blast: false, beam: null, won: [], cheer: null, parts: [], partAt: 0 };
   const H = () => S.built && S.built.ok ? S.built.value : null;
   const SND = window.DigSound || null;   // (0.0.68, sound.js: the music, a tune each level, and the ground's sounds)
 
@@ -41,8 +42,12 @@
   // trimmed with fur; a round nose, eyes under bushy brows, a moustache and a long white beard; your lantern held out the way
   // you face (bright when ready, dim while it charges). Facing up, his back; facing left, him the other way round; bobbing as
   // he walks or digs. Drawn in a cell 40 units square, its middle at 0, 0
-  function gnome(c, x, y, u, d, ready, moving, now, diving, loves, lamp = true) {
-    const back = d === 0, flip = d === 3 ? -1 : 1, side = d === 1 || d === 3, step = moving ? Math.sin(now / 70) : 0, bob = moving ? -Math.abs(step) * 1.4 : 0;
+  // (0.0.74; Matthew: "when we clear a level, ... animate the gnome cheering and smiling") cheer: facing us, hopping, both arms up
+  // and waving (the lantern and the love shooter held up too), his eyes happy arcs, a wide open smile under the moustache
+  function gnome(c, x, y, u, d, ready, moving, now, diving, loves, lamp = true, cheer = false) {
+    if (cheer) { d = 2; moving = false; }
+    const back = d === 0, flip = d === 3 ? -1 : 1, side = d === 1 || d === 3, step = moving ? Math.sin(now / 70) : 0;
+    const bob = cheer ? -Math.abs(Math.sin(now / 150)) * 6 : moving ? -Math.abs(step) * 1.4 : 0, wave = cheer ? Math.sin(now / 110) * 2.5 : 0;
     c.save(); c.translate(x, y); c.scale(flip * u / 40, u / 40); c.translate(0, bob);
     const E = (cx, cy, rx, ry, col, rot = 0) => { c.fillStyle = col; c.beginPath(); c.ellipse(cx, cy, rx, ry, rot, 0, 7); c.fill(); };
     E(0, 19 - bob, 13, 3.4, "rgba(0, 0, 0, 0.32)");   // (his shadow)
@@ -60,11 +65,12 @@
     c.fillStyle = "#7c4a1e"; c.fillRect(-11, 5.5, 22, 3.6);
     if (diving && back) tank();
     if (!back) { c.fillStyle = "#eab308"; c.beginPath(); c.roundRect(-3, 4.8, 6, 5, 1); c.fill(); c.fillStyle = "#7c4a1e"; c.fillRect(-1.2, 6.3, 2.4, 2); }
-    const lx = side ? 14 : 13, ly = side ? 2 : 5;   // (the lantern's hand)
+    const lx = cheer ? 15 : side ? 14 : 13, ly = cheer ? -19 - wave : side ? 2 : 5;   // (the lantern's hand)
+    const hx = cheer ? -14 : -11, hy = cheer ? -16 + wave : 8;   // (the other hand)
     c.strokeStyle = "#3b5bab"; c.lineWidth = 4.5; c.lineCap = "round";
-    c.beginPath(); c.moveTo(-8, -1); c.lineTo(-11, 7); c.moveTo(8, -1); c.lineTo(lx - 2, ly); c.stroke();
-    E(-11, 8, 2.4, 2.4, "#f2c9a0"); E(lx - 1.5, ly + 0.5, 2.4, 2.4, "#f2c9a0");
-    if (loves && !back) { c.save(); c.translate(-12, 9); loverAt(c, 0, 0, 26, now, false); c.restore(); }   // (0.0.71: the love shooter in his other hand)
+    c.beginPath(); c.moveTo(-8, -1); c.lineTo(hx, hy - 1); c.moveTo(8, -1); c.lineTo(lx - 2, ly); c.stroke();
+    E(hx, hy, 2.4, 2.4, "#f2c9a0"); E(lx - 1.5, ly + 0.5, 2.4, 2.4, "#f2c9a0");
+    if (loves && !back) { c.save(); c.translate(hx - 1, hy + 1); loverAt(c, 0, 0, 26, now, false); c.restore(); }   // (0.0.71: the love shooter in his other hand)
     // (the lantern: a handle, a dark frame, its glass lit when it is ready; 0.0.73: only once he has it)
     if (lamp) {
       if (ready) { const gl = c.createRadialGradient(lx + 1, ly + 7, 0, lx + 1, ly + 7, 12); gl.addColorStop(0, "rgba(254, 240, 138, 0.75)"); gl.addColorStop(1, "rgba(254, 240, 138, 0)"); c.fillStyle = gl; c.beginPath(); c.arc(lx + 1, ly + 7, 12, 0, 7); c.fill(); }
@@ -87,9 +93,11 @@
       const fx = side ? 2.5 : 0;   // (the face turned a little toward the way he goes)
       // eyes, each with a glint, under bushy white brows
       for (const s2 of [-1, 1]) { const ex2 = fx + s2 * 3.2;
-        E(ex2, -11.2, 1.5, 1.7, "#1f2937"); E(ex2 + 0.5, -11.8, 0.5, 0.5, "#ffffff");
-        c.fillStyle = "#f8fafc"; c.beginPath(); c.ellipse(ex2 + s2 * 0.5, -13.4, 3, 1.4, s2 * 0.3, 0, 7); c.fill();
+        if (cheer) { c.strokeStyle = "#1f2937"; c.lineWidth = 1.1; c.beginPath(); c.arc(ex2, -10.4, 1.7, Math.PI * 1.12, Math.PI * 1.88); c.stroke(); }
+        else { E(ex2, -11.2, 1.5, 1.7, "#1f2937"); E(ex2 + 0.5, -11.8, 0.5, 0.5, "#ffffff"); }
+        c.fillStyle = "#f8fafc"; c.beginPath(); c.ellipse(ex2 + s2 * 0.5, cheer ? -14.2 : -13.4, 3, 1.4, s2 * 0.3, 0, 7); c.fill();
         c.strokeStyle = "#cbd5e1"; c.lineWidth = 0.5; c.beginPath(); c.moveTo(ex2 - 2, -13.2); c.lineTo(ex2 + 2.4, -13.8); c.stroke(); }
+      if (cheer) { c.fillStyle = "#7f1d1d"; c.beginPath(); c.arc(fx, -5, 3.4, 0.08, Math.PI - 0.08); c.closePath(); c.fill(); E(fx, -2.5, 1.9, 1, "#f472b6"); }   // (his smile, open wide)
       // the moustache, sweeping out from under the nose, and the round nose
       E(fx - 3.6, -6.4, 4.6, 2.2, "#f1f5f9", 0.35); E(fx + 3.6, -6.4, 4.6, 2.2, "#f1f5f9", -0.35);
       c.strokeStyle = "#cbd5e1"; c.lineWidth = 0.6; c.beginPath(); c.moveTo(fx, -7); c.lineTo(fx - 6.5, -5.2); c.moveTo(fx, -7); c.lineTo(fx + 6.5, -5.2); c.stroke();
@@ -433,7 +441,7 @@
     const l = row(d.x, Math.min(d.y, H_ * 100 - 1)), dt = Math.min(50, now - d.t); d.t = now;
     if (l < 0) return d;   // (a boulder come down on it: it stays where it is, under the boulder)
     const floor = (l + 1) * 100 - foot;
-    if (d.y < floor - 0.5 || d.vy < 0) { d.vy += 0.0035 * dt; d.y += d.vy * dt; d.rest = false;
+    if (d.y < floor - 0.5 || d.vy < 0) { d.vy += 0.0035 * dt; if (S.game && d.y >= S.game.wt * 100) d.vy = Math.min(d.vy, 0.5); d.y += d.vy * dt; d.rest = false;   // (0.0.74: slower in the water)
       if (d.y >= floor) { d.y = floor; d.vy = d.vy > 0.25 ? -d.vy * 0.3 : 0; d.rest = d.vy === 0; } }
     else { d.y = floor; d.vy = 0; d.rest = true; }
     // (0.0.68; Matthew: "the animals move away from the light in the hole") lying in the sunlight, it crawls along its floor, away
@@ -454,7 +462,7 @@
     if (!d || Math.abs(d.x - x) > 150 || ty < d.y - 150) d = { x, y: ty, vy: 0, t: now };   // (a new level: straight there)
     const dt = Math.min(50, now - d.t); d.t = now;
     if (Math.abs(d.x - x) > 0.5) d.x += Math.sign(x - d.x) * Math.min(Math.abs(x - d.x), 0.35 * dt);   // (0.0.69: walking a cell along, out of the sun)
-    if (d.y < ty - 0.5) { d.vy += 0.0035 * dt; d.y = Math.min(ty, d.y + d.vy * dt); } else { d.y = ty; d.vy = 0; }
+    if (d.y < ty - 0.5) { d.vy += 0.0035 * dt; if (d.y >= g.wt * 100) d.vy = Math.min(d.vy, 0.55); d.y = Math.min(ty, d.y + d.vy * dt); } else { d.y = ty; d.vy = 0; }   // (0.0.74: slower in the water)
     S.drops.set(key, d); return d;
   }
   // a point along a path of lines, t from 0 to 1 and back (a creature going to and fro along it)
@@ -572,8 +580,12 @@
     if (g.lover >= 0) loverAt(c, (g.lover % W_ + 0.5) * u, (Math.floor(g.lover / W_) + 0.5) * u, u, now, true);
     if (g.lamp >= 0) lampAt(c, (g.lamp % W_ + 0.5) * u, (Math.floor(g.lamp / W_) + 0.5) * u, u, now);
     for (const b of g.rocks) {
-      const shake = !b.falling && b.wob >= 0 ? Math.sin(now / 30) * u * 0.05 : 0, fallBy = b.falling ? (4 - b.wob) / 4 * u : 0;
+      // (0.0.74; Matthew: "things like rocks and creatures should fall slower in water": a cell every 10 steps under it, not 4,
+      // bubbles trailing up from it)
+      const per = b.r >= g.wt ? 10 : 4, shake = !b.falling && b.wob >= 0 ? Math.sin(now / 30) * u * 0.05 : 0, fallBy = b.falling ? Math.max(0, per - b.wob) / per * u : 0;
       const x = (b.c + 0.5) * u + shake, y = (b.r + 0.5) * u + fallBy;
+      if (b.falling && b.r >= g.wt) { c.strokeStyle = "rgba(224, 242, 254, 0.8)"; c.lineWidth = u * 0.025;
+        for (let i = 0; i < 3; i++) { const q = (now / 500 + i / 3) % 1; c.beginPath(); c.arc(x + Math.sin(now / 150 + i * 2) * u * 0.15, y - u * (0.4 + q * 0.6), u * (0.04 + 0.02 * (i % 2)), 0, 7); c.stroke(); } }
       c.fillStyle = "#78716c"; c.beginPath(); c.ellipse(x, y, u * 0.44, u * 0.4, 0, 0, 7); c.fill();
       c.fillStyle = "#a8a29e"; c.beginPath(); c.ellipse(x - u * 0.12, y - u * 0.12, u * 0.18, u * 0.12, -0.4, 0, 7); c.fill();
     }
@@ -601,9 +613,16 @@
         c.fillStyle = "#b91c1c"; c.font = `900 ${Math.round(u * 0.32)}px system-ui`; c.textAlign = "center"; c.textBaseline = "middle"; c.fillText("!", x, ey + u * 0.01); c.textBaseline = "alphabetic";
       } else { c.fillStyle = "#111827"; c.beginPath(); c.arc(x - u * 0.11, y - u * 0.04 + bob, u * 0.05, 0, 7); c.arc(x + u * 0.15, y - u * 0.04 + bob, u * 0.05, 0, 7); c.fill(); }
     }
-    if (g.dead === 0 || Math.floor(now / 120) % 2) gnome(c, (g.px + 0.5) * u, (g.py + 0.5) * u, u, g.pd, g.flash <= 0, g.pwait > 0, now, g.diving, g.loves, g.lantern !== false);
-    if (g.loves && g.dead === 0) hearts(c, g, u, now);
+    if (!S.cheer && (g.dead === 0 || Math.floor(now / 120) % 2)) gnome(c, (g.px + 0.5) * u, (g.py + 0.5) * u, u, g.pd, g.flash <= 0, g.pwait > 0, now, g.diving, g.loves, g.lantern !== false);
+    if (g.loves && g.dead === 0 && !S.cheer) hearts(c, g, u, now);
     if (L && S.dug && S.dug.front) c.drawImage(S.dug.front, 0, 0);   // (the roots in front of all of it)
+    beam(c, u, now); wonOver(c, u, now);   // (0.0.74: the love blast and the ghosts it won over, in front of the roots too)
+    if (S.cheer) {   // (0.0.74: a level cleared: the gnome cheering, in front of everything, half again as big, in a warm glow)
+      const gx = (g.px + 0.5) * u, gy = (g.py + 0.3) * u, rg = c.createRadialGradient(gx, gy, 0, gx, gy, u * 1.3);
+      rg.addColorStop(0, `rgba(254, 240, 138, ${0.5 + 0.15 * Math.sin(now / 200)})`); rg.addColorStop(1, "rgba(254, 240, 138, 0)");
+      c.fillStyle = rg; c.fillRect(gx - u * 1.3, gy - u * 1.3, u * 2.6, u * 2.6);
+      gnome(c, gx, gy, u * 1.5, 2, true, false, now, g.diving, g.loves, g.lantern !== false, true);
+    }
     S.puffs = S.puffs.filter(p => now - p.t < 900);
     for (const p of S.puffs) { const q = (now - p.t) / 900, x = (p.c + 0.5) * u, y = (p.r + 0.5) * u;   // (a ghost burnt up: smoke rising, sparks flying)
       c.globalAlpha = 1 - q; c.fillStyle = "rgba(120, 113, 108, 0.8)"; for (let i = 0; i < 4; i++) { c.beginPath(); c.arc(x + (i - 1.5) * u * 0.15, y - q * u * 0.8 - i % 2 * u * 0.1, u * (0.15 + q * 0.25), 0, 7); c.fill(); }
@@ -619,16 +638,88 @@
     S.pops = S.pops.filter(p => now - p.t < 900);
     for (const p of S.pops) { const q = (now - p.t) / 900; c.globalAlpha = 1 - q; c.fillStyle = p.col; c.font = `700 ${Math.round(u * 0.5)}px system-ui`; c.textAlign = "center"; c.fillText(p.text, (p.c + 0.5) * u, (p.r + 0.3 - q) * u); }
     c.globalAlpha = 1;
+    party(c, g, u, now);   // (0.0.74: a level cleared, confetti, stars and bubbles over everything)
     c.restore();
     c.textAlign = "center";   // (0.0.69; Matthew: "game over not centered": set after the restore, which put back the alignment of before)
     if (g.over) {
       c.fillStyle = "rgba(20, 10, 5, 0.8)"; c.fillRect(0, cv.height * 0.4, cv.width, cv.height * 0.2);
       c.fillStyle = "#ffffff"; c.font = `700 ${Math.round(u * 0.8)}px system-ui`; c.fillText(`Game over: ${g.score} points`, cv.width / 2, cv.height * 0.49);
       c.font = `${Math.round(u * 0.45)}px system-ui`; c.fillText("New game: the button, a tap, or Enter", cv.width / 2, cv.height * 0.55);
+    } else if (S.cheer) {   // (0.0.74) a level cleared: up in the sky, what you did, and what to do to go on
+      const ch = S.cheer, nx = ch.next, auto = W && W.on, y0 = u * 0.25, hh = u * 2.55;
+      c.fillStyle = "rgba(30, 12, 50, 0.62)"; c.beginPath(); c.roundRect(u * 0.6, y0, cv.width - u * 1.2, hh, u * 0.4); c.fill();
+      const pulse = 1 + 0.06 * Math.sin(now / 160);
+      c.save(); c.translate(cv.width / 2, y0 + u * 0.95); c.scale(pulse, pulse);
+      c.fillStyle = "#fde047"; c.font = `800 ${Math.round(u * 0.85)}px system-ui`; c.fillText(`🎉 Level ${nx.level} cleared! 🎉`, 0, 0); c.restore();
+      c.fillStyle = "#fbcfe8"; c.font = `700 ${Math.round(u * 0.48)}px system-ui`; c.fillText(`+300 · ⭐ ${nx.score} points`, cv.width / 2, y0 + u * 1.65);
+      c.globalAlpha = 0.65 + 0.35 * Math.sin(now / 300); c.fillStyle = "#e0f2fe"; c.font = `600 ${Math.round(u * 0.42)}px system-ui`;
+      c.fillText(auto ? "🤖 Hazel goes on in a moment" : `Tap, click or press a key for level ${nx.level + 1}`, cv.width / 2, y0 + u * 2.25); c.globalAlpha = 1;
     } else if (S.banner && now - S.banner.t < (S.banner.long ? 2800 : 1600) && (S.banner.text || S.banner.sub)) {
       c.fillStyle = "#fef9c3"; c.font = `700 ${Math.round(u * 0.7)}px system-ui`; if (S.banner.text) c.fillText(S.banner.text, cv.width / 2, cv.height * 0.12);
       if (S.banner.sub) { c.font = `600 ${Math.round(u * 0.45)}px system-ui`; c.fillStyle = "#e0f2fe"; c.fillText(S.banner.sub, cv.width / 2, cv.height * 0.12 + u * 0.7); }
     }
+  }
+  // (0.0.74; Matthew, on the love shooter: yes to "a love blast", "more powerful" than the lantern) the blast: a stream of hearts
+  // from the gnome straight on, fast, as far as the rules say it flew, a pink glow along it, a burst of little hearts at its end
+  function beam(c, u, now) {
+    const b = S.beam; if (!b || now - b.t > 650) return;
+    const q = (now - b.t) / 650, DX = [0, 1, 0, -1], DY = [-1, 0, 1, 0], x0 = (b.c + 0.5) * u, y0 = (b.r + 0.5) * u, dx = DX[b.d] * u, dy = DY[b.d] * u, far = b.n + 0.45;
+    const front = Math.min(far, q * 40);   // (cells: the hearts' front, 40 cells a second... the length of any tunnel within a quarter of a second)
+    c.save(); c.globalAlpha = 0.45 * (1 - q); c.strokeStyle = "#f9a8d4"; c.lineWidth = u * 0.36; c.lineCap = "round";
+    c.beginPath(); c.moveTo(x0 + dx * 0.4, y0 + dy * 0.4); c.lineTo(x0 + dx * front, y0 + dy * front); c.stroke(); c.restore();
+    for (let i = 0; i < 2 * far + 2; i++) { const at = front - i * 0.5; if (at < 0.4) break;
+      const wob = Math.sin(now / 60 + i * 1.7) * u * 0.1;
+      c.globalAlpha = Math.max(0, 1 - q * 0.9); heart(c, x0 + dx * at + (dy ? wob : 0), y0 + dy * at + (dx ? wob : 0), u * (0.26 - 0.015 * (i % 4)), i % 2 ? "#f472b6" : "#ec4899"); }
+    if (front >= far && b.n >= 0) for (let i = 0; i < 6; i++) { const a = i * 1.047 + b.t, r = u * (0.15 + q * 0.7);   // (the burst where the earth stops it)
+      c.globalAlpha = Math.max(0, 1 - q); heart(c, x0 + dx * far + Math.cos(a) * r, y0 + dy * far + Math.sin(a) * r, u * 0.14, "#fbcfe8"); }
+    c.globalAlpha = 1;
+  }
+  // a ghost won over by the blast: pink and smiling, rising out of the ground with little hearts round it, fading away
+  function wonOver(c, u, now) {
+    S.won = S.won.filter(m => now - m.t < 1800);
+    for (const m of S.won) { const q = (now - m.t) / 1800, x = (m.c + 0.5) * u + Math.sin(now / 200 + m.c) * u * 0.15, y = (m.r + 0.5 - q * 3.5) * u;
+      c.globalAlpha = Math.min(1, (1 - q) * 1.6);
+      c.fillStyle = "#f9a8d4"; c.beginPath(); c.arc(x, y, u * 0.38, Math.PI, 0); c.lineTo(x + u * 0.38, y + u * 0.36);
+      for (let i = 3; i >= -3; i -= 2) c.lineTo(x + i * u * 0.11, y + u * (i % 4 === 1 || i % 4 === -3 ? 0.26 : 0.36)); c.closePath(); c.fill();
+      c.strokeStyle = "#831843"; c.lineWidth = u * 0.035; c.lineCap = "round"; c.beginPath();
+      c.arc(x - u * 0.13, y - u * 0.02, u * 0.07, Math.PI * 1.15, Math.PI * 1.85); c.moveTo(x + u * 0.2, y - u * 0.04); c.arc(x + u * 0.13, y - u * 0.02, u * 0.07, Math.PI * 1.15, Math.PI * 1.85);
+      c.moveTo(x - u * 0.1, y + u * 0.1); c.quadraticCurveTo(x, y + u * 0.2, x + u * 0.1, y + u * 0.1); c.stroke();
+      E2(c, x - u * 0.22, y + u * 0.06, u * 0.06, u * 0.035, "rgba(236, 72, 153, 0.6)"); E2(c, x + u * 0.22, y + u * 0.06, u * 0.06, u * 0.035, "rgba(236, 72, 153, 0.6)");
+      for (let i = 0; i < 3; i++) { const a = now / 400 + i * 2.09; heart(c, x + Math.cos(a) * u * 0.55, y - u * 0.1 + Math.sin(a) * u * 0.3, u * 0.15, "#ec4899"); } }
+    c.globalAlpha = 1;
+  }
+  const E2 = (c, x, y, rx, ry, col) => { c.fillStyle = col; c.beginPath(); c.ellipse(x, y, rx, ry, 0, 0, 7); c.fill(); };
+  // (0.0.74; Matthew: "when we clear a level, ... have confetti/stars/bubbles spray around in the foreground") the party: a burst
+  // from the gnome as the level is cleared, then a fountain from him and from the ground's two bottom corners, bubbles rising
+  // from the bottom, until you go on; each bit in cells, falling (confetti fluttering, stars twinkling) or rising (bubbles)
+  const PARTY = ["#f43f5e", "#fb923c", "#facc15", "#4ade80", "#22d3ee", "#818cf8", "#e879f9", "#ffffff"];
+  function spray(n, x, y, vx0, vy0, spread) {
+    for (let i = 0; i < n && S.parts.length < 420; i++) { const k = Math.random();
+      S.parts.push({ kind: k < 0.62 ? 0 : k < 0.86 ? 1 : 2, x, y, vx: vx0 + (Math.random() - 0.5) * spread, vy: vy0 - Math.random() * spread * 0.6,
+        rot: Math.random() * 6.3, vr: (Math.random() - 0.5) * 14, col: PARTY[Math.floor(Math.random() * PARTY.length)], s: 0.1 + Math.random() * 0.1, ph: Math.random() * 6.3, t: 0 }); }
+  }
+  function party(c, g, u, now) {
+    const dt = Math.min(0.05, (now - (S.partAt || now)) / 1000); S.partAt = now;
+    if (S.cheer) { const age = now - S.cheer.t, gx = g.px + 0.5, gy = g.py + 0.1, rate = age < 2500 ? 1 : 0.45;
+      if (!S.cheer.burst) { S.cheer.burst = true; spray(90, gx, gy, 0, -7, 9); }
+      if (Math.random() < 0.9 * rate) spray(1, gx, gy, 0, -8, 5);
+      if (Math.random() < 0.5 * rate) spray(1, 0.3, H_ - 0.3, 4.5, -11, 3);
+      if (Math.random() < 0.5 * rate) spray(1, W_ - 0.3, H_ - 0.3, -4.5, -11, 3);
+      if (Math.random() < 0.18 * rate && S.parts.length < 420) S.parts.push({ kind: 2, x: Math.random() * W_, y: H_, vx: 0, vy: -1.4 - Math.random(), rot: 0, vr: 0, col: "#e0f2fe", s: 0.08 + Math.random() * 0.12, ph: Math.random() * 6.3, t: 0 }); }
+    if (!S.parts.length) return;
+    const keep = [];
+    for (const p of S.parts) { p.t += dt;
+      if (p.kind === 2) { p.vy = Math.max(p.vy - 0.6 * dt, -2.2); p.x += (p.vx + Math.sin(p.t * 3 + p.ph) * 0.5) * dt; p.y += p.vy * dt; p.vx *= 0.97; }
+      else { p.vy = Math.min(p.vy + 9 * dt, p.kind === 0 ? 2.2 : 4); p.vx *= 1 - 1.2 * dt; p.x += (p.vx + (p.kind === 0 ? Math.sin(p.t * 5 + p.ph) * 0.6 : 0)) * dt; p.y += p.vy * dt; p.rot += p.vr * dt; }
+      if (p.y < -TOP - 1 || p.y > H_ + 1 || p.x < -1 || p.x > W_ + 1 || p.t > 7) continue;
+      keep.push(p); const x = p.x * u, y = p.y * u, z = p.s * u;
+      if (p.kind === 0) { c.save(); c.translate(x, y); c.rotate(p.rot); c.scale(1, Math.cos(p.t * 9 + p.ph)); c.fillStyle = p.col; c.fillRect(-z, -z * 0.45, z * 2, z * 0.9); c.restore(); }
+      else if (p.kind === 1) { const tw = 0.75 + 0.25 * Math.sin(p.t * 14 + p.ph); c.fillStyle = p.col === "#ffffff" ? "#fef08a" : p.col; c.beginPath();
+        for (let i = 0; i < 10; i++) { const a = p.rot + i * Math.PI / 5, r = (i % 2 ? 0.45 : 1.15) * z * tw; if (i) c.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r); else c.moveTo(x + Math.cos(a) * r, y + Math.sin(a) * r); }
+        c.closePath(); c.fill(); }
+      else { c.strokeStyle = "rgba(224, 242, 254, 0.85)"; c.lineWidth = Math.max(1, u * 0.025); c.beginPath(); c.arc(x, y, z * 1.6, 0, 7); c.stroke();
+        c.fillStyle = "rgba(255, 255, 255, 0.7)"; c.beginPath(); c.arc(x - z * 0.55, y - z * 0.55, z * 0.35, 0, 7); c.fill(); } }
+    S.parts = keep;
   }
   // (0.0.72; Matthew: "some squares of 'bedrock' that cannot be dug --- preventing sunlight from reaching ghosts under them") a cell
   // of bedrock: grey stone, its run one piece (the edges light along the top and dark along the bottom only where the earth is),
@@ -735,7 +826,8 @@
     const g = S.game; if (!g) return;
     $("points").textContent = `⭐ ${g.score}`; $("lives").textContent = "⛏️".repeat(Math.max(0, g.lives));
     $("level").textContent = `level ${g.level + 1}` + (g.diving ? " 🤿" : g.wt < H_ ? " 💧" : "") + (g.loves ? " 💘" : "");
-    const fb = $("flash"); if (fb) { const has = g.lantern !== false; fb.disabled = !has; fb.title = has ? "Flash the lantern: every monster within three cells stunned (Enter or F)" : "No lantern yet: find it in the ground 🏮"; } $("left").textContent = `💎 ${g.gems} left`;
+    const fb = $("flash"); if (fb) { const has = g.lantern !== false; fb.disabled = !has; fb.title = has ? "Flash the lantern: every monster within three cells stunned (Enter or F)" : "No lantern yet: find it in the ground 🏮"; }
+    const bb = $("blast"); if (bb) { bb.disabled = !g.loves || g.blast > 0; bb.title = !g.loves ? "The love blast: find the love shooter 💘 in the ground first" : g.blast > 0 ? "The love blast is charging…" : "Love blast: hearts straight ahead, every ghost they reach won over for good (L)"; } $("left").textContent = `💎 ${g.gems} left`;
     const ms = S.stepMs.length ? [...S.stepMs].sort((a, b) => a - b)[S.stepMs.length >> 1] : 0;
     $("info").textContent = `Your best on this device: ${S.best} points.` + (ms ? ` A step of Hazel's rules: ${ms < 1 ? ms.toFixed(2) : ms.toFixed(1)} ms.` : "");
     if (window.OracleFs) window.OracleFs.empty(!g || !!g.over);
@@ -745,7 +837,7 @@
   function newGame() {
     const h = H(); if (!h) return;
     S.startSeed = 1 + Math.floor(Math.random() * 2000000000); S.restarts = 0; S.works = new Map(); S.worksN++; S.game = h.start(S.startSeed);
-    if (SND) { SND.start(); SND.tune(0); } S.pops = []; S.banner = null; S.flash = false; S.dir = -1; S.keys = []; S.restartAt = 0;
+    if (SND) { SND.start(); SND.tune(0); } S.pops = []; S.banner = null; S.flash = false; S.blast = false; S.dir = -1; S.keys = []; S.restartAt = 0; S.cheer = null; S.parts = []; S.beam = null; S.won = [];
     if (W && W.on) W.start(0);
     bar(); draw();
   }
@@ -761,14 +853,15 @@
     if (SND) {   // (0.0.68: the sounds of a step)
       const same = g2.level === g.level && g2.hit !== 3 && g2.hit !== 8, k = g2.py * W_ + g2.px;
       if (same && g2.hit !== 1 && (g2.px !== g.px || g2.py !== g.py) && g.cells[k] !== 0 && g2.cells[k] === 0) SND.dig();
-      const hits = { 1: "gem", 2: "caught", 4: "caught_mon", 5: "squash", 6: "land", 7: "flash", 8: "crushed", 9: "drowned", 10: "gear", 11: "burn", 12: "love", 13: "gear" };
+      const hits = { 1: "gem", 2: "caught", 4: "caught_mon", 5: "squash", 6: "land", 7: "flash", 8: "crushed", 9: "drowned", 10: "gear", 11: "burn", 12: "love", 13: "gear", 14: "won" };
+      if (g2.beam >= 0) SND.blast();
       if (hits[g2.hit]) SND[hits[g2.hit]]();
       if (same && g2.rocks.some(x => !x.falling && x.wob === 40)) SND.wobble();
-      if (same && g2.animals && g.animals && g2.animals.some(a => a.fall === 4 && (g.animals.find(b => b.kind === a.kind) || {}).fall === -1)) SND.letgo();
+      if (same && g2.animals && g.animals && g2.animals.some(a => a.fall > 0 && (g.animals.find(b => b.kind === a.kind) || {}).fall === -1)) SND.letgo();
       if (same && g2.wt < H_ && g2.py >= g2.wt && g.py < g.wt) SND.splash();
       if (same && g2.wt < H_ && !g2.diving && g2.py >= g2.wt && ((g.air > 40 && g2.air <= 40) || (g.air > 20 && g2.air <= 20))) SND.low();
       if (g2.over && !g.over) { SND.stop(); SND.over(); }
-      else if (g2.hit === 3) { SND.cleared(); SND.tune(g2.level); }
+      else if (g2.hit === 3) { SND.cleared(); SND.celebrate(); }   // (0.0.74: the party's own tune, until you go on)
     }
     if (g2.hit === 1) S.pops.push({ c: g2.px, r: g2.py, text: "+50", t: now, col: "#67e8f9" });
     if (g2.hit === 4) S.pops.push({ c: g2.px, r: g2.py, text: "+100", t: now, col: "#c4b5fd" });
@@ -794,23 +887,49 @@
     if (g2.hit === 11) { S.pops.push({ c: g2.px, r: g2.py, text: "+150", t: now, col: "#fde68a" }); S.banner = { text: "☀️ A ghost burned up in the sunlight!", t: now }; }
     if (g2.hit === 13) { S.pops.push({ c: g2.px, r: g2.py, text: "💡", t: now, col: "#fde68a" }); S.banner = { text: "🏮 Your lantern!", sub: "Flash it at the ghosts: 💡, Enter or F", t: now, long: true }; }
     if ((g2.hit === 3 || g2.hit === 8) && !g2.over && g2.lamp >= 0) S.banner = { ...S.banner, sub: (S.banner && S.banner.sub ? S.banner.sub + " · " : "") + "🏮 Find your lantern", t: now, long: true };
-    if (g2.hit === 12) { S.pops.push({ c: g2.px, r: g2.py, text: "💘", t: now, col: "#f9a8d4" }); S.banner = { text: "💘 The love shooter!", sub: "Ghosts near you run away", t: now, long: true }; }
+    // (0.0.74) the love blast: its hearts drawn along the way it flew; each ghost in the way (where it was before this step) won over
+    if (g2.beam >= 0 && g2.level === g.level) { S.beam = { c: g2.px, r: g2.py, d: g2.pd, n: g2.beam, t: now };
+      const DX = [0, 1, 0, -1], DY = [-1, 0, 1, 0];
+      for (const m of g.mons) { const k = (m.c - g2.px) * DX[g2.pd] + (m.r - g2.py) * DY[g2.pd];
+        if (k >= 1 && k <= g2.beam && (DX[g2.pd] === 0 ? m.c === g2.px : m.r === g2.py)) { S.won.push({ c: m.c, r: m.r, t: now }); S.pops.push({ c: m.c, r: m.r, text: "+200", t: now, col: "#f9a8d4" }); } } }
+    if (g2.hit === 14) S.banner = { text: "💘 Won over! +200", t: now };
+    if (g2.hit === 12) { S.pops.push({ c: g2.px, r: g2.py, text: "💘", t: now, col: "#f9a8d4" }); S.banner = { text: "💘 The love shooter!", sub: "Ghosts near you run away · 💘 or L: a love blast", t: now, long: true }; }
     if (g2.hit === 10) { S.pops.push({ c: g2.px, r: g2.py, text: "🤿", t: now, col: "#7dd3fc" }); S.banner = { text: "🤿 The diving gear!", sub: "Now you can stay under the water", t: now, long: true }; }
     if ((g2.hit === 3 || g2.hit === 8) && !g2.over && g2.wt < H_) S.banner = { ...S.banner, sub: "💧 Ground water: find the diving gear 🤿", t: now, long: true };
     // (0.0.60: the lantern lights every cell within three of you, whatever is between: the monsters there are stunned)
     if (g2.flash > g.flash) { const cells = []; for (let r = g2.py - 3; r <= g2.py + 3; r++) for (let c = g2.px - 3; c <= g2.px + 3; c++) { const d = Math.abs(c - g2.px) + Math.abs(r - g2.py); if (d >= 1 && d <= 3 && c >= 0 && c < W_ && r >= 0 && r < H_) cells.push(r * W_ + c); } S.lit = { cells, t: now, c: g2.px, r: g2.py }; }
   }
   function oneStep(h) {
-    const g = S.game;
-    let dir = -1, flash = false;
-    if (W && W.on) { const t1 = performance.now(), c = h.robot(g); W.think(0, performance.now() - t1); dir = c.dir; flash = c.flash; }
-    else { dir = S.dir; flash = S.flash; S.flash = false; }
-    const t0 = performance.now(), g2 = h.step(g, dir, flash);
+    const g = S.game; if (S.cheer) return;
+    let dir = -1, flash = false, blast = false;
+    if (W && W.on) { const t1 = performance.now(), c = h.robot(g); W.think(0, performance.now() - t1); dir = c.dir; flash = c.flash; blast = !!c.blast; }
+    else { dir = S.dir; flash = S.flash; S.flash = false; blast = S.blast; S.blast = false; }
+    const t0 = performance.now(), g2 = h.step(g, dir, flash, blast);
     S.stepMs.push(performance.now() - t0); if (S.stepMs.length > 60) S.stepMs.shift();
     heard(g, g2); S.game = g2;
+    // (0.0.74; Matthew: "when we clear a level, let's play a special celebration music loop, animate the gnome cheering and smiling,
+    // and have confetti/stars/bubbles spray around in the foreground --- wait for the user to tap/click/key press until loading next
+    // level") the level just cleared held, as it was with the gnome in the last gem's cell, while the party goes on; the next level
+    // (the rules have made it already) only once you go on
+    if (g2.hit === 3 && !g2.over && g2.level === g.level + 1) {
+      const pd = dir >= 0 && dir <= 3 ? dir : g.pd, nc = g.px + [0, 1, 0, -1][pd], nr = g.py + [-1, 0, 1, 0][pd], cells = g.cells.slice();
+      if (nc >= 0 && nc < W_ && nr >= 0 && nr < H_) cells[nr * W_ + nc] = 0;
+      S.cheer = { t: performance.now(), next: g2 };
+      S.game = { ...g, px: nc, py: nr, pd, pwait: 0, cells, gems: 0, dead: 0, hit: 0, flash: 0, score: g2.score, lives: g2.lives, beam: -1 };
+      S.keys = []; S.dir = -1; S.flash = false; S.blast = false;
+    }
     if (g2.over && !(W && W.on) && g2.score > S.best) { S.best = g2.score; keep("best", S.best); }
     if (g2.over && W && W.on) { W.end(`🤖 Hazel's game: ${g2.score} points, to level ${g2.level + 1}`); S.restartAt = performance.now() + 3000; }
   }
+  // (0.0.74) on from a cleared level: the next one, its tune, and what the level-cleared banner had to say of it
+  function goOn() {
+    const ch = S.cheer; if (!ch) return;
+    S.cheer = null; S.game = ch.next; S.parts = []; acc = 0;
+    S.banner = { ...(S.banner || {}), text: `⛏️ Level ${ch.next.level + 1}`, t: performance.now(), long: !!(S.banner && S.banner.sub) };
+    if (SND) SND.tune(ch.next.level);
+    bar(); draw();
+  }
+  const cheerOld = ms => S.cheer && performance.now() - S.cheer.t > ms;
   let lastBar = 0, acc = 0, lastT = 0;
   function frame(t) {
     requestAnimationFrame(frame);
@@ -818,6 +937,7 @@
     if (g && g.over && W && W.on && S.restartAt && t > S.restartAt) newGame();
     if (!h || !g || g.over || document.hidden) { lastT = t; if (g) draw(); return; }
     if (P && P.paused()) { lastT = t; draw(); return; }
+    if (S.cheer) { lastT = t; if (W && W.on && cheerOld(W.rate > 1 ? 1500 : 5000)) goOn(); draw(); return; }   // (🤖 goes on by itself)
     // (0.0.54) as many times its own speed as 🤖's pace says (W.rate), several steps a frame; at full speed, as many as fit in 10 ms
     const auto = W && W.on, rate = auto ? (W.rate || 1) : 1, fast = rate === Infinity, cap = fast ? 100000 : Math.max(6, Math.ceil(rate * 2));
     acc += fast ? 0 : Math.min(100, t - (lastT || t)) * rate * 60 / 1000; lastT = t;
@@ -831,18 +951,25 @@
   requestAnimationFrame(frame);
 
   // ---- the controls: a way held (the arrow keys or W A S D, the four buttons; a swipe sets a way, kept until another, or a tap
-  // to stop), the lantern (💡 or the space bar)
+  // to stop), the lantern (💡, Enter or F), (0.0.74) the love blast (💘 or L)
   const KEYS = { ArrowUp: 0, ArrowRight: 1, ArrowDown: 2, ArrowLeft: 3, w: 0, d: 1, s: 2, a: 3, W: 0, D: 1, S: 2, A: 3 };
   const typing = e => /^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName) && e.target.type !== "checkbox";
   const heldNow = () => { S.dir = S.keys.length ? S.keys[S.keys.length - 1] : -1; };
+  // (0.0.74) a level cleared: any key goes on (after a moment, so a key held as it was cleared does not skip the party), and no
+  // other key does anything else meanwhile (the space bar would pause)
+  addEventListener("keydown", e => {
+    if (!S.cheer || typing(e) || ["Shift", "Control", "Alt", "Meta", "Tab"].includes(e.key)) return;
+    e.preventDefault(); e.stopImmediatePropagation(); if (!e.repeat && cheerOld(700)) goOn();
+  }, true);
   addEventListener("keydown", e => {
     if (typing(e) || (W && W.on)) return;
     if (e.key in KEYS) { if (e.key.startsWith("Arrow")) e.preventDefault(); const d = KEYS[e.key]; if (!S.keys.includes(d)) S.keys.push(d); heldNow(); }
     else if (e.key === "Enter" && S.game && S.game.over) newGame();
-    else if (e.key === "Enter" || e.key === "f" || e.key === "F" || e.key === "l" || e.key === "L") { e.preventDefault(); S.flash = true; }
+    else if (e.key === "Enter" || e.key === "f" || e.key === "F") { e.preventDefault(); S.flash = true; }
+    else if (e.key === "l" || e.key === "L") { e.preventDefault(); S.blast = true; }   // (0.0.74: L the love blast; the lantern Enter or F)
   });
   addEventListener("keyup", e => { if (e.key in KEYS) { S.keys = S.keys.filter(d => d !== KEYS[e.key]); heldNow(); } });
-  cv.addEventListener("pointerdown", e => { if (W && W.on) return; if (S.game && S.game.over) { newGame(); return; } S.swipe = { x: e.clientX, y: e.clientY, moved: false }; cv.setPointerCapture && cv.setPointerCapture(e.pointerId); });
+  cv.addEventListener("pointerdown", e => { if (S.cheer) { if (cheerOld(500)) goOn(); return; } if (W && W.on) return; if (S.game && S.game.over) { newGame(); return; } S.swipe = { x: e.clientX, y: e.clientY, moved: false }; cv.setPointerCapture && cv.setPointerCapture(e.pointerId); });
   cv.addEventListener("pointermove", e => {
     if (!S.swipe) return;
     const dx = e.clientX - S.swipe.x, dy = e.clientY - S.swipe.y;
@@ -852,10 +979,11 @@
   for (const ev of ["pointerup", "pointercancel"]) cv.addEventListener(ev, () => { if (S.swipe && !S.swipe.moved) S.dir = -1; S.swipe = null; });
   for (const b of document.querySelectorAll(".dg-pad button[data-dir]")) {
     const d = +b.dataset.dir;
-    b.addEventListener("pointerdown", e => { e.preventDefault(); if (W && W.on) return; b.setPointerCapture && b.setPointerCapture(e.pointerId); b.classList.add("held"); S.keys = [d]; heldNow(); });
+    b.addEventListener("pointerdown", e => { e.preventDefault(); if (S.cheer) { if (cheerOld(500)) goOn(); return; } if (W && W.on) return; b.setPointerCapture && b.setPointerCapture(e.pointerId); b.classList.add("held"); S.keys = [d]; heldNow(); });
     for (const ev of ["pointerup", "pointercancel", "lostpointercapture"]) b.addEventListener(ev, () => { b.classList.remove("held"); S.keys = S.keys.filter(k => k !== d); heldNow(); });
   }
-  $("flash").addEventListener("pointerdown", e => { e.preventDefault(); if (!(W && W.on)) S.flash = true; });
+  $("flash").addEventListener("pointerdown", e => { e.preventDefault(); if (S.cheer) { if (cheerOld(500)) goOn(); return; } if (!(W && W.on)) S.flash = true; });
+  $("blast").addEventListener("pointerdown", e => { e.preventDefault(); if (S.cheer) { if (cheerOld(500)) goOn(); return; } if (!(W && W.on)) S.blast = true; });
   $("new").addEventListener("click", newGame);
   addEventListener("resize", () => draw());
   if (window.OracleFs) window.OracleFs.offer({ label: "⛏️ New game", title: "A new game, from the first level", cast: newGame });
@@ -863,7 +991,7 @@
     into: $("new").parentElement, key: KEY, sides: ["Hazel"], label: "🤖 Hazel plays for you", what: "the game",
     more: () => S.game ? `; ${S.game.score} points, level ${S.game.level + 1}` : "",
     onChange: on => {
-      S.keys = []; S.dir = -1; S.flash = false;
+      S.keys = []; S.dir = -1; S.flash = false; S.blast = false;
       if (!on) { W.stop(); return; }
       if (!H()) return;
       if (!S.game || S.game.over) newGame();
@@ -910,7 +1038,7 @@
   }
   function loadCompiled() {
     const c = document.createElement("script");
-    c.src = "compiled.js?v=0.0.73"; c.async = true;
+    c.src = "compiled.js?v=0.0.74"; c.async = true;
     c.onload = () => { const v = window.DigCompiled;
       if (v && !S.built) { S.built = { key: "compiled", ok: true, compiled: true, made: v.made, value: v, errors: [], threw: "", ms: 0, at: performance.now() }; drawStatus(); newGame(); }
       else if (!v) { S.compiledError = "it ran, but gave no Gnome dig"; loadLib(); } };
@@ -947,13 +1075,13 @@
       const h = H(); if (!h) return { data: { hazel: false }, text: ["Hazel was not ready, so nothing was timed in it"] };
       say("🧪 measuring: 300 steps of a game…");
       let g = h.start(12345); const t0 = performance.now();
-      for (let n = 0; n < 300 && !g.over; n++) { const c = h.robot(g); g = h.step(g, c.dir, c.flash); }
+      for (let n = 0; n < 300 && !g.over; n++) { const c = h.robot(g); g = h.step(g, c.dir, c.flash, c.blast); }
       const ms = (performance.now() - t0) / 300;
       return { data: { step: +ms.toFixed(3) }, text: [`a step and the robot's choice through Hazel: ${ms.toFixed(2)} ms`] };
     },
   });
   // (for checking the page where no frames are drawn, a browser pane hidden: ?test=1 lets a script run steps and draw)
-  if (Q.has("test")) window.DigTest = { S, newGame, gnome, badger, gearAt, steps: n => { const h = H(); for (let i = 0; i < n && S.game && !S.game.over; i++) oneStep(h); draw(); bar(); return S.game; }, auto: () => W };
+  if (Q.has("test")) window.DigTest = { S, newGame, gnome, badger, gearAt, goOn, steps: n => { const h = H(); for (let i = 0; i < n && S.game && !S.game.over; i++) { if (S.cheer) goOn(); oneStep(h); } draw(); bar(); return S.game; }, auto: () => W };
   document.body.classList.add("js");
   draw(); bar();
 })();

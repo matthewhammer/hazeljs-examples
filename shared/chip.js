@@ -321,7 +321,20 @@
         "b5 - - - g5 . d5 . f5 - . d5 b4 . g4 .",
         "b4 . d5 . g5 . b5 . d6 - . b5 . g5 . .",
         "a5 - - - f#5 . d5 . c5 - . a4 f#4 . d4 .",
-        "d4 . f#4 . a4 . c5 . d5 . f#5 . a5 . c6 ."] }] }];
+        "d4 . f#4 . a4 . c5 . d5 . f#5 . a5 . c6 ."] }] },
+    // ---- (0.0.74; Matthew, for Gnome dig: "when we clear a level, let's play a special celebration music loop") the gnome's party:
+    // a bright, bouncing ska in G, round and round until you go on
+    { name: "Confetti skank", style: "ska", bpm: 178, sections: [
+      { chords: ["G", "C", "D", "G"], lead: [
+        "g5 . b5 . d6 - b5 . g6 - . d6 . b5 . .",
+        "e6 . c6 . g5 - c6 . e6 - . g6 . e6 . .",
+        "f#6 . d6 . a5 - d6 . f#6 . e6 . d6 . c6 .",
+        "b5 - d6 - g6 - - - . . d6 . g6 . . ."] },
+      { chords: ["C", "D", "G", "G"], lead: [
+        "e6 - . c6 . . g5 - c6 . e6 . g6 . . .",
+        "f#6 - . d6 . . a5 - d6 . f#6 . a5 . . .",
+        "g6 . f#6 . e6 . d6 . b5 . a5 . g5 . b5 .",
+        "g5 - - - - - . . d6 . e6 . f#6 . . ."] }] }];
   // ---- a tune as steps: for every sixteenth, the notes that start on it (an instrument, a note, how many steps it lasts)
   const ARP = [0, 1, 2, 3, 2, 1, 2, 1];
   // (0.0.57) the bands under the lead, by a tune's style: what the bass, the chords and the drums play in a bar, put(k, note) on
