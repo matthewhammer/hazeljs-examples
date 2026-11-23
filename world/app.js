@@ -574,6 +574,65 @@
     c.strokeStyle = "rgba(255, 255, 255, 0.25)"; c.lineWidth = 1; c.beginPath(); c.moveTo(-6, -17.5); c.quadraticCurveTo(-4, -26, -0.5, -32); c.stroke();
     c.restore();
   }
+  // (Matthew: "when the gnome is moving laterally, let's draw them in profile, like mario 3 as inspiration") The gnome from the
+  // side, the way he goes, in the same cell of 40 units as the gnome facing us, its middle at x, y: his tall red cap leaning
+  // back, its tip trailing; his round nose out in front, one eye under a bushy brow, the moustache sweeping back, the long
+  // white beard down over his chest; his tunic and belt; the far arm swinging behind him, the near one holding the lantern out
+  // ahead; his boots in a stride, a step every fifth of a second or so, his body bobbing; in the air, his legs tucked, the far
+  // one back, the near one forward; with the diving gear, its tank on his back and its mask over his eye; swimming along, lying
+  // forward into the stroke, his arms windmilling, his feet kicking
+  function gnomeProfile(c, x, y, u, face, moving, ground, vy, now, diving, pose) {
+    const swim = pose && pose.swim, stroke = swim && pose.stroke, p = now / 85;
+    const run = moving && ground && !swim, bob = run ? -Math.abs(Math.sin(p)) * 1.6 : 0;
+    const E = (cx, cy, rx, ry, col, rot = 0) => { c.fillStyle = col; c.beginPath(); c.ellipse(cx, cy, rx, ry, rot, 0, 7); c.fill(); };
+    c.save(); c.translate(x, y); c.scale((face < 0 ? -1 : 1) * u / 40, u / 40); c.translate(0, bob);
+    if (stroke) { c.translate(0, 6); c.rotate(1.05); c.translate(0, -6); }
+    else if (!ground && !swim) c.rotate(vy < 0 ? -0.08 : 0.06);
+    else if (run) { c.translate(0, 18); c.rotate(0.08); c.translate(0, -18); }   // (leaning into the run)
+    if (!swim && ground) E(0, 19 - bob, 12, 3.2, "rgba(0, 0, 0, 0.3)");
+    // (the legs: a stride running; tucked in the air; kicking in the water; the far one darker, behind)
+    const leg = (a, near) => { const hx = near ? 1.5 : -1.5, hy = 10, fx = hx + Math.sin(a) * 8, fy = hy + Math.cos(a) * 8;
+      c.strokeStyle = near ? "#2f4a8f" : "#25396e"; c.lineWidth = 5; c.lineCap = "round"; c.beginPath(); c.moveTo(hx, hy); c.lineTo(fx, fy); c.stroke();
+      c.fillStyle = near ? "#4b5563" : "#374151"; c.beginPath(); c.roundRect(fx - 3.2, fy - 1.5, 9, 5, 2.4); c.fill();
+      c.fillStyle = near ? "#e5e7eb" : "#c7cbd1"; c.beginPath(); c.roundRect(fx - 3, fy - 2.8, 6, 2.6, 1.2); c.fill(); };
+    const kick = stroke ? Math.sin(p * 2.2) * 0.45 : 0;
+    const aNear = swim ? kick : !ground ? 0.75 : run ? Math.sin(p) * 1.0 : 0, aFar = swim ? -kick : !ground ? -0.55 : run ? -Math.sin(p) * 1.0 : 0;
+    // (the far arm, behind him: swinging opposite the near leg, or windmilling)
+    const shoulder = [0, -1.5], armAt = a => [shoulder[0] + Math.sin(a) * 10, shoulder[1] + Math.cos(a) * 10];
+    const farA = stroke ? p * 1.2 + Math.PI : run ? -aNear * 0.9 : !ground ? -2.3 : 0.3, nearA = stroke ? p * 1.2 : run ? 0.9 + aNear * 0.25 : !ground ? 2.2 : 1.1;
+    if (diving) { c.fillStyle = "#facc15"; c.beginPath(); c.roundRect(-13, -7, 7, 17, 3.5); c.fill(); c.fillStyle = "#a16207"; c.fillRect(-11, -9.5, 3, 3); }
+    { const [hx, hy] = armAt(farA); c.strokeStyle = "#2f4a8f"; c.lineWidth = 4.5; c.lineCap = "round"; c.beginPath(); c.moveTo(-1, -1); c.lineTo(hx - 1, hy); c.stroke(); E(hx - 1, hy, 2.3, 2.3, "#e0b48a"); }
+    leg(aFar, false);
+    // (the tunic, the back of it shaded; the belt, the buckle in front)
+    c.fillStyle = "#3b5bab"; c.beginPath(); c.moveTo(-6, -3); c.lineTo(5.5, -3); c.quadraticCurveTo(9, 4, 10, 13); c.quadraticCurveTo(0, 15, -9.5, 13); c.quadraticCurveTo(-8, 4, -6, -3); c.fill();
+    c.fillStyle = "#2f4a8f"; c.beginPath(); c.moveTo(-6, -3); c.lineTo(-2, -3); c.lineTo(-3, 14); c.quadraticCurveTo(-7, 13.8, -9.5, 13); c.quadraticCurveTo(-8, 4, -6, -3); c.fill();
+    c.fillStyle = "#7c4a1e"; c.fillRect(-8.7, 5.5, 18.2, 3.6); c.fillStyle = "#eab308"; c.beginPath(); c.roundRect(6, 4.8, 4, 5, 1); c.fill();
+    leg(aNear, true);
+    // (the head from the side: the white hair at the back, the ear, the face, the nose, the eye and brow, the moustache, the beard)
+    E(-4.6, -9.5, 3.4, 5.4, "#e5e7eb");
+    E(2, -10.5, 6.6, 6.4, "#f2c9a0");
+    E(-1.8, -10, 1.6, 2.2, "#e0b48a");
+    E(4.5, -8, 2.2, 1.6, "rgba(244, 114, 114, 0.45)");
+    c.fillStyle = "#f8fafc"; c.beginPath(); c.moveTo(-2.5, -8); c.quadraticCurveTo(-4, 3, 3.5, 12); c.quadraticCurveTo(10.5, 3, 9.5, -6.5); c.quadraticCurveTo(3, -3, -2.5, -8); c.fill();
+    c.strokeStyle = "#cbd5e1"; c.lineWidth = 0.8; c.beginPath(); for (const bx of [0.5, 3, 5.5, 8]) { c.moveTo(bx, -4); c.quadraticCurveTo(bx * 0.75, 3, bx * 0.5 + 2, 9); } c.stroke();
+    E(6.5, -6.3, 4.6, 2, "#f1f5f9", -0.25);
+    E(9.2, -8.8, 3.2, 2.8, "#f0997d"); E(8.6, -9.7, 0.9, 0.7, "rgba(255, 255, 255, 0.6)");
+    E(5.4, -11.4, 1.3, 1.6, "#1f2937"); E(5.8, -12, 0.45, 0.45, "#ffffff");
+    c.fillStyle = "#f8fafc"; c.beginPath(); c.ellipse(5.2, -13.5, 3, 1.3, -0.2, 0, 7); c.fill();
+    if (diving) { c.fillStyle = "#0284c7"; c.beginPath(); c.roundRect(2.5, -15, 7.5, 7, 2.6); c.fill(); c.fillStyle = "rgba(224, 242, 254, 0.62)"; c.beginPath(); c.roundRect(3.6, -14, 5.4, 5, 2); c.fill();
+      c.strokeStyle = "#0f172a"; c.lineWidth = 1.3; c.beginPath(); c.moveTo(2.5, -11.5); c.lineTo(-6, -11); c.stroke(); }
+    // (the cap: its brim over the brow, the cone leaning back, the tip bending down behind him)
+    c.fillStyle = "#dc2626"; c.beginPath(); c.moveTo(9.5, -13.6); c.quadraticCurveTo(6, -24, -1, -30); c.quadraticCurveTo(-6, -34.5, -11.5, -31.5); c.quadraticCurveTo(-8.5, -29.5, -8, -25); c.quadraticCurveTo(-8.5, -18, -8.5, -12); c.quadraticCurveTo(0, -15.4, 9.5, -13.6); c.fill();
+    c.fillStyle = "#b91c1c"; c.beginPath(); c.moveTo(-8.5, -12); c.quadraticCurveTo(-8.5, -18, -8, -25); c.quadraticCurveTo(-8.5, -29.5, -11.5, -31.5); c.quadraticCurveTo(-5, -26, -4.5, -13.2); c.fill();
+    c.strokeStyle = "rgba(255, 255, 255, 0.25)"; c.lineWidth = 1; c.beginPath(); c.moveTo(6, -16.5); c.quadraticCurveTo(3, -24, -2, -28.5); c.stroke();
+    // (the near arm, the lantern held out ahead, glowing)
+    { const [hx, hy] = armAt(nearA), lx = hx + 1.5, ly = hy - 1 + (run ? Math.sin(p * 2) * 0.8 : 0);
+      c.strokeStyle = "#3b5bab"; c.lineWidth = 4.5; c.lineCap = "round"; c.beginPath(); c.moveTo(1.5, -1); c.lineTo(hx, hy); c.stroke(); E(hx, hy, 2.4, 2.4, "#f2c9a0");
+      const gl = c.createRadialGradient(lx + 1, ly + 7, 0, lx + 1, ly + 7, 12); gl.addColorStop(0, "rgba(254, 240, 138, 0.75)"); gl.addColorStop(1, "rgba(254, 240, 138, 0)"); c.fillStyle = gl; c.beginPath(); c.arc(lx + 1, ly + 7, 12, 0, 7); c.fill();
+      c.strokeStyle = "#1f2937"; c.lineWidth = 1.2; c.beginPath(); c.arc(lx + 1, ly + 2.5, 2.2, Math.PI, 0); c.stroke();
+      c.fillStyle = "#1f2937"; c.beginPath(); c.roundRect(lx - 2.5, ly + 2.5, 7, 9, 1.5); c.fill(); c.fillStyle = "#fef08a"; c.beginPath(); c.roundRect(lx - 1.3, ly + 4, 4.6, 6, 1); c.fill(); }
+    c.restore();
+  }
   // ---- (Matthew, 2026-11-23: "let's spend more polygons on the trees above surface too", "more realism"; "the trees leaves
   // should use the fractal branches and pads from Messed Up Dress Up, not these circles that look quite prototypy";
   // "foreground trees should have crowns, not trunks that just end like stumps") The trees as Messed Up Dress Up grows them
@@ -1116,7 +1175,11 @@
     if (!S.faintAt && !blink) {
       const moving = Math.abs(g.vx) > 10 || (g.climb && (S.keys.up || S.keys.down)), d = g.climb && !g.ground ? 0 : g.face > 0 ? 1 : 3;
       const swimPose = g.swim && !g.gear ? { swim: true, stroke: Math.abs(g.vx) > 10, t: now } : g.under ? { swim: true, stroke: true, under: true, t: now } : null;
-      gnome(ctx, gx * s, (g.y / 1000) * s - 0.48 * s, s * 0.98, d, true, moving, now, g.gear, false, true, false, swimPose);
+      // (Matthew: "when the gnome is moving laterally, let's draw them in profile, like mario 3 as inspiration") running,
+      // jumping, falling or swimming along, the gnome in profile; standing still or climbing, facing us, as before
+      const lateral = !g.climb && (Math.abs(g.vx) > 10 || !g.ground || (swimPose && swimPose.stroke && Math.abs(g.vx) > 10));
+      if (lateral) gnomeProfile(ctx, gx * s, (g.y / 1000) * s - 0.48 * s, s * 0.98, g.face, Math.abs(g.vx) > 10, g.ground, g.vy, now, g.gear, swimPose);
+      else gnome(ctx, gx * s, (g.y / 1000) * s - 0.48 * s, s * 0.98, d, true, moving, now, g.gear, false, true, false, swimPose);
       if (g.under && !g.gear) { for (let j = 0; j < Math.ceil(g.air / 120); j++) { ctx.strokeStyle = g.air < 150 && Math.floor(now / 150) % 2 ? "#ef4444" : "rgba(220,240,255,0.9)"; ctx.lineWidth = Math.max(1, s / 20); ctx.beginPath(); ctx.arc((gx - 0.5 + j * 0.25) * s, (g.y / 1000 - 1.25 - (j % 2) * 0.12) * s, 0.09 * s, 0, 7); ctx.stroke(); } }
       if (g.swim && !g.under) { ctx.strokeStyle = "rgba(255,255,255,0.8)"; ctx.lineWidth = Math.max(1, s / 16); const wl = Math.floor((g.y / 1000 - 0.45)) ; const sx = gx * s, sy = (wl) * s;
         for (const sd of [-1, 1]) { ctx.beginPath(); ctx.arc(sx + sd * (0.45 + (now % 900) / 900 * 0.5) * s, sy, 0.18 * s, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke(); } }
@@ -1345,7 +1408,7 @@
       return { data: { step: +ms.toFixed(4) }, text: [`a step of the gnome through Hazel: ${ms.toFixed(3)} ms`] };
     },
   });
-  if (Q.has("test")) window.WorldTest = { map: () => { minimap(); return map2Cv; }, S, tick: n => { const h = H(); for (let i = 0; i < n; i++) tick(h); draw(); }, draw, near, code, at, mat, wat, fix, bg };
+  if (Q.has("test")) window.WorldTest = { profile: gnomeProfile, front: gnome, map: () => { minimap(); return map2Cv; }, S, tick: n => { const h = H(); for (let i = 0; i < n; i++) tick(h); draw(); }, draw, near, code, at, mat, wat, fix, bg };
   document.body.classList.add("js");
   draw();
 })();

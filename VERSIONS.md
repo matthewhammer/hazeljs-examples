@@ -2,6 +2,10 @@
 
 Each version lists what the apps do as of that version. The newest version is first.
 
+## 0.0.83 (2026-11-23)
+
+- **Gnome world: the gnome in profile** (Matthew: "when the gnome is moving laterally, let's draw them in profile, like mario 3 as inspiration"): running, jumping, falling or swimming along, the gnome is drawn from the side, the way he goes: his tall red cap leaning back, its tip trailing; his round nose out in front, one eye under a bushy brow, the moustache sweeping back and the long white beard down his chest; the far arm swinging behind, the near one holding the lantern out ahead; his boots in a stride, leaning into the run and bobbing; in the air, legs tucked; with the diving gear, the tank on his back and the mask over his eye; swimming, lying forward into the stroke, arms windmilling, feet kicking. Standing still or climbing, he faces us, as before.
+
 ## 0.0.82 (2026-11-23)
 
 - **Gnome world: inside the beavers' lodges** (Matthew: "the interior of the beaver dams' house structures should be shown", with a cutaway of a lodge): each lodge drawn in cutaway, as the world is: a dome of sticks and mud on the river's bed or the bank, standing well out of the water, stones round its foot; inside, its chamber, dry, just above the water, the feeding floor with peeled sticks and the nest higher, its bedding of shredded wood; two tunnels from the floor down through the base to the entrances under the water; the air vent at the top; and the beavers resting there, curled up asleep. (Resting beavers are no longer drawn outside, and a beaver no longer drops in from the sky when it first comes into view.)
