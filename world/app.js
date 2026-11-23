@@ -46,8 +46,8 @@
   // share that clings, the steps to dig it, its color
   const PORES = new Float32Array(10), FLOW = new Float32Array(10), CLING = new Float32Array(10), DIG = new Uint8Array(10), COLOR = [], NAME = [];
   const S = { built: null, lib: "", libFailed: false, plan: null, seed: kept("seed", 7), rivers: [], dams: [], lodges: [], beavers: [], rooms: [], villages: [],
-    greats: [], trees: [], bushes: [], shrooms: [], rootSets: [], threadSets: [], rootPlan: [], boulders: [], ducts: [], lamps: [], items: [], houses: [], bridges: [], smoke: [], parts: [], drops: [], rain: 0, rainAt: 0,
-    styles: [], dry: [], works: new Map(), g: null, hearts: 5, gems: kept("gems", 0), hurtAt: -1e9, faintAt: 0, start: { x: 12500, y: 0 }, keys: { left: false, right: false, up: false, down: false },
+    greats: [], trees: [], bushes: [], shrooms: [], flowers: [], rootSets: [], threadSets: [], rootPlan: [], boulders: [], ducts: [], lamps: [], items: [], houses: [], bridges: [], smoke: [], parts: [], drops: [], rain: 0, rainAt: 0,
+    styles: [], dry: [], works: new Map(), windNow: 0.2, leaves: [], g: null, hearts: 5, gems: kept("gems", 0), hurtAt: -1e9, faintAt: 0, start: { x: 12500, y: 0 }, keys: { left: false, right: false, up: false, down: false },
     jumpQueued: false, cam: { x: 0, y: 0, set: false }, frame: 0, map: kept("map", true), banner: null, places: [], stepMs: [], beaverAt: 0, damAt: 0, minimapAt: -1e9, dirty: true };
   const H = () => S.built && S.built.ok ? S.built.value : null;
   let seedRand = 1;
@@ -120,6 +120,7 @@
     // the first great tree
     { const first = S.houses.filter(hs => !hs.small).sort((a, b) => b.row - a.row)[0]; if (first) S.items.push({ kind: "climb", x: first.x + 0.5 - first.side * 1.1, y: first.row - 0.55, taken: false }); }
     S.shrooms = byKind(53).map(q => ({ x: q.x, v: q.v }));
+    S.flowers = byKind(54).map(q => ({ x: q.x, v: q.v, n: q.h }));
     S.rootSets = []; S.threadSets = [];
     S.rootPlan = [...S.greats.map(G => ({ x: G.x, row: G.foot, k: 150, seed: G.v })), ...S.trees.map(t => ({ x: t.x, row: surf0[t.x], k: 70 + t.h * 4 + (t.tall ? 30 : 0), seed: t.seed })),
       ...S.shrooms.map(m => ({ x: m.x, row: surf0[m.x], seed: m.x * 3 + m.v, kind: "shroom" }))];
@@ -367,6 +368,34 @@
     for (const t of S.trees) if (!t.alive && --t.regrow <= 0) { t.alive = true; t.grow = 0.15; }
   }
 
+  // ---- (Matthew: "let's have wind effects that are variable": "they affect hanging willow branches", "and waves on water
+  // surface", "and grass/other light veg moving", "and trees moving") The wind: its strength and its way (-1 to 1, east the
+  // positive way), wandering toward a new aim every six to sixteen seconds (now and then a strong one), with gusts on top of
+  // it that die away; and in a gust, leaves blown off the trees
+  function windStep() {
+    const W0 = S.wind || (S.wind = { v: 0.25, aim: 0.3, next: 0, gust: 0 });
+    if (S.frame >= W0.next) { const strong = rand() < 0.22; W0.aim = Math.max(-1, Math.min(1, (rand() - 0.38) * (strong ? 2.4 : 1.1))); W0.next = S.frame + Math.floor(60 * (6 + rand() * 10)); }
+    if (rand() < 0.0035 + 0.006 * Math.abs(W0.v)) W0.gust = (0.35 + rand() * 0.45) * (W0.aim >= 0 ? 1 : -1);
+    W0.gust *= 0.975; W0.v += (W0.aim - W0.v) * 0.004;
+    S.windNow = Math.max(-1.4, Math.min(1.4, W0.v + W0.gust));
+    if (Math.abs(S.windNow) > 0.75 && rand() < 0.25 && S.g) { const t = S.trees[Math.floor(rand() * S.trees.length)];
+      if (t && t.alive && Math.abs(t.x - S.g.x / 1000) < 30) S.leaves.push({ x: t.x + (rand() - 0.5) * t.h * 0.6, y: surf0[t.x] - t.h * (0.6 + 0.3 * rand()), vy: 0.004, a: rand() * 6, life: 0, col: ["#5a8f2a", "#86a92e", "#c2a83a", "#2f7d32"][Math.floor(rand() * 4)] }); }
+    for (const l of S.leaves) { l.x += S.windNow * 0.06 + Math.sin(l.a) * 0.01; l.y += l.vy + Math.cos(l.a * 0.7) * 0.004; l.a += 0.08; l.life++; }
+    S.leaves = S.leaves.filter(l => l.life < 400 && l.y < WH);
+  }
+  // (how far a thing standing in the wind leans at its top, in tiles a tile of its height: the wind's lean, and a sway at the
+  // thing's own pace, quicker and wider the stronger the wind)
+  const sway = (seed, k = 1) => { const w = S.windNow || 0, t = performance.now(); return k * (w * 0.05 + (0.012 + 0.03 * Math.abs(w)) * Math.sin(t / (900 - 380 * Math.min(1, Math.abs(w))) + seed * 1.7)); };
+  // (a picture drawn in bands, each pushed across by the sway, more toward its top (a tree bending), or, for a willow's
+  // tassels, more toward their tips, below)
+  function drawSwaying(sp, x, y, k, lean, tassels = false) {
+    const f = T / sp.res * k, n = 10, w = sp.cv.width, h = sp.cv.height, hT = h / sp.res * k;
+    const push = v => (tassels ? Math.max(0, (v - 0.12) / 0.88) ** 1.3 * 1.6 + (1 - v) * 0.3 : (1 - v) * (1 - v)) * lean * hT * T;   // (v: 0 at the top, 1 at the foot)
+    const X = x - sp.ox * T * k, Y = y - sp.oy * T * k;
+    if (Math.abs(lean) < 0.0005) { ctx.drawImage(sp.cv, X, Y, w * f, h * f); return; }
+    for (let i = 0; i < n; i++) { const sy = Math.floor(i * h / n), sh = Math.min(h - sy, Math.ceil(h / n) + 1), pt = push(sy / h), pb = push((sy + sh) / h);
+      ctx.save(); ctx.translate(X + pt, Y + sy * f); ctx.transform(1, 0, (pb - pt) / (sh * f), 1, 0, 0); ctx.drawImage(sp.cv, 0, sy, w, sh, 0, 0, w * f, sh * f); ctx.restore(); }
+  }
   // ---- one frame: the gnome, the boulders, the water, the beavers, the smoke; the camera after the gnome
   function tick(h) {
     S.frame++;
@@ -378,7 +407,8 @@
     for (const t of S.trees) if (t.alive && t.grow < 1) t.grow = Math.min(1, t.grow + 1 / (60 * 60));
     for (const B of S.beavers) B.px += (B.b.x / 100 - B.px) * 0.18;
     if (S.frame % 9 === 0) for (const d of S.ducts) if (d.kind === 3) S.smoke.push({ x: d.x + 0.5 + (rand() - 0.5) * 0.2, y: d.y0 - 2.2, r: 0.18, life: 0, drift: 0.004 + rand() * 0.006 });
-    for (const s of S.smoke) { s.y -= 0.012; s.x += s.drift; s.r += 0.006; s.life++; }
+    windStep();
+    for (const s of S.smoke) { s.y -= 0.012; s.x += s.drift + S.windNow * 0.02; s.r += 0.006; s.life++; }
     S.smoke = S.smoke.filter(s => s.life < 200);
     for (const p of S.parts) { p.x += p.vx; p.y += p.vy; p.vy += 0.01; p.life--; }
     S.parts = S.parts.filter(p => p.life > 0);
@@ -506,18 +536,18 @@
     if (!pose) E(0, 19 - bob, 13, 3.4, "rgba(0, 0, 0, 0.32)");   // (his shadow)
     for (const s2 of [-1, 1]) {   // (boots, a step at a time, with fur at the top)
       const lift = s2 * step > 0 ? -2 * Math.abs(step) : 0;
-      c.fillStyle = "#4b5563"; c.beginPath(); c.roundRect(s2 * 6 - 4 + (s2 > 0 ? 1 : -1), 13 + lift, 9, 6, 2.5); c.fill();
-      c.fillStyle = "#e5e7eb"; c.beginPath(); c.roundRect(s2 * 6 - 4, 11.5 + lift, 8, 3, 1.5); c.fill();
+      c.fillStyle = "#5a3a22"; c.beginPath(); c.roundRect(s2 * 6 - 4 + (s2 > 0 ? 1 : -1), 13 + lift, 9, 6, 2.5); c.fill();
+      c.fillStyle = "#7a5636"; c.beginPath(); c.roundRect(s2 * 6 - 4, 11.5 + lift, 8, 3, 1.5); c.fill();
     }
     const tank = () => { c.fillStyle = "#facc15"; c.beginPath(); c.roundRect(back ? -5 : -15, -7, back ? 10 : 7, 17, 3.5); c.fill();
       c.fillStyle = "#a16207"; c.fillRect(back ? -1.5 : -13, -9.5, 3, 3); };
     if (diving && !back) tank();   // (0.0.68: the diving gear on, its air tank on his back, behind him, or, his back to us, on it)
     // (the tunic, its sleeves and the belt)
-    c.fillStyle = "#3b5bab"; c.beginPath(); c.moveTo(-9, -3); c.lineTo(9, -3); c.lineTo(12, 13); c.quadraticCurveTo(0, 15, -12, 13); c.closePath(); c.fill();
-    c.fillStyle = "#2f4a8f"; c.beginPath(); c.moveTo(3, -3); c.lineTo(9, -3); c.lineTo(12, 13); c.quadraticCurveTo(7, 14.3, 4, 14.5); c.closePath(); c.fill();
-    c.fillStyle = "#7c4a1e"; c.fillRect(-11, 5.5, 22, 3.6);
+    c.fillStyle = "#5ba3d6"; c.beginPath(); c.moveTo(-9, -3); c.lineTo(9, -3); c.lineTo(12, 13); c.quadraticCurveTo(0, 15, -12, 13); c.closePath(); c.fill();
+    c.fillStyle = "#4386b8"; c.beginPath(); c.moveTo(3, -3); c.lineTo(9, -3); c.lineTo(12, 13); c.quadraticCurveTo(7, 14.3, 4, 14.5); c.closePath(); c.fill();
+    c.fillStyle = "#5c3a1a"; c.fillRect(-11.5, 4.6, 23, 5);
     if (diving && back) tank();
-    if (!back) { c.fillStyle = "#eab308"; c.beginPath(); c.roundRect(-3, 4.8, 6, 5, 1); c.fill(); c.fillStyle = "#7c4a1e"; c.fillRect(-1.2, 6.3, 2.4, 2); }
+    if (!back) { c.fillStyle = "#d9a93a"; c.beginPath(); c.roundRect(-3.6, 3.9, 7.2, 6.4, 1.2); c.fill(); c.fillStyle = "#5c3a1a"; c.fillRect(-1.8, 5.6, 3.6, 3); c.fillStyle = "#f2d27a"; c.fillRect(-3.2, 4.2, 6.4, 0.9); }
     let lx = cheer ? 15 : side ? 14 : 13, ly = cheer ? -19 - wave : side ? 2 : 5;   // (the lantern's hand)
     let hx = cheer ? -14 : -11, hy = cheer ? -16 + wave : 8;
     // (Gnome world, after Messed Up Dress Up's swimmers: swimming along, the arms windmill half a turn apart, the front crawl;
@@ -525,7 +555,7 @@
     if (pose && pose.swim) { const a = pose.t / 170;
       if (pose.stroke) { lx = 10 + 13 * Math.cos(a); ly = -1 + 13 * Math.sin(a); hx = -6 + 13 * Math.cos(a + Math.PI); hy = -1 + 13 * Math.sin(a + Math.PI); }
       else { lx = 13; ly = -16; hx = -13 + 2.5 * Math.sin(a * 2); hy = 3 + 1.5 * Math.cos(a * 2); } }   // (the other hand)
-    c.strokeStyle = "#3b5bab"; c.lineWidth = 4.5; c.lineCap = "round";
+    c.strokeStyle = "#5ba3d6"; c.lineWidth = 4.5; c.lineCap = "round";
     c.beginPath(); c.moveTo(-8, -1); c.lineTo(hx, hy - 1); c.moveTo(8, -1); c.lineTo(lx - 2, ly); c.stroke();
     E(hx, hy, 2.4, 2.4, "#f2c9a0"); E(lx - 1.5, ly + 0.5, 2.4, 2.4, "#f2c9a0");
     if (loves && !back) { c.save(); c.translate(hx - 1, hy + 1); loverAt(c, 0, 0, 26, now, false); c.restore(); }   // (0.0.71: the love shooter in his other hand)
@@ -543,6 +573,9 @@
     } else {
       // (the face, rosy cheeks, the beard down over the tunic, its strands)
       c.fillStyle = "#f2c9a0"; c.beginPath(); c.ellipse(side ? 1.5 : 0, -10.5, 7.5, 6.5, 0, 0, 7); c.fill();
+      // (Gnome world; Matthew: "gnome should have side burns connecting head hair to beard") down each side of his face,
+      // from the hair under the cap to the beard
+      for (const s2 of [-1, 1]) { const sx = (side ? 1.5 : 0) + s2 * (side && s2 > 0 ? 6.4 : 6.9); c.fillStyle = "#f1f5f9"; c.beginPath(); c.moveTo(sx - 1.6, -15); c.quadraticCurveTo(sx - s2 * 0.4, -11, sx - 1.4 * s2 + (s2 < 0 ? 0 : 0), -6.5); c.lineTo(sx + s2 * 1.8, -7); c.quadraticCurveTo(sx + s2 * 2.2, -11, sx + 1.6, -15); c.closePath(); c.fill(); }
       E(side ? -3 : -5, -8, 2.2, 1.6, "rgba(244, 114, 114, 0.45)"); E(side ? 6 : 5, -8, 2.2, 1.6, "rgba(244, 114, 114, 0.45)");
       c.fillStyle = "#f8fafc"; c.beginPath(); c.moveTo(-8 + (side ? 1 : 0), -8); c.quadraticCurveTo(-10, 3, (side ? 2 : 0), 12); c.quadraticCurveTo(10, 3, 8 + (side ? 2 : 0), -8); c.quadraticCurveTo(side ? 2 : 0, -2, -8 + (side ? 1 : 0), -8); c.fill();
       c.strokeStyle = "#cbd5e1"; c.lineWidth = 0.8; c.beginPath();
@@ -556,6 +589,8 @@
         c.fillStyle = "#f8fafc"; c.beginPath(); c.ellipse(ex2 + s2 * 0.5, cheer ? -14.2 : -13.4, 3, 1.4, s2 * 0.3, 0, 7); c.fill();
         c.strokeStyle = "#cbd5e1"; c.lineWidth = 0.5; c.beginPath(); c.moveTo(ex2 - 2, -13.2); c.lineTo(ex2 + 2.4, -13.8); c.stroke(); }
       if (cheer) { c.fillStyle = "#7f1d1d"; c.beginPath(); c.arc(fx, -5, 3.4, 0.08, Math.PI - 0.08); c.closePath(); c.fill(); E(fx, -2.5, 1.9, 1, "#f472b6"); }   // (his smile, open wide)
+      // (Gnome world; Matthew: "draw lips/mouth") his mouth, just showing under the moustache
+      if (!cheer) { E(fx, -4.1, 2.2, 1.15, "#8b2a2a"); E(fx + 0.1, -3.55, 1.7, 0.6, "#e58a7f"); }
       // the moustache, sweeping out from under the nose, and the round nose
       E(fx - 3.6, -6.4, 4.6, 2.2, "#f1f5f9", 0.35); E(fx + 3.6, -6.4, 4.6, 2.2, "#f1f5f9", -0.35);
       c.strokeStyle = "#cbd5e1"; c.lineWidth = 0.6; c.beginPath(); c.moveTo(fx, -7); c.lineTo(fx - 6.5, -5.2); c.moveTo(fx, -7); c.lineTo(fx + 6.5, -5.2); c.stroke();
@@ -592,29 +627,32 @@
     if (!swim && ground) E(0, 19 - bob, 12, 3.2, "rgba(0, 0, 0, 0.3)");
     // (the legs: a stride running; tucked in the air; kicking in the water; the far one darker, behind)
     const leg = (a, near) => { const hx = near ? 1.5 : -1.5, hy = 10, fx = hx + Math.sin(a) * 8, fy = hy + Math.cos(a) * 8;
-      c.strokeStyle = near ? "#2f4a8f" : "#25396e"; c.lineWidth = 5; c.lineCap = "round"; c.beginPath(); c.moveTo(hx, hy); c.lineTo(fx, fy); c.stroke();
-      c.fillStyle = near ? "#4b5563" : "#374151"; c.beginPath(); c.roundRect(fx - 3.2, fy - 1.5, 9, 5, 2.4); c.fill();
-      c.fillStyle = near ? "#e5e7eb" : "#c7cbd1"; c.beginPath(); c.roundRect(fx - 3, fy - 2.8, 6, 2.6, 1.2); c.fill(); };
+      c.strokeStyle = near ? "#4386b8" : "#3a6f99"; c.lineWidth = 5; c.lineCap = "round"; c.beginPath(); c.moveTo(hx, hy); c.lineTo(fx, fy); c.stroke();
+      c.fillStyle = near ? "#5a3a22" : "#47301c"; c.beginPath(); c.roundRect(fx - 3.2, fy - 1.5, 9, 5, 2.4); c.fill();
+      c.fillStyle = near ? "#7a5636" : "#64462c"; c.beginPath(); c.roundRect(fx - 3, fy - 2.8, 6, 2.6, 1.2); c.fill(); };
     const kick = stroke ? Math.sin(p * 2.2) * 0.45 : 0;
     const aNear = swim ? kick : !ground ? 0.75 : run ? Math.sin(p) * 1.0 : 0, aFar = swim ? -kick : !ground ? -0.55 : run ? -Math.sin(p) * 1.0 : 0;
     // (the far arm, behind him: swinging opposite the near leg, or windmilling)
     const shoulder = [0, -1.5], armAt = a => [shoulder[0] + Math.sin(a) * 10, shoulder[1] + Math.cos(a) * 10];
     const farA = stroke ? p * 1.2 + Math.PI : run ? -aNear * 0.9 : !ground ? -2.3 : 0.3, nearA = stroke ? p * 1.2 : run ? 0.9 + aNear * 0.25 : !ground ? 2.2 : 1.1;
     if (diving) { c.fillStyle = "#facc15"; c.beginPath(); c.roundRect(-13, -7, 7, 17, 3.5); c.fill(); c.fillStyle = "#a16207"; c.fillRect(-11, -9.5, 3, 3); }
-    { const [hx, hy] = armAt(farA); c.strokeStyle = "#2f4a8f"; c.lineWidth = 4.5; c.lineCap = "round"; c.beginPath(); c.moveTo(-1, -1); c.lineTo(hx - 1, hy); c.stroke(); E(hx - 1, hy, 2.3, 2.3, "#e0b48a"); }
+    { const [hx, hy] = armAt(farA); c.strokeStyle = "#4386b8"; c.lineWidth = 4.5; c.lineCap = "round"; c.beginPath(); c.moveTo(-1, -1); c.lineTo(hx - 1, hy); c.stroke(); E(hx - 1, hy, 2.3, 2.3, "#e0b48a"); }
     leg(aFar, false);
     // (the tunic, the back of it shaded; the belt, the buckle in front)
-    c.fillStyle = "#3b5bab"; c.beginPath(); c.moveTo(-6, -3); c.lineTo(5.5, -3); c.quadraticCurveTo(9, 4, 10, 13); c.quadraticCurveTo(0, 15, -9.5, 13); c.quadraticCurveTo(-8, 4, -6, -3); c.fill();
-    c.fillStyle = "#2f4a8f"; c.beginPath(); c.moveTo(-6, -3); c.lineTo(-2, -3); c.lineTo(-3, 14); c.quadraticCurveTo(-7, 13.8, -9.5, 13); c.quadraticCurveTo(-8, 4, -6, -3); c.fill();
-    c.fillStyle = "#7c4a1e"; c.fillRect(-8.7, 5.5, 18.2, 3.6); c.fillStyle = "#eab308"; c.beginPath(); c.roundRect(6, 4.8, 4, 5, 1); c.fill();
+    c.fillStyle = "#5ba3d6"; c.beginPath(); c.moveTo(-6, -3); c.lineTo(5.5, -3); c.quadraticCurveTo(9, 4, 10, 13); c.quadraticCurveTo(0, 15, -9.5, 13); c.quadraticCurveTo(-8, 4, -6, -3); c.fill();
+    c.fillStyle = "#4386b8"; c.beginPath(); c.moveTo(-6, -3); c.lineTo(-2, -3); c.lineTo(-3, 14); c.quadraticCurveTo(-7, 13.8, -9.5, 13); c.quadraticCurveTo(-8, 4, -6, -3); c.fill();
+    c.fillStyle = "#5c3a1a"; c.fillRect(-9.2, 4.6, 19.2, 5); c.fillStyle = "#d9a93a"; c.beginPath(); c.roundRect(5.6, 3.9, 5, 6.4, 1.2); c.fill(); c.fillStyle = "#5c3a1a"; c.fillRect(7, 5.6, 2.2, 3);
     leg(aNear, true);
     // (the head from the side: the white hair at the back, the ear, the face, the nose, the eye and brow, the moustache, the beard)
     E(-4.6, -9.5, 3.4, 5.4, "#e5e7eb");
     E(2, -10.5, 6.6, 6.4, "#f2c9a0");
+    // (the sideburn, from the hair behind the temple down in front of the ear to the beard at the jaw; the ear over it)
+    c.fillStyle = "#f1f5f9"; c.beginPath(); c.moveTo(-4, -14); c.quadraticCurveTo(0.8, -13.6, 1.2, -9.5); c.quadraticCurveTo(1.6, -6.4, -0.2, -4.6); c.lineTo(-3.8, -6.2); c.quadraticCurveTo(-3.2, -10, -4, -14); c.fill();
     E(-1.8, -10, 1.6, 2.2, "#e0b48a");
     E(4.5, -8, 2.2, 1.6, "rgba(244, 114, 114, 0.45)");
     c.fillStyle = "#f8fafc"; c.beginPath(); c.moveTo(-2.5, -8); c.quadraticCurveTo(-4, 3, 3.5, 12); c.quadraticCurveTo(10.5, 3, 9.5, -6.5); c.quadraticCurveTo(3, -3, -2.5, -8); c.fill();
     c.strokeStyle = "#cbd5e1"; c.lineWidth = 0.8; c.beginPath(); for (const bx of [0.5, 3, 5.5, 8]) { c.moveTo(bx, -4); c.quadraticCurveTo(bx * 0.75, 3, bx * 0.5 + 2, 9); } c.stroke();
+    E(7.6, -4.2, 1.6, 0.95, "#8b2a2a"); E(7.9, -3.7, 1.3, 0.5, "#e58a7f");   // (his mouth, under the moustache)
     E(6.5, -6.3, 4.6, 2, "#f1f5f9", -0.25);
     E(9.2, -8.8, 3.2, 2.8, "#f0997d"); E(8.6, -9.7, 0.9, 0.7, "rgba(255, 255, 255, 0.6)");
     E(5.4, -11.4, 1.3, 1.6, "#1f2937"); E(5.8, -12, 0.45, 0.45, "#ffffff");
@@ -627,7 +665,7 @@
     c.strokeStyle = "rgba(255, 255, 255, 0.25)"; c.lineWidth = 1; c.beginPath(); c.moveTo(6, -16.5); c.quadraticCurveTo(3, -24, -2, -28.5); c.stroke();
     // (the near arm, the lantern held out ahead, glowing)
     { const [hx, hy] = armAt(nearA), lx = hx + 1.5, ly = hy - 1 + (run ? Math.sin(p * 2) * 0.8 : 0);
-      c.strokeStyle = "#3b5bab"; c.lineWidth = 4.5; c.lineCap = "round"; c.beginPath(); c.moveTo(1.5, -1); c.lineTo(hx, hy); c.stroke(); E(hx, hy, 2.4, 2.4, "#f2c9a0");
+      c.strokeStyle = "#5ba3d6"; c.lineWidth = 4.5; c.lineCap = "round"; c.beginPath(); c.moveTo(1.5, -1); c.lineTo(hx, hy); c.stroke(); E(hx, hy, 2.4, 2.4, "#f2c9a0");
       const gl = c.createRadialGradient(lx + 1, ly + 7, 0, lx + 1, ly + 7, 12); gl.addColorStop(0, "rgba(254, 240, 138, 0.75)"); gl.addColorStop(1, "rgba(254, 240, 138, 0)"); c.fillStyle = gl; c.beginPath(); c.arc(lx + 1, ly + 7, 12, 0, 7); c.fill();
       c.strokeStyle = "#1f2937"; c.lineWidth = 1.2; c.beginPath(); c.arc(lx + 1, ly + 2.5, 2.2, Math.PI, 0); c.stroke();
       c.fillStyle = "#1f2937"; c.beginPath(); c.roundRect(lx - 2.5, ly + 2.5, 7, 9, 1.5); c.fill(); c.fillStyle = "#fef08a"; c.beginPath(); c.roundRect(lx - 1.3, ly + 4, 4.6, 6, 1); c.fill(); }
@@ -807,8 +845,36 @@
       return; }
     const k = t.tall ? 1 : t.grow;
     t.open = (t.open || 0) + ((underTree(t) ? 1 : 0) - (t.open || 0)) * 0.12;
-    if (t.open > 0.02 || t.kind === 4) { drawSprite(treeSprite(t, "back"), x, y, k); ctx.globalAlpha = 1 - 0.85 * t.open; }
-    drawSprite(treeSprite(t, "front"), x, y, k); ctx.globalAlpha = 1;
+    const lean = sway(t.seed, t.kind === 1 ? 0.6 : t.kind === 4 ? 0.8 : 1);
+    if (t.open > 0.02 || t.kind === 4) { drawSwaying(treeSprite(t, "back"), x, y, k, lean); ctx.globalAlpha = 1 - 0.85 * t.open; }
+    drawSwaying(treeSprite(t, "front"), x, y, k, t.kind === 4 ? lean * 1.8 : lean, t.kind === 4); ctx.globalAlpha = 1;
+  }
+  // (Matthew: "let's draw more flowers that also are affected by wind"; "esp strong wind blows the flowers dramatically") The
+  // flowers of a tile (World.plan: a daisy, a poppy, a bluebell, a buttercup, a lupine; one to three of them), each on its stem,
+  // bowing the way the wind blows and fluttering at its own pace; in a strong wind bent right over, their petals streaming
+  // out behind, some blown off
+  const PETAL = ["#fbfbf7", "#d7261e", "#5b6fd6", "#f6c915", "#9b5bd1"];
+  function drawFlowers(f, x0, y0, now) {
+    const c = ctx, s = T, w = S.windNow || 0, aw = Math.min(1.4, Math.abs(w));
+    const n = f.n * 2;
+    for (let k = 0; k < n; k++) {
+      const seed = f.x * 7 + k * 13, x = x0 + (k - (n - 1) / 2) * (0.9 / n) * s + ((seed % 5) - 2) * 0.03 * s, h = s * (0.42 + 0.11 * (seed % 4)) * (f.v === 4 ? 1.3 : 1);
+      const flutter = Math.sin(now / (330 - 140 * Math.min(1, aw)) + seed * 0.7), bend = Math.max(-1.35, Math.min(1.35, w * 1.05 + (0.1 + 0.42 * aw) * flutter * 0.6));
+      const tx = x + Math.sin(bend) * h, ty = y0 - Math.cos(bend) * h;
+      c.strokeStyle = "#4d7c0f"; c.lineWidth = Math.max(1, s * 0.035); c.beginPath(); c.moveTo(x, y0); c.quadraticCurveTo(x + Math.sin(bend) * h * 0.25, y0 - h * 0.62, tx, ty); c.stroke();
+      c.fillStyle = "#5a8f2a"; c.beginPath(); c.ellipse(x + Math.sin(bend) * h * 0.18 + s * 0.05, y0 - h * 0.35, s * 0.07, s * 0.025, -0.6 + bend, 0, 7); c.fill();
+      c.save(); c.translate(tx, ty); c.rotate(bend); c.scale(1.35, 1.35);
+      const stream = Math.max(0, aw - 0.55) * 1.6 * Math.sign(w);   // (in a strong wind, the petals drawn out downwind)
+      const petal = (a, len, wid, col) => { c.save(); c.rotate(a); c.translate(0, -len / 2); c.scale(1 + Math.abs(stream) * 0.8, 1); c.fillStyle = col; c.beginPath(); c.ellipse(stream * s * 0.03, 0, wid, len / 2, 0, 0, 7); c.fill(); c.restore(); };
+      if (f.v === 0 || f.v === 3) { const n = f.v === 0 ? 8 : 5; for (let j = 0; j < n; j++) petal(j * 6.283 / n + (stream > 0 ? 0.3 : stream < 0 ? -0.3 : 0), s * (f.v === 0 ? 0.13 : 0.09), s * (f.v === 0 ? 0.03 : 0.045), PETAL[f.v]);
+        c.fillStyle = f.v === 0 ? "#f2c12e" : "#e8a50c"; c.beginPath(); c.arc(0, 0, s * 0.04, 0, 7); c.fill(); }
+      else if (f.v === 1) { for (const a of [-0.9, -0.3, 0.3, 0.9]) petal(a, s * 0.13, s * 0.07, PETAL[1]); c.fillStyle = "#1f1a17"; c.beginPath(); c.arc(0, -s * 0.03, s * 0.035, 0, 7); c.fill(); }
+      else if (f.v === 2) { c.strokeStyle = "#4d7c0f"; c.lineWidth = Math.max(1, s * 0.025); for (let j = 0; j < 3; j++) { const bx = (j - 1) * s * 0.06, by = j * s * 0.07; c.beginPath(); c.moveTo(0, by); c.quadraticCurveTo(bx + s * 0.05, by, bx + s * 0.07, by + s * 0.06); c.stroke();
+        c.fillStyle = PETAL[2]; c.beginPath(); c.moveTo(bx + s * 0.03, by + s * 0.05); c.quadraticCurveTo(bx + s * 0.07, by + s * 0.17, bx + s * 0.11, by + s * 0.05); c.closePath(); c.fill(); } }
+      else { for (let j = 0; j < 7; j++) { c.fillStyle = j < 2 ? "#c69ae8" : PETAL[4]; c.beginPath(); c.ellipse((j % 2 ? 1 : -1) * s * 0.025, -j * s * 0.045, s * 0.035 * (1 + Math.abs(stream) * 0.5), s * 0.025, 0, 0, 7); c.fill(); } }
+      c.restore();
+      if (aw > 0.85 && Math.random() < 0.004 * aw && S.leaves.length < 160) S.leaves.push({ x: tx / s, y: ty / s, vy: 0.002, a: Math.random() * 6, life: 0, col: PETAL[f.v], petal: true });
+    }
   }
   // a mushroom on the land: a fly agaric (red, flecked white) or a bolete (brown, stout)
   function drawShroom(m, x, y) {
@@ -1063,10 +1129,11 @@
     ctx.save(); ctx.translate(-camX * s, -camY * s);
     // above the land: the trees, bushes and mushrooms (painted once, sprites), then the great trees over them
     for (const t of S.trees) if (t.x >= c0 - 9 && t.x <= c1 + 9) drawTree(t, (t.x + 0.5) * s, surf0[t.x] * s);
-    for (const b of S.bushes) if (b.x >= c0 - 2 && b.x <= c1 + 2) drawSprite(bushSprite(b), (b.x + 0.5) * s, surf0[b.x] * s);
+    for (const b of S.bushes) if (b.x >= c0 - 2 && b.x <= c1 + 2) drawSwaying(bushSprite(b), (b.x + 0.5) * s, surf0[b.x] * s, 1, sway(b.x * 3, 1.4));
     for (const m of S.shrooms) if (m.x >= c0 - 1 && m.x <= c1 + 1) drawShroom(m, (m.x + 0.5) * s, surf0[m.x] * s);
+    for (const f of S.flowers) if (f.x >= c0 - 1 && f.x <= c1 + 1 && top[f.x] >= surf0[f.x]) drawFlowers(f, (f.x + 0.5) * s, surf0[f.x] * s, now);
     for (const G of S.greats) { if (G.x + 22 < c0 || G.x - 22 > c1) continue; const x = (G.x + 0.5) * s, y = G.foot * s;
-      drawSprite(greatSprite(G), x, y);
+      drawSwaying(greatSprite(G), x, y, 1, sway(G.v, 0.18));
       if (G.kind === 31) {   // (the stair inside: the trunk cut away, a winding stair round a post, a door to each limb)
         const top0 = y - (Math.max(...G.limbs.map(l => l.y)) + 1.2) * s, iw = (G.half + 0.2) * 2 * s * 0.75;
         ctx.fillStyle = "#24160c"; ctx.beginPath(); ctx.roundRect(x - iw / 2, top0, iw, y - top0, [iw / 2, iw / 2, 0, 0]); ctx.fill();
@@ -1124,7 +1191,9 @@
     for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) { const i = at(c, r), m = mat[i]; if (m === AIR) continue;
       if (r === top[c] && r <= surf0[c] + 1 && m <= SSTONE) { ctx.fillStyle = "#4d7c0f"; ctx.fillRect(c * s, r * s - s * 0.04, s + 0.5, s * 0.14);
         ctx.strokeStyle = "#65a30d"; ctx.lineWidth = Math.max(1, s * 0.035); ctx.beginPath();
-        for (let j = 0; j < 7; j++) { const bx = c * s + (j + 0.3) * s / 7, bh = s * (0.1 + ((c * 7 + j * 13) % 5) * 0.035); ctx.moveTo(bx, r * s); ctx.lineTo(bx + s * 0.03 * (((c + j) % 3) - 1), r * s - bh); } ctx.stroke(); }
+        const gw = S.windNow || 0, gt = now / (520 - 200 * Math.min(1, Math.abs(gw)));
+        for (let j = 0; j < 7; j++) { const bx = c * s + (j + 0.3) * s / 7, bh = s * (0.1 + ((c * 7 + j * 13) % 5) * 0.035), bend = gw * 0.7 + (0.15 + 0.4 * Math.abs(gw)) * Math.sin(gt + c * 0.9 + j * 1.3);
+          ctx.moveTo(bx, r * s); ctx.quadraticCurveTo(bx + bend * bh * 0.2, r * s - bh * 0.6, bx + s * 0.03 * (((c + j) % 3) - 1) + bend * bh * 0.7, r * s - bh * (1 - 0.25 * Math.abs(bend))); } ctx.stroke(); }
       const w0 = wat[i]; if (PORES[m] > 0 && w0 > 0.05) { ctx.fillStyle = `rgba(37,99,235,${(0.03 + 0.2 * w0 * w0).toFixed(3)})`; ctx.fillRect(c * s, r * s, s + 0.5, s + 0.5);
         if (w0 > 0.95 && ((c * 7 + r * 3 + (S.frame >> 4)) % 11 === 0)) { ctx.fillStyle = "rgba(200,230,255,0.45)"; ctx.fillRect(c * s + s * 0.4, r * s + s * 0.4, s * 0.1, s * 0.1); } }
       if (gem[i]) { const tw = 0.5 + 0.5 * Math.sin(now / 300 + c + r); ctx.fillStyle = GEMS[gem[i]]; ctx.beginPath(); ctx.moveTo(c * s + s * 0.5, r * s + s * 0.2); ctx.lineTo(c * s + s * 0.78, r * s + s * 0.45); ctx.lineTo(c * s + s * 0.5, r * s + s * 0.8); ctx.lineTo(c * s + s * 0.22, r * s + s * 0.45); ctx.fill();
@@ -1192,10 +1261,16 @@
     // the water in the open (rivers, caves, tunnels flooded): over everything in it, so what is under it shows through, bluer
     for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) { const i = at(c, r); if (mat[i] !== AIR) continue; const w0 = wat[i]; if (w0 < 0.03) continue;
       const above = r > 0 && mat[at(c, r - 1)] === AIR && wat[at(c, r - 1)] > 0.5, hgt = above ? 1 : Math.min(1, w0);
-      ctx.fillStyle = "rgba(40,120,210,0.45)"; ctx.fillRect(c * s, (r + 1 - hgt) * s, s, hgt * s + 0.5);
-      if (!above) { ctx.fillStyle = "rgba(220,240,255,0.6)"; ctx.fillRect(c * s, (r + 1 - hgt) * s, s, Math.max(1, s / 16)); } }
+      if (above) { ctx.fillStyle = "rgba(40,120,210,0.45)"; ctx.fillRect(c * s, r * s, s, s + 0.5); continue; }
+      // (the surface: waves, higher and quicker the stronger the wind, running the way it blows; white caps in a strong wind)
+      const ww = S.windNow || 0, amp = s * (0.02 + 0.09 * Math.min(1.2, Math.abs(ww))), top = (r + 1 - hgt) * s, ph = now / 380 * (ww >= 0 ? -1 : 1);
+      const wy = q => top + amp * Math.sin((c + q) * 1.9 + ph) + amp * 0.4 * Math.sin((c + q) * 4.3 + ph * 1.7);
+      ctx.fillStyle = "rgba(40,120,210,0.45)"; ctx.beginPath(); ctx.moveTo(c * s, (r + 1) * s + 0.5); for (let q = 0; q <= 4; q++) ctx.lineTo((c + q / 4) * s + (q === 4 ? 0.5 : 0), wy(q / 4)); ctx.lineTo((c + 1) * s + 0.5, (r + 1) * s + 0.5); ctx.fill();
+      ctx.strokeStyle = Math.abs(ww) > 0.8 && Math.sin(c * 2.3 + ph * 0.5) > 0.6 ? "rgba(255,255,255,0.9)" : "rgba(220,240,255,0.6)"; ctx.lineWidth = Math.max(1, s / 16);
+      ctx.beginPath(); for (let q = 0; q <= 4; q++) { const xx = (c + q / 4) * s; if (q) ctx.lineTo(xx, wy(q / 4)); else ctx.moveTo(xx, wy(0)); } ctx.stroke(); }
     // rain, in a shower
-    if (S.rain) { ctx.strokeStyle = "rgba(200,220,255,0.6)"; ctx.lineWidth = Math.max(1, s / 24); ctx.beginPath(); for (let k = 0; k < 120; k++) { const x = (c0 + ((k * 37.7 + S.frame * 0.3 * (k % 3 + 1)) % (c1 - c0 + 1))) * s, y = (r0 + ((k * 13.3 + S.frame * 0.5) % (r1 - r0 + 1))) * s; const col = Math.floor(x / s); if (col >= 0 && col < WW && y / s < top[col]) { ctx.moveTo(x, y); ctx.lineTo(x - 0.1 * s, y + 0.5 * s); } } ctx.stroke(); }
+    if (S.rain) { ctx.strokeStyle = "rgba(200,220,255,0.6)"; ctx.lineWidth = Math.max(1, s / 24); ctx.beginPath(); for (let k = 0; k < 120; k++) { const x = (c0 + ((k * 37.7 + S.frame * 0.3 * (k % 3 + 1)) % (c1 - c0 + 1))) * s, y = (r0 + ((k * 13.3 + S.frame * 0.5) % (r1 - r0 + 1))) * s; const col = Math.floor(x / s); if (col >= 0 && col < WW && y / s < top[col]) { ctx.moveTo(x, y); ctx.lineTo(x + (S.windNow || 0) * 0.45 * s - 0.05 * s, y + 0.5 * s); } } ctx.stroke(); }
+    for (const l of S.leaves) { ctx.save(); ctx.translate(l.x * s, l.y * s); ctx.rotate(l.a); ctx.fillStyle = l.col; ctx.beginPath(); ctx.ellipse(0, 0, s * (l.petal ? 0.06 : 0.12), s * (l.petal ? 0.035 : 0.05), 0, 0, 7); ctx.fill(); ctx.restore(); }
     // the dark under the ground: each tile darker the further it is under the sky, lit by the lantern, the lamps and the light
     // shafts; drawn as a tiny picture, a pixel a tile, stretched smooth over the view
     {
@@ -1270,7 +1345,8 @@
     const RV = g ? riverAt(g.x / 1000) : null, land = g ? (RV ? RV.natural - 4 : surf0[Math.floor(g.x / 1000)]) : 0, depth = g ? Math.round(g.y / 1000 - land) : 0;
     const where = g && (g.swim || g.under) ? (g.under ? "🫧 under the water" : "🏊 swimming") : depth > 1 ? `⛏️ ${depth} m down` : depth < -2 ? `🌳 ${-depth} m up` : "🌿 on the land";
     const gx = g ? g.x / 1000 : 0, place = (S.places.find(p => gx >= p.x0 && gx <= p.x1 && (!p.under || depth > 3)) || { name: "" }).name;
-    const line = `${hearts}  💎 ${S.gems}  ${where}${g && g.gear ? "  🤿" : ""}${g && g.climbPack ? "  🧗" : ""}${place ? "  ·  " + place : ""}`;
+    const wv = S.windNow || 0, wa = Math.abs(wv), windWord = wa < 0.15 ? "calm" : wa < 0.45 ? "a breeze" : wa < 0.8 ? "windy" : "a gale", arrows = wa < 0.15 ? "" : (wv > 0 ? "→" : "←").repeat(wa < 0.45 ? 1 : wa < 0.8 ? 2 : 3);
+    const line = `${hearts}  💎 ${S.gems}  🍃 ${windWord} ${arrows}  ${where}${g && g.gear ? "  🤿" : ""}${g && g.climbPack ? "  🧗" : ""}${place ? "  ·  " + place : ""}`;
     const tw = ctx.measureText(line).width;
     pill(10 * k, 10 * k, tw + 20 * k, 30 * k); ctx.fillStyle = "#fff"; ctx.fillText(line, 20 * k, 15 * k);
     if (g && g.under && !g.gear) { const f = g.air / 600; pill(10 * k, 46 * k, 160 * k, 16 * k); ctx.fillStyle = f < 0.25 ? "#ef4444" : "#7dd3fc"; ctx.fillRect(14 * k, 50 * k, 152 * k * f, 8 * k); }

@@ -70,6 +70,8 @@ let plan : Int -> Plan = fun seed ->
      if r < dense && !blocked(x) then (kind = 50, x = x, y = 0, w = 1, h = 6 + md(r, 5), v = species(x)) :: trees(x + 3 + md(r / 3, 3)) else trees(x + 2 + md(r / 3, 3))) in
   let bushes : Int -> [Place] = fun x -> if x >= 446 then [] else
     (let r = hash(seed, 800 + x) in if r < 260 && !blocked(x) then (kind = 51, x = x, y = 0, w = 1, h = 1, v = md(r, 3)) :: bushes(x + 5 + md(r, 4)) else bushes(x + 3)) in
+  let flowers : Int -> [Place] = fun x -> if x >= 446 then [] else
+    (let r = hash(seed, 1300 + x) in if r < (if wet(x) then 300 else 560) && !blocked(x) then (kind = 54, x = x, y = 0, w = 1, h = 1 + md(r, 3), v = md(r / 3, 5)) :: flowers(x + 1 + md(r, 2)) else flowers(x + 1)) in
   let shrooms : Int -> [Place] = fun x -> if x >= 446 then [] else
     (let r = hash(seed, 1100 + x) in if r < (if x >= 128 && x <= 205 then 300 else 120) && !blocked(x) then (kind = 53, x = x, y = 0, w = 1, h = 1, v = md(r, 2)) :: shrooms(x + 4 + md(r, 5)) else shrooms(x + 3)) in
   let under = cat(scatter(seed, (kind = 40, n = 8, x0 = 8, xr = 430, y0 = 48, yr = 14, w0 = 8, wr = 7, h0 = 4, hr = 3, v0 = 0, vr = 1), 0),
@@ -86,7 +88,7 @@ let plan : Int -> Plan = fun seed ->
              (kind = 5, thick = thick(seed, 7, 3, 7, 0)), (kind = 4, thick = thick(seed, 8, 8, 16, 0)), (kind = 2, thick = thick(seed, 9, 1, 4, 0)),
              (kind = 4, thick = thick(seed, 10, 40, 40, 0))],
    table = table(0),
-   places = cat(rivers, cat(beavers, cat(greats, cat(villages, cat(trees(2), cat(bushes(5), cat(shrooms(3), under))))))));
+   places = cat(rivers, cat(beavers, cat(greats, cat(villages, cat(trees(2), cat(bushes(5), cat(shrooms(3), cat(flowers(1), under)))))))));
 # ---- The gnomes' houses, deep under the ground ---- #
 # A village's rooms (which 0, the village: four floors; 1, a hamlet: two): each floor six rows under the one above, its rooms side by side eastward from the stair (columns x0 to x0 + 2, a ladder down from the door), a wall between each; the kitchens, the sitting room and the workshop with a chimney, the hall, the library and the nursery with a light shaft, the dining room, the bedrooms and the bath house with an air shaft #
 let village : (Int, Int, Int, Int) -> [Room] = fun (x0, top, which, seed) ->
