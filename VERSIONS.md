@@ -2,6 +2,12 @@
 
 Each version lists what the apps do as of that version. The newest version is first.
 
+## 0.0.79 (2026-11-23)
+
+- **Gnome world: the great trees' crowns grow from their trunks** (Matthew: "top of tree still looks like multiple trunks, and crown isn't natural"): the trunk tapers up into five great limbs, each forking again and again, with many tree-sized leaf pads at the tips, darker behind and lighter in front; a branch up from each platform's limb, pads at its tips over the house.
+- **Inside the tree houses** (Matthew: "tree houses should have interiors, and a way to go inside of them"; "no inside of tree houses?"): walk in at the door and the house's front fades away, as a tree's does under it: a paneled room, its window lit, a lamp, and its things, furnished by Hazel (`World.furnish`) as the house's style suits (a bedroom, a kitchen, a library, a workshop, a nursery...).
+- **The tree-climbing pack** (Matthew: "gnome should be able to climb the tree like an animal"; "even the parts without a ladder"; "if he has the tree-climb pack"; "place that into one of the tree houses by default"): it waits in the lowest tree house; with it (🧗), any standing tree's trunk and crown, and a great tree's, can be climbed any way, as a tunnel can.
+
 ## 0.0.78 (2026-11-23)
 
 - **Gnome world: weeping willows, as real ones grow** (Matthew: "the willow trees should look much better"; "look at real examples", and three photographs): a broad dome; a thick, gnarled trunk leaning a little, mossy on its lit side, splitting low into sinuous limbs that arch out and droop; the leaves in tassels hanging in layers to nearly the ground, gaps showing the limbs inside; yellow-green, or silvery blue-green.
