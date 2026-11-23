@@ -155,18 +155,19 @@ let styles : [Style] = [
   (name = "Birch Bower", latin = "Umbraculum Betulae", roof = 7, walls = 15921126, roofc = 6187837, trim = 3092271, clad = 6, win = 0, more = 8),
   (name = "Toadstool Tower", latin = "Turricula Boleti", roof = 3, walls = 16181192, roofc = 13849600, trim = 6111287, clad = 7, win = 1, more = 3)];
 # ---- The beavers ---- #
-# A beaver's step (ten a second): resting in its lodge until it is time, then off to the nearest standing tree within 36 tiles of its lodge (trees: the standing trees' columns); it gnaws it four seconds, and it falls; it drags the log to its dam (slower), lays it two seconds, and goes home to rest. A tree gone before it gets there (another beaver's), and it goes home #
-let beaver : (Beaver, [Int]) -> Beaver = fun (b, trees) ->
+# A beaver's step (ten a second): resting in its lodge until it is time, then off to a pile of logs within 36 tiles of its lodge (piles: the columns of the piles with logs left), or, none, to the nearest standing tree there (trees: the standing trees' columns); it gnaws it four seconds, and it falls. (Matthew: "when the beavers carry a tree, they should carry one log at a time, from a huge pile that they create") A felled tree is a pile of logs where it lay (the page makes it, felled); the beaver drags one log to its dam (slower), lays it two seconds, and goes back to the pile for the next, until the pile is gone, and then home to rest. Starting to drag a log (job 3, tree its pile's column) takes it from the pile. A tree or a pile gone before it gets there (another beaver's), and it goes home #
+let beaver : (Beaver, [Int], [Int]) -> Beaver = fun (b, trees, piles) ->
   let near : ([Int], Int, Int) -> Int = fun (ts, best, bd) -> case ts | [] => best | t :: rest => (let d = absi(t * 100 - b.x) in if absi(t - b.lodge) <= 36 && d < bd then near(rest, t, d) else near(rest, best, bd)) end in
   let go : (Int, Int) -> Int = fun (to, sp) -> if absi(to - b.x) <= sp then to else if to > b.x then b.x + sp else b.x - sp in
   let face : Int -> Int = fun to -> if to > b.x then 1 else if to < b.x then 0 - 1 else b.face in
   let be : (Int, Int, Int, Int, Int, Int, Bool) -> Beaver = fun (x, f, job, t, tree, felled, laid) -> (x = x, face = f, job = job, t = t, tree = tree, lodge = b.lodge, dam = b.dam, felled = felled, laid = laid) in
   let none = 0 - 1 in
-  if b.job == 0 then (if b.t > 0 then be(b.x, b.face, 0, b.t - 1, none, none, false) else (let tr = near(trees, none, 1000000) in if tr >= 0 then be(b.x, face(tr * 100), 1, 0, tr, none, false) else be(b.x, b.face, 0, 60, none, none, false)))
+  if b.job == 0 then (if b.t > 0 then be(b.x, b.face, 0, b.t - 1, none, none, false) else (let pl = near(piles, none, 1000000) in if pl >= 0 then be(b.x, face(pl * 100), 6, 0, pl, none, false) else (let tr = near(trees, none, 1000000) in if tr >= 0 then be(b.x, face(tr * 100), 1, 0, tr, none, false) else be(b.x, b.face, 0, 60, none, none, false))))
   else if b.job == 1 then (if !has(trees, b.tree) then be(b.x, b.face, 5, 0, none, none, false) else (let to = b.tree * 100 + (if b.x < b.tree * 100 then 0 - 60 else 60) in if absi(to - b.x) <= 25 then be(to, face(b.tree * 100), 2, 40, b.tree, none, false) else be(go(to, 25), face(to), 1, 0, b.tree, none, false)))
-  else if b.job == 2 then (if !has(trees, b.tree) then be(b.x, b.face, 5, 0, none, none, false) else if b.t > 1 then be(b.x, b.face, 2, b.t - 1, b.tree, none, false) else be(b.x, b.face, 3, 0, none, b.tree, false))
-  else if b.job == 3 then (let to = b.dam * 100 in if absi(to - b.x) <= 15 then be(to, b.face, 4, 20, none, none, false) else be(go(to, 15), face(to), 3, 0, none, none, false))
-  else if b.job == 4 then (if b.t > 1 then be(b.x, b.face, 4, b.t - 1, none, none, false) else be(b.x, b.face, 5, 0, none, none, true))
+  else if b.job == 2 then (if !has(trees, b.tree) then be(b.x, b.face, 5, 0, none, none, false) else if b.t > 1 then be(b.x, b.face, 2, b.t - 1, b.tree, none, false) else be(b.x, b.face, 3, 0, b.tree, b.tree, false))
+  else if b.job == 3 then (let to = b.dam * 100 in if absi(to - b.x) <= 15 then be(to, b.face, 4, 20, b.tree, none, false) else be(go(to, 15), face(to), 3, 0, b.tree, none, false))
+  else if b.job == 4 then (if b.t > 1 then be(b.x, b.face, 4, b.t - 1, b.tree, none, false) else if has(piles, b.tree) then be(b.x, b.face, 6, 0, b.tree, none, true) else be(b.x, b.face, 5, 0, none, none, true))
+  else if b.job == 6 then (if !has(piles, b.tree) then be(b.x, b.face, 5, 0, none, none, false) else (let to = b.tree * 100 + (if b.x < b.tree * 100 then 0 - 50 else 50) in if absi(to - b.x) <= 25 then be(to, face(b.tree * 100), 3, 0, b.tree, none, false) else be(go(to, 25), face(to), 6, 0, b.tree, none, false)))
   else (let to = b.lodge * 100 in if absi(to - b.x) <= 30 then be(to, b.face, 0, 80, none, none, false) else be(go(to, 30), face(to), 5, 0, none, none, false));
 # How high a dam holds its river: the water's own row (natural), a row higher for every three logs, but never over the lower bank (its row, bank) #
 let water_row : (Int, Int, Int) -> Int = fun (natural, bank, logs) -> (let r = natural - logs / 3 in if r < bank + 1 then bank + 1 else r);
@@ -204,11 +205,58 @@ let threads : (Int, Int, Int) -> [Line] = fun (x, row, seed) ->
   let s1 = next(seed + x) in
   one(1, next(s1 + 1), one(4, next(s1 + 2), one(7, next(s1 + 3), one(9, next(s1 + 4), one(11, next(s1 + 5), one(14, next(s1 + 6), one(17, next(s1 + 7), [])))))));
 # ---- The gnome ---- #
-# a tile in the window round the gnome (dc -1 to 1 across, dr -3 to 1 down, from the tile its feet are in); outside it, open #
+# a tile in the window round the gnome (dc -1 to 1 across, dr -3 to 1 down, from the tile its feet are in), nine bits of it: what is there (0 open, 1 to 7 ground, 8 masonry, 9 timber, 10 a boulder, 11 a platform), 16 its water, 32 whether it can be climbed, and 64 times its shape (0 square, 1 sloping up to the east, 2 sloping up to the west); outside it, open #
 let tile : (Near, Int, Int) -> Int = fun (n, dc, dr) ->
   if dc < 0 - 1 || dc > 1 || dr < 0 - 3 || dr > 1 then 0 else
   (let row = (if dr == 0 - 3 then n.r0 else if dr == 0 - 2 then n.r1 else if dr == 0 - 1 then n.r2 else if dr == 0 then n.r3 else n.r4) in
-   md(row / (if dc == 0 - 1 then 1 else if dc == 0 then 128 else 16384), 128));
+   md(row / (if dc == 0 - 1 then 1 else if dc == 0 then 512 else 262144), 512));
+# (Matthew: "let's also do sloped banks, like Mario 3", "more realisitic, especially for creek and stream banks") Where the gnome's middle (x) is over a sloped tile, in the row its feet would be in (y) or the one below, the diagonal there is the ground: it comes down onto it (y below it, the gnome above it the step before), and walking down it stays on it; off the top of a slope, onto the ground beside it, it steps up onto that, its top being within 450 of its feet. The ground's height there, or -1 (climbing, or rising) #
+let slope_at : (Near, Gnome, Int, Int, Int, Bool, Bool) -> Int = fun (n, g, x, y, vy, climbing, midw) ->
+  let at : (Int, Int) -> Int = fun (c, r) -> tile(n, c - n.cx, r - n.cy) in
+  let shape : (Int, Int) -> Int = fun (c, r) -> md(at(c, r) / 64, 4) in
+  let c = x / 1000 in let f = (y - 1) / 1000 in
+  let r = (if shape(c, f) > 0 then f else if shape(c, f + 1) > 0 then f + 1 else 0 - 1) in
+  if climbing || vy < 0 then 0 - 1
+  else if r >= 0 then (let sy = (r + 1) * 1000 - (if shape(c, r) == 1 then x - c * 1000 else 1000 - (x - c * 1000)) in
+    if (y > sy && g.y <= sy + 300) || (g.ground && !midw && y < sy && sy - y < 200) then sy else 0 - 1)
+  else (let w = md(at(c, f), 16) in if g.ground && w >= 1 && w <= 10 && y - f * 1000 <= 450 then f * 1000 else 0 - 1);
+# (Matthew: "we should also introduce an action button for dig --- on slopes, we don't dig into them, we run across them"; "down can still mean dig"; "but across, on a slope, should mean -- go up/down the slope") The dig button (⛏️): the tile the gnome digs, standing, the way it faces or the way held: with up, the one over its head; else the one ahead at its feet, else ahead at its head; -1, none (down held: down digs anyway) #
+let dig_ahead : (Near, Gnome, Pad, Int, Int, Int) -> Int = fun (n, g, p, feet, head, up_tile) ->
+  let digs : (Int, Int) -> Int = fun (c, r) -> (let w = md(tile(n, c - n.cx, r - n.cy), 16) in if w >= 1 && w <= 7 then ground(w).dig else 0) in
+  let cx = g.x / 1000 in let ahead = cx + (if p.dx != 0 then p.dx else g.face) in
+  if !p.dig || p.down then 0 - 1 else if p.up then (if digs(cx, up_tile) > 0 then cx * 1000 + up_tile else 0 - 1)
+  else if digs(ahead, feet) > 0 then ahead * 1000 + feet else if digs(ahead, head) > 0 then ahead * 1000 + head else 0 - 1;
+# The second half of the gnome's step (World.step moves it; this, its own function so that neither half nests too deep to build in a browser): what it digs, its breath, what happened, and the gnome as it is now #
+let finish : (Gnome, Near, Pad, Moved) -> Gnome = fun (g, n, p, m) ->
+  let hh = 880 in let none = 0 - 1 in
+  let at : (Int, Int) -> Int = fun (c, r) -> tile(n, c - n.cx, r - n.cy) in
+  let digs : (Int, Int) -> Int = fun (c, r) -> (let w = md(at(c, r), 16) in if w >= 1 && w <= 7 then ground(w).dig else 0) in
+  let wet : (Int, Int) -> Bool = fun (c, r) -> md(at(c, r) / 16, 2) == 1 in
+  let cx = g.x / 1000 in let feet = (g.y - 1) / 1000 in let head = (g.y - hh) / 1000 in
+  let midw = wet(cx, (g.y - 450) / 1000) in let headw = wet(cx, (g.y - 800) / 1000) in
+  let up_tile = (g.y - hh - 1) / 1000 in
+  let climbing = m.climb in let hc = m.hc in
+  let dig_up = p.up && (g.ground || climbing || midw) && digs(cx, up_tile) > 0 && g.y - hh - (up_tile + 1) * 1000 < 150 in
+  # digging: pushing across into a tile that can be dug (standing, climbing or (Matthew: "when I'm swimming I should be able to dig sideways") swimming), down into the one underfoot (standing or climbing), or up into the one over its head #
+  let side = (if p.dx != 0 && !p.dig && hc >= 0 && (g.ground || climbing || midw) then (if digs(hc, feet) > 0 then hc * 1000 + feet else if digs(hc, head) > 0 then hc * 1000 + head else none) else none) in
+  # (in the water, the gnome swimming, it digs too: across, down into the tile under its feet, up into the one over its head) #
+  let underfoot = feet + 1 in
+  # (the dig button, dig_ahead; down still digs, and standing on a sloped tile, down digs that tile) #
+  let button = dig_ahead(n, g, p, feet, head, up_tile) in
+  let target = (if side >= 0 then side
+    else if button >= 0 then button
+    else if p.down && g.ground && md(at(cx, feet) / 64, 4) > 0 && digs(cx, feet) > 0 then cx * 1000 + feet
+    else if p.down && (((g.ground || climbing) && md(g.y, 1000) == 0) || midw) && digs(cx, underfoot) > 0 && underfoot * 1000 - g.y < 150 then cx * 1000 + underfoot
+    else if dig_up then cx * 1000 + up_tile else none) in
+  let tc = (if target < 0 then none else target / 1000) in
+  let tr = (if target < 0 then none else md(target, 1000)) in
+  let dt = (if target < 0 then 0 else if tc == g.dc && tr == g.dr then g.dt + 1 else 1) in
+  let dug = target >= 0 && dt >= digs(tc, tr) in
+  let air = (if headw && !g.gear then g.air - 1 else (let a = g.air + 5 in if a < 600 then a else 600)) in
+  let ev = (if dug then 1 else if air <= 0 then 4 else if m.jumped then 2 else if midw && !g.swim && !g.under && g.vy > 30 then 3 else if p.down && g.swim && !g.gear then 5 else 0) in
+  (x = m.x, y = m.y, vx = m.vx, vy = m.vy, face = (if p.dx != 0 then p.dx else g.face),
+   ground = m.ground, climb = climbing, swim = m.floating || (midw && !headw), under = headw, air = (if air <= 0 then 600 else air), gear = g.gear,
+   dc = tc, dr = tr, dt = (if dug then 0 else dt), ev = ev);
 # The gnome's step (Matthew, 2026-11-23: "move the gnome in a sub-tile way, so it's not tied to one tile at a time"; "the feel of a platform NES/SNES game"): running (92 thousandths of a tile a step, eased), falling (11 more a step, 267 at most), a jump of two tiles (let go of up and it is cut short), climbing a ladder, the stair or any tunnel dug (70 a step, any way); a box 0.66 of a tile wide and 0.88 tall, stopped by solid tiles, and by a platform only from above (down held: through it). Pushing across into ground that can be dug, standing or climbing, digs it; so does down, standing, into the ground underfoot, and up into the ground just over its head; a tile takes as many steps as its ground says. (Matthew: "when the gnome doesn't have the diving suit, we should permit them to swim on the surface. pressing down forces them to start to go under the surface, and starts the air timer") In the water without the diving gear it floats, its head out, and swims across; down held, it dives, slowly; let go, it rises again; up pressed at the surface, a hop out onto the bank. Its head under the water, its breath runs down (600 steps, ten seconds), and comes back five times as fast out of it. With the gear it swims any way, as long as it likes #
 let step : (Gnome, Near, Pad) -> Gnome = fun (g, n, p) ->
   let hw = 330 in let hh = 880 in let none = 0 - 1 in
@@ -216,7 +264,9 @@ let step : (Gnome, Near, Pad) -> Gnome = fun (g, n, p) ->
   let maxi : (Int, Int) -> Int = fun (a, b) -> if a > b then a else b in
   let at : (Int, Int) -> Int = fun (c, r) -> tile(n, c - n.cx, r - n.cy) in
   let what : (Int, Int) -> Int = fun (c, r) -> md(at(c, r), 16) in
-  let solid : (Int, Int) -> Bool = fun (c, r) -> (let w = what(c, r) in w >= 1 && w <= 10) in
+  # (Matthew: "let's also do sloped banks, like Mario 3", "more realisitic, especially for creek and stream banks") a sloped tile of ground is solid only under its diagonal: the gnome walks up and down it, standing on the diagonal under its middle #
+  let shape : (Int, Int) -> Int = fun (c, r) -> md(at(c, r) / 64, 4) in
+  let solid : (Int, Int) -> Bool = fun (c, r) -> (let w = what(c, r) in w >= 1 && w <= 10 && shape(c, r) == 0) in
   let wet : (Int, Int) -> Bool = fun (c, r) -> md(at(c, r) / 16, 2) == 1 in
   let climbs : (Int, Int) -> Bool = fun (c, r) -> md(at(c, r) / 32, 2) == 1 in
   let digs : (Int, Int) -> Int = fun (c, r) -> (let w = what(c, r) in if w >= 1 && w <= 7 then ground(w).dig else 0) in
@@ -234,10 +284,10 @@ let step : (Gnome, Near, Pad) -> Gnome = fun (g, n, p) ->
   let surface = top_wet((g.y - 450) / 1000) * 1000 in
   let up_tile = (g.y - hh - 1) / 1000 in
   let dig_up = p.up && (g.ground || climbing || midw) && digs(cx, up_tile) > 0 && g.y - hh - (up_tile + 1) * 1000 < 150 in
-  let run = g.vx + (p.dx * 92 - g.vx) / 4 in
+  let run = (if p.dig then 0 else g.vx + (p.dx * 92 - g.vx) / 4) in
   # (climbing, or down held standing, with no way across held: eased to the middle of its column, so it fits a shaft one tile wide) #
   let snap = (cx * 1000 + 500 - g.x) / 3 in
-  let vx = (if climbing then (if p.dx == 0 then snap else p.dx * 70) else if midw then p.dx * (if g.gear then 55 else 58) else if p.dx == 0 && p.down && g.ground then snap else if p.dx == 0 && absi(run) < 8 then 0 else run) in
+  let vx = (if climbing then (if p.dx == 0 || p.dig then snap else p.dx * 70) else if midw then p.dx * (if g.gear then 55 else 58) else if p.dx == 0 && p.down && g.ground then snap else if p.dx == 0 && absi(run) < 8 then 0 else run) in
   let jumped = g.ground && p.jump && !dig_up && !midw && !climbing in
   let vy = (if climbing then (if p.up && !dig_up then 0 - 70 else if p.down then 70 else 0)
     else if midw then
@@ -250,7 +300,9 @@ let step : (Gnome, Near, Pad) -> Gnome = fun (g, n, p) ->
     else (let v = g.vy + 11 in mini((if !p.up && v < 0 - 70 then 0 - 70 else v), 267))) in
   # across: stopped by a solid tile in the rows the gnome is in #
   let nx0 = g.x + vx in
-  let blocked : Int -> Bool = fun c -> solid(c, head) || solid(c, feet) in
+  # (on a slope, the ground at its top is no wall: within 450 of the gnome's feet, it walks on up onto it) #
+  let sloping = shape(cx, feet) > 0 || shape(cx, feet + 1) > 0 in
+  let blocked : Int -> Bool = fun c -> solid(c, head) || (solid(c, feet) && !(sloping && g.y - feet * 1000 <= 450)) in
   let hc = (if vx > 0 && blocked((nx0 + hw) / 1000) then (nx0 + hw) / 1000 else if vx < 0 && nx0 - hw >= 0 && blocked((nx0 - hw) / 1000) then (nx0 - hw) / 1000 else none) in
   let nx1 = (if hc < 0 then nx0 else if vx > 0 then hc * 1000 - hw - 1 else (hc + 1) * 1000 + hw) in
   let nx = maxi(hw, mini(nx1, wide * 1000 - hw)) in
@@ -262,22 +314,9 @@ let step : (Gnome, Near, Pad) -> Gnome = fun (g, n, p) ->
   let land = vy > 0 && g.y <= fr * 1000 && (lands_on(l) || lands_on(rr)) in
   let hr = (ny0 - hh) / 1000 in
   let bump = vy < 0 && (solid(l, hr) || solid(rr, hr)) in
-  let ny = (if land then fr * 1000 else if bump then (hr + 1) * 1000 + hh else ny0) in
+  let ny1 = (if land then fr * 1000 else if bump then (hr + 1) * 1000 + hh else ny0) in
+  let sl = slope_at(n, g, nx, ny1, vy, climbing, midw) in
+  let ny = (if sl >= 0 then sl else ny1) in
   let below = ny / 1000 in
-  let ground_now = md(ny, 1000) == 0 && (solid(l, below) || solid(rr, below) || ((what(l, below) == 11 || what(rr, below) == 11) && !p.down)) in
-  # digging: pushing across into a tile that can be dug (standing, climbing or (Matthew: "when I'm swimming I should be able to dig sideways") swimming), down into the one underfoot (standing or climbing), or up into the one over its head #
-  let side = (if p.dx != 0 && hc >= 0 && (g.ground || climbing || midw) then (if digs(hc, feet) > 0 then hc * 1000 + feet else if digs(hc, head) > 0 then hc * 1000 + head else none) else none) in
-  # (in the water, the gnome swimming, it digs too: across, down into the tile under its feet, up into the one over its head) #
-  let underfoot = feet + 1 in
-  let target = (if side >= 0 then side
-    else if p.down && (((g.ground || climbing) && md(g.y, 1000) == 0) || midw) && digs(cx, underfoot) > 0 && underfoot * 1000 - g.y < 150 then cx * 1000 + underfoot
-    else if dig_up then cx * 1000 + up_tile else none) in
-  let tc = (if target < 0 then none else target / 1000) in
-  let tr = (if target < 0 then none else md(target, 1000)) in
-  let dt = (if target < 0 then 0 else if tc == g.dc && tr == g.dr then g.dt + 1 else 1) in
-  let dug = target >= 0 && dt >= digs(tc, tr) in
-  let air = (if headw && !g.gear then g.air - 1 else mini(600, g.air + 5)) in
-  let ev = (if dug then 1 else if air <= 0 then 4 else if jumped then 2 else if midw && !g.swim && !g.under && g.vy > 30 then 3 else if p.down && g.swim && !g.gear then 5 else 0) in
-  (x = nx, y = ny, vx = (if hc >= 0 then 0 else vx), vy = (if land || bump then 0 else vy), face = (if p.dx != 0 then p.dx else g.face),
-   ground = ground_now, climb = climbing, swim = floating || (midw && !headw), under = headw, air = (if air <= 0 then 600 else air), gear = g.gear,
-   dc = tc, dr = tr, dt = (if dug then 0 else dt), ev = ev)
+  let ground_now = sl >= 0 || (md(ny, 1000) == 0 && (solid(l, below) || solid(rr, below) || ((what(l, below) == 11 || what(rr, below) == 11) && !p.down))) in
+  finish(g, n, p, (x = nx, y = ny, vx = (if hc >= 0 then 0 else vx), vy = (if land || bump || sl >= 0 then 0 else vy), hc = hc, ground = ground_now, climb = climbing, floating = floating, jumped = jumped))

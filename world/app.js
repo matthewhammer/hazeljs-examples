@@ -38,7 +38,7 @@
   const AIR = 0, SOIL = 1, CLAY = 2, SAND = 3, SSTONE = 4, SHALE = 5, LIME = 6, GRANITE = 7, MASON = 8, TIMBER = 9;
   const B_NONE = 0, B_DUG = 1, B_PLASTER = 2, B_WOOD = 3, B_STAIR = 4, B_CAVE = 5;
   const F_LADDER = 1, F_PLAT = 2, F_STAIR = 3, F_BRIDGE = 4, F_HATCH = 5, F_DOOR = 6;
-  const mat = new Uint8Array(NN), wat = new Float32Array(NN), bg = new Uint8Array(NN), fix = new Uint8Array(NN), gem = new Uint8Array(NN), root = new Uint8Array(NN), stone = new Uint8Array(NN);
+  const mat = new Uint8Array(NN), wat = new Float32Array(NN), bg = new Uint8Array(NN), fix = new Uint8Array(NN), gem = new Uint8Array(NN), root = new Uint8Array(NN), stone = new Uint8Array(NN), shape = new Uint8Array(NN), treeMask = new Uint8Array(NN);
   const surf0 = new Int16Array(WW), top = new Int16Array(WW);   // (the land's surface as made; the highest solid tile now)
   const at = (c, r) => r * WW + c;
   const inside = (c, r) => c >= 0 && c < WW && r >= 0 && r < WH;
@@ -47,7 +47,7 @@
   const PORES = new Float32Array(10), FLOW = new Float32Array(10), CLING = new Float32Array(10), DIG = new Uint8Array(10), COLOR = [], NAME = [];
   const S = { built: null, lib: "", libFailed: false, plan: null, seed: kept("seed", 7), rivers: [], dams: [], lodges: [], beavers: [], rooms: [], villages: [],
     greats: [], trees: [], bushes: [], shrooms: [], flowers: [], rootSets: [], threadSets: [], rootPlan: [], boulders: [], ducts: [], lamps: [], items: [], houses: [], bridges: [], smoke: [], parts: [], drops: [], rain: 0, rainAt: 0,
-    styles: [], dry: [], works: new Map(), windNow: 0.2, leaves: [], g: null, hearts: 5, gems: kept("gems", 0), hurtAt: -1e9, faintAt: 0, start: { x: 12500, y: 0 }, keys: { left: false, right: false, up: false, down: false },
+    styles: [], dry: [], works: new Map(), windNow: 0.2, leaves: [], g: null, hearts: 5, gems: kept("gems", 0), hurtAt: -1e9, faintAt: 0, start: { x: 12500, y: 0 }, keys: { left: false, right: false, up: false, down: false, dig: false },
     jumpQueued: false, cam: { x: 0, y: 0, set: false }, frame: 0, map: kept("map", true), banner: null, places: [], stepMs: [], beaverAt: 0, damAt: 0, minimapAt: -1e9, dirty: true };
   const H = () => S.built && S.built.ok ? S.built.value : null;
   let seedRand = 1;
@@ -59,7 +59,7 @@
     for (let k = 0; k <= 9; k++) { const gr = h.ground(k); PORES[k] = gr.pores / 100; FLOW[k] = gr.flow / 1000; CLING[k] = gr.cling / 100; DIG[k] = gr.dig;
       COLOR[k] = "#" + gr.color.toString(16).padStart(6, "0"); NAME[k] = gr.name; }
     S.styles = h.styles;
-    mat.fill(AIR); wat.fill(0); bg.fill(B_NONE); fix.fill(0); gem.fill(0); root.fill(0); stone.fill(0);
+    mat.fill(AIR); wat.fill(0); bg.fill(B_NONE); fix.fill(0); gem.fill(0); root.fill(0); stone.fill(0); shape.fill(0);
     const lerp = (a, i, step) => { const k = i / step, j = Math.min(a.length - 1, Math.floor(k)), f = k - j, b = a[Math.min(a.length - 1, j + 1)]; return a[j] * (1 - f) + b * f; };
     for (let c = 0; c < WW; c++) {
       const s = Math.round(lerp(p.surface, c, 8)); surf0[c] = s;
@@ -100,6 +100,7 @@
         for (let r = bed; r < bed + 2; r++) mat[at(c, r)] = SAND;
         surf0[c] = bed; }
       R.bank = Math.max(surf0[q.x - 1] ?? q.y - 4, surf0[q.x + q.w] ?? q.y - 4);
+      slopeBanks(R);
       S.rivers.push(R);
     }
     // the beavers' lodges, dams and the beavers
@@ -121,7 +122,7 @@
     { const first = S.houses.filter(hs => !hs.small).sort((a, b) => b.row - a.row)[0]; if (first) S.items.push({ kind: "climb", x: first.x + 0.5 - first.side * 1.1, y: first.row - 0.55, taken: false }); }
     S.shrooms = byKind(53).map(q => ({ x: q.x, v: q.v }));
     S.flowers = byKind(54).map(q => ({ x: q.x, v: q.v, n: q.h }));
-    S.rootSets = []; S.threadSets = []; makeSquirrels();
+    S.rootSets = []; S.threadSets = []; shapeSurface(); makeSquirrels(); buildTreeMask();
     S.rootPlan = [...S.greats.map(G => ({ x: G.x, row: G.foot, k: 150, seed: G.v })), ...S.trees.map(t => ({ x: t.x, row: surf0[t.x], k: 70 + t.h * 4 + (t.tall ? 30 : 0), seed: t.seed })),
       ...S.shrooms.map(m => ({ x: m.x, row: surf0[m.x], seed: m.x * 3 + m.v, kind: "shroom" }))];
     // roots: under each tree, spreading and thinning down; water goes down them faster
@@ -159,7 +160,7 @@
     const g0 = { x: 12500, y: top[12] * 1000 };
     S.start = g0;
     S.g = { x: g0.x, y: g0.y, vx: 0, vy: 0, face: 1, ground: true, climb: false, swim: false, under: false, air: 600, gear: false, dc: -1, dr: -1, dt: 0, ev: 0 };
-    S.works = new Map(); S.hearts = 5; S.cam.set = false; S.smoke = []; S.parts = []; S.pebbles = []; S.minimapAt = -1e9; S.rain = 0; S.rainAt = S.frame + 60 * 60; S.banner = { text: "🌍 Gnome world", t: performance.now() };
+    S.works = new Map(); S.hearts = 5; S.cam.set = false; S.smoke = []; S.parts = []; S.pebbles = []; S.piles = []; S.minimapAt = -1e9; S.rain = 0; S.rainAt = S.frame + 60 * 60; S.banner = { text: "🌍 Gnome world", t: performance.now() };
   }
   const riverAt = x => S.rivers.find(R => x >= R.x - 0.5 && x < R.x + R.w + 0.5) || null;
   const topOf = c => { for (let r = 0; r < WH; r++) if (mat[at(c, r)] !== AIR) return r; return WH; };
@@ -173,7 +174,7 @@
   // door on the hill, the things in each room (World.furnish), a lamp in each, and its chimneys and shafts up to the meadow
   function village(h, q, which, seed) {
     const rooms = h.village(q.x, q.y, which, seed), x0 = q.x;
-    const set = (c, r, m, b) => { if (!inside(c, r)) return; const i = at(c, r); mat[i] = m; if (b != null) bg[i] = b; wat[i] = 0; gem[i] = 0; root[i] = 0; stone[i] = 0; };
+    const set = (c, r, m, b) => { if (!inside(c, r)) return; const i = at(c, r); mat[i] = m; if (b != null) bg[i] = b; wat[i] = 0; gem[i] = 0; root[i] = 0; stone[i] = 0; shape[i] = 0; };
     let bottom = 0;
     for (const R of rooms) { bottom = Math.max(bottom, R.y + 4);
       for (let c = R.x - 1; c <= R.x + R.w; c++) for (let r = R.y - 1; r <= R.y + 4; r++) { const i = at(c, r); if (bg[i] !== B_PLASTER && bg[i] !== B_WOOD) set(c, r, r === R.y + 4 ? TIMBER : MASON); }
@@ -268,22 +269,31 @@
   // ---- the gnome's step, in Hazel (World.step): the tiles round it, packed three to a number, each what is there, water, and
   // whether it can be climbed
   // (a tile within a standing tree, its trunk or its crown, or a great tree's: where the pack lets the gnome climb)
-  function treeAt(c, r) {
-    // (Matthew: "the background trees need not be climable --- just the large foreground trees") the tall trees by the great
-    // trees (their bridges' and houses') and the great trees; not the trees behind
-    for (const t of S.trees) { if (!t.tall || !t.alive || t.grow < 0.6 || Math.abs(c - t.x) > 6) continue; const foot = surf0[t.x], h = t.h * (t.tall ? 1.45 : 1);
-      if (c === t.x && r < foot && r >= foot - h * 0.7) return true;
-      const half = (t.kind === 1 ? 0.3 : t.kind === 4 ? 0.65 : 0.5) * h, cy = foot - h * 0.78, dy = (r + 0.5 - cy) / (h * 0.32), dx = (c + 0.5 - (t.x + 0.5)) / half;
-      if (r < foot && dx * dx + dy * dy < 1) return true; }
-    for (const G of S.greats) { if (Math.abs(c - G.x) > 14) continue; if (Math.abs(c - G.x) <= G.half && r < G.foot && r >= G.foot - G.h) return true;
-      const dy = (r + 0.5 - (G.foot - G.h * 0.95)) / (G.h * 0.3), dx = (c - G.x) / (G.h * 0.5); if (dx * dx + dy * dy < 1) return true; }
-    return false;
+  // (Matthew: "we need more precise tree picking logic", the gnome with the pack climbing in the open sky over a crown) Where
+  // the pack lets the gnome climb: the tiles a big tree's wood and leaves are in, worked out from the very limbs it is drawn
+  // with (greatCrown, tallCrown, grown in tiles): its trunk, each limb (as wide as it is, and a little more), and each leaf pad
+  // at the limbs' ends and inner forks (a flattened oval, a tile either side and half a tile up and down); a great tree's
+  // trunk up to its crown. Not the sky over it, nor between its limbs where no leaves are; not the trees behind
+  function buildTreeMask() {
+    treeMask.fill(0);
+    const mark = (c, r) => { if (inside(c, r) && mat[at(c, r)] === AIR) treeMask[at(c, r)] = 1; };
+    const lay = (L, ox, oy) => {
+      for (const sg of L.segs) { const len = Math.hypot(sg.P[3][0] - sg.P[0][0], sg.P[3][1] - sg.P[0][1]) * 1.15, n = Math.max(2, Math.ceil(len / 0.2));
+        for (let i = 0; i <= n; i++) { const t = i / n, [x, y] = cubicAt(sg.P, t), rad = (sg.w0 + (sg.w1 - sg.w0) * t) / 2 + 0.2, X = ox + x, Y = oy + y;
+          for (let c = Math.floor(X - rad); c <= Math.floor(X + rad); c++) for (let r = Math.floor(Y - rad); r <= Math.floor(Y + rad); r++) mark(c, r); } }
+      for (const [x, y] of [...L.tips, ...L.mids]) { const X = ox + x, Y = oy + y + 0.15;
+        for (let c = Math.floor(X - 1.2); c <= Math.floor(X + 1.2); c++) for (let r = Math.floor(Y - 0.8); r <= Math.floor(Y + 0.8); r++) {
+          const dx = (c + 0.5 - X) / 1.2, dy = (r + 0.5 - Y) / 0.75; if (dx * dx + dy * dy <= 1) mark(c, r); } } };
+    for (const G of S.greats) { lay(greatCrown(G, 1), G.x + 0.5, G.foot);
+      for (let r = G.foot - Math.ceil(G.h * 0.74) - 1; r < G.foot; r++) for (let c = G.x - G.half; c <= G.x + G.half; c++) mark(c, r); }
+    for (const t of S.trees) if (t.tall) lay(tallCrown(t, t.h * 1.45, 1), t.x + 0.5, surf0[t.x]);
   }
+  const treeAt = (c, r) => inside(c, r) && treeMask[at(c, r)] === 1;
   const boulderAt = (c, r) => S.boulders.some(b => b.c === c && (b.r === r || (b.falling && b.oy > 0 && b.r + 1 === r)));
   function code(c, r) {
     if (!inside(c, r)) return 7;
     const i = at(c, r), m = mat[i];
-    if (m !== AIR) return m;
+    if (m !== AIR) return m + 64 * shape[i];
     // (what is there, its water and whether it can be climbed, each worked out apart and then added: a platform across a tree's
     // trunk stays climbable with the pack; it had lost its climbing to the platform, and the gnome stuck under it)
     const what = boulderAt(c, r) ? 10 : fix[i] === F_PLAT || fix[i] === F_BRIDGE || fix[i] === F_HATCH ? 11 : 0;
@@ -291,7 +301,7 @@
     return what + (wat[i] >= 0.5 ? 16 : 0) + (climb ? 32 : 0);
   }
   function near(g) {
-    const cx = Math.floor(g.x / 1000), cy = Math.floor((g.y - 1) / 1000), row = r => code(cx - 1, r) + 128 * code(cx, r) + 16384 * code(cx + 1, r);
+    const cx = Math.floor(g.x / 1000), cy = Math.floor((g.y - 1) / 1000), row = r => code(cx - 1, r) + 512 * code(cx, r) + 262144 * code(cx + 1, r);
     return { cx, cy, r0: row(cy - 3), r1: row(cy - 2), r2: row(cy - 1), r3: row(cy), r4: row(cy + 1) };
   }
   function digOut(c, r) {
@@ -304,13 +314,44 @@
       if (up) { S.works.set(i, "ladder"); if (here >= 0 && bg[here] === B_DUG) S.works.set(here, "ladder"); }
       else { if (!S.works.has(i)) S.works.set(i, "frame"); if (here >= 0 && bg[here] === B_DUG && !S.works.has(here)) S.works.set(here, "frame"); } }
     const water = wat[i] * PORES[m];
-    mat[i] = AIR; bg[i] = B_DUG; wat[i] = water;
+    mat[i] = AIR; bg[i] = B_DUG; wat[i] = water; shape[i] = 0;
     if (stone[i]) { dropStones(c, r, stone[i]); stone[i] = 0; }
     if (gem[i]) { S.gems++; keep("gems", S.gems); popWord("💎", c + 0.5, r + 0.3); if (SND) SND.gem(); gem[i] = 0; }
     else if (SND && S.frame - (S.digSndAt || 0) > 8) { SND.dig(); S.digSndAt = S.frame; }
     for (let k = 0; k < 7; k++) S.parts.push({ x: c + 0.5, y: r + 0.5, vx: (rand() - 0.5) * 0.12, vy: -rand() * 0.12, life: 30 + rand() * 20, col: COLOR[m] });
     if (r <= top[c]) top[c] = topOf(c);
     S.minimapAt = -1e9;
+  }
+  // (a sloped tile's ground, the triangle under its diagonal, as a path; and the height of its diagonal at a point across it)
+  function slopeTri(c2, x, y, s, k) { c2.beginPath(); if (k === 1) { c2.moveTo(x, y + s + 0.5); c2.lineTo(x + s + 0.5, y); c2.lineTo(x + s + 0.5, y + s + 0.5); } else { c2.moveTo(x, y); c2.lineTo(x + s + 0.5, y + s + 0.5); c2.lineTo(x, y + s + 0.5); } c2.closePath(); }
+  // (Matthew: "let's also do sloped banks, like Mario 3", "more realisitic, especially for creek and stream banks") Where the
+  // land steps up or down by one tile, the corner of the higher ground is a sloped tile, ground only under its diagonal (shape
+  // 1 sloping up to the east, 2 up to the west), and the gnome walks up and down it (World.step); a tree, a bush, a flower or a
+  // toadstool on it stands on its diagonal, half a tile down (landY). Not under a great tree or a tall one, a village's door, a
+  // lodge, a thing to be found or a dam; a river's bed slopes too, under the water; not a one-tile peak (both ways at once)
+  const landY = c => surf0[c] + (inside(c, surf0[c]) && shape[at(c, surf0[c])] ? 0.5 : 0);
+  function shapeSurface() {
+    shape.fill(0);
+    const busy = new Uint8Array(WW), mark = (x, d = 0) => { for (let c = Math.floor(x) - d; c <= Math.floor(x) + d; c++) if (c >= 0 && c < WW) busy[c] = 1; };
+    for (const t of S.trees) if (t.tall) mark(t.x, 2); for (const G of S.greats) mark(G.x, G.half + 3); for (const v of S.villages) mark(v.x0 + 1, 3); for (const L of S.lodges) mark(L.x + L.w / 2, Math.ceil(L.w / 2) + 1);
+    for (const it of S.items) mark(it.x); mark(S.start.x / 1000, 1); for (const d of S.dams) mark(d.at, 1);
+    const ok = (c, r) => inside(c, r) && !busy[c] && mat[at(c, r)] >= SOIL && mat[at(c, r)] <= GRANITE && inside(c, r - 1) && mat[at(c, r - 1)] === AIR && !fix[at(c, r - 1)] && bg[at(c, r - 1)] === B_NONE;
+    // (a bump one tile wide and one high cannot slope both ways: it is levelled first, its top tile taken away)
+    for (let c = 1; c + 1 < WW; c++) if (surf0[c - 1] === surf0[c] + 1 && surf0[c + 1] === surf0[c] + 1 && ok(c, surf0[c]) && !gem[at(c, surf0[c])]) { const i = at(c, surf0[c]); mat[i] = AIR; stone[i] = 0; root[i] = 0; surf0[c]++; top[c] = topOf(c); }
+    const want = new Map();
+    for (let c = 0; c + 1 < WW; c++) { const a = surf0[c], b = surf0[c + 1];
+      if (b === a - 1 && ok(c + 1, b)) { const i = at(c + 1, b); want.set(i, want.has(i) ? 3 : 1); }
+      if (b === a + 1 && ok(c, a)) { const i = at(c, a); want.set(i, want.has(i) ? 3 : 2); } }
+    for (const [i, v] of want) if (v !== 3) { shape[i] = v; stone[i] = 0; gem[i] = 0; }
+  }
+  // (a river's banks: the channel was cut straight down; each side is cut back now into a bank one tile down for each across,
+  // from the edge of the bed up to the land, so it slopes into the water as a creek's bank does)
+  function slopeBanks(R) {
+    for (const [edge, dir, bed] of [[R.x - 1, -1, R.bed[0]], [R.x + R.w, 1, R.bed[R.w - 1]]]) {
+      for (let j = 0; ; j++) { const c = edge + dir * j, want = bed - 1 - j; if (c < 0 || c >= WW || want <= surf0[c]) break;
+        for (let r = surf0[c]; r < want; r++) { const i = at(c, r); mat[i] = AIR; bg[i] = B_NONE; gem[i] = 0; }
+        surf0[c] = want; }
+    }
   }
   // (Matthew: "let's have rocks in the earth -- like the creatures in the earth, except totally immobile; they just fall when we
   // dig out that earth. They become a mixture of foreground and background piles in the result tile") Stones set in the soil,
@@ -451,7 +492,7 @@
   // (each step of the run: the keys toward the next tile on the way; arrived, the next target; no headway for four seconds,
   // the way again round where it stuck, four times, then on to the next)
   function botStep() {
-    const g = S.g, gc = Math.floor(g.x / 1000), gr = Math.floor((g.y - 1) / 1000), here = at(gc, gr);
+    const g = S.g, gc = Math.floor(g.x / 1000), gr0 = Math.floor((g.y - 1) / 1000), gr = inside(gc, gr0) && shape[at(gc, gr0)] ? gr0 - 1 : gr0, here = at(gc, gr);
     for (const k in S.keys) S.keys[k] = false;
     if (!BOT.cur && !botNext()) return;
     const t = BOT.cur;
@@ -465,11 +506,11 @@
     const wp = BOT.path[Math.min(BOT.k, BOT.path.length - 1)]; if (wp == null) { BOT.cur = null; return; }
     const wc = wp % WW, wr = (wp - wc) / WW;
     if (wr < gr) { S.keys.up = true; if (g.ground && !botClimb(gc, gr) && mat[at(gc, gr - 1)] === AIR) S.jumpQueued = true; }
-    else if (wr > gr) S.keys.down = true;
+    else if (wr > gr && (wc === gc || !g.ground)) S.keys.down = true;
     if (wc > gc) S.keys.right = true; else if (wc < gc) S.keys.left = true;
   }
   function gnomeStep(h) {
-    const k = S.keys, pad = { dx: (k.right ? 1 : 0) - (k.left ? 1 : 0), up: k.up, down: k.down, jump: S.jumpQueued };
+    const k = S.keys, pad = { dx: (k.right ? 1 : 0) - (k.left ? 1 : 0), up: k.up, down: k.down, jump: S.jumpQueued, dig: !!k.dig };
     S.jumpQueued = false;
     const t0 = performance.now();
     const g = h.step(S.g, near(S.g), pad); if (S.g.climbPack) g.climbPack = true;
@@ -507,11 +548,17 @@
   function beaversStep(h) {
     for (const B of S.beavers) {
       const near = S.trees.filter(t => t.alive && t.grow >= 1 && !t.keep && Math.abs(t.x - B.b.lodge) <= 36).map(t => t.x);
-      const b2 = h.beaver(B.b, near);
-      if (b2.felled >= 0) { const t = S.trees.find(t => t.x === b2.felled && t.alive); if (t) { t.alive = false; t.fallAt = S.frame; t.fallDir = b2.face; t.regrow = 90 * 60; } }
+      const piles = S.piles.filter(p => p.n > 0 && Math.abs(p.x - B.b.lodge) <= 36).map(p => p.x);
+      const b2 = h.beaver(B.b, near, piles);
+      // (Matthew: "when the beavers carry a tree, they should carry one log at a time, from a huge pile that they create") a
+      // felled tree is a pile of logs where it fell, eleven to fifteen by its height, a heap; a beaver starting to drag takes one from it
+      if (b2.felled >= 0) { const t = S.trees.find(t => t.x === b2.felled && t.alive); if (t) { t.alive = false; t.fallAt = S.frame; t.fallDir = b2.face; t.regrow = 90 * 60;
+        const n = Math.min(15, 6 + Math.floor(t.h * 0.7)); S.piles.push({ x: t.x, n, max: n, seed: S.frame }); } }
+      if (b2.job === 3 && B.b.job !== 3) { const p = S.piles.find(p => p.x === b2.tree && p.n > 0); if (p) p.n--; }
       if (b2.laid) { const d = S.dams.find(d => Math.abs(d.at - b2.dam) <= 2); if (d && d.river) { d.logs = Math.min(d.logs + 1, 40); setLevel(h, d.river); } }
       B.b = b2;
     }
+    S.piles = S.piles.filter(p => p.n > 0);
     if (S.frame - S.damAt > 60 * 60) { S.damAt = S.frame; for (const d of S.dams) if (d.logs > 0 && d.river) { d.logs--; setLevel(h, d.river); } }
     for (const t of S.trees) if (!t.alive && --t.regrow <= 0) { t.alive = true; t.grow = 0.15; }
   }
@@ -1693,6 +1740,17 @@
     // (stones round its foot)
     for (let j = 0; j < 7; j++) { c.fillStyle = ["#8a8580", "#a39e98", "#6f6a66"][j % 3]; c.beginPath(); c.ellipse(cx - W + (j + 0.5) * W * 2 / 7, by - s * 0.08, s * (0.18 + 0.1 * r(j + 3000)), s * 0.12, 0, 0, 7); c.fill(); }
   }
+  // a pile of logs, their cut ends to us, stacked in rows, each row one fewer, as many as are left: bark round each, the pale
+  // wood, its rings
+  function drawPile(p, x, y) {
+    const c = ctx, s = T, rad = 0.25 * s; let base = 1; while (base * (base + 1) / 2 < p.max) base++;
+    let k = 0;
+    for (let row = 0; row < base && k < p.n; row++) for (let j = 0; j < base - row && k < p.n; j++, k++) {
+      const lx = x + (j - (base - row - 1) / 2) * rad * 2.05, ly = y - rad - row * rad * 1.75, rr = rad * (0.9 + 0.15 * ((k * 7 + p.seed) % 5) / 4);
+      c.fillStyle = "#4a3020"; c.beginPath(); c.arc(lx, ly, rr, 0, 7); c.fill(); c.fillStyle = "#d9b98a"; c.beginPath(); c.arc(lx, ly, rr * 0.8, 0, 7); c.fill();
+      c.strokeStyle = "rgba(140,95,50,0.55)"; c.lineWidth = Math.max(1, s / 40); c.beginPath(); c.arc(lx, ly, rr * 0.5, 0, 7); c.stroke(); c.beginPath(); c.arc(lx, ly, rr * 0.25, 0, 7); c.stroke();
+      c.fillStyle = "rgba(255,240,215,0.25)"; c.beginPath(); c.arc(lx - rr * 0.25, ly - rr * 0.25, rr * 0.3, 0, 7); c.fill(); }
+  }
   function drawBeaver(B, x, y, swimming) {
     const c = ctx, s = T, f = B.b.face || 1, job = B.b.job;
     if (job === 0) return;   // (in the lodge, resting: drawn there, drawLodge)
@@ -1705,7 +1763,8 @@
     c.fillStyle = "#fde68a"; c.fillRect(0.5 * s, -0.36 * s + bob, 0.06 * s, 0.08 * s);
     c.fillStyle = "#5a3a1e"; c.beginPath(); c.arc(0.28 * s, -0.58 * s + bob, 0.06 * s, 0, 7); c.fill();
     if (!swimming) { c.fillStyle = "#5a3a1e"; c.fillRect(-0.2 * s, -0.1 * s, 0.1 * s, 0.12 * s); c.fillRect(0.2 * s, -0.1 * s, 0.1 * s, 0.12 * s); }
-    if (job === 3) { c.fillStyle = "#8b5a2b"; c.beginPath(); c.roundRect(-1.4 * s, -0.55 * s, 1.9 * s, 0.22 * s, 0.1 * s); c.fill(); c.fillStyle = "#d9b98a"; c.beginPath(); c.ellipse(-1.4 * s, -0.44 * s, 0.06 * s, 0.11 * s, 0, 0, 7); c.fill(); }
+    if (job === 3) { c.fillStyle = "#6b4a2b"; c.beginPath(); c.roundRect(-1.05 * s, -0.56 * s, 1.15 * s, 0.26 * s, 0.12 * s); c.fill(); c.strokeStyle = "rgba(0,0,0,0.25)"; c.lineWidth = Math.max(1, s / 30); c.beginPath(); c.moveTo(-0.95 * s, -0.47 * s); c.lineTo(0, -0.47 * s); c.moveTo(-0.9 * s, -0.38 * s); c.lineTo(-0.1 * s, -0.38 * s); c.stroke();
+      c.fillStyle = "#d9b98a"; c.beginPath(); c.ellipse(-1.05 * s, -0.43 * s, 0.07 * s, 0.13 * s, 0, 0, 7); c.fill(); c.strokeStyle = "rgba(120,80,40,0.6)"; c.beginPath(); c.ellipse(-1.05 * s, -0.43 * s, 0.035 * s, 0.07 * s, 0, 0, 7); c.stroke(); }
     c.restore();
   }
   function draw() {
@@ -1732,10 +1791,11 @@
       ctx.fillStyle = "rgba(255,255,255,0.75)"; ctx.beginPath(); ctx.ellipse(((x % (W + 400)) + W + 400) % (W + 400) - 200, y, s * 1.6, s * 0.45, 0, 0, 7); ctx.fill(); }
     ctx.save(); ctx.translate(-camX * s, -camY * s);
     // above the land: the trees, bushes and mushrooms (painted once, sprites), then the great trees over them
-    for (const t of S.trees) if (t.x >= c0 - 9 && t.x <= c1 + 9) drawTree(t, (t.x + 0.5) * s, surf0[t.x] * s);
-    for (const b of S.bushes) if (b.x >= c0 - 2 && b.x <= c1 + 2) drawSwaying(bushSprite(b), (b.x + 0.5) * s, surf0[b.x] * s, 1, sway(b.x * 3, 1.4));
-    for (const m of S.shrooms) if (m.x >= c0 - 1 && m.x <= c1 + 1) drawShroom(m, (m.x + 0.5) * s, surf0[m.x] * s);
-    for (const f of S.flowers) if (f.x >= c0 - 1 && f.x <= c1 + 1 && top[f.x] >= surf0[f.x]) drawFlowers(f, (f.x + 0.5) * s, surf0[f.x] * s, now);
+    for (const t of S.trees) if (t.x >= c0 - 9 && t.x <= c1 + 9) drawTree(t, (t.x + 0.5) * s, landY(t.x) * s);
+    for (const b of S.bushes) if (b.x >= c0 - 2 && b.x <= c1 + 2) drawSwaying(bushSprite(b), (b.x + 0.5) * s, landY(b.x) * s, 1, sway(b.x * 3, 1.4));
+    for (const m of S.shrooms) if (m.x >= c0 - 1 && m.x <= c1 + 1) drawShroom(m, (m.x + 0.5) * s, landY(m.x) * s);
+    for (const p of S.piles) if (p.x >= c0 - 2 && p.x <= c1 + 2) drawPile(p, (p.x + 0.5) * s, landY(p.x) * s);
+    for (const f of S.flowers) if (f.x >= c0 - 1 && f.x <= c1 + 1 && top[f.x] >= surf0[f.x]) drawFlowers(f, (f.x + 0.5) * s, landY(f.x) * s, now);
     for (const G of S.greats) { if (G.x + 22 < c0 || G.x - 22 > c1) continue; const x = (G.x + 0.5) * s, y = G.foot * s;
       drawSwaying(greatSprite(G), x, y, 1, sway(G.v, 0.18));
       if (G.kind === 31) {   // (the stair inside: the trunk cut away, a winding stair round a post, a door to each limb)
@@ -1756,7 +1816,8 @@
     const dk = new Path2D(), lt = new Path2D(), ln = new Path2D(), sp = Math.max(1, s * 0.08);
     for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) { const m = mat[at(c, r)]; if (m < SOIL || m > GRANITE) continue;
       const x = c * s, y = r * s, hsh = (c * 73 + r * 151) % 97;
-      ctx.fillStyle = groundCol(m, r - surf0[c]); ctx.fillRect(x, y, s + 0.5, s + 0.5);
+      ctx.fillStyle = groundCol(m, r - surf0[c]); const sk = shape[at(c, r)]; if (sk) { slopeTri(ctx, x, y, s, sk); ctx.fill(); ctx.strokeStyle = "rgba(0,0,0,0.12)"; ctx.lineWidth = Math.max(1, s * 0.03); ctx.beginPath(); if (sk === 1) { ctx.moveTo(x, y + s); ctx.lineTo(x + s, y); } else { ctx.moveTo(x, y); ctx.lineTo(x + s, y + s); } ctx.stroke(); continue; }
+      ctx.fillRect(x, y, s + 0.5, s + 0.5);
       dk.rect(x + s * (0.15 + (hsh % 5) * 0.03), y + s * 0.3, sp, sp); dk.rect(x + s * 0.65, y + s * (0.6 + (hsh % 3) * 0.08), sp, sp);
       if (m === SAND) { lt.rect(x + s * 0.4, y + s * 0.15, sp * 1.3, sp); dk.rect(x + s * 0.8, y + s * 0.45, sp * 1.2, sp * 1.2); lt.rect(x + s * 0.25, y + s * 0.75, sp, sp); }
       else if (m === SSTONE) lt.rect(x, y + s * (0.2 + (hsh % 6) * 0.1), s, Math.max(1, s * 0.04));
@@ -1799,12 +1860,13 @@
     // on the ground: grass along the land, the water in it (blue, darker the fuller), gems, a digging's cracks
     const dc = g.dt > 0 ? g.dc : -1, dr = g.dr;
     for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) { const i = at(c, r), m = mat[i]; if (m === AIR) continue;
-      if (r === top[c] && r <= surf0[c] + 1 && m <= SSTONE) { ctx.fillStyle = "#4d7c0f"; ctx.fillRect(c * s, r * s - s * 0.04, s + 0.5, s * 0.14);
+      if (r === top[c] && r <= surf0[c] + 1 && m <= SSTONE) { const sk = shape[i], gy0 = j => r * s + (sk === 1 ? s - (j + 0.3) * s / 7 : sk === 2 ? (j + 0.3) * s / 7 : 0);
+        ctx.fillStyle = "#4d7c0f"; if (sk) { ctx.strokeStyle = "#4d7c0f"; ctx.lineWidth = s * 0.14; ctx.beginPath(); ctx.moveTo(c * s, r * s + (sk === 1 ? s : 0)); ctx.lineTo(c * s + s, r * s + (sk === 1 ? 0 : s)); ctx.stroke(); } else ctx.fillRect(c * s, r * s - s * 0.04, s + 0.5, s * 0.14);
         ctx.strokeStyle = "#65a30d"; ctx.lineWidth = Math.max(1, s * 0.035); ctx.beginPath();
         const gw = S.windNow || 0, gt = now / (520 - 200 * Math.min(1, Math.abs(gw)));
-        for (let j = 0; j < 7; j++) { const bx = c * s + (j + 0.3) * s / 7, bh = s * (0.1 + ((c * 7 + j * 13) % 5) * 0.035), bend = gw * 0.7 + (0.15 + 0.4 * Math.abs(gw)) * Math.sin(gt + c * 0.9 + j * 1.3);
-          ctx.moveTo(bx, r * s); ctx.quadraticCurveTo(bx + bend * bh * 0.2, r * s - bh * 0.6, bx + s * 0.03 * (((c + j) % 3) - 1) + bend * bh * 0.7, r * s - bh * (1 - 0.25 * Math.abs(bend))); } ctx.stroke(); }
-      const w0 = wat[i]; if (PORES[m] > 0 && w0 > 0.05) { ctx.fillStyle = `rgba(37,99,235,${(0.03 + 0.2 * w0 * w0).toFixed(3)})`; ctx.fillRect(c * s, r * s, s + 0.5, s + 0.5);
+        for (let j = 0; j < 7; j++) { const bx = c * s + (j + 0.3) * s / 7, by = gy0(j), bh = s * (0.1 + ((c * 7 + j * 13) % 5) * 0.035), bend = gw * 0.7 + (0.15 + 0.4 * Math.abs(gw)) * Math.sin(gt + c * 0.9 + j * 1.3);
+          ctx.moveTo(bx, by); ctx.quadraticCurveTo(bx + bend * bh * 0.2, by - bh * 0.6, bx + s * 0.03 * (((c + j) % 3) - 1) + bend * bh * 0.7, by - bh * (1 - 0.25 * Math.abs(bend))); } ctx.stroke(); }
+      const w0 = wat[i]; if (PORES[m] > 0 && w0 > 0.05) { ctx.fillStyle = `rgba(37,99,235,${(0.03 + 0.2 * w0 * w0).toFixed(3)})`; if (shape[i]) { slopeTri(ctx, c * s, r * s, s, shape[i]); ctx.fill(); } else ctx.fillRect(c * s, r * s, s + 0.5, s + 0.5);
         if (w0 > 0.95 && ((c * 7 + r * 3 + (S.frame >> 4)) % 11 === 0)) { ctx.fillStyle = "rgba(200,230,255,0.45)"; ctx.fillRect(c * s + s * 0.4, r * s + s * 0.4, s * 0.1, s * 0.1); } }
       if (gem[i]) { const tw = 0.5 + 0.5 * Math.sin(now / 300 + c + r); ctx.fillStyle = GEMS[gem[i]]; ctx.beginPath(); ctx.moveTo(c * s + s * 0.5, r * s + s * 0.2); ctx.lineTo(c * s + s * 0.78, r * s + s * 0.45); ctx.lineTo(c * s + s * 0.5, r * s + s * 0.8); ctx.lineTo(c * s + s * 0.22, r * s + s * 0.45); ctx.fill();
         ctx.fillStyle = `rgba(255,255,255,${(0.4 + 0.5 * tw).toFixed(2)})`; ctx.fillRect(c * s + s * 0.42, r * s + s * 0.32, s * 0.1, s * 0.1); }
@@ -1845,7 +1907,7 @@
       for (let k = 0; k < R.w; k++) { const c = R.x + k; for (let rr = R.bed[k] - 1; rr >= R.level - 0.5; rr -= 0.5) { ctx.fillStyle = (k + Math.floor(rr * 2)) % 2 ? "#7a5230" : "#8b6040"; ctx.beginPath(); ctx.roundRect(c * s - 0.05 * s, rr * s, s * 1.1, 0.46 * s, 0.2 * s); ctx.fill(); } }
       ctx.globalAlpha = 1; ctx.strokeStyle = "#5e3d22"; ctx.lineWidth = Math.max(1, s / 10); for (let k = 0; k < R.w * 2; k++) { const x = (R.x + k / 2) * s; ctx.beginPath(); ctx.moveTo(x, (R.level - 0.4) * s); ctx.lineTo(x + 0.3 * s, (R.level - 0.9 - (k % 3) * 0.2) * s); ctx.stroke(); } }
     // the beavers, the boulders, the diving gear, the gnome, the dirt flying
-    for (const B of S.beavers) { const c = Math.floor(B.px), R = riverAt(c + 0.5), y = R ? R.level + 0.35 : surf0[Math.max(0, Math.min(WW - 1, c))]; B.py = B.py ? B.py + (y - B.py) * 0.25 : y; if (c < c0 - 3 || c > c1 + 3) continue; drawBeaver(B, (B.px + 0.5) * s, B.py * s, !!R); }
+    for (const B of S.beavers) { const c = Math.floor(B.px), R = riverAt(c + 0.5), y = R ? R.level + 0.35 : landY(Math.max(0, Math.min(WW - 1, c))); B.py = B.py ? B.py + (y - B.py) * 0.25 : y; if (c < c0 - 3 || c > c1 + 3) continue; drawBeaver(B, (B.px + 0.5) * s, B.py * s, !!R); }
     for (const b of S.boulders) { if (b.c < c0 - 1 || b.c > c1 + 1 || b.r < r0 - 1 || b.r > r1 + 1) continue; const sh = b.wob > 0 ? Math.sin(now / 30) * 0.05 * s : 0, x = (b.c + 0.5) * s + sh, y = (b.r + b.oy + 0.5) * s;
       ctx.fillStyle = "#7d7b78"; ctx.beginPath(); ctx.ellipse(x, y + 0.04 * s, 0.47 * s, 0.44 * s, 0, 0, 7); ctx.fill(); ctx.fillStyle = "#a8a5a0"; ctx.beginPath(); ctx.ellipse(x - 0.12 * s, y - 0.12 * s, 0.22 * s, 0.16 * s, -0.4, 0, 7); ctx.fill(); }
     // (Matthew: "the items themselves need more emph in the game") each thing to be found: on a golden halo, pulsing, sparkles
@@ -1889,7 +1951,13 @@
     if (dugN) { ctx.save(); ctx.clip(dugPath); strokeLines(ctx, sets, "rgba(5,2,1,0.45)", 1.05, s * 0.05, s * 0.07, 5, false, s); strokeLines(ctx, sets, "#5b3a22", 1, 0, 0, 5, false, s);
       strokeLines(ctx, sets, "#8a6440", 0.35, -s * 0.012, -s * 0.012, 5, false, s); ctx.restore(); }
     // the water in the open (rivers, caves, tunnels flooded): over everything in it, so what is under it shows through, bluer
-    for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) { const i = at(c, r); if (mat[i] !== AIR) continue; const w0 = wat[i]; if (w0 < 0.03) continue;
+    for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) { const i = at(c, r);
+      if (shape[i]) { const nc = shape[i] === 1 ? c - 1 : c + 1, nb = inside(nc, r) ? at(nc, r) : -1, up = r > 0 ? at(c, r - 1) : -1;
+        const full = up >= 0 && mat[up] === AIR && wat[up] > 0.5, hgt = full ? 1 : nb >= 0 && mat[nb] === AIR ? Math.min(1, wat[nb]) : 0;
+        if (hgt > 0.03) { ctx.save(); ctx.beginPath(); if (shape[i] === 1) { ctx.moveTo(c * s, r * s); ctx.lineTo(c * s + s, r * s); ctx.lineTo(c * s, r * s + s); } else { ctx.moveTo(c * s, r * s); ctx.lineTo(c * s + s, r * s); ctx.lineTo(c * s + s, r * s + s); } ctx.closePath(); ctx.clip();
+          ctx.fillStyle = "rgba(40,120,210,0.45)"; ctx.fillRect(c * s, (r + 1 - hgt) * s, s + 0.5, hgt * s + 0.5); ctx.restore(); }
+        continue; }
+      if (mat[i] !== AIR) continue; const w0 = wat[i]; if (w0 < 0.03) continue;
       const above = r > 0 && mat[at(c, r - 1)] === AIR && wat[at(c, r - 1)] > 0.5, hgt = above ? 1 : Math.min(1, w0);
       if (above) { ctx.fillStyle = "rgba(40,120,210,0.45)"; ctx.fillRect(c * s, r * s, s, s + 0.5); continue; }
       // (the surface: waves, higher and quicker the stronger the wind, running the way it blows; white caps in a strong wind)
@@ -2025,7 +2093,7 @@
   requestAnimationFrame(frame);
 
   // ---- the keys and the buttons
-  const KEYS = { ArrowLeft: "left", a: "left", A: "left", ArrowRight: "right", d: "right", D: "right", ArrowUp: "up", w: "up", W: "up", z: "up", Z: "up", ArrowDown: "down", s: "down", S: "down" };
+  const KEYS = { ArrowLeft: "left", a: "left", A: "left", ArrowRight: "right", d: "right", D: "right", ArrowUp: "up", w: "up", W: "up", z: "up", Z: "up", ArrowDown: "down", s: "down", S: "down", x: "dig", X: "dig" };
   const typing = e => /^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName) && e.target.type !== "checkbox";
   addEventListener("keydown", e => {
     if (typing(e)) return;
@@ -2127,7 +2195,7 @@
       return { data: { step: +ms.toFixed(4) }, text: [`a step of the gnome through Hazel: ${ms.toFixed(3)} ms`] };
     },
   });
-  if (Q.has("test")) window.WorldTest = { BOT, botPlan, dist, botEnter, botStand, botClimb, profile: gnomeProfile, front: gnome, map: () => { minimap(); return map2Cv; }, look: (x, y) => { S.camFix = x == null ? null : { x, y }; draw(); }, paintHouse, paintSmallHouse, squirrelBody, S, tick: n => { const h = H(); for (let i = 0; i < n; i++) tick(h); draw(); }, draw, near, code, at, mat, wat, fix, bg, stone, digOut, tile: () => T, drawPebbles };
+  if (Q.has("test")) window.WorldTest = { BOT, botPlan, dist, botEnter, botStand, botClimb, profile: gnomeProfile, front: gnome, map: () => { minimap(); return map2Cv; }, look: (x, y) => { S.camFix = x == null ? null : { x, y }; draw(); }, paintHouse, paintSmallHouse, squirrelBody, S, tick: n => { const h = H(); for (let i = 0; i < n; i++) tick(h); draw(); }, draw, near, code, at, mat, wat, fix, bg, stone, shape, surf0, treeMask, digOut, tile: () => T, drawPebbles };
   document.body.classList.add("js");
   draw();
 })();

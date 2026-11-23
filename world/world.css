@@ -8,7 +8,7 @@
 .gw-wrap { position: relative; }
 .gw-wrap canvas { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; border-radius: 14px; touch-action: none; background: #8cc4ec;
   box-shadow: 0 2px 12px rgb(0 0 0 / 0.25); -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
-.gw-pad { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; max-width: 380px; margin: 10px auto 0; }
+.gw-pad { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; max-width: 440px; margin: 10px auto 0; }
 .gw-pad button { font: inherit; font-size: 1.5em; padding: 10px 0; border-radius: 12px; border: 1px solid var(--line); background: var(--paper); color: var(--ink);
   touch-action: none; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
 .gw-pad button.held { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 20%, var(--paper)); }
@@ -23,5 +23,6 @@ html.oracle-fs .gw-ui .gw-pad button[data-k="left"] { order: 1; }
 html.oracle-fs .gw-ui .gw-pad button[data-k="right"] { order: 2; margin-right: auto; margin-left: 8px; }
 html.oracle-fs .gw-ui .gw-pad button[data-k="down"] { order: 3; margin-right: 8px; }
 html.oracle-fs .gw-ui .gw-pad button[data-k="up"] { order: 5; }
+html.oracle-fs .gw-ui .gw-pad button[data-k="dig"] { order: 4; margin-right: 8px; }
 html.oracle-fs .gw-ui .gw-pad button#build { order: 4; margin-right: 8px; }
 @media (hover: hover) and (pointer: fine) { html.oracle-fs .gw-ui .gw-pad { display: none; } }

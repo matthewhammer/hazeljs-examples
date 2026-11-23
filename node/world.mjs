@@ -48,21 +48,24 @@ console.log("styles:", G.styles.map(s => s.latin).join(", "));
 // the beavers: a lodge at 250, its dam at 240, trees at 230, 262 and 300 (too far)
 let trees = [230, 262, 300], bs = [0, 1].map(i => ({ x: 25000, face: 1, job: 0, t: i * 5, tree: -1, lodge: 250, dam: 240, felled: -1, laid: false }));
 let felled = 0, laid = 0; const tb = performance.now(); let calls = 0;
-for (let n = 0; n < 900; n++) bs = bs.map(b => { calls++; const b2 = G.beaver(b, trees);
-  if (b2.felled >= 0) { felled++; trees = trees.filter(t => t !== b2.felled); }
+// (the piles of logs, as the page keeps them: a felled tree a pile of six where it fell; a beaver starting to drag takes one)
+const piles = new Map();
+for (let n = 0; n < 900; n++) bs = bs.map(b => { calls++; const b2 = G.beaver(b, trees, [...piles.keys()]);
+  if (b2.felled >= 0) { felled++; trees = trees.filter(t => t !== b2.felled); piles.set(b2.felled, 6); }
+  if (b2.job === 3 && b.job !== 3 && piles.has(b2.tree)) { const k = piles.get(b2.tree) - 1; if (k > 0) piles.set(b2.tree, k); else piles.delete(b2.tree); }
   if (b2.laid) laid++;
   if (Math.abs(b2.x - b.x) > 30) bad(`a beaver jumped ${b.x} -> ${b2.x}`);
   return b2; });
 console.log(`beavers: ${felled} trees felled, ${laid} logs laid, ${((performance.now() - tb) / calls).toFixed(2)} ms a step; trees left ${trees}`);
-if (felled !== 2 || laid !== 2) bad(`beavers felled ${felled} and laid ${laid}, not 2 and 2`);
+if (felled < 1 || laid < 2 * felled) bad(`beavers felled ${felled} and laid ${laid}: not several logs a tree`);
 if (G.water_row(40, 36, 0) !== 40 || G.water_row(40, 36, 9) !== 37 || G.water_row(40, 36, 30) !== 37) bad("water_row");
 // the gnome on a patch of ground: soil from row 50 down, a pool of water (columns 20 to 27, rows 47 to 49, in a dip of the soil),
 // a ladder at column 12 from row 40 to 49
 const T = (c, r) => { if (c >= 20 && c <= 27) return r >= 50 ? 1 : r >= 47 ? 16 : 0; if (c === 12 && r >= 40 && r < 50) return 32; return r >= 50 ? 1 : (c >= 19 && c <= 28 && r >= 47 ? 1 : 0); };
-const near = g => { const cx = Math.floor(g.x / 1000), cy = Math.floor((g.y - 1) / 1000), row = r => T(cx - 1, r) + 128 * T(cx, r) + 16384 * T(cx + 1, r);
+const near = g => { const cx = Math.floor(g.x / 1000), cy = Math.floor((g.y - 1) / 1000), row = r => T(cx - 1, r) + 512 * T(cx, r) + 262144 * T(cx + 1, r);
   return { cx, cy, r0: row(cy - 3), r1: row(cy - 2), r2: row(cy - 1), r3: row(cy), r4: row(cy + 1) }; };
 const gnome0 = { x: 5500, y: 50000, vx: 0, vy: 0, face: 1, ground: true, climb: false, swim: false, under: false, air: 600, gear: false, dc: -1, dr: -1, dt: 0, ev: 0 };
-const pad = (dx = 0, up = false, down = false, jump = false) => ({ dx, up, down, jump });
+const pad = (dx = 0, up = false, down = false, jump = false, dig = false) => ({ dx, up, down, jump, dig });
 const run = (S, g, n, p, each) => { for (let i = 0; i < n; i++) { g = S(g, near(g), typeof p === "function" ? p(i) : p); if (each) each(g, i); } return g; };
 const checkGnome = (S, who) => {
   let g = run(S, gnome0, 10, pad());
@@ -94,12 +97,29 @@ const checkGnome = (S, who) => {
   // held: eased into column 30, it climbs, digging the soil over its head
   { const T0 = T; let dugUp = 0;
     const T2 = (c, r) => (r === 49 && c >= 29 && c <= 31) ? 32 : (c === 30 && r >= 45 && r < 49) ? 32 : r >= 40 && c >= 25 && c <= 35 ? 1 : T0(c, r);
-    const near2 = g => { const cx = Math.floor(g.x / 1000), cy = Math.floor((g.y - 1) / 1000), row = r => T2(cx - 1, r) + 128 * T2(cx, r) + 16384 * T2(cx + 1, r);
+    const near2 = g => { const cx = Math.floor(g.x / 1000), cy = Math.floor((g.y - 1) / 1000), row = r => T2(cx - 1, r) + 512 * T2(cx, r) + 262144 * T2(cx + 1, r);
       return { cx, cy, r0: row(cy - 3), r1: row(cy - 2), r2: row(cy - 1), r3: row(cy), r4: row(cy + 1) }; };
     let q = { ...gnome0, x: 30900, y: 50000 };
     for (let i = 0; i < 200; i++) { q = S(q, near2(q), pad(0, true)); if (q.ev === 1) dugUp++; }
     console.log(`${who}: up a shaft from x 30.9: x ${q.x} y ${q.y}, tiles dug ${dugUp}`);
     if (q.y > 46000 || Math.abs(q.x - 30500) > 60 || !dugUp) bad(`${who}: the shaft: x ${q.x} y ${q.y}`); }
+  // (Matthew: "let's also do sloped banks, like Mario 3") a hill: flat at row 50, up a slope one tile a column (columns 41 to 44,
+  // sloped tiles sloping up to the east) to a top at row 46, and down the other side (columns 48 to 51, sloping up to the west)
+  { const top3 = c => c <= 40 ? 50 : c <= 44 ? 50 - (c - 40) : c <= 48 ? 46 : c <= 52 ? 46 + (c - 48) : 50, sh3 = c => c >= 41 && c <= 44 ? 1 : c >= 48 && c <= 51 ? 2 : 0;
+    const T3 = (c, r) => r > top3(c) ? 1 : r === top3(c) ? 1 + 64 * sh3(c) : 0;
+    const near3 = g => { const cx = Math.floor(g.x / 1000), cy = Math.floor((g.y - 1) / 1000), row = r => T3(cx - 1, r) + 512 * T3(cx, r) + 262144 * T3(cx + 1, r);
+      return { cx, cy, r0: row(cy - 3), r1: row(cy - 2), r2: row(cy - 1), r3: row(cy), r4: row(cy + 1) }; };
+    let q = { ...gnome0, x: 38500, y: 50000 }, hi = 1e9, stuck = 0, offGround = 0;
+    for (let i = 0; i < 260; i++) { const x0 = q.x; q = S(q, near3(q), pad(1)); hi = Math.min(hi, q.y); if (q.x === x0 && q.x < 56000) stuck++; if (!q.ground) offGround++; }
+    console.log(`${who}: over the hill: x ${q.x} y ${q.y}, highest ${hi}, steps stuck ${stuck}, steps off the ground ${offGround}`);
+    if (q.x < 56000 || q.y !== 50000 || hi > 46100 || hi < 45900 || stuck > 0 || offGround > 3) bad(`${who}: over the hill`);
+    // down, standing on a slope: digs the sloped tile; the dig button, standing on the flat facing it: digs the sloped tile ahead
+    let d = { ...gnome0, x: 42500, y: 48500 }; d = S(d, near3(d), pad()); let dd = null;
+    for (let i = 0; i < 40 && !dd; i++) { d = S(d, near3(d), pad(0, false, true)); if (d.ev === 1) dd = [d.dc, d.dr]; }
+    let e = { ...gnome0, x: 40500, y: 50000 }, ed = null; const ex = e.x;
+    for (let i = 0; i < 40 && !ed; i++) { e = S(e, near3(e), pad(0, false, false, false, true)); if (e.ev === 1) ed = [e.dc, e.dr]; }
+    console.log(`${who}: down on the slope dug ${dd}; the dig button dug ${ed}, x ${ex} -> ${e.x}`);
+    if (String(dd) !== "42,48" || String(ed) !== "41,49" || Math.abs(e.x - ex) > 5) bad(`${who}: digging slopes`); }
   const t = performance.now(); run(S, gnome0, 300, i => pad(i % 50 < 25 ? 1 : -1, i % 40 === 0, false, i % 40 === 0));
   console.log(`${who}: a step ${((performance.now() - t) / 300).toFixed(3)} ms`);
 };
@@ -111,7 +131,7 @@ if (Hazel.jitProgram) {
   if (J.compiled) {
     checkGnome(J.value.step, "jit");
     let a = gnome0, b = gnome0, diff = 0;
-    for (let i = 0; i < 400; i++) { const p = pad(i % 70 < 35 ? 1 : -1, i % 30 < 10, i % 90 > 80, i % 30 === 0); a = G.step(a, near(a), p); b = J.value.step(b, near(b), p);
+    for (let i = 0; i < 400; i++) { const p = pad(i % 70 < 35 ? 1 : -1, i % 30 < 10, i % 90 > 80, i % 30 === 0, i % 110 > 100); a = G.step(a, near(a), p); b = J.value.step(b, near(b), p);
       if (JSON.stringify(a) !== JSON.stringify(b)) { diff++; if (diff < 3) console.log("jit differs at", i, JSON.stringify(a), JSON.stringify(b)); a = b; } }
     if (diff) bad(`the jit's step differs from the interpreter's ${diff} times`);
     const tp = performance.now(); J.value.plan(7); console.log(`jit: plan ${(performance.now() - tp).toFixed(1)} ms`);
