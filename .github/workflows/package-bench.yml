@@ -35,8 +35,6 @@ jobs:
           { nproc; grep -m1 'model name' /proc/cpuinfo; node --version; } | tee bench/${{ matrix.game }}-machine.txt
           cp -r hazeljs-pkg hazeljs-cells && curl -fsSL -A "Mozilla/5.0" "$CELLS_URL" -o hazeljs-cells/hazel-lib.js
           cp -r hazeljs-pkg hazeljs-hybrid && curl -fsSL -A "Mozilla/5.0" "$HYBRID_URL" -o hazeljs-hybrid/hazel-lib.js
-          grep -o '[0-9a-f]\{40\}' hazeljs-cells/hazel-lib.js | grep -v '^0000' | head -1 | tee bench/cells-commit.txt
-          grep -o '[0-9a-f]\{40\}' hazeljs-hybrid/hazel-lib.js | grep -v '^0000' | head -1 | tee bench/hybrid-commit.txt
       - name: Cells, then the hybrid
         run: |
           ulimit -s unlimited || ulimit -s 65536
