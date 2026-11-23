@@ -2,6 +2,10 @@
 
 Each version lists what the apps do as of that version. The newest version is first.
 
+## 0.0.81 (2026-11-23)
+
+- **Gnome world: the trees and tree houses on the world map** (Matthew: "foreground trees and tree houses do not appear in the overview map HUD"; "the overview map should not use ovals for tree pads. Use triangles, if you must"; "arrays of triangles"). Over the map's tiles, on a layer two pixels a tile: each tree's crown as an array of triangles, its pads (a leafy tree's stacked three, two, one; a pine's tiers; a willow's dome with its tassels hanging as narrow triangles), and its trunk, or a felled tree's stump; each great tree's crown in rows of pads, more over each house, its trunk, limbs and ladder or stair; each tree house, its walls, roof and door in its own colors; and the ladders, platforms, bridges and planks.
+
 ## 0.0.80 (2026-11-23)
 
 - **Gnome world: building out of a pit** (Matthew: "I should be able to build a bridge out of any pit"): 🪵, or B. Standing at the edge of a pit or of the water, a plank is laid ahead at the gnome's own level, a bridge across, a plank a press; in a pit, or in its water, a ladder goes up the gnome's own column, two rungs a press, to climb out by. In the water, up held on a ladder climbs it.

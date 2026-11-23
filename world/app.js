@@ -1114,14 +1114,49 @@
   function darkImg(w, h) { if (darkCv.width !== w || darkCv.height !== h || !darkData) { darkCv.width = w; darkCv.height = h; darkData = darkCtx.createImageData(w, h); } return darkData; }
   // ---- the words over the picture: the hearts, the gems, how deep or how high, the place; a banner; and the map of the world
   const mapCv = document.createElement("canvas"); mapCv.width = WW; mapCv.height = WH; const mapCtx = mapCv.getContext("2d"); const mapImg = mapCtx.createImageData(WW, WH);
+  const map2Cv = document.createElement("canvas"); map2Cv.width = WW * 2; map2Cv.height = WH * 2; const map2Ctx = map2Cv.getContext("2d");
   const MAPCOL = [[0, 0, 0], [122, 74, 36], [160, 99, 74], [194, 163, 107], [200, 135, 90], [91, 95, 102], [207, 202, 184], [138, 133, 136], [156, 143, 128], [139, 90, 43]];
   function minimap() {
     const d = mapImg.data;
     for (let r = 0; r < WH; r++) for (let c = 0; c < WW; c++) { const i = at(c, r), o = i * 4, m = mat[i]; let col;
       if (m === AIR) col = wat[i] > 0.5 ? [50, 110, 200] : r < surf0[c] ? [150, 200, 235] : bg[i] === B_PLASTER || bg[i] === B_WOOD ? [230, 200, 140] : bg[i] === B_STAIR ? [120, 110, 100] : [60, 40, 28];
       else { col = MAPCOL[m]; if (PORES[m] > 0 && wat[i] > 0.6) col = [col[0] * 0.6, col[1] * 0.7, col[2] * 0.6 + 80]; if (gem[i]) col = [255, 255, 255]; }
+      if (m === AIR && fix[i] && fix[i] !== F_DOOR) col = fix[i] === F_LADDER || fix[i] === F_STAIR ? [196, 150, 95] : [139, 94, 52];   // (ladders, the stair, platforms, bridges, planks)
       d[o] = col[0]; d[o + 1] = col[1]; d[o + 2] = col[2]; d[o + 3] = 255; }
     mapCtx.putImageData(mapImg, 0, 0);
+    // (Matthew: "foreground trees and tree houses do not appear in the overview map HUD"; "the overview map should not use ovals
+    // for tree pads. Use triangles, if you must"; "arrays of triangles") Over the tiles, on a layer two pixels a tile: each
+    // tree's crown as an array of triangles, its pads (a leafy tree's stacked three, two, one, low and wide; a pine's tiers; a
+    // willow's dome, its tassels hanging as narrow triangles), its trunk (a felled tree, its stump); each great tree's crown in
+    // rows of pads, more over each house, its trunk, limbs and ladder; each tree house, its walls and roof in their colors
+    const m = map2Ctx, hex = n => "#" + n.toString(16).padStart(6, "0");
+    m.imageSmoothingEnabled = false; m.clearRect(0, 0, map2Cv.width, map2Cv.height); m.drawImage(mapCv, 0, 0, map2Cv.width, map2Cv.height);
+    m.save(); m.scale(2, 2);
+    const tri = (x0, y0, x1, y1, x2, y2, col) => { m.fillStyle = col; m.beginPath(); m.moveTo(x0, y0); m.lineTo(x1, y1); m.lineTo(x2, y2); m.closePath(); m.fill(); };
+    const pad = (x, y, w, h, col) => tri(x - w / 2, y, x + w / 2, y, x, y - h, col);   // (a pad: a low, wide triangle, its base at y)
+    const LEAF = { 0: ["#285e2a", "#2f7d32", "#47a047"], 2: ["#5a8f2a", "#6aa832", "#93d04a"], 3: ["#6f9228", "#86a83a", "#c2d86a"], 4: ["#5a7820", "#86a92e", "#bcd75a"] };
+    for (const t of S.trees) { const foot = surf0[t.x], cx = t.x + 0.5;
+      if (!t.alive) { m.fillStyle = "#6b4a2b"; m.fillRect(t.x + 0.25, foot - 0.5, 0.5, 0.5); continue; }
+      const h = t.h * (t.tall ? 1.45 : 1) * t.grow;
+      m.fillStyle = t.kind === 2 ? "#e9e4dc" : t.kind === 3 ? "#c9c7b3" : "#6b4a2b"; m.fillRect(cx - 0.25, foot - h * 0.5, 0.5, h * 0.5);
+      if (t.kind === 1) { for (let k = 0; k < 4; k++) { const w = h * (0.62 - 0.12 * k), y = foot - h * (0.18 + 0.2 * k); pad(cx, y, w, h * 0.32, ["#1f5f3a", "#245f34", "#2a6b3c", "#357a46"][k]); } continue; }
+      const C = LEAF[t.kind] || LEAF[0], hw = h * (t.kind === 4 ? 0.62 : t.kind === 0 ? 0.52 : 0.42), cy = foot - h * 0.58, th = h * 0.2;
+      if (t.kind === 4) { for (let j = 0; j < 7; j++) { const x = cx - hw + (j + 0.5) * hw * 2 / 7, y0 = cy - h * 0.05 * Math.cos((j - 3) / 3.5 * 1.4); tri(x - hw / 7, y0, x + hw / 7, y0, x + 0.1, foot - h * (0.06 + 0.08 * (j % 2)), C[j % 2]); } }
+      for (let k = 0; k < 3; k++) { const n = 3 - k, w = hw * 2 / 3 * (1.15 - 0.08 * k), y = cy - k * th * 0.85;
+        for (let j = 0; j < n; j++) pad(n === 1 ? cx : cx - hw * (1 - 0.33 * k) + w / 2 + j * (hw * 2 * (1 - 0.33 * k) - w) / (n - 1), y, w, th, C[k]); } }
+    for (const G of S.greats) { const cx = G.x + 0.5, h = G.h, C = LEAF[0];
+      for (let k = 0; k < 4; k++) { const n = 6 - k, w = h * 0.28, y = G.foot - h * (0.72 + 0.11 * k), half = h * (0.5 - 0.08 * k);
+        for (let j = 0; j < n; j++) pad(cx - half + w / 2 + j * (half * 2 - w) / (n - 1), y, w, h * 0.12, C[(j + k) % 3]); }
+      m.fillStyle = "#6b4a2b"; m.fillRect(G.x - G.half, G.foot - h * 0.78, G.half * 2 + 1, h * 0.78);
+      m.strokeStyle = "#6b4a2b"; m.lineWidth = 0.6;
+      for (const L of G.limbs) { const ex = cx + L.side * (G.half + L.len), y = G.foot - L.y; m.beginPath(); m.moveTo(cx, y + 1.5); m.lineTo(ex, y + 0.4); m.stroke();
+        pad(cx + L.side * (G.half + L.len * 0.55), y - 4.2, 2.6, 1.1, C[1]); pad(cx + L.side * (G.half + L.len * 0.85), y - 4.6, 2.2, 1, C[2]); }
+      m.fillStyle = "#d8b07a"; for (let r = G.foot - G.h; r < G.foot; r++) for (let c = G.x - G.half; c <= G.x + G.half; c++) if (inside(c, r) && (fix[at(c, r)] === F_LADDER || fix[at(c, r)] === F_STAIR)) m.fillRect(c, r, 1, 1); }
+    for (const hs of S.houses) { if (hs.small) { m.fillStyle = "#c0703a"; m.fillRect(hs.x, hs.row - 1, 0.8, 0.8); continue; }
+      const st = S.styles[hs.style % S.styles.length]; if (!st) continue; const x0 = hs.x + 0.5 - 1.9;
+      m.fillStyle = hex(st.walls); m.fillRect(x0, hs.row - 2.5, 3.8, 2.5); tri(x0 - 0.4, hs.row - 2.5, x0 + 4.2, hs.row - 2.5, x0 + 1.9, hs.row - 3.8, hex(st.roofc));
+      m.fillStyle = "#3a2414"; m.fillRect(x0 + 1.6, hs.row - 1.2, 0.6, 1.2); }
+    m.restore();
   }
   function hud(now) {
     const W = cv.width, Hh = cv.height, k = Math.max(1, Math.min(2.2, W / 900)), g = S.g;
@@ -1141,7 +1176,7 @@
     if (S.map && g) {
       if (S.frame - S.minimapAt > 45) { minimap(); S.minimapAt = S.frame; }
       const mw = Math.min(W * 0.3, 340 * k), mh = mw * WH / WW, mx = W - mw - 10 * k, my = 10 * k + (document.documentElement.classList.contains("oracle-fs") ? 40 * k : 0);
-      ctx.globalAlpha = 0.85; ctx.imageSmoothingEnabled = false; ctx.drawImage(mapCv, mx, my, mw, mh); ctx.globalAlpha = 1;
+      ctx.globalAlpha = 0.88; ctx.imageSmoothingEnabled = true; ctx.drawImage(map2Cv, mx, my, mw, mh); ctx.globalAlpha = 1;
       ctx.strokeStyle = "#fff"; ctx.lineWidth = 1.5; ctx.strokeRect(mx + S.cam.x / WW * mw, my + S.cam.y / WH * mh, VW / WW * mw, VH / WH * mh);
       ctx.fillStyle = "#ef4444"; ctx.beginPath(); ctx.arc(mx + gx / WW * mw, my + g.y / 1000 / WH * mh, 3 * k, 0, 7); ctx.fill(); ctx.strokeStyle = "rgba(255,255,255,0.6)"; ctx.strokeRect(mx, my, mw, mh); }
     ctx.restore();
@@ -1262,7 +1297,7 @@
       return { data: { step: +ms.toFixed(4) }, text: [`a step of the gnome through Hazel: ${ms.toFixed(3)} ms`] };
     },
   });
-  if (Q.has("test")) window.WorldTest = { S, tick: n => { const h = H(); for (let i = 0; i < n; i++) tick(h); draw(); }, draw, near, code, at, mat, wat, fix, bg };
+  if (Q.has("test")) window.WorldTest = { map: () => { minimap(); return map2Cv; }, S, tick: n => { const h = H(); for (let i = 0; i < n; i++) tick(h); draw(); }, draw, near, code, at, mat, wat, fix, bg };
   document.body.classList.add("js");
   draw();
 })();
