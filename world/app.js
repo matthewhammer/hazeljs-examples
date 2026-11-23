@@ -1164,6 +1164,36 @@
         if (r(i + 530) < 0.45) padAt(x + (r(i + 540) - 0.5) * u * 1.6, y - u * 0.7, 1.6 + 0.6 * r(i + 550), greens[3 + Math.floor(r(i + 560) * 3)], i * 5 + 700); });
     });
   }
+  // (Matthew: "let's have the ladders run in segments, and move with the tree behind it", "in the wind") A great tree's ladder
+  // is in sections, one from the ground to the first platform and one from each platform up to the next, each a little askew,
+  // lashed to the trunk with rope at its foot and its top, the next starting just below the platform, inside the one before;
+  // and it sways as the tree does, each point pushed across by as much as the tree's picture is at its height. The gnome on it
+  // sways with it
+  function treePush(G, hy) { const B = greatBox(G), v = (B.oy - hy) / B.h; return (1 - v) * (1 - v) * sway(G.v, 0.18) * B.h; }
+  const ladderTree = (c, r) => S.greats.find(G => G.kind === 30 && c === G.x && r < G.foot && r >= G.foot - Math.max(...G.limbs.map(l => l.y)) - 1);
+  function ladderPush(gx, gy, climbing) { if (!climbing) return 0; const G = ladderTree(Math.floor(gx), Math.floor(gy - 0.5)); return G ? treePush(G, G.foot - gy + 0.5) : 0; }
+  function drawTreeLadders(c0, c1, s) {
+    const c = ctx;
+    for (const G of S.greats) { if (G.kind !== 30 || G.x < c0 - 3 || G.x > c1 + 3) continue;
+      const rows = [...new Set(G.limbs.map(l => l.y))].sort((a, b) => a - b), top = rows[rows.length - 1] + 1, stops = [0, ...rows.filter(y => y < top), top], r = seededR(G.v * 3 + 1), cx = G.x + 0.5;
+      for (let k = 0; k + 1 < stops.length; k++) {
+        const h0 = stops[k] - (k ? 0.4 : 0), h1 = stops[k + 1] + 0.3; if (h1 - h0 < 0.6) continue;
+        const skew = (r(k) - 0.5) * 0.18, xb = (cx + skew + treePush(G, h0)) * s, xt = (cx - skew * 0.6 + treePush(G, h1)) * s, yb = (G.foot - h0) * s, yt = (G.foot - h1) * s, hw = 0.3 * s;
+        const at2 = t => [xb + (xt - xb) * t, yb + (yt - yb) * t];
+        // (its shadow on the trunk, its rails, its rungs, a rail's lit edge)
+        c.lineCap = "round"; c.strokeStyle = "rgba(20,12,6,0.35)"; c.lineWidth = 0.1 * s;
+        for (const e of [-1, 1]) { c.beginPath(); c.moveTo(xb + e * hw + 0.07 * s, yb + 0.05 * s); c.lineTo(xt + e * hw + 0.07 * s, yt + 0.05 * s); c.stroke(); }
+        const n = Math.max(2, Math.round((h1 - h0) / 0.34)); c.strokeStyle = "#a0703f"; c.lineWidth = 0.075 * s;
+        for (let j = 0; j < n; j++) { const [x, y] = at2((j + 0.5) / n); c.beginPath(); c.moveTo(x - hw, y); c.lineTo(x + hw, y); c.stroke(); }
+        c.strokeStyle = "#7a4f2a"; c.lineWidth = 0.1 * s; for (const e of [-1, 1]) { c.beginPath(); c.moveTo(xb + e * hw, yb); c.lineTo(xt + e * hw, yt); c.stroke(); }
+        c.strokeStyle = "rgba(255,230,190,0.3)"; c.lineWidth = Math.max(1, 0.025 * s); for (const e of [-1, 1]) { c.beginPath(); c.moveTo(xb + e * hw + 0.03 * s, yb); c.lineTo(xt + e * hw + 0.03 * s, yt); c.stroke(); }
+        // (the rope lashings, at its foot and its top, round each rail and the trunk)
+        c.strokeStyle = "#d8c49a"; c.lineWidth = Math.max(1, 0.03 * s); c.lineCap = "butt";
+        for (const t of [0.06, 0.94]) { const [x, y] = at2(t); for (const e of [-1, 1]) { const rx = x + e * hw; c.beginPath();
+          for (let q = 0; q < 3; q++) { c.moveTo(rx - 0.09 * s, y - 0.07 * s + q * 0.05 * s); c.lineTo(rx + 0.09 * s, y - 0.03 * s + q * 0.05 * s); } c.stroke(); } }
+      }
+    }
+  }
   // (Matthew: "trees should have squirrels running around, and generally avoiding the gnome") Squirrels: three in each great
   // tree, one in each tall one, red or grey. They run along the limbs the tree is drawn with (its crown grown again, in tiles,
   // and laid out as paths: each limb a run of points, its base joined to the limb it grows from), up and down the trunk, out
@@ -1789,9 +1819,10 @@
     for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) if (fix[at(c, r)] === F_DOOR && fix[at(c, r - 1)] !== F_DOOR) { ctx.fillStyle = "#6b4a2b"; ctx.fillRect(c * s, r * s, s, 0.15 * s); ctx.fillRect(c * s, r * s, 0.12 * s, 3 * s); ctx.fillRect(c * s + s - 0.12 * s, r * s, 0.12 * s, 3 * s); }
     // ladders, the stair's steps, platforms, the hatch, rope bridges
     for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) { const f = fix[at(c, r)]; if (!f) continue; const x = c * s, y = r * s;
-      if (f === F_LADDER) { ctx.fillStyle = "#8b5e34"; ctx.fillRect(x + 0.18 * s, y, 0.1 * s, s); ctx.fillRect(x + 0.72 * s, y, 0.1 * s, s); ctx.fillStyle = "#a0703f"; ctx.fillRect(x + 0.18 * s, y + 0.2 * s, 0.64 * s, 0.09 * s); ctx.fillRect(x + 0.18 * s, y + 0.7 * s, 0.64 * s, 0.09 * s); }
+      if (f === F_LADDER) { if (ladderTree(c, r)) continue; ctx.fillStyle = "#8b5e34"; ctx.fillRect(x + 0.18 * s, y, 0.1 * s, s); ctx.fillRect(x + 0.72 * s, y, 0.1 * s, s); ctx.fillStyle = "#a0703f"; ctx.fillRect(x + 0.18 * s, y + 0.2 * s, 0.64 * s, 0.09 * s); ctx.fillRect(x + 0.18 * s, y + 0.7 * s, 0.64 * s, 0.09 * s); }
       else if (f === F_PLAT || f === F_HATCH) { ctx.fillStyle = f === F_HATCH ? "#7a4a28" : "#8b5a2b"; ctx.fillRect(x, y, s, 0.2 * s); ctx.fillStyle = "rgba(0,0,0,0.25)"; ctx.fillRect(x + s * 0.48, y, Math.max(1, s / 20), 0.2 * s); }
       else if (f === F_BRIDGE) { const sag = Math.sin(((c % 7) + 0.5) / 7 * Math.PI) * 0.12 * s; ctx.fillStyle = "#a0703f"; ctx.fillRect(x + 0.05 * s, y + sag, 0.9 * s, 0.14 * s); ctx.strokeStyle = "#d8c49a"; ctx.lineWidth = Math.max(1, s / 20); ctx.beginPath(); ctx.moveTo(x, y - 0.6 * s + sag); ctx.lineTo(x + s, y - 0.6 * s + sag); ctx.moveTo(x + 0.5 * s, y - 0.6 * s + sag); ctx.lineTo(x + 0.5 * s, y + sag); ctx.stroke(); } }
+    drawTreeLadders(c0, c1, s);
     for (const hs of S.houses) if (hs.x > c0 - 4 && hs.x < c1 + 4) drawHouse(hs, (hs.x + 0.5) * s, hs.row * s);
     drawSquirrels(c0, c1);
     // the village's door on the hill: a porch over the hatch; chimneys with smoke, light shafts' glass domes, air shafts' caps
@@ -1844,8 +1875,9 @@
       // "I'm moving laterally but I don't see my profile view", wading along a tunnel he had dug, where the gnome counts as
       // climbing, since it can go any way there) Moving sideways, not pressing up or down, is in profile, climbing or not
       const lateral = (Math.abs(g.vx) > 10 && !(g.climb && (S.keys.up || S.keys.down))) || (!g.climb && !g.ground);
-      if (lateral) gnomeProfile(ctx, gx * s, (g.y / 1000) * s - 0.48 * s, s * 0.98, g.face, Math.abs(g.vx) > 10, g.ground || g.climb, g.vy, now, g.gear, swimPose);
-      else gnome(ctx, gx * s, (g.y / 1000) * s - 0.48 * s, s * 0.98, d, true, moving, now, g.gear, false, true, false, swimPose);
+      const lp = ladderPush(gx, g.y / 1000, g.climb);
+      if (lateral) gnomeProfile(ctx, (gx + lp) * s, (g.y / 1000) * s - 0.48 * s, s * 0.98, g.face, Math.abs(g.vx) > 10, g.ground || g.climb, g.vy, now, g.gear, swimPose);
+      else gnome(ctx, (gx + lp) * s, (g.y / 1000) * s - 0.48 * s, s * 0.98, d, true, moving, now, g.gear, false, true, false, swimPose);
       if (g.under && !g.gear) { for (let j = 0; j < Math.ceil(g.air / 120); j++) { ctx.strokeStyle = g.air < 150 && Math.floor(now / 150) % 2 ? "#ef4444" : "rgba(220,240,255,0.9)"; ctx.lineWidth = Math.max(1, s / 20); ctx.beginPath(); ctx.arc((gx - 0.5 + j * 0.25) * s, (g.y / 1000 - 1.25 - (j % 2) * 0.12) * s, 0.09 * s, 0, 7); ctx.stroke(); } }
       if (g.swim && !g.under) { ctx.strokeStyle = "rgba(255,255,255,0.8)"; ctx.lineWidth = Math.max(1, s / 16); const wl = Math.floor((g.y / 1000 - 0.45)) ; const sx = gx * s, sy = (wl) * s;
         for (const sd of [-1, 1]) { ctx.beginPath(); ctx.arc(sx + sd * (0.45 + (now % 900) / 900 * 0.5) * s, sy, 0.18 * s, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke(); } }

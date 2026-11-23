@@ -2,6 +2,10 @@
 
 Each version lists what the apps do as of that version. The newest version is first.
 
+## 0.0.89 (2026-11-23)
+
+- **Gnome world: the ladders up the great trees, in sections, swaying** (Matthew: "let's have the ladders run in segments, and move with the tree behind it", "in the wind"): a great tree's ladder is in sections: one from the ground to the first platform, then one from each platform up to the next. Each is a little askew, with its shadow on the trunk, lashed to the trunk with rope at its foot and its top; the next starts just below the platform, inside the one before. It sways as the tree does: each point is pushed across by as much as the tree's picture is pushed at that height, so in a gale the top sections lean with the crown. The gnome climbing it sways with it.
+
 ## 0.0.88 (2026-11-23)
 
 - **Gnome world's thumbnail, from its own map** (Matthew: "let's improve the gnome world thumbnail image on the summary page"; "perhaps use the real overview map, trimmed to fit"; "with the gnome char in the foreground, in the lower left corner"): the icon, and so the card on matthewhammer.org/hazel/, is the world's own map (seed 7), the square round the stair tree with its houses, the river and the layers of rock, drawn three times over, pixel for pixel. The gnome stands large before it in the lower left, with his lantern. The favicon is the gnome's corner of it.
