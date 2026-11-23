@@ -136,24 +136,24 @@ let limbs : (Int, Int, Int) -> [Limb] = fun (kind, h, seed) ->
      let pick = md(r / 10, 10) in
      (y = y, side = side, len = 4 + md(r, 5), house = (if pick < 7 then md(hash(seed, i + 50), 16) else if pick < 9 then 100 else 101), bridge = kind == 31 && md(r / 100, 3) != 0) :: go(y + 4 + md(r / 7, 2), 0 - side, i + 1)) in
   go(9, (if md(seed, 2) == 0 then 1 else 0 - 1), 0);
-# The sixteen styles of tree house, gnome-made in the craftsman way: low or steep gables with rafter tails and braces, shingles, divided windows, tapered posts; each its own roof, colors, windows and one thing more #
+# The sixteen styles of tree house, gnome-made in the craftsman way: low or steep gables with rafter tails and braces, shingles, divided windows, tapered posts; each its own roof, colors, walls (shingled, boarded, of logs, half-timbered, of stone, of birch bark, plastered), windows and one thing more #
 let styles : [Style] = [
-  (name = "Mushroom Lodge", latin = "Domus Fungorum", roof = 3, walls = 15391160, roofc = 12597547, trim = 7029286, win = 1, more = 4),
-  (name = "Oak Bungalow", latin = "Casa Quercina", roof = 0, walls = 9410425, roofc = 5978665, trim = 15852486, win = 2, more = 1),
-  (name = "Acorn Cottage", latin = "Casula Glandis", roof = 4, walls = 13214315, roofc = 7228202, trim = 4074008, win = 3, more = 8),
-  (name = "Owl's Watch", latin = "Specula Noctuae", roof = 5, walls = 8022613, roofc = 4148794, trim = 15253872, win = 1, more = 3),
-  (name = "Moss Gable", latin = "Tectum Muscosum", roof = 1, walls = 10506797, roofc = 5143866, trim = 15722194, win = 0, more = 9),
-  (name = "Pinecone Villa", latin = "Villa Pinea", roof = 2, walls = 7311218, roofc = 8079917, trim = 14272931, win = 2, more = 2),
-  (name = "Thatch Nook", latin = "Tugurium Stramineum", roof = 8, walls = 14205861, roofc = 13150545, trim = 6111287, win = 3, more = 8),
-  (name = "Star Gazer", latin = "Speculum Stellarum", roof = 6, walls = 3098712, roofc = 10135989, trim = 15909198, win = 1, more = 7),
-  (name = "Bell Loft", latin = "Turris Campanae", roof = 1, walls = 11887901, roofc = 3362392, trim = 16050648, win = 3, more = 6),
-  (name = "Honey Hut", latin = "Casa Mellifera", roof = 0, walls = 14922824, roofc = 9198123, trim = 5978654, win = 2, more = 11),
-  (name = "Weathervane Workshop", latin = "Officina Ventorum", roof = 7, walls = 9137991, roofc = 4873507, trim = 14734775, win = 0, more = 10),
-  (name = "Ivy Porch House", latin = "Domus Hederacea", roof = 2, walls = 14143154, roofc = 3890746, trim = 8015405, win = 0, more = 1),
-  (name = "Lantern Library", latin = "Bibliotheca Silvestris", roof = 1, walls = 7162945, roofc = 3033698, trim = 15783308, win = 3, more = 5),
-  (name = "Fern Cabin", latin = "Casula Filicum", roof = 0, walls = 5597999, roofc = 9127187, trim = 16113331, win = 2, more = 4),
-  (name = "Birch Bower", latin = "Umbraculum Betulae", roof = 7, walls = 15921126, roofc = 6187837, trim = 3092271, win = 0, more = 8),
-  (name = "Toadstool Tower", latin = "Turricula Boleti", roof = 3, walls = 16181192, roofc = 13849600, trim = 6111287, win = 1, more = 3)];
+  (name = "Mushroom Lodge", latin = "Domus Fungorum", roof = 3, walls = 15391160, roofc = 12597547, trim = 7029286, clad = 3, win = 1, more = 4),
+  (name = "Oak Bungalow", latin = "Casa Quercina", roof = 0, walls = 9410425, roofc = 5978665, trim = 15852486, clad = 4, win = 2, more = 1),
+  (name = "Acorn Cottage", latin = "Casula Glandis", roof = 4, walls = 13214315, roofc = 7228202, trim = 4074008, clad = 2, win = 3, more = 8),
+  (name = "Owl's Watch", latin = "Specula Noctuae", roof = 5, walls = 8022613, roofc = 4148794, trim = 15253872, clad = 1, win = 1, more = 3),
+  (name = "Moss Gable", latin = "Tectum Muscosum", roof = 1, walls = 10506797, roofc = 5143866, trim = 15722194, clad = 0, win = 0, more = 9),
+  (name = "Pinecone Villa", latin = "Villa Pinea", roof = 2, walls = 7311218, roofc = 8079917, trim = 14272931, clad = 1, win = 2, more = 2),
+  (name = "Thatch Nook", latin = "Tugurium Stramineum", roof = 8, walls = 14205861, roofc = 13150545, trim = 6111287, clad = 3, win = 3, more = 8),
+  (name = "Star Gazer", latin = "Speculum Stellarum", roof = 6, walls = 3098712, roofc = 10135989, trim = 15909198, clad = 1, win = 1, more = 7),
+  (name = "Bell Loft", latin = "Turris Campanae", roof = 1, walls = 11887901, roofc = 3362392, trim = 16050648, clad = 2, win = 3, more = 6),
+  (name = "Honey Hut", latin = "Casa Mellifera", roof = 0, walls = 14922824, roofc = 9198123, trim = 5978654, clad = 0, win = 2, more = 11),
+  (name = "Weathervane Workshop", latin = "Officina Ventorum", roof = 7, walls = 9137991, roofc = 4873507, trim = 14734775, clad = 4, win = 0, more = 10),
+  (name = "Ivy Porch House", latin = "Domus Hederacea", roof = 2, walls = 14143154, roofc = 3890746, trim = 8015405, clad = 5, win = 0, more = 1),
+  (name = "Lantern Library", latin = "Bibliotheca Silvestris", roof = 1, walls = 7162945, roofc = 3033698, trim = 15783308, clad = 3, win = 3, more = 5),
+  (name = "Fern Cabin", latin = "Casula Filicum", roof = 0, walls = 5597999, roofc = 9127187, trim = 16113331, clad = 2, win = 2, more = 4),
+  (name = "Birch Bower", latin = "Umbraculum Betulae", roof = 7, walls = 15921126, roofc = 6187837, trim = 3092271, clad = 6, win = 0, more = 8),
+  (name = "Toadstool Tower", latin = "Turricula Boleti", roof = 3, walls = 16181192, roofc = 13849600, trim = 6111287, clad = 7, win = 1, more = 3)];
 # ---- The beavers ---- #
 # A beaver's step (ten a second): resting in its lodge until it is time, then off to the nearest standing tree within 36 tiles of its lodge (trees: the standing trees' columns); it gnaws it four seconds, and it falls; it drags the log to its dam (slower), lays it two seconds, and goes home to rest. A tree gone before it gets there (another beaver's), and it goes home #
 let beaver : (Beaver, [Int]) -> Beaver = fun (b, trees) ->
@@ -233,7 +233,7 @@ let step : (Gnome, Near, Pad) -> Gnome = fun (g, n, p) ->
   let top_wet : Int -> Int = fun r -> if r > n.cy - 3 && wet(cx, r - 1) then top_wet(r - 1) else r in
   let surface = top_wet((g.y - 450) / 1000) * 1000 in
   let up_tile = (g.y - hh - 1) / 1000 in
-  let dig_up = p.up && (g.ground || climbing) && digs(cx, up_tile) > 0 && g.y - hh - (up_tile + 1) * 1000 < 150 in
+  let dig_up = p.up && (g.ground || climbing || midw) && digs(cx, up_tile) > 0 && g.y - hh - (up_tile + 1) * 1000 < 150 in
   let run = g.vx + (p.dx * 92 - g.vx) / 4 in
   # (climbing, or down held standing, with no way across held: eased to the middle of its column, so it fits a shaft one tile wide) #
   let snap = (cx * 1000 + 500 - g.x) / 3 in
@@ -267,9 +267,10 @@ let step : (Gnome, Near, Pad) -> Gnome = fun (g, n, p) ->
   let ground_now = md(ny, 1000) == 0 && (solid(l, below) || solid(rr, below) || ((what(l, below) == 11 || what(rr, below) == 11) && !p.down)) in
   # digging: pushing across into a tile that can be dug (standing, climbing or (Matthew: "when I'm swimming I should be able to dig sideways") swimming), down into the one underfoot (standing or climbing), or up into the one over its head #
   let side = (if p.dx != 0 && hc >= 0 && (g.ground || climbing || midw) then (if digs(hc, feet) > 0 then hc * 1000 + feet else if digs(hc, head) > 0 then hc * 1000 + head else none) else none) in
-  let underfoot = g.y / 1000 in
+  # (in the water, the gnome swimming, it digs too: across, down into the tile under its feet, up into the one over its head) #
+  let underfoot = feet + 1 in
   let target = (if side >= 0 then side
-    else if p.down && (g.ground || climbing) && md(g.y, 1000) == 0 && digs(cx, underfoot) > 0 then cx * 1000 + underfoot
+    else if p.down && (((g.ground || climbing) && md(g.y, 1000) == 0) || midw) && digs(cx, underfoot) > 0 && underfoot * 1000 - g.y < 150 then cx * 1000 + underfoot
     else if dig_up then cx * 1000 + up_tile else none) in
   let tc = (if target < 0 then none else target / 1000) in
   let tr = (if target < 0 then none else md(target, 1000)) in
