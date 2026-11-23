@@ -11,7 +11,7 @@ import { pathToFileURL } from "node:url";
 const Hazel = process.env.HAZELJS ? (await import(pathToFileURL(path.resolve(process.env.HAZELJS, "index.mjs")).href)).default : HazelNpm;
 import { readFileSync } from "node:fs";
 const read = f => readFileSync(new URL("../world/rules/" + f, import.meta.url), "utf8").replace(/\s+$/, "");
-const TAIL = "(plan = World.plan, ground = World.ground, village = World.village, furnish = World.furnish, limbs = World.limbs, styles = World.styles, beaver = World.beaver, water_row = World.water_row, step = World.step, roots = World.roots, threads = World.threads)";
+const TAIL = "(plan = World.plan, ground = World.ground, village = World.village, furnish = World.furnish, limbs = World.limbs, styles = World.styles, beaver = World.beaver, water_row = World.water_row, step = World.step, roots = World.roots, threads = World.threads, greet = World.greet)";
 const t0 = performance.now();
 const r = Hazel.runProgram({ preamble: read("preamble.hz"), modules: [{ name: "World", text: read("World.hz") }], tail: TAIL });
 console.log("built:", r.ok, `${(performance.now() - t0).toFixed(0)} ms`, (r.errors || []).map(e => `${e.module}: ${String(e.message).replace(/\s+/g, " ")}`).join(" | ").slice(0, 2500));
@@ -46,18 +46,22 @@ if (G.styles.length < 12) bad(`styles ${G.styles.length}`);
 if (new Set(G.styles.map(s => s.latin)).size !== G.styles.length) bad("two styles with one Latin name");
 console.log("styles:", G.styles.map(s => s.latin).join(", "));
 // the beavers: a lodge at 250, its dam at 240, trees at 230, 262 and 300 (too far)
-let trees = [230, 262, 300], bs = [0, 1].map(i => ({ x: 25000, face: 1, job: 0, t: i * 5, tree: -1, lodge: 250, dam: 240, felled: -1, laid: false }));
+let trees = [230, 262, 300], bs = [0, 1].map(i => ({ x: 25000, face: 1, job: 0, t: i * 5, tree: -1, lodge: 250, dam: 240, felled: -1, laid: false, cut: false }));
 let felled = 0, laid = 0; const tb = performance.now(); let calls = 0;
-// (the piles of logs, as the page keeps them: a felled tree a pile of six where it fell; a beaver starting to drag takes one)
-const piles = new Map();
-for (let n = 0; n < 900; n++) bs = bs.map(b => { calls++; const b2 = G.beaver(b, trees, [...piles.keys()]);
-  if (b2.felled >= 0) { felled++; trees = trees.filter(t => t !== b2.felled); piles.set(b2.felled, 6); }
+// (the fallen trees and their piles of logs, as the page keeps them: a felled tree six pieces to cut where it fell, its pile
+// empty; a cut moves a piece onto the pile; a beaver starting to drag takes one log from it)
+const piles = new Map(), fallen = new Map(); let cuts = 0;
+for (let n = 0; n < 900; n++) bs = bs.map(b => { calls++; const b2 = G.beaver(b, trees, [...piles.keys()], [...fallen.keys()]);
+  if (b2.felled >= 0) { felled++; trees = trees.filter(t => t !== b2.felled); fallen.set(b2.felled, 6); }
+  if (b2.cut && fallen.has(b2.tree)) { cuts++; const k = fallen.get(b2.tree) - 1; if (k > 0) fallen.set(b2.tree, k); else fallen.delete(b2.tree); piles.set(b2.tree, (piles.get(b2.tree) || 0) + 1); }
   if (b2.job === 3 && b.job !== 3 && piles.has(b2.tree)) { const k = piles.get(b2.tree) - 1; if (k > 0) piles.set(b2.tree, k); else piles.delete(b2.tree); }
   if (b2.laid) laid++;
   if (Math.abs(b2.x - b.x) > 30) bad(`a beaver jumped ${b.x} -> ${b2.x}`);
   return b2; });
-console.log(`beavers: ${felled} trees felled, ${laid} logs laid, ${((performance.now() - tb) / calls).toFixed(2)} ms a step; trees left ${trees}`);
-if (felled < 1 || laid < 2 * felled) bad(`beavers felled ${felled} and laid ${laid}: not several logs a tree`);
+console.log(`beavers: ${felled} trees felled, ${cuts} logs cut, ${laid} logs laid, ${((performance.now() - tb) / calls).toFixed(2)} ms a step; trees left ${trees}`);
+if (felled < 1 || cuts < 4 || laid < 2 * felled || laid > cuts) bad(`beavers felled ${felled}, cut ${cuts} and laid ${laid}`);
+{ const t1 = G.greet(5, 0, 0, 0), t2 = G.greet(5, 1, 3, 1), t3 = G.greet(9, 2, 2, 4); console.log(`villagers: ${t1.name}: ${t1.line} / ${t2.name}: ${t2.line} / ${t3.name}: ${t3.line}`);
+  if (!t1.name || !t1.line || !t2.line || !t3.name) bad("greet"); }
 if (G.water_row(40, 36, 0) !== 40 || G.water_row(40, 36, 9) !== 37 || G.water_row(40, 36, 30) !== 37) bad("water_row");
 // the gnome on a patch of ground: soil from row 50 down, a pool of water (columns 20 to 27, rows 47 to 49, in a dip of the soil),
 // a ladder at column 12 from row 40 to 49
@@ -113,12 +117,17 @@ const checkGnome = (S, who) => {
     for (let i = 0; i < 260; i++) { const x0 = q.x; q = S(q, near3(q), pad(1)); hi = Math.min(hi, q.y); if (q.x === x0 && q.x < 56000) stuck++; if (!q.ground) offGround++; }
     console.log(`${who}: over the hill: x ${q.x} y ${q.y}, highest ${hi}, steps stuck ${stuck}, steps off the ground ${offGround}`);
     if (q.x < 56000 || q.y !== 50000 || hi > 46100 || hi < 45900 || stuck > 0 || offGround > 3) bad(`${who}: over the hill`);
-    // down, standing on a slope: digs the sloped tile; the dig button, standing on the flat facing it: digs the sloped tile ahead
-    let d = { ...gnome0, x: 42500, y: 48500 }; d = S(d, near3(d), pad()); let dd = null;
-    for (let i = 0; i < 40 && !dd; i++) { d = S(d, near3(d), pad(0, false, true)); if (d.ev === 1) dd = [d.dc, d.dr]; }
+    // (Matthew: "down on a slope shouldn't dig --- it should do a slide") down, standing on the slope (sloping up to the east):
+    // it slides down it, west, faster and faster, and digs nothing; the dig button with down digs the sloped tile under it
+    let d = { ...gnome0, x: 43500, y: 47500 }; d = S(d, near3(d), pad()); let dd = null, fastest = 0; const dx0 = d.x;
+    for (let i = 0; i < 30; i++) { d = S(d, near3(d), pad(0, false, true)); if (d.ev === 1) dd = [d.dc, d.dr]; fastest = Math.min(fastest, d.vx); }
+    console.log(`${who}: slid from x ${dx0} to ${d.x}, fastest ${fastest}, dug ${dd}`);
+    if (dd || d.x > dx0 - 2500 || fastest > -150) bad(`${who}: the slide`);
+    let b2 = { ...gnome0, x: 42500, y: 48500 }; b2 = S(b2, near3(b2), pad()); dd = null;
+    for (let i = 0; i < 40 && !dd; i++) { b2 = S(b2, near3(b2), pad(0, false, true, false, true)); if (b2.ev === 1) dd = [b2.dc, b2.dr]; }
     let e = { ...gnome0, x: 40500, y: 50000 }, ed = null; const ex = e.x;
     for (let i = 0; i < 40 && !ed; i++) { e = S(e, near3(e), pad(0, false, false, false, true)); if (e.ev === 1) ed = [e.dc, e.dr]; }
-    console.log(`${who}: down on the slope dug ${dd}; the dig button dug ${ed}, x ${ex} -> ${e.x}`);
+    console.log(`${who}: the dig button with down dug ${dd}; the dig button dug ${ed}, x ${ex} -> ${e.x}`);
     if (String(dd) !== "42,48" || String(ed) !== "41,49" || Math.abs(e.x - ex) > 5) bad(`${who}: digging slopes`); }
   const t = performance.now(); run(S, gnome0, 300, i => pad(i % 50 < 25 ? 1 : -1, i % 40 === 0, false, i % 40 === 0));
   console.log(`${who}: a step ${((performance.now() - t) / 300).toFixed(3)} ms`);

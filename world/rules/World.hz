@@ -155,20 +155,38 @@ let styles : [Style] = [
   (name = "Birch Bower", latin = "Umbraculum Betulae", roof = 7, walls = 15921126, roofc = 6187837, trim = 3092271, clad = 6, win = 0, more = 8),
   (name = "Toadstool Tower", latin = "Turricula Boleti", roof = 3, walls = 16181192, roofc = 13849600, trim = 6111287, clad = 7, win = 1, more = 3)];
 # ---- The beavers ---- #
-# A beaver's step (ten a second): resting in its lodge until it is time, then off to a pile of logs within 36 tiles of its lodge (piles: the columns of the piles with logs left), or, none, to the nearest standing tree there (trees: the standing trees' columns); it gnaws it four seconds, and it falls. (Matthew: "when the beavers carry a tree, they should carry one log at a time, from a huge pile that they create") A felled tree is a pile of logs where it lay (the page makes it, felled); the beaver drags one log to its dam (slower), lays it two seconds, and goes back to the pile for the next, until the pile is gone, and then home to rest. Starting to drag a log (job 3, tree its pile's column) takes it from the pile. A tree or a pile gone before it gets there (another beaver's), and it goes home #
-let beaver : (Beaver, [Int], [Int]) -> Beaver = fun (b, trees, piles) ->
+# A beaver's step (ten a second): resting in its lodge until it is time, then off to a pile of logs within 36 tiles of its lodge (piles: the columns of the piles with logs on them), or to a fallen tree there still to be cut up (fallen: their columns), or, neither, to the nearest standing tree there (trees: the standing trees' columns); it gnaws it four seconds, and it falls. (Matthew: "when the beavers carry a tree, they should carry one log at a time, from a huge pile that they create"; "let's have the beavers produce logs from the fallen tree in stages, not instantly", "doing DFS ideally") Then it cuts the fallen tree up, a log every two seconds onto a pile beside it (cut: the page takes the next piece of the tree, depth first); when there is nothing left to cut, it drags a log from the pile to its dam (slower), lays it two seconds, and goes back for the next, cutting more if the pile is empty and the tree is not, until both are gone, and then home to rest. Starting to drag a log (job 3, tree its pile's column) takes it from the pile. A tree, a pile or a fallen tree gone before it gets there (another beaver's), and it goes home #
+let beaver : (Beaver, [Int], [Int], [Int]) -> Beaver = fun (b, trees, piles, fallen) ->
   let near : ([Int], Int, Int) -> Int = fun (ts, best, bd) -> case ts | [] => best | t :: rest => (let d = absi(t * 100 - b.x) in if absi(t - b.lodge) <= 36 && d < bd then near(rest, t, d) else near(rest, best, bd)) end in
   let go : (Int, Int) -> Int = fun (to, sp) -> if absi(to - b.x) <= sp then to else if to > b.x then b.x + sp else b.x - sp in
   let face : Int -> Int = fun to -> if to > b.x then 1 else if to < b.x then 0 - 1 else b.face in
-  let be : (Int, Int, Int, Int, Int, Int, Bool) -> Beaver = fun (x, f, job, t, tree, felled, laid) -> (x = x, face = f, job = job, t = t, tree = tree, lodge = b.lodge, dam = b.dam, felled = felled, laid = laid) in
+  let be : (Int, Int, Int, Int, Int, Int, Bool, Bool) -> Beaver = fun (x, f, job, t, tree, felled, laid, cut) -> (x = x, face = f, job = job, t = t, tree = tree, lodge = b.lodge, dam = b.dam, felled = felled, laid = laid, cut = cut) in
   let none = 0 - 1 in
-  if b.job == 0 then (if b.t > 0 then be(b.x, b.face, 0, b.t - 1, none, none, false) else (let pl = near(piles, none, 1000000) in if pl >= 0 then be(b.x, face(pl * 100), 6, 0, pl, none, false) else (let tr = near(trees, none, 1000000) in if tr >= 0 then be(b.x, face(tr * 100), 1, 0, tr, none, false) else be(b.x, b.face, 0, 60, none, none, false))))
-  else if b.job == 1 then (if !has(trees, b.tree) then be(b.x, b.face, 5, 0, none, none, false) else (let to = b.tree * 100 + (if b.x < b.tree * 100 then 0 - 60 else 60) in if absi(to - b.x) <= 25 then be(to, face(b.tree * 100), 2, 40, b.tree, none, false) else be(go(to, 25), face(to), 1, 0, b.tree, none, false)))
-  else if b.job == 2 then (if !has(trees, b.tree) then be(b.x, b.face, 5, 0, none, none, false) else if b.t > 1 then be(b.x, b.face, 2, b.t - 1, b.tree, none, false) else be(b.x, b.face, 3, 0, b.tree, b.tree, false))
-  else if b.job == 3 then (let to = b.dam * 100 in if absi(to - b.x) <= 15 then be(to, b.face, 4, 20, b.tree, none, false) else be(go(to, 15), face(to), 3, 0, b.tree, none, false))
-  else if b.job == 4 then (if b.t > 1 then be(b.x, b.face, 4, b.t - 1, b.tree, none, false) else if has(piles, b.tree) then be(b.x, b.face, 6, 0, b.tree, none, true) else be(b.x, b.face, 5, 0, none, none, true))
-  else if b.job == 6 then (if !has(piles, b.tree) then be(b.x, b.face, 5, 0, none, none, false) else (let to = b.tree * 100 + (if b.x < b.tree * 100 then 0 - 50 else 50) in if absi(to - b.x) <= 25 then be(to, face(b.tree * 100), 3, 0, b.tree, none, false) else be(go(to, 25), face(to), 6, 0, b.tree, none, false)))
-  else (let to = b.lodge * 100 in if absi(to - b.x) <= 30 then be(to, b.face, 0, 80, none, none, false) else be(go(to, 30), face(to), 5, 0, none, none, false));
+  let work : Int -> Bool = fun x -> has(piles, x) || has(fallen, x) in
+  if b.job == 0 then (if b.t > 0 then be(b.x, b.face, 0, b.t - 1, none, none, false, false) else (let pl = (let p1 = near(piles, none, 1000000) in if p1 >= 0 then p1 else near(fallen, none, 1000000)) in if pl >= 0 then be(b.x, face(pl * 100), 6, 0, pl, none, false, false) else (let tr = near(trees, none, 1000000) in if tr >= 0 then be(b.x, face(tr * 100), 1, 0, tr, none, false, false) else be(b.x, b.face, 0, 60, none, none, false, false))))
+  else if b.job == 1 then (if !has(trees, b.tree) then be(b.x, b.face, 5, 0, none, none, false, false) else (let to = b.tree * 100 + (if b.x < b.tree * 100 then 0 - 60 else 60) in if absi(to - b.x) <= 25 then be(to, face(b.tree * 100), 2, 40, b.tree, none, false, false) else be(go(to, 25), face(to), 1, 0, b.tree, none, false, false)))
+  else if b.job == 2 then (if !has(trees, b.tree) then be(b.x, b.face, 5, 0, none, none, false, false) else if b.t > 1 then be(b.x, b.face, 2, b.t - 1, b.tree, none, false, false) else be(b.x, b.face, 7, 20, b.tree, b.tree, false, false))
+  else if b.job == 7 then (if !has(fallen, b.tree) then (if has(piles, b.tree) then be(b.x, b.face, 3, 0, b.tree, none, false, false) else be(b.x, b.face, 5, 0, none, none, false, false))
+    else if b.t > 1 then be(b.x, b.face, 7, b.t - 1, b.tree, none, false, false) else be(b.x, b.face, 7, 20, b.tree, none, false, true))
+  else if b.job == 3 then (let to = b.dam * 100 in if absi(to - b.x) <= 15 then be(to, b.face, 4, 20, b.tree, none, false, false) else be(go(to, 15), face(to), 3, 0, b.tree, none, false, false))
+  else if b.job == 4 then (if b.t > 1 then be(b.x, b.face, 4, b.t - 1, b.tree, none, false, false) else if work(b.tree) then be(b.x, b.face, 6, 0, b.tree, none, true, false) else be(b.x, b.face, 5, 0, none, none, true, false))
+  else if b.job == 6 then (if !work(b.tree) then be(b.x, b.face, 5, 0, none, none, false, false) else (let to = b.tree * 100 + (if b.x < b.tree * 100 then 0 - 50 else 50) in if absi(to - b.x) <= 25 then (if has(piles, b.tree) then be(to, face(b.tree * 100), 3, 0, b.tree, none, false, false) else be(to, face(b.tree * 100), 7, 20, b.tree, none, false, false)) else be(go(to, 25), face(to), 6, 0, b.tree, none, false, false)))
+  else (let to = b.lodge * 100 in if absi(to - b.x) <= 30 then be(to, b.face, 0, 80, none, none, false, false) else be(go(to, 30), face(to), 5, 0, none, none, false, false));
+# ---- The villagers ---- #
+# (Matthew: "let's put a lot of gnome NPCs into the world, and give them a chance to say something friendly to the main char when engaged"; "again, use Rien Poortvliet, but add our own imagination of variations for all villiagers") A villager's name (who: a number of its own; kind: 0 a gnome, 1 a gnome wife, 2 a gnome child) and what it says to the gnome (where: 0 in the village, 1 out on the land, 2 up a great tree, 3 by the water; n: how many times it has spoken), something friendly: half the time about its place, half about anything #
+let greet : (Int, Int, Int, Int) -> Talk = fun (who, kind, where, n) ->
+  let pick : ([String], Int) -> String = fun (xs, i) -> case xs | [] => "" | x :: rest => if i <= 0 then x else pick(rest, i - 1) end in
+  let len : [String] -> Int = fun xs -> case xs | [] => 0 | x :: rest => 1 + len(rest) end in
+  let names = (if kind == 1 then ["Mies", "Fenna", "Lotte", "Sanne", "Griet", "Femke", "Anneke", "Neeltje", "Saar", "Dirkje", "Tilde", "Marijke"]
+    else if kind == 2 then ["Pip", "Tess", "Bram", "Lotje", "Teun", "Fien", "Wiebe", "Roos"]
+    else ["Joost", "Kees", "Wouter", "Hidde", "Rikkert", "Jelle", "Ruud", "Wim", "Brecht", "Ole", "Gerrit", "Tobias", "Klaas", "Evert"]) in
+  let here = (if where == 0 then ["Welcome down! The kettle is always on in the kitchen.", "Mind your cap on the low beams.", "The light shafts bring the sun right down to us. Clever, eh?", "We dug these rooms out of the hill, one tile at a time.", "The chimney draws well today. Can you smell the bread?", "The air shafts keep it fresh down here, even in winter.", "Stay for supper! There is mushroom soup.", "My grandmother carved that table, in her three hundredth year."]
+    else if where == 1 then ["Good day to you, neighbour!", "Lovely weather for a walk in the meadow.", "The flowers lean with the wind. Have you noticed?", "Rain soaks down through the soil, slowly, past the roots.", "Careful on the slopes by the creek. Hold down, and you will slide!", "I am off to gather mushrooms. Not the red ones with white spots!", "Dig a little, and you will find stones in the soil.", "The squirrels are shy, but they are our friends."]
+    else if where == 2 then ["What a view from up here!", "Hold the rope when you cross the bridge.", "The ladder sways in the wind. Hold on tight!", "We built our house in the old tree, branch by branch.", "Up here the birds wake us every morning.", "Found the climbing pack yet? Then the whole tree is yours.", "The squirrels live next door. Noisy neighbours!"]
+    else ["The beavers raise the water with every log they lay.", "Water seeps into the ground beside the river.", "Can you swim? Take a deep breath before you dive.", "The beavers cut a fallen tree up branch by branch, then carry the logs one at a time.", "The willows love to have their feet in the water.", "See how the bank slopes down to the water? Easy walking."]) in
+  let any = ["Hello there, friend!", "They say a gnome is stronger than a horse. Well, a small horse.", "Found any gems? They glitter in the rock.", "Be kind to the animals, and they will be kind to you.", "Nice cap! Red suits you.", "Take care, and come back soon!", "Every gnome needs a good lantern.", "Did you know we live for four hundred years?", "Off on an adventure? Good luck to you!"] in
+  let h = hash(who, n) in
+  (name = pick(names, md(who * 7 + 3, len(names))), line = (if md(h, 2) == 0 then pick(here, md(h / 2, len(here))) else pick(any, md(h / 2, len(any)))));
 # How high a dam holds its river: the water's own row (natural), a row higher for every three logs, but never over the lower bank (its row, bank) #
 let water_row : (Int, Int, Int) -> Int = fun (natural, bank, logs) -> (let r = natural - logs / 3 in if r < bank + 1 then bank + 1 else r);
 # ---- Roots and mycelium, as Gnome dig's scene grows them (dig/rules/Scene.hz), a segment at a time ---- #
@@ -218,13 +236,22 @@ let slope_at : (Near, Gnome, Int, Int, Int, Bool, Bool) -> Int = fun (n, g, x, y
   let r = (if shape(c, f) > 0 then f else if shape(c, f + 1) > 0 then f + 1 else 0 - 1) in
   if climbing || vy < 0 then 0 - 1
   else if r >= 0 then (let sy = (r + 1) * 1000 - (if shape(c, r) == 1 then x - c * 1000 else 1000 - (x - c * 1000)) in
-    if (y > sy && g.y <= sy + 300) || (g.ground && !midw && y < sy && sy - y < 200) then sy else 0 - 1)
+    if (y > sy && g.y <= sy + 300) || (g.ground && !midw && y < sy && sy - y < 240) then sy else 0 - 1)
   else (let w = md(at(c, f), 16) in if g.ground && w >= 1 && w <= 10 && y - f * 1000 <= 450 then f * 1000 else 0 - 1);
-# (Matthew: "we should also introduce an action button for dig --- on slopes, we don't dig into them, we run across them"; "down can still mean dig"; "but across, on a slope, should mean -- go up/down the slope") The dig button (⛏️): the tile the gnome digs, standing, the way it faces or the way held: with up, the one over its head; else the one ahead at its feet, else ahead at its head; -1, none (down held: down digs anyway) #
+# (Matthew: "down on a slope shouldn't dig --- it should do a slide animation that accelerates, like mario 3") Down held, standing on a slope: the gnome slides down it, faster every step (14 more, up to 190, twice its run); off the slope, still down held, it coasts on, slowing (a sixteenth a step), while it is still faster than it can run. Its speed across, or -100000: not sliding #
+let slide_vx : (Near, Gnome, Pad, Bool, Bool) -> Int = fun (n, g, p, climbing, midw) ->
+  let shape : (Int, Int) -> Int = fun (c, r) -> md(tile(n, c - n.cx, r - n.cy) / 64, 4) in
+  let cx = g.x / 1000 in let feet = (g.y - 1) / 1000 in
+  let k = (let a = shape(cx, feet) in if a > 0 then a else shape(cx, feet + 1)) in
+  let way = (if k == 1 then 0 - 1 else if k == 2 then 1 else 0) in
+  if !p.down || p.dig || !g.ground || climbing || midw then 0 - 100000
+  else if way != 0 then (let v = g.vx + way * 14 in if v > 190 then 190 else if v < 0 - 190 then 0 - 190 else v)
+  else if absi(g.vx) > 95 then g.vx * 15 / 16 else 0 - 100000;
+# (Matthew: "we should also introduce an action button for dig --- on slopes, we don't dig into them, we run across them"; "down can still mean dig"; "but across, on a slope, should mean -- go up/down the slope") The dig button (⛏️): the tile the gnome digs, standing, the way it faces or the way held: with up, the one over its head; with down, the one under it (the sloped tile it stands on, or the ground below); else the one ahead at its feet, else ahead at its head; -1, none #
 let dig_ahead : (Near, Gnome, Pad, Int, Int, Int) -> Int = fun (n, g, p, feet, head, up_tile) ->
   let digs : (Int, Int) -> Int = fun (c, r) -> (let w = md(tile(n, c - n.cx, r - n.cy), 16) in if w >= 1 && w <= 7 then ground(w).dig else 0) in
   let cx = g.x / 1000 in let ahead = cx + (if p.dx != 0 then p.dx else g.face) in
-  if !p.dig || p.down then 0 - 1 else if p.up then (if digs(cx, up_tile) > 0 then cx * 1000 + up_tile else 0 - 1)
+  if !p.dig then 0 - 1 else if p.down then (let feet1 = feet + 1 in if md(tile(n, cx - n.cx, feet - n.cy) / 64, 4) > 0 && digs(cx, feet) > 0 then cx * 1000 + feet else if digs(cx, feet1) > 0 then cx * 1000 + feet1 else 0 - 1) else if p.up then (if digs(cx, up_tile) > 0 then cx * 1000 + up_tile else 0 - 1)
   else if digs(ahead, feet) > 0 then ahead * 1000 + feet else if digs(ahead, head) > 0 then ahead * 1000 + head else 0 - 1;
 # The second half of the gnome's step (World.step moves it; this, its own function so that neither half nests too deep to build in a browser): what it digs, its breath, what happened, and the gnome as it is now #
 let finish : (Gnome, Near, Pad, Moved) -> Gnome = fun (g, n, p, m) ->
@@ -241,12 +268,11 @@ let finish : (Gnome, Near, Pad, Moved) -> Gnome = fun (g, n, p, m) ->
   let side = (if p.dx != 0 && !p.dig && hc >= 0 && (g.ground || climbing || midw) then (if digs(hc, feet) > 0 then hc * 1000 + feet else if digs(hc, head) > 0 then hc * 1000 + head else none) else none) in
   # (in the water, the gnome swimming, it digs too: across, down into the tile under its feet, up into the one over its head) #
   let underfoot = feet + 1 in
-  # (the dig button, dig_ahead; down still digs, and standing on a sloped tile, down digs that tile) #
+  # (the dig button, dig_ahead; down still digs, but not a slope: down on a slope slides) #
   let button = dig_ahead(n, g, p, feet, head, up_tile) in
   let target = (if side >= 0 then side
     else if button >= 0 then button
-    else if p.down && g.ground && md(at(cx, feet) / 64, 4) > 0 && digs(cx, feet) > 0 then cx * 1000 + feet
-    else if p.down && (((g.ground || climbing) && md(g.y, 1000) == 0) || midw) && digs(cx, underfoot) > 0 && underfoot * 1000 - g.y < 150 then cx * 1000 + underfoot
+    else if p.down && absi(m.vx) < 40 && md(at(cx, feet) / 64, 4) == 0 && md(at(cx, underfoot) / 64, 4) == 0 && (((g.ground || climbing) && md(g.y, 1000) == 0) || midw) && digs(cx, underfoot) > 0 && underfoot * 1000 - g.y < 150 then cx * 1000 + underfoot
     else if dig_up then cx * 1000 + up_tile else none) in
   let tc = (if target < 0 then none else target / 1000) in
   let tr = (if target < 0 then none else md(target, 1000)) in
@@ -287,7 +313,8 @@ let step : (Gnome, Near, Pad) -> Gnome = fun (g, n, p) ->
   let run = (if p.dig then 0 else g.vx + (p.dx * 92 - g.vx) / 4) in
   # (climbing, or down held standing, with no way across held: eased to the middle of its column, so it fits a shaft one tile wide) #
   let snap = (cx * 1000 + 500 - g.x) / 3 in
-  let vx = (if climbing then (if p.dx == 0 || p.dig then snap else p.dx * 70) else if midw then p.dx * (if g.gear then 55 else 58) else if p.dx == 0 && p.down && g.ground then snap else if p.dx == 0 && absi(run) < 8 then 0 else run) in
+  let sv = slide_vx(n, g, p, climbing, midw) in
+  let vx = (if sv > 0 - 100000 then sv else if climbing then (if p.dx == 0 || p.dig then snap else p.dx * 70) else if midw then p.dx * (if g.gear then 55 else 58) else if p.dx == 0 && p.down && g.ground then snap else if p.dx == 0 && absi(run) < 8 then 0 else run) in
   let jumped = g.ground && p.jump && !dig_up && !midw && !climbing in
   let vy = (if climbing then (if p.up && !dig_up then 0 - 70 else if p.down then 70 else 0)
     else if midw then

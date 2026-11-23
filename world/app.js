@@ -22,7 +22,7 @@
   "use strict";
   const LIB_JIT = "https://build.hazel.org/hazeljs/hazel-lib.js", LIB_NPM = "https://cdn.jsdelivr.net/npm/hazeljs@0.0.4/hazel-lib.js";
   const PROGRAM = "world", MODULES = ["World"];
-  const TAIL = "(plan = World.plan, ground = World.ground, village = World.village, furnish = World.furnish, limbs = World.limbs, styles = World.styles, beaver = World.beaver, water_row = World.water_row, step = World.step, roots = World.roots, threads = World.threads)";
+  const TAIL = "(plan = World.plan, ground = World.ground, village = World.village, furnish = World.furnish, limbs = World.limbs, styles = World.styles, beaver = World.beaver, water_row = World.water_row, step = World.step, roots = World.roots, threads = World.threads, greet = World.greet)";
   const KEY = "hazeljs-examples/world/";
   const Q = new URLSearchParams(location.search);
   const $ = id => document.getElementById(id);
@@ -107,7 +107,7 @@
     S.lodges = byKind(13).map(q => ({ x: q.x, w: q.w, river: riverAt(q.x + q.w / 2) || riverAt(q.x + q.w + 3) || riverAt(q.x - 3) }));
     S.dams = byKind(14).map(q => { const R = riverAt(q.x + q.w / 2); const d = { x: q.x, w: q.w, logs: q.v, river: R, at: q.x + Math.floor(q.w / 2) }; if (R) R.dam = d; return d; });
     for (const d of S.dams) if (d.river) setLevel(h, d.river);
-    S.beavers = byKind(15).map(q => ({ b: { x: q.x * 100, face: 1, job: 0, t: 40 + q.v * 35, tree: -1, lodge: q.x, dam: q.w, felled: -1, laid: false }, px: q.x, py: 0, swing: q.v }));
+    S.beavers = byKind(15).map(q => ({ b: { x: q.x * 100, face: 1, job: 0, t: 40 + q.v * 35, tree: -1, lodge: q.x, dam: q.w, felled: -1, laid: false, cut: false }, px: q.x, py: 0, swing: q.v }));
     // the villages, deep under the ground
     S.rooms = []; S.ducts = []; S.lamps = []; S.items = []; S.villages = [];
     for (const q of [...byKind(20), ...byKind(21)]) village(h, q, q.kind === 21 ? 1 : 0, p.seed);
@@ -122,7 +122,7 @@
     { const first = S.houses.filter(hs => !hs.small).sort((a, b) => b.row - a.row)[0]; if (first) S.items.push({ kind: "climb", x: first.x + 0.5 - first.side * 1.1, y: first.row - 0.55, taken: false }); }
     S.shrooms = byKind(53).map(q => ({ x: q.x, v: q.v }));
     S.flowers = byKind(54).map(q => ({ x: q.x, v: q.v, n: q.h }));
-    S.rootSets = []; S.threadSets = []; shapeSurface(); makeSquirrels(); buildTreeMask();
+    S.rootSets = []; S.threadSets = []; shapeSurface(); makeSquirrels(); buildTreeMask(); makeVillagers();
     S.rootPlan = [...S.greats.map(G => ({ x: G.x, row: G.foot, k: 150, seed: G.v })), ...S.trees.map(t => ({ x: t.x, row: surf0[t.x], k: 70 + t.h * 4 + (t.tall ? 30 : 0), seed: t.seed })),
       ...S.shrooms.map(m => ({ x: m.x, row: surf0[m.x], seed: m.x * 3 + m.v, kind: "shroom" }))];
     // roots: under each tree, spreading and thinning down; water goes down them faster
@@ -160,7 +160,7 @@
     const g0 = { x: 12500, y: top[12] * 1000 };
     S.start = g0;
     S.g = { x: g0.x, y: g0.y, vx: 0, vy: 0, face: 1, ground: true, climb: false, swim: false, under: false, air: 600, gear: false, dc: -1, dr: -1, dt: 0, ev: 0 };
-    S.works = new Map(); S.hearts = 5; S.cam.set = false; S.smoke = []; S.parts = []; S.pebbles = []; S.piles = []; S.minimapAt = -1e9; S.rain = 0; S.rainAt = S.frame + 60 * 60; S.banner = { text: "🌍 Gnome world", t: performance.now() };
+    S.works = new Map(); S.hearts = 5; S.cam.set = false; S.smoke = []; S.parts = []; S.pebbles = []; S.piles = []; S.fallen = []; S.talk = null; S.minimapAt = -1e9; S.rain = 0; S.rainAt = S.frame + 60 * 60; S.banner = { text: "🌍 Gnome world", t: performance.now() };
   }
   const riverAt = x => S.rivers.find(R => x >= R.x - 0.5 && x < R.x + R.w + 0.5) || null;
   const topOf = c => { for (let r = 0; r < WH; r++) if (mat[at(c, r)] !== AIR) return r; return WH; };
@@ -382,14 +382,16 @@
   function pebblesStep() {
     if (!S.pebbles || !S.pebbles.length) return;
     for (const p of S.pebbles) { const c = Math.floor(p.x);
-      if (p.rest) { if (S.frame % 8 === 0 && !floorAt(c, Math.floor(p.y + 0.02))) p.rest = false; else continue; }
+      // (Matthew: "fallen rock keeps oscillating after reaching bottom surface": one lying on the others checked the open tile it lay in,
+      // and fell, and landed, over and over) lying still until the floor it lies over is dug away
+      if (p.rest) { if (S.frame % 8 === 0 && !floorAt(c, p.floor ?? Math.floor(p.y + 0.02))) p.rest = false; else continue; }
       const wet = inside(c, Math.floor(p.y)) && wat[at(c, Math.floor(p.y))] >= 0.5;
       p.vy = Math.min(wet ? 0.04 : 0.45, p.vy + (wet ? 0.004 : 0.012)); p.y += p.vy; p.x = Math.max(c + p.rad, Math.min(c + 1 - p.rad, p.x + p.vx));
       const fr = Math.floor(p.y); if (!floorAt(c, fr)) continue;
       // (landing: on the floor's top, or on the stones already lying there, rolling off to one side or the other)
       let top = fr; for (const o of S.pebbles) if (o !== p && o.rest && Math.floor(o.x) === c && Math.abs(o.x - p.x) < (o.rad + p.rad) * 0.9 && o.y - o.rad * 1.1 < top) top = o.y - o.rad * 1.1;
       if (top < fr) p.x += (p.x < c + 0.5 ? 1 : -1) * p.rad * 0.4 * (seededR(p.v)(3) + 0.3);
-      p.y = top; if (p.vy > 0.12) { p.vy = -p.vy * 0.25; p.y -= 0.01; } else { p.vy = 0; p.rest = true; p.vx = 0; } }
+      p.y = top; if (p.vy > 0.12) { p.vy = -p.vy * 0.25; p.y -= 0.01; } else { p.vy = 0; p.rest = true; p.vx = 0; p.floor = fr; } }
   }
   function drawPebbles(front, c0, c1, r0, r1) {
     if (!S.pebbles) return; const s = T;
@@ -548,17 +550,18 @@
   function beaversStep(h) {
     for (const B of S.beavers) {
       const near = S.trees.filter(t => t.alive && t.grow >= 1 && !t.keep && Math.abs(t.x - B.b.lodge) <= 36).map(t => t.x);
-      const piles = S.piles.filter(p => p.n > 0 && Math.abs(p.x - B.b.lodge) <= 36).map(p => p.x);
-      const b2 = h.beaver(B.b, near, piles);
+      const piles = S.piles.filter(p => p.n > 0 && Math.abs(p.x - B.b.lodge) <= 36).map(p => p.x), fallen = S.fallen.filter(f => f.k < f.F.pieces.length && Math.abs(f.x - B.b.lodge) <= 36).map(f => f.x);
+      const b2 = h.beaver(B.b, near, piles, fallen);
       // (Matthew: "when the beavers carry a tree, they should carry one log at a time, from a huge pile that they create") a
       // felled tree is a pile of logs where it fell, eleven to fifteen by its height, a heap; a beaver starting to drag takes one from it
       if (b2.felled >= 0) { const t = S.trees.find(t => t.x === b2.felled && t.alive); if (t) { t.alive = false; t.fallAt = S.frame; t.fallDir = b2.face; t.regrow = 90 * 60;
-        const n = Math.min(15, 6 + Math.floor(t.h * 0.7)); S.piles.push({ x: t.x, n, max: n, seed: S.frame }); } }
+        const F = fallenOf(t); S.fallen.push({ x: t.x, t, F, k: 0 }); S.piles.push({ x: t.x, n: 0, max: F.pieces.length, seed: S.frame }); } }
+      if (b2.cut) { const fl = S.fallen.find(f => f.x === b2.tree && f.k < f.F.pieces.length), p = S.piles.find(p => p.x === b2.tree); if (fl && p) { cutPiece(fl); p.n++; } }
       if (b2.job === 3 && B.b.job !== 3) { const p = S.piles.find(p => p.x === b2.tree && p.n > 0); if (p) p.n--; }
       if (b2.laid) { const d = S.dams.find(d => Math.abs(d.at - b2.dam) <= 2); if (d && d.river) { d.logs = Math.min(d.logs + 1, 40); setLevel(h, d.river); } }
       B.b = b2;
     }
-    S.piles = S.piles.filter(p => p.n > 0);
+    S.fallen = S.fallen.filter(f => f.k < f.F.pieces.length && f.t.alive === false); S.piles = S.piles.filter(p => p.n > 0 || S.fallen.some(f => f.x === p.x));
     if (S.frame - S.damAt > 60 * 60) { S.damAt = S.frame; for (const d of S.dams) if (d.logs > 0 && d.river) { d.logs--; setLevel(h, d.river); } }
     for (const t of S.trees) if (!t.alive && --t.regrow <= 0) { t.alive = true; t.grow = 0.15; }
   }
@@ -602,7 +605,7 @@
     for (const t of S.trees) if (t.alive && t.grow < 1) t.grow = Math.min(1, t.grow + 1 / (60 * 60));
     for (const B of S.beavers) B.px += (B.b.x / 100 - B.px) * 0.18;
     if (S.frame % 9 === 0) for (const d of S.ducts) if (d.kind === 3) S.smoke.push({ x: d.x + 0.5 + (rand() - 0.5) * 0.2, y: d.y0 - 2.2, r: 0.18, life: 0, drift: 0.004 + rand() * 0.006 });
-    windStep(); houseSmoke(); squirrelsStep(); pebblesStep();
+    windStep(); houseSmoke(); squirrelsStep(); pebblesStep(); villagersStep(h);
     for (const s of S.smoke) { s.y -= 0.012; s.x += s.drift + S.windNow * 0.02; s.r += 0.006; s.life++; }
     S.smoke = S.smoke.filter(s => s.life < 200);
     for (const p of S.parts) { p.x += p.vx; p.y += p.vy; p.vy += 0.01; p.life--; }
@@ -902,19 +905,19 @@
   function growLimbs(r, starts, o = {}) {
     const L = { segs: [], tips: [], mids: [], joints: [] }, up = o.up ?? 0.25, spread = o.spread ?? 0.6, shrink = o.shrink ?? 0.68, wob = o.wob ?? 0.15; let id = 0;
     const toward = (a, b, f) => { let d = b - a; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; return a + d * f; };
-    const grow = (x, y, a, len, w, lvl, flare) => { const k = ++id * 23;
+    const grow = (x, y, a, len, w, lvl, flare, parent = -2) => { const k = ++id * 23, me = L.segs.length;
       const aE = toward(a, -Math.PI / 2, up) + (r(k) - 0.5) * 0.45, am = toward(a, aE, 0.5), ex = x + Math.cos(am) * len * 0.96, ey = y + Math.sin(am) * len * 0.96;
       const px = -Math.sin(am), py = Math.cos(am), v1 = (r(k + 1) - 0.5) * 2 * wob * len, v2 = (r(k + 2) - 0.5) * 2 * wob * len;
       const P = [[x, y], [x + Math.cos(a) * len * 0.36 + px * v1, y + Math.sin(a) * len * 0.36 + py * v1], [ex - Math.cos(aE) * len * 0.34 + px * v2, ey - Math.sin(aE) * len * 0.34 + py * v2], [ex, ey]];
-      const w1 = w * (lvl === 0 ? 0.42 : 0.72); L.segs.push({ P, w0: w * flare, w1, lvl, k });
+      const w1 = w * (lvl === 0 ? 0.42 : 0.72); L.segs.push({ P, w0: w * flare, w1, lvl, k, parent });
       if (lvl === 0) { L.tips.push([ex, ey, aE]); return; }
       if (lvl === 1) L.mids.push([ex, ey]);
       L.joints.push([ex, ey, w1 * 0.58]);
       const bx = ex - Math.cos(aE) * w1 * 0.3, by = ey - Math.sin(aE) * w1 * 0.3, side = r(k + 6) < 0.5 ? -1 : 1, n = 1 + (r(k + 5) < 0.55 ? 1 : 0);
-      grow(bx, by, aE + (r(k + 3) - 0.5) * 0.35, len * (0.72 + 0.12 * r(k + 4)), w1 * 0.86, lvl - 1, 1.12);
-      for (let j = 0; j < n; j++) grow(bx, by, aE + (j === 0 ? side : -side) * (spread + 0.35 * r(k + 7 + j)), len * (shrink + 0.1 * r(k + 9 + j)), w1 * 0.64, lvl - 1, 1.2);
+      grow(bx, by, aE + (r(k + 3) - 0.5) * 0.35, len * (0.72 + 0.12 * r(k + 4)), w1 * 0.86, lvl - 1, 1.12, me);
+      for (let j = 0; j < n; j++) grow(bx, by, aE + (j === 0 ? side : -side) * (spread + 0.35 * r(k + 7 + j)), len * (shrink + 0.1 * r(k + 9 + j)), w1 * 0.64, lvl - 1, 1.2, me);
       if (lvl >= 2 && r(k + 12) < 0.7) { const t = 0.4 + 0.25 * r(k + 13), [sx, sy] = cubicAt(P, t), [tx, ty] = cubicTan(P, t), sd = r(k + 14) < 0.5 ? -1 : 1, wt = w + (w1 - w) * t;
-        grow(sx, sy, Math.atan2(ty, tx) + sd * (0.75 + 0.3 * r(k + 15)), len * 0.5, wt * 0.46, lvl - 2, 1.3); }
+        grow(sx, sy, Math.atan2(ty, tx) + sd * (0.75 + 0.3 * r(k + 15)), len * 0.5, wt * 0.46, lvl - 2, 1.3, me); }
     };
     for (const s0 of starts) grow(s0.x, s0.y, s0.a, s0.len, s0.w, s0.lvl, s0.flare || 1);
     return L;
@@ -962,14 +965,19 @@
     c.save(); c.translate(x, y); c.scale(sx, sy); poly(c, P2.all, color); poly(c, P2.shade, "rgba(0, 0, 0, 0.2)"); poly(c, P2.lit, "rgba(255, 255, 255, 0.13)"); c.restore();
   }
   // a broadleaf tree: a trunk flaring at the roots, limbs forking up and out, leaf pads clustered at their tips
+  function leafyFrame(seed, o = {}) {
+    const r = seededR(seed), H2 = o.h ?? 320, wide = o.wide ?? 1, lean = (r(1) - 0.5) * 0.18, top = [Math.sin(lean) * H2 * 0.45, -H2 * 0.44];
+    const L = growLimbs(r, [0, 1, 2].map(k => ({ x: top[0] + (k - 1) * 3, y: top[1] + 10 + 8 * r(25 + k), a: -Math.PI / 2 + (k - 1) * 0.7 * wide + (r(10 + k) - 0.5) * 0.3, len: H2 * (0.21 + 0.05 * r(20 + k)), w: 15, lvl: 1, flare: 1.25 })), { up: 0.22, spread: 0.55 * wide, shrink: 0.7, wob: 0.15 });
+    L.segs.push({ P: [[0, 2], [top[0] * 0.15 + 4 * (r(3) - 0.5), -H2 * 0.15], [top[0] * 0.75 - 4 * (r(4) - 0.5), -H2 * 0.3], top], w0: 30, w1: 19, lvl: 3, k: seed, parent: -1 });
+    return { L, top, r, H2, wide };
+  }
   function leafyTree(c, seed, o = {}) {
     const r = seededR(seed), H2 = o.h ?? 320, wide = o.wide ?? 1, bark = o.bark ?? "#6b4a2b", dk = mixHex(bark, "#000000", 0.35);
     const greens = o.greens ?? ["#285e2a", "#2f7d32", "#3a8a3c", "#47a047", "#58b050"];
     const lean = (r(1) - 0.5) * 0.18, top = [Math.sin(lean) * H2 * 0.45, -H2 * 0.44];
     if (o.shadow !== false) { c.fillStyle = "rgba(0, 0, 0, 0.15)"; c.beginPath(); c.ellipse(0, 2, 70 * wide, 11, 0, 0, 7); c.fill(); }   // (Gnome world: none for a great tree's crown, up in the air)
     for (const e of [-1, 1]) { c.fillStyle = bark; c.beginPath(); c.moveTo(e * 10, -24); c.quadraticCurveTo(e * 16, -4, e * (30 + 8 * r(2 + e)), 2); c.lineTo(e * 6, 2); c.closePath(); c.fill(); }
-    const L = growLimbs(r, [0, 1, 2].map(k => ({ x: top[0] + (k - 1) * 3, y: top[1] + 10 + 8 * r(25 + k), a: -Math.PI / 2 + (k - 1) * 0.7 * wide + (r(10 + k) - 0.5) * 0.3, len: H2 * (0.21 + 0.05 * r(20 + k)), w: 15, lvl: 1, flare: 1.25 })), { up: 0.22, spread: 0.55 * wide, shrink: 0.7, wob: 0.15 });
-    L.segs.push({ P: [[0, 2], [top[0] * 0.15 + 4 * (r(3) - 0.5), -H2 * 0.15], [top[0] * 0.75 - 4 * (r(4) - 0.5), -H2 * 0.3], top], w0: 30, w1: 19, lvl: 3, k: seed });
+    const L = leafyFrame(seed, o).L;
     drawLimbs(c, L, bark, o.tile ?? 25, o.px ?? 1); const tips = L.tips;
     if (o.marks) { c.fillStyle = "#292524"; for (let i = 0; i < 7; i++) { const q = 0.08 + i * 0.12, x = top[0] * q * 0.9, y = -H2 * 0.44 * q - 6; c.fillRect(x - 8 + (i % 2) * 6, y, 9, 3); } }   // (a birch's dark marks)
     if (o.bare) return;   // (Gnome world: the tree bare, its limbs seen when the gnome is under it)
@@ -1096,6 +1104,27 @@
         pineTree(g, t.seed + 1, ["#1f5f3a", "#245f34", "#2a6b3c"][t.seed % 3], 5 + Math.floor(t.h / 3)); return; }
       const sc = hT * u / 330; g.scale(sc, sc); leafyTree(g, t.seed + 1, { ...(TREE_LOOK[t.kind] || TREE_LOOK[0]), bare: part === "back", tile: 330 / hT, px: sc });
     });
+  }
+  // (Matthew: "let's polish up the roots that reach the sloped ground --- we need branching into the ground, like mangrove
+  // forests, in general") Each tree's roots branch out from its trunk above the ground and arch down into it, as a mangrove's
+  // do: two or three each side, from a little way up the trunk, out a tile or two and down to the ground where they land (lower,
+  // and longer, where the ground falls away, down a bank); by the water, more of them and longer, down into the water to the
+  // bed. Each a tapering curve of bark, a rootlet off the bigger ones, its top lit
+  function drawPropRoots(t, x, y, s) {
+    if (!t.alive || t.grow < 0.6) return;
+    const r = seededR(t.seed * 3 + 17), hT = t.h * (t.tall ? 1.45 : 1) * (t.kind === 4 ? 1.1 : 1), trunkW = t.tall ? Math.max(0.9, hT * 0.026) : t.kind === 1 ? 0.3 : Math.min(1.1, 0.075 * hT);
+    const wet = S.rivers.some(R => Math.abs(t.x + 0.5 - (R.x + R.w / 2)) < R.w / 2 + 7), per = (wet ? 4 : 2) + (t.kind === 4 ? 1 : 0), bark = t.kind === 2 ? "#cfc8bc" : t.kind === 3 ? "#b9b6a3" : "#5e4630";
+    for (const sd of [-1, 1]) for (let k = 0; k < per; k++) { const q = j => r(sd * 50 + k * 7 + j);
+      const x0 = x + sd * trunkW * (0.25 + 0.2 * q(1)) * s, y0 = y - (0.25 + (wet ? 0.9 : 0.5) * q(2)) * s;
+      const reach = (wet ? 1.2 : 0.7) + (wet ? 1.6 : 0.9) * q(3) + trunkW * 0.5, ex = t.x + 0.5 + sd * reach, ec = Math.floor(ex);
+      if (!inside(ec, surf0[ec] || 0)) continue;
+      const R = riverAt(ec + 0.5); let ey = R ? R.bed[Math.max(0, Math.min(R.w - 1, ec - R.x))] : landY(ec); ey = Math.min(ey, landY(t.x) + 4) + 0.15;
+      const X1 = ex * s, Y1 = ey * s, w0 = (0.12 + 0.08 * q(4)) * s * Math.min(1.4, 0.6 + trunkW * 0.5);
+      const cx1 = x0 + (X1 - x0) * 0.45, cy1 = Math.min(y0, Y1) - (0.25 + 0.35 * q(5)) * s;
+      taper(ctx, [x0, y0], [cx1, cy1], [X1, Y1], w0, w0 * 0.3, bark);
+      ctx.strokeStyle = "rgba(255,240,215,0.22)"; ctx.lineWidth = Math.max(1, w0 * 0.25); ctx.beginPath(); ctx.moveTo(x0, y0 - w0 * 0.3); ctx.quadraticCurveTo(cx1, cy1 - w0 * 0.3, X1, Y1 - w0 * 0.2); ctx.stroke();
+      if (q(6) < 0.6) { const t2 = 0.55 + 0.2 * q(7), mx = (1 - t2) * (1 - t2) * x0 + 2 * t2 * (1 - t2) * cx1 + t2 * t2 * X1, my = (1 - t2) * (1 - t2) * y0 + 2 * t2 * (1 - t2) * cy1 + t2 * t2 * Y1;
+        const lx = mx + sd * (0.3 + 0.4 * q(8)) * s; taper(ctx, [mx, my], [lx - sd * 0.1 * s, my + 0.1 * s], [lx, Y1 + 0.05 * s], w0 * 0.45, w0 * 0.15, bark); } }
   }
   // (how far each tree is opened: the gnome under its crown, on the land or in the water beside it)
   function underTree(t) {
@@ -1240,6 +1269,100 @@
           for (let q = 0; q < 3; q++) { c.moveTo(rx - 0.09 * s, y - 0.07 * s + q * 0.05 * s); c.lineTo(rx + 0.09 * s, y - 0.03 * s + q * 0.05 * s); } c.stroke(); } }
       }
     }
+  }
+  // (Matthew: "let's put a lot of gnome NPCs into the world, and give them a chance to say something friendly to the main char
+  // when engaged"; "again, use Rien Poortvliet, but add our own imagination of variations for all villiagers") The villagers:
+  // one or two in each room of the villages, sixteen out on the land and by the water, one on each great tree's platform by a
+  // house. Each its own: a gnome (most of them), a gnome wife or a child; the tall pointed cap (red for most of the gnomes, as
+  // Poortvliet paints them, and the wives' a soft grey-green; some of ours blue, green, brown or plum, striped or patched); a
+  // beard long or short, white, grey, ginger or brown, or the wife's braids; a tunic or a dress and apron, a belt; and
+  // something in hand (a pipe, a basket of berries, a walking stick, a lantern, a mushroom, a book, a watering can). They turn
+  // to the gnome as it comes; and when it stops by one, there is a good chance it says something (World.greet), in a bubble
+  const V_CAPS = ["#c62828", "#b71c1c", "#d84315", "#c62828", "#c62828", "#2e7d32", "#1565c0", "#6d4c41", "#6a1b9a"], V_WIFE = ["#6b7d4a", "#7a8b5a", "#8a6f9e", "#5b7c8a"];
+  const V_BEARD = ["#f5f5f5", "#e0e0e0", "#bdbdbd", "#d2691e", "#8d6e63"], V_HAIR = ["#e8c872", "#a0522d", "#d9d4cc", "#5d4037"];
+  const V_TUNIC = ["#1e5aa8", "#2f6b3a", "#7a4a26", "#b8860b", "#3e5f8a", "#8b3a3a"], V_DRESS = ["#4a5a7a", "#6b3a3a", "#3f5f3a", "#5a4a6a"], V_PANTS = ["#5d4037", "#6b6b6b", "#4e5d3a"];
+  function makeVillagers() {
+    S.villagers = []; const r = seededR(S.seed * 17 + 3); let id = 0;
+    const add = (x, y, where, kindBias = 0) => { const k = id++, q = j => r(k * 31 + j), u = q(1);
+      const kind = u < 0.5 - kindBias ? 0 : u < 0.82 ? 1 : 2;
+      S.villagers.push({ id: k, kind, where, x, y, n: 0, nextAt: 0, face: q(2) < 0.5 ? -1 : 1,
+        look: { cap: kind === 1 ? V_WIFE[Math.floor(q(3) * V_WIFE.length)] : V_CAPS[Math.floor(q(3) * V_CAPS.length)], stripe: q(4) < 0.18, patch: q(5) < 0.15, droop: (q(6) - 0.5) * 0.5,
+          beard: V_BEARD[Math.floor(q(7) * V_BEARD.length)], beardLen: 0.22 + 0.3 * q(8), hair: V_HAIR[Math.floor(q(9) * V_HAIR.length)],
+          coat: kind === 1 ? V_DRESS[Math.floor(q(10) * V_DRESS.length)] : V_TUNIC[Math.floor(q(10) * V_TUNIC.length)], pants: V_PANTS[Math.floor(q(11) * V_PANTS.length)],
+          item: Math.floor(q(12) * 9), size: kind === 2 ? 0.7 + 0.08 * q(13) : kind === 1 ? 0.92 + 0.06 * q(13) : 0.96 + 0.1 * q(13), nose: 0.055 + 0.025 * q(14), cheeks: q(15) < 0.6 } }); };
+    for (const R of S.rooms) { const n = R.w >= 6 ? 2 : 1; for (let j = 0; j < n; j++) add(R.x + 1 + (R.w - 2) * (n === 1 ? 0.5 : j === 0 ? 0.2 : 0.8) + 0.5, R.y + 4, 0, -0.15); }
+    for (let k = 0; k < 16; k++) { let c = Math.floor((k + 0.5) * WW / 16 + (r(500 + k) - 0.5) * 12); c = Math.max(4, Math.min(WW - 5, c));
+      for (let t = 0; t < 12 && riverAt(c + 0.5); t++) c += 2;
+      const nearWater = S.rivers.some(R => c > R.x - R.w / 2 - 8 && c < R.x + R.w * 1.5 + 8); add(c + 0.5, landY(c), nearWater ? 3 : 1); }
+    for (const hs of S.houses) { if (hs.small) continue; for (const d of [2.4, 1.8, 3.0]) { const x = hs.x + 0.5 - hs.side * d, c = Math.floor(x); if (inside(c, hs.row) && fix[at(c, hs.row)] === F_PLAT) { add(x, hs.row, 2); break; } } }
+  }
+  // (a villager whose room has flooded has gone up to a dry one: not seen there, nor heard)
+  const villagerAway = v => { const c = Math.floor(v.x), r = Math.floor(v.y - 0.5); return inside(c, r) && wat[at(c, r)] >= 0.5; };
+  function villagersStep(h) {
+    if (!S.villagers || !S.g) return; const g = S.g, gx = g.x / 1000, gy = g.y / 1000;
+    for (const v of S.villagers) if (Math.abs(v.x - gx) < 4 && Math.abs(v.y - gy) < 2) v.face = gx > v.x ? 1 : -1;
+    if (S.talk && S.frame > S.talk.until) S.talk = null;
+    if (S.frame % 6) return;
+    let best = null, bd = 1e9; for (const v of S.villagers) { if (villagerAway(v)) continue; const dx = Math.abs(v.x - gx), dy = Math.abs(v.y - gy); if (dx < 1.7 && dy < 1.3 && dx < bd) { bd = dx; best = v; } }
+    if (!best || (S.talk && S.talk.v === best) || S.frame < best.nextAt || Math.abs(g.vx) > 40) return;
+    if (rand() < 0.8 && typeof h.greet === "function") { let t = null; try { t = h.greet(best.id, best.kind, best.where, best.n); } catch (e) { t = null; }
+      if (t && t.line) { S.talk = { v: best, name: t.name, line: t.line, until: S.frame + 60 * 5 }; best.n++; best.nextAt = S.frame + 60 * 10; return; } }
+    best.nextAt = S.frame + 60 * 4; S.talk = { v: best, name: "", line: "🙂", until: S.frame + 60 * 1.5 };
+  }
+  function drawVillager(v, s, now) {
+    const c = ctx, L = v.look, u = s * L.size, x = v.x * s, y = v.y * s, f = v.face, br = Math.sin(now / 700 + v.id) * 0.012, blink = Math.floor(now / 140 + v.id * 7) % 37 === 0;
+    const ell = (col, ex, ey, rx, ry, a = 0) => { c.fillStyle = col; c.beginPath(); c.ellipse(x + ex * u, y + ey * u, rx * u, ry * u, a, 0, 7); c.fill(); };
+    const poly2 = (col, pts) => { c.fillStyle = col; c.beginPath(); pts.forEach(([px, py], i) => i ? c.lineTo(x + px * u, y + py * u) : c.moveTo(x + px * u, y + py * u)); c.closePath(); c.fill(); };
+    ell("rgba(0,0,0,0.18)", 0, 0, 0.3, 0.05);
+    // (boots, legs or skirt, the coat, the belt)
+    for (const e of [-1, 1]) ell("#3e2a1a", e * 0.1, -0.035, 0.1, 0.05);
+    if (v.kind === 1) { poly2(L.coat, [[-0.27, -0.05], [0.27, -0.05], [0.19, -0.46 + br], [-0.19, -0.46 + br]]); poly2("#efe7d4", [[-0.15, -0.07], [0.15, -0.07], [0.12, -0.38], [-0.12, -0.38]]); c.fillStyle = "rgba(0,0,0,0.12)"; c.fillRect(x - 0.15 * u, y - 0.2 * u, 0.3 * u, Math.max(1, u * 0.012)); }
+    else { for (const e of [-1, 1]) poly2(L.pants, [[e * 0.02, -0.07], [e * 0.18, -0.07], [e * 0.16, -0.21], [e * 0.02, -0.21]]); poly2(L.coat, [[-0.24, -0.17], [0.24, -0.17], [0.19, -0.47 + br], [-0.19, -0.47 + br]]);
+      c.fillStyle = "#4a2e1a"; c.fillRect(x - 0.23 * u, y - 0.26 * u, 0.46 * u, 0.055 * u); c.fillStyle = "#d4a52a"; c.fillRect(x - 0.04 * u, y - 0.267 * u, 0.08 * u, 0.068 * u); }
+    // (arms, hands)
+    for (const e of [-1, 1]) { c.strokeStyle = L.coat; c.lineWidth = 0.09 * u; c.lineCap = "round"; c.beginPath(); c.moveTo(x + e * 0.18 * u, y - 0.42 * u); c.lineTo(x + e * 0.26 * u, y - 0.27 * u); c.stroke(); ell("#f1c9a5", e * 0.26, -0.25, 0.045, 0.045); }
+    c.lineCap = "butt";
+    // (the head: face, cheeks, eyes under a bushy brow, the big round nose; beard or braids; the cap)
+    const hy = -0.6 + br;
+    if (v.kind === 1) for (const e of [-1, 1]) { c.strokeStyle = L.hair; c.lineWidth = 0.05 * u; c.lineCap = "round"; c.beginPath(); c.moveTo(x + e * 0.11 * u, y + (hy - 0.02) * u); c.quadraticCurveTo(x + e * 0.17 * u, y + (hy + 0.1) * u, x + e * 0.14 * u, y + (hy + 0.24) * u); c.stroke(); ell(L.hair, e * 0.14, hy + 0.26, 0.025, 0.02); c.lineCap = "butt"; }
+    ell("#f1c9a5", 0, hy, 0.145, 0.135);
+    if (L.cheeks) for (const e of [-1, 1]) ell("rgba(230,120,110,0.45)", e * 0.075, hy + 0.035, 0.035, 0.025);
+    if (v.kind === 0) { poly2(L.beard, [[-0.12, hy + 0.01], [0.12, hy + 0.01], [0.06, hy + 0.08 + L.beardLen], [0, hy + 0.12 + L.beardLen], [-0.06, hy + 0.08 + L.beardLen]]);
+      for (const e of [-1, 1]) ell(L.beard, e * 0.05, hy + 0.045, 0.06, 0.028, e * 0.3);
+      c.strokeStyle = "rgba(0,0,0,0.12)"; c.lineWidth = Math.max(1, u / 60); for (const e of [-0.04, 0, 0.04]) { c.beginPath(); c.moveTo(x + e * u, y + (hy + 0.08) * u); c.lineTo(x + e * 0.8 * u, y + (hy + 0.05 + L.beardLen) * u); c.stroke(); } }
+    const ex = f * 0.012; for (const e of [-1, 1]) { if (blink) { c.strokeStyle = "#3a2a1a"; c.lineWidth = Math.max(1, u / 40); c.beginPath(); c.moveTo(x + (e * 0.05 - 0.018 + ex) * u, y + (hy - 0.02) * u); c.lineTo(x + (e * 0.05 + 0.018 + ex) * u, y + (hy - 0.02) * u); c.stroke(); }
+      else { ell("#1a1a1a", e * 0.05 + ex, hy - 0.02, 0.016, 0.019); ell("#fff", e * 0.05 + ex + 0.005, hy - 0.026, 0.005, 0.005); }
+      ell(v.kind === 0 ? L.beard : L.hair, e * 0.055, hy - 0.06, 0.04, 0.014, e * -0.2); }
+    ell("#e8a08a", ex * 1.5, hy + 0.025, L.nose, L.nose * 0.9); ell("rgba(255,255,255,0.35)", ex * 1.5 - 0.015, hy + 0.01, L.nose * 0.3, L.nose * 0.25);
+    if (v.kind !== 0) { c.strokeStyle = "#a0524a"; c.lineWidth = Math.max(1, u / 45); c.beginPath(); c.arc(x + ex * u, y + (hy + 0.06) * u, 0.03 * u, 0.2, Math.PI - 0.2); c.stroke(); }
+    const capH = v.kind === 2 ? 0.34 : 0.48, tipX = (L.droop + f * 0.06) * 0.3;
+    poly2(L.cap, [[-0.15, hy - 0.04], [0.15, hy - 0.04], [tipX, hy - 0.04 - capH]]);
+    if (L.stripe) { c.save(); c.beginPath(); c.moveTo(x - 0.15 * u, y + (hy - 0.04) * u); c.lineTo(x + 0.15 * u, y + (hy - 0.04) * u); c.lineTo(x + tipX * u, y + (hy - 0.04 - capH) * u); c.closePath(); c.clip(); c.fillStyle = "rgba(255,255,255,0.35)"; for (let k = 1; k < 4; k++) c.fillRect(x - 0.2 * u, y + (hy - 0.04 - k * capH / 4) * u, 0.4 * u, 0.035 * u); c.restore(); }
+    if (L.patch) { c.fillStyle = "#c8a032"; c.fillRect(x + 0.02 * u, y + (hy - 0.2) * u, 0.06 * u, 0.06 * u); c.strokeStyle = "rgba(0,0,0,0.3)"; c.lineWidth = Math.max(1, u / 70); c.strokeRect(x + 0.02 * u, y + (hy - 0.2) * u, 0.06 * u, 0.06 * u); }
+    poly2("rgba(255,255,255,0.15)", [[0.04, hy - 0.05], [0.12, hy - 0.05], [tipX, hy - 0.04 - capH]]);
+    ell(mixHex(L.cap, "#000000", 0.25), 0, hy - 0.04, 0.16, 0.03);
+    // (what it holds, in the hand on the side it faces)
+    const hx = f * 0.26, hy2 = -0.25, I = v.kind === 2 ? (L.item % 3 === 0 ? 4 : 9) : v.kind === 1 ? [1, 1, 3, 5, 6, 9, 1, 6, 9][L.item] : [0, 2, 3, 5, 0, 2, 9, 6, 0][L.item];
+    if (I === 0) { c.strokeStyle = "#5a3a1e"; c.lineWidth = 0.025 * u; c.beginPath(); c.moveTo(x + f * 0.03 * u, y + (hy + 0.07) * u); c.quadraticCurveTo(x + f * 0.12 * u, y + (hy + 0.12) * u, x + f * 0.17 * u, y + (hy + 0.06) * u); c.stroke(); ell("#5a3a1e", f * 0.18, hy + 0.04, 0.03, 0.035);
+      const sm = (now / 900 + v.id) % 1; ell(`rgba(220,220,220,${(0.5 * (1 - sm)).toFixed(2)})`, f * 0.2 + sm * 0.05, hy - 0.04 - sm * 0.25, 0.03 + sm * 0.04, 0.03 + sm * 0.04); }
+    else if (I === 1) { ell("#a0703f", hx, hy2 + 0.08, 0.1, 0.07); c.strokeStyle = "#7a4f2a"; c.lineWidth = 0.02 * u; c.beginPath(); c.arc(x + hx * u, y + (hy2 + 0.06) * u, 0.09 * u, Math.PI, 0); c.stroke(); for (let k = 0; k < 4; k++) ell(["#b71c1c", "#6a1b9a", "#b71c1c", "#1a237e"][k], hx - 0.06 + k * 0.04, hy2 + 0.035, 0.022, 0.022); }
+    else if (I === 2) { c.strokeStyle = "#6b4a2b"; c.lineWidth = 0.035 * u; c.beginPath(); c.moveTo(x + hx * u, y + (hy2 - 0.25) * u); c.lineTo(x + (hx + f * 0.04) * u, y); c.stroke(); }
+    else if (I === 3) { c.strokeStyle = "#333"; c.lineWidth = Math.max(1, u / 50); c.beginPath(); c.moveTo(x + hx * u, y + hy2 * u); c.lineTo(x + hx * u, y + (hy2 + 0.06) * u); c.stroke(); c.fillStyle = "#2a2a2a"; c.fillRect(x + (hx - 0.045) * u, y + (hy2 + 0.06) * u, 0.09 * u, 0.13 * u); ell(`rgba(255,214,120,${(0.8 + 0.2 * Math.sin(now / 90 + v.id)).toFixed(2)})`, hx, hy2 + 0.125, 0.032, 0.045); }
+    else if (I === 4) { ell("#efe7d4", hx, hy2 + 0.05, 0.022, 0.05); ell("#c62828", hx, hy2, 0.07, 0.04); ell("#fff", hx - 0.02, hy2 - 0.01, 0.012, 0.01); }
+    else if (I === 5) { c.fillStyle = "#7a1f1f"; c.fillRect(x + (hx - 0.06) * u, y + (hy2 - 0.02) * u, 0.12 * u, 0.09 * u); c.fillStyle = "#efe7d4"; c.fillRect(x + (hx - 0.055) * u, y + (hy2 - 0.015) * u, 0.11 * u, 0.012 * u); }
+    else if (I === 6) { ell("#7b8a8f", hx, hy2 + 0.06, 0.08, 0.065); c.strokeStyle = "#7b8a8f"; c.lineWidth = 0.025 * u; c.beginPath(); c.moveTo(x + (hx + f * 0.07) * u, y + (hy2 + 0.05) * u); c.lineTo(x + (hx + f * 0.16) * u, y + (hy2 - 0.02) * u); c.stroke(); }
+  }
+  function drawTalk(s) {
+    const T2 = S.talk; if (!T2) return; const v = T2.v, c = ctx, x = v.x * s, y = (v.y - 1.25 * v.look.size) * s, fs = Math.max(11, Math.round(0.3 * s)), pad = 0.18 * s, maxW = 5.2 * s;
+    c.font = `${fs}px system-ui, sans-serif`; const words = T2.line.split(" "), lines = []; let cur = "";
+    for (const w of words) { const t = cur ? cur + " " + w : w; if (c.measureText(t).width > maxW && cur) { lines.push(cur); cur = w; } else cur = t; } if (cur) lines.push(cur);
+    c.font = `bold ${fs}px system-ui, sans-serif`; const nameW = T2.name ? c.measureText(T2.name).width : 0; c.font = `${fs}px system-ui, sans-serif`;
+    const w = Math.max(nameW, ...lines.map(l => c.measureText(l).width)) + pad * 2, lh = fs * 1.25, h = (lines.length + (T2.name ? 1 : 0)) * lh + pad * 1.4, bx = x - w / 2, by = y - h;
+    c.fillStyle = "rgba(255,252,240,0.96)"; c.strokeStyle = "#5a3a1e"; c.lineWidth = Math.max(1, s / 30); c.beginPath(); c.roundRect(bx, by, w, h, 0.2 * s); c.fill(); c.stroke();
+    c.beginPath(); c.moveTo(x - 0.15 * s, by + h - 1); c.lineTo(x, by + h + 0.25 * s); c.lineTo(x + 0.15 * s, by + h - 1); c.closePath(); c.fill(); c.beginPath(); c.moveTo(x - 0.15 * s, by + h); c.lineTo(x, by + h + 0.25 * s); c.lineTo(x + 0.15 * s, by + h); c.stroke();
+    c.textAlign = "left"; c.textBaseline = "top"; let ty = by + pad * 0.7;
+    if (T2.name) { c.font = `bold ${fs}px system-ui, sans-serif`; c.fillStyle = "#7a2a1a"; c.fillText(T2.name, bx + pad, ty); ty += lh; c.font = `${fs}px system-ui, sans-serif`; }
+    c.fillStyle = "#2a2018"; for (const l of lines) { c.fillText(l, bx + pad, ty); ty += lh; } c.textBaseline = "alphabetic";
   }
   // (Matthew: "trees should have squirrels running around, and generally avoiding the gnome") Squirrels: three in each great
   // tree, one in each tall one, red or grey. They run along the limbs the tree is drawn with (its crown grown again, in tiles,
@@ -1740,6 +1863,46 @@
     // (stones round its foot)
     for (let j = 0; j < 7; j++) { c.fillStyle = ["#8a8580", "#a39e98", "#6f6a66"][j % 3]; c.beginPath(); c.ellipse(cx - W + (j + 0.5) * W * 2 / 7, by - s * 0.08, s * (0.18 + 0.1 * r(j + 3000)), s * 0.12, 0, 0, 7); c.fill(); }
   }
+  // (Matthew: "let's have the beavers produce logs from the fallen tree in stages, not instantly", "doing DFS ideally") A felled
+  // tree lies where it fell, its limbs as it grew them (the same limbs it was drawn with; a pine's boughs, a willow's arching
+  // limbs), and the beavers cut it up a log at a time, depth first: down each limb to its ends, each limb's own limbs cut
+  // before it, the thinnest twigs going with the limb they grow on, and the trunk last, in three logs, its top first. Each cut
+  // is a log onto the pile beside it (World.beaver's cut), and that piece is gone from the tree on the ground
+  function subCubic(P, f) { const lerp2 = (a, b) => [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f], a = lerp2(P[0], P[1]), b = lerp2(P[1], P[2]), c2 = lerp2(P[2], P[3]), d = lerp2(a, b), e = lerp2(b, c2), m = lerp2(d, e); return [P[0], a, d, m]; }
+  function fallenOf(t) {
+    const hT = t.h * (t.kind === 4 ? 1.1 : 1), segs = [];
+    if (t.kind === 1 || t.kind === 4) { const H = hT * (t.kind === 1 ? 0.9 : 0.55), r = seededR(t.seed + 5);
+      segs.push({ P: [[0, 0], [0.05, -H * 0.33], [-0.05, -H * 0.66], [0, -H]], w0: t.kind === 1 ? 0.32 : 0.55, w1: t.kind === 1 ? 0.08 : 0.35, lvl: 3, k: 1, parent: -1 });
+      const n = t.kind === 1 ? 5 + Math.floor(t.h / 3) : 4;
+      for (let j = 0; j < n; j++) { const sd = j % 2 ? 1 : -1, y0 = t.kind === 1 ? -H * (0.22 + 0.7 * j / n) : -H * (0.85 + 0.03 * j), len = t.kind === 1 ? 0.5 + 1.4 * (1 - j / n) : hT * (0.3 + 0.08 * r(j));
+        const ex = sd * len, ey = y0 + (t.kind === 1 ? 0.25 * len : -0.2 * len);
+        segs.push({ P: [[0, y0], [sd * len * 0.35, y0 - 0.1 * len], [sd * len * 0.7, ey - 0.05], [ex, ey + (t.kind === 4 ? len * 0.4 : 0)]], w0: t.kind === 1 ? 0.12 : 0.24, w1: 0.05, lvl: 0, k: j + 2, parent: 0 }); } }
+    else { const fr = leafyFrame(t.seed + 1, TREE_LOOK[t.kind] || TREE_LOOK[0]), k = hT / 330, ti = fr.L.segs.length - 1;
+      for (const sg of fr.L.segs) segs.push({ P: sg.P.map(([x, y]) => [x * k, y * k]), w0: sg.w0 * k, w1: sg.w1 * k, lvl: sg.lvl, k: sg.k, parent: sg.parent === -2 ? ti : sg.parent ?? -1 });
+      const tr = segs.splice(ti, 1)[0]; segs.unshift(tr); for (const sg of segs) if (sg !== tr) sg.parent = sg.parent === ti ? 0 : sg.parent < ti ? sg.parent + 1 : sg.parent; tr.parent = -1; }
+    // (the pieces, depth first: each limb after its own limbs; the trunk last, top first)
+    const kids = segs.map(() => []); segs.forEach((sg, i) => { if (sg.parent >= 0) kids[sg.parent].push(i); });
+    const pieces = [], visit = i => { for (const c of kids[i]) visit(c); if (i === 0) pieces.push({ i: 0, to: 2 / 3 }, { i: 0, to: 1 / 3 }, { i: 0, to: 0 }); else if (segs[i].w0 >= 0.1) pieces.push({ i }); };
+    visit(0);
+    return { segs, pieces, trunk: 1, gone: new Uint8Array(segs.length) };
+  }
+  function cutPiece(fl) { const p = fl.F.pieces[fl.k++]; if (!p) return; if (p.i === 0) fl.F.trunk = p.to; else fl.F.gone[p.i] = 1; }
+  function drawFallen(fl, s) {
+    const t = fl.t, F = fl.F, dir = t.fallDir || 1, gy = landY(t.x), x = (t.x + 0.5) * s, half = F.segs[0].w0 / 2;
+    const seen = i => { for (let j = i; j > 0; j = F.segs[j].parent) if (F.gone[j]) return false; return i === 0 ? F.trunk > 0 : !F.gone[i]; };
+    const L = { segs: [], tips: [], mids: [], joints: [] };
+    F.segs.forEach((sg, i) => { if (!seen(i)) return; const P = i === 0 ? subCubic(sg.P, F.trunk) : sg.P; L.segs.push({ P: P.map(([a, b]) => [a * s, b * s]), w0: sg.w0 * s, w1: (i === 0 ? sg.w0 + (sg.w1 - sg.w0) * F.trunk : sg.w1) * s, lvl: sg.lvl, k: sg.k, base: 0.1 }); });
+    if (!L.segs.length) return;
+    // (lying along the ground: its trunk tilted up to rest on the highest ground under it, not buried in a bank)
+    const Lt = Math.hypot(F.segs[0].P[3][0], F.segs[0].P[3][1]); let hi = gy; for (let k = 1; k <= Lt; k++) { const c = t.x + dir * k; if (inside(c, 0)) hi = Math.min(hi, landY(c)); }
+    const tilt = Math.atan2(Math.max(0, gy - hi) + half, Lt);
+    ctx.save(); ctx.translate(x + dir * 0.25 * s, (gy - 0.05) * s - half * s); ctx.rotate(dir * (Math.PI / 2 - tilt));
+    drawLimbs(ctx, L, (TREE_LOOK[t.kind] || {}).bark || "#6b4a2b", s, 1);
+    // (its leaves, wilting, on the ends of the limbs still on it)
+    const greens = t.kind === 1 ? ["#1f5f3a", "#245f34"] : t.kind === 4 ? ["#86a92e", "#a2c23e"] : ["#5a7a2a", "#6b8a30", "#7a9a3a"];
+    F.segs.forEach((sg, i) => { if (i === 0 || !seen(i) || sg.lvl > 0) return; const [ex, ey] = sg.P[3]; pad(ctx, sg.k % 8, ex * s, ey * s + 0.1 * s, (t.kind === 1 ? 0.004 : 0.006) * s * (sg.k % 2 ? 1 : -1), 0.006 * s, greens[sg.k % greens.length]); });
+    ctx.restore();
+  }
   // a pile of logs, their cut ends to us, stacked in rows, each row one fewer, as many as are left: bark round each, the pale
   // wood, its rings
   function drawPile(p, x, y) {
@@ -1755,7 +1918,7 @@
     const c = ctx, s = T, f = B.b.face || 1, job = B.b.job;
     if (job === 0) return;   // (in the lodge, resting: drawn there, drawLodge)
     c.save(); c.translate(x, y); c.scale(f, 1);
-    const bob = job === 2 ? Math.sin(S.frame / 3) * 0.05 * s : 0;
+    const bob = job === 2 || job === 7 ? Math.sin(S.frame / 3) * 0.05 * s : 0;
     c.fillStyle = "#3b2a1e"; c.beginPath(); c.ellipse(-0.55 * s, -0.1 * s, 0.32 * s, 0.11 * s, -0.2, 0, 7); c.fill();   // (the tail, flat)
     c.fillStyle = "#7a4a28"; c.beginPath(); c.ellipse(0, -0.3 * s, 0.42 * s, 0.28 * s, 0, 0, 7); c.fill();
     c.beginPath(); c.ellipse(0.38 * s, -0.42 * s + bob, 0.2 * s, 0.17 * s, 0, 0, 7); c.fill();
@@ -1791,9 +1954,10 @@
       ctx.fillStyle = "rgba(255,255,255,0.75)"; ctx.beginPath(); ctx.ellipse(((x % (W + 400)) + W + 400) % (W + 400) - 200, y, s * 1.6, s * 0.45, 0, 0, 7); ctx.fill(); }
     ctx.save(); ctx.translate(-camX * s, -camY * s);
     // above the land: the trees, bushes and mushrooms (painted once, sprites), then the great trees over them
-    for (const t of S.trees) if (t.x >= c0 - 9 && t.x <= c1 + 9) drawTree(t, (t.x + 0.5) * s, landY(t.x) * s);
+    for (const t of S.trees) if (t.x >= c0 - 9 && t.x <= c1 + 9) { drawTree(t, (t.x + 0.5) * s, landY(t.x) * s); drawPropRoots(t, (t.x + 0.5) * s, landY(t.x) * s, s); };
     for (const b of S.bushes) if (b.x >= c0 - 2 && b.x <= c1 + 2) drawSwaying(bushSprite(b), (b.x + 0.5) * s, landY(b.x) * s, 1, sway(b.x * 3, 1.4));
     for (const m of S.shrooms) if (m.x >= c0 - 1 && m.x <= c1 + 1) drawShroom(m, (m.x + 0.5) * s, landY(m.x) * s);
+    for (const fl of S.fallen) if (fl.x >= c0 - 16 && fl.x <= c1 + 16 && S.frame - fl.t.fallAt >= 50) drawFallen(fl, s);
     for (const p of S.piles) if (p.x >= c0 - 2 && p.x <= c1 + 2) drawPile(p, (p.x + 0.5) * s, landY(p.x) * s);
     for (const f of S.flowers) if (f.x >= c0 - 1 && f.x <= c1 + 1 && top[f.x] >= surf0[f.x]) drawFlowers(f, (f.x + 0.5) * s, landY(f.x) * s, now);
     for (const G of S.greats) { if (G.x + 22 < c0 || G.x - 22 > c1) continue; const x = (G.x + 0.5) * s, y = G.foot * s;
@@ -1813,11 +1977,11 @@
         for (const L of G.limbs) { const ly = y - L.y * s; ctx.fillStyle = "#4a2e1a"; ctx.beginPath(); ctx.roundRect(x + L.side * (iw / 2) - (L.side > 0 ? 0 : 0.35 * s), ly - 1 * s, 0.35 * s, 1 * s, [0.15 * s, 0.15 * s, 0, 0]); ctx.fill(); } }
     }
     // the ground, as Gnome dig paints it: each kind flat, darker deeper, a fleck or two, its own faint marks
-    const dk = new Path2D(), lt = new Path2D(), ln = new Path2D(), sp = Math.max(1, s * 0.08);
+    const groundPath = new Path2D(), dk = new Path2D(), lt = new Path2D(), ln = new Path2D(), sp = Math.max(1, s * 0.08);
     for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) { const m = mat[at(c, r)]; if (m < SOIL || m > GRANITE) continue;
       const x = c * s, y = r * s, hsh = (c * 73 + r * 151) % 97;
-      ctx.fillStyle = groundCol(m, r - surf0[c]); const sk = shape[at(c, r)]; if (sk) { slopeTri(ctx, x, y, s, sk); ctx.fill(); ctx.strokeStyle = "rgba(0,0,0,0.12)"; ctx.lineWidth = Math.max(1, s * 0.03); ctx.beginPath(); if (sk === 1) { ctx.moveTo(x, y + s); ctx.lineTo(x + s, y); } else { ctx.moveTo(x, y); ctx.lineTo(x + s, y + s); } ctx.stroke(); continue; }
-      ctx.fillRect(x, y, s + 0.5, s + 0.5);
+      ctx.fillStyle = groundCol(m, r - surf0[c]); const sk = shape[at(c, r)]; if (sk) { slopeTri(ctx, x, y, s, sk); ctx.fill(); if (sk === 1) { groundPath.moveTo(x, y + s + 0.5); groundPath.lineTo(x + s + 0.5, y); groundPath.lineTo(x + s + 0.5, y + s + 0.5); groundPath.closePath(); } else { groundPath.moveTo(x, y); groundPath.lineTo(x + s + 0.5, y + s + 0.5); groundPath.lineTo(x, y + s + 0.5); groundPath.closePath(); } ctx.strokeStyle = "rgba(0,0,0,0.12)"; ctx.lineWidth = Math.max(1, s * 0.03); ctx.beginPath(); if (sk === 1) { ctx.moveTo(x, y + s); ctx.lineTo(x + s, y); } else { ctx.moveTo(x, y); ctx.lineTo(x + s, y + s); } ctx.stroke(); continue; }
+      ctx.fillRect(x, y, s + 0.5, s + 0.5); groundPath.rect(x, y, s + 0.5, s + 0.5);
       dk.rect(x + s * (0.15 + (hsh % 5) * 0.03), y + s * 0.3, sp, sp); dk.rect(x + s * 0.65, y + s * (0.6 + (hsh % 3) * 0.08), sp, sp);
       if (m === SAND) { lt.rect(x + s * 0.4, y + s * 0.15, sp * 1.3, sp); dk.rect(x + s * 0.8, y + s * 0.45, sp * 1.2, sp * 1.2); lt.rect(x + s * 0.25, y + s * 0.75, sp, sp); }
       else if (m === SSTONE) lt.rect(x, y + s * (0.2 + (hsh % 6) * 0.1), s, Math.max(1, s * 0.04));
@@ -1835,7 +1999,8 @@
     const sets = S.rootSets.filter(R => R.x1 >= c0 - 1 && R.x0 <= c1 + 1), tsets = S.threadSets.filter(R => R.x1 >= c0 - 1 && R.x0 <= c1 + 1);
     const lay = layer(0, camX, camY); strokeLines(lay, sets, "#24120a", 1, 0, 0, 0, false, s); strokeLines(lay, sets, "#3d2414", 0.35, -1, -1, 9, false, s);
     const lay2 = layer(1, camX, camY); strokeLines(lay2, tsets, "#fafaf5", 1, 0, 0, 0, false, s, 3);
-    ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 0.3; ctx.drawImage(layerCv[0], 0, 0); ctx.globalAlpha = 0.4; ctx.drawImage(layerCv[1], 0, 0); ctx.restore();
+    // (only over the ground: the roots grown before a bank was cut back do not cross the air over it)
+    ctx.save(); ctx.clip(groundPath); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 0.3; ctx.drawImage(layerCv[0], 0, 0); ctx.globalAlpha = 0.4; ctx.drawImage(layerCv[1], 0, 0); ctx.restore();
     // masonry and timber, and what is behind each open tile under the land: rooms' walls, the stair's stones, a cave's rock
     for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) { const i = at(c, r), m = mat[i];
       if (m === MASON || m === TIMBER) { ctx.drawImage(tex(m, (c * 3 + r * 5) & 3), c * s, r * s); continue; }
@@ -1861,6 +2026,18 @@
     const dc = g.dt > 0 ? g.dc : -1, dr = g.dr;
     for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) { const i = at(c, r), m = mat[i]; if (m === AIR) continue;
       if (r === top[c] && r <= surf0[c] + 1 && m <= SSTONE) { const sk = shape[i], gy0 = j => r * s + (sk === 1 ? s - (j + 0.3) * s / 7 : sk === 2 ? (j + 0.3) * s / 7 : 0);
+        // (Matthew: "more root, surface polish here", the slopes down to a creek) the topsoil under the turf, darker, along the land
+        // and down each slope; and, where a tree's roots run near a slope's face, a root or two out of it, arching back in
+        { const x0 = c * s, y0 = r * s, th = 0.2 * s, tc = mixHex(groundCol(m, r - surf0[c]), "#24140a", 0.45); ctx.fillStyle = tc; ctx.globalAlpha = 0.55; ctx.beginPath();
+          if (sk === 1) { ctx.moveTo(x0, y0 + s); ctx.lineTo(x0 + s, y0); ctx.lineTo(x0 + s, y0 + th * 1.4); ctx.lineTo(x0 + th * 1.4, y0 + s); }
+          else if (sk === 2) { ctx.moveTo(x0, y0); ctx.lineTo(x0 + s, y0 + s); ctx.lineTo(x0 + s - th * 1.4, y0 + s); ctx.lineTo(x0, y0 + th * 1.4); }
+          else { ctx.moveTo(x0, y0); ctx.lineTo(x0 + s + 0.5, y0); for (let j = 4; j >= 0; j--) ctx.lineTo(x0 + j * s / 4, y0 + th * (0.8 + 0.4 * (((c * 5 + j * 3) % 4) / 3))); }
+          ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1;
+          const rd = Math.max(root[i], inside(c, r + 1) ? root[at(c, r + 1)] : 0);
+          if (sk && rd > 0) for (let j = 0; j < rd; j++) { const h = ((c * 7 + r * 13 + j * 29) % 97) / 97, t0 = 0.12 + 0.5 * h, t1 = Math.min(0.95, t0 + 0.22 + 0.15 * ((j * 31 + c) % 5) / 5), lift = (0.12 + 0.18 * ((c + j * 7) % 3) / 2) * s;
+            const P0 = [x0 + t0 * s, sk === 1 ? y0 + (1 - t0) * s : y0 + t0 * s], P1 = [x0 + t1 * s, sk === 1 ? y0 + (1 - t1) * s : y0 + t1 * s], nx = sk === 1 ? -0.707 : 0.707, ny = -0.707;
+            const C = [(P0[0] + P1[0]) / 2 + nx * lift, (P0[1] + P1[1]) / 2 + ny * lift];
+            taper(ctx, P0, C, P1, (0.07 + 0.03 * rd) * s, 0.04 * s, "#5b3a22"); ctx.strokeStyle = "rgba(255,230,190,0.3)"; ctx.lineWidth = Math.max(1, s * 0.015); ctx.beginPath(); ctx.moveTo(P0[0], P0[1] - 0.02 * s); ctx.quadraticCurveTo(C[0], C[1] - 0.02 * s, P1[0], P1[1] - 0.02 * s); ctx.stroke(); } }
         ctx.fillStyle = "#4d7c0f"; if (sk) { ctx.strokeStyle = "#4d7c0f"; ctx.lineWidth = s * 0.14; ctx.beginPath(); ctx.moveTo(c * s, r * s + (sk === 1 ? s : 0)); ctx.lineTo(c * s + s, r * s + (sk === 1 ? 0 : s)); ctx.stroke(); } else ctx.fillRect(c * s, r * s - s * 0.04, s + 0.5, s * 0.14);
         ctx.strokeStyle = "#65a30d"; ctx.lineWidth = Math.max(1, s * 0.035); ctx.beginPath();
         const gw = S.windNow || 0, gt = now / (520 - 200 * Math.min(1, Math.abs(gw)));
@@ -1887,6 +2064,7 @@
     drawTreeLadders(c0, c1, s);
     for (const hs of S.houses) if (hs.x > c0 - 4 && hs.x < c1 + 4) drawHouse(hs, (hs.x + 0.5) * s, hs.row * s);
     drawSquirrels(c0, c1);
+    if (S.villagers) for (const v of S.villagers) if (v.x > c0 - 2 && v.x < c1 + 2 && v.y > r0 - 2 && v.y < r1 + 3 && !villagerAway(v)) drawVillager(v, s, now);
     // the village's door on the hill: a porch over the hatch; chimneys with smoke, light shafts' glass domes, air shafts' caps
     for (const v of S.villages) { const x = (v.x0 + 1) * s, y = v.top * s; if (v.x0 < c0 - 4 || v.x0 > c1 + 4) continue;
       ctx.fillStyle = "#8e8a80"; ctx.fillRect(x - 1.3 * s, y - 1.6 * s, 0.25 * s, 1.6 * s); ctx.fillRect(x + 1.05 * s, y - 1.6 * s, 0.25 * s, 1.6 * s);
@@ -1938,13 +2116,20 @@
       // climbing, since it can go any way there) Moving sideways, not pressing up or down, is in profile, climbing or not
       const lateral = (Math.abs(g.vx) > 10 && !(g.climb && (S.keys.up || S.keys.down))) || (!g.climb && !g.ground);
       const lp = ladderPush(gx, g.y / 1000, g.climb);
-      if (lateral) gnomeProfile(ctx, (gx + lp) * s, (g.y / 1000) * s - 0.48 * s, s * 0.98, g.face, Math.abs(g.vx) > 10, g.ground || g.climb, g.vy, now, g.gear, swimPose);
+      // (Matthew: "down on a slope shouldn't dig --- it should do a slide animation that accelerates, like mario 3") sliding:
+      // crouched, leaning back against the way it goes, the dust kicked up behind
+      const sliding = g.ground && S.keys.down && !S.keys.dig && Math.abs(g.vx) > 60;
+      if (sliding) { const dir = Math.sign(g.vx); ctx.save(); ctx.translate((gx + lp) * s, (g.y / 1000) * s); ctx.rotate(-dir * 0.32); ctx.scale(1, 0.8);
+        gnomeProfile(ctx, 0, -0.48 * s, s * 0.98, dir, false, true, 0, now, g.gear, null); ctx.restore();
+        if (S.frame % 2 === 0) S.parts.push({ x: gx - dir * 0.25, y: g.y / 1000 - 0.05, vx: -dir * (0.01 + 0.03 * rand()), vy: -0.02 - 0.03 * rand(), life: 18 + rand() * 10, col: "#c8b48a" }); }
+      else if (lateral) gnomeProfile(ctx, (gx + lp) * s, (g.y / 1000) * s - 0.48 * s, s * 0.98, g.face, Math.abs(g.vx) > 10, g.ground || g.climb, g.vy, now, g.gear, swimPose);
       else gnome(ctx, (gx + lp) * s, (g.y / 1000) * s - 0.48 * s, s * 0.98, d, true, moving, now, g.gear, false, true, false, swimPose);
       if (g.under && !g.gear) { for (let j = 0; j < Math.ceil(g.air / 120); j++) { ctx.strokeStyle = g.air < 150 && Math.floor(now / 150) % 2 ? "#ef4444" : "rgba(220,240,255,0.9)"; ctx.lineWidth = Math.max(1, s / 20); ctx.beginPath(); ctx.arc((gx - 0.5 + j * 0.25) * s, (g.y / 1000 - 1.25 - (j % 2) * 0.12) * s, 0.09 * s, 0, 7); ctx.stroke(); } }
       if (g.swim && !g.under) { ctx.strokeStyle = "rgba(255,255,255,0.8)"; ctx.lineWidth = Math.max(1, s / 16); const wl = Math.floor((g.y / 1000 - 0.45)) ; const sx = gx * s, sy = (wl) * s;
         for (const sd of [-1, 1]) { ctx.beginPath(); ctx.arc(sx + sd * (0.45 + (now % 900) / 900 * 0.5) * s, sy, 0.18 * s, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke(); } }
     }
     drawPebbles(true, c0, c1, r0, r1);
+    drawTalk(s);
     for (const p of S.parts) { ctx.fillStyle = p.col; ctx.fillRect(p.x * s, p.y * s, s * 0.1, s * 0.1); }
     // (Gnome dig's front layer: the roots that ran through a tunnel still crossing it, as wood, its shadow on the wall behind, its
     // bark, its top lit; the gnome goes behind them)
@@ -2195,7 +2380,7 @@
       return { data: { step: +ms.toFixed(4) }, text: [`a step of the gnome through Hazel: ${ms.toFixed(3)} ms`] };
     },
   });
-  if (Q.has("test")) window.WorldTest = { BOT, botPlan, dist, botEnter, botStand, botClimb, profile: gnomeProfile, front: gnome, map: () => { minimap(); return map2Cv; }, look: (x, y) => { S.camFix = x == null ? null : { x, y }; draw(); }, paintHouse, paintSmallHouse, squirrelBody, S, tick: n => { const h = H(); for (let i = 0; i < n; i++) tick(h); draw(); }, draw, near, code, at, mat, wat, fix, bg, stone, shape, surf0, treeMask, digOut, tile: () => T, drawPebbles };
+  if (Q.has("test")) window.WorldTest = { BOT, botPlan, dist, botEnter, botStand, botClimb, profile: gnomeProfile, front: gnome, map: () => { minimap(); return map2Cv; }, look: (x, y) => { S.camFix = x == null ? null : { x, y }; draw(); }, paintHouse, paintSmallHouse, squirrelBody, drawVillager, S, tick: n => { const h = H(); for (let i = 0; i < n; i++) tick(h); draw(); }, draw, near, code, at, mat, wat, fix, bg, stone, shape, surf0, treeMask, digOut, tile: () => T, drawPebbles };
   document.body.classList.add("js");
   draw();
 })();

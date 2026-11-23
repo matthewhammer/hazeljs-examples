@@ -18,8 +18,8 @@ type Thing = (kind = Int, at = Int, w = Int) in
 type Limb = (y = Int, side = Int, len = Int, house = Int, bridge = Bool) in
 # A tree house's style, gnome-made, craftsman: its name, its Latin name, its roof (0 a low gable, 1 a steep gable, 2 a hip, 3 a mushroom cap, 4 an acorn cap, 5 a cone, 6 a dome, 7 a shed roof, 8 thatch), its walls' color, its roof's, its trim's (0xRRGGBB), how its walls are made (0 shingles, 1 boards and battens, 2 logs, 3 half-timbering, 4 stone below and shingles above, 5 stone, 6 birch bark, 7 plaster), its windows (0 square, 1 round, 2 diamond panes, 3 arched), and one thing more (0 none, 1 a porch on tapered posts, 2 a balcony, 3 a turret, 4 a chimney, 5 a dormer, 6 a bell, 7 a telescope, 8 a flower box, 9 a rain barrel, 10 a weathervane, 11 a beehive) #
 type Style = (name = String, latin = String, roof = Int, walls = Int, roofc = Int, trim = Int, clad = Int, win = Int, more = Int) in
-# A beaver: where it is (x, in hundredths of a tile), the way it faces (-1, 1), its job (0 resting in its lodge, 1 going to a tree, 2 gnawing it, 3 dragging a log to the dam, 4 laying it, 5 going home, 6 going back to its pile of logs), the steps left at it, its tree, or its pile of logs (x, -1 none), its lodge's x and its dam's x; and what it did this step: felled its tree (its x, -1 none), laid a log on the dam (true) #
-type Beaver = (x = Int, face = Int, job = Int, t = Int, tree = Int, lodge = Int, dam = Int, felled = Int, laid = Bool) in
+# A beaver: where it is (x, in hundredths of a tile), the way it faces (-1, 1), its job (0 resting in its lodge, 1 going to a tree, 2 gnawing it, 3 dragging a log to the dam, 4 laying it, 5 going home, 6 going back to its pile of logs, 7 cutting a log from a fallen tree), the steps left at it, its tree, or its pile of logs (x, -1 none), its lodge's x and its dam's x; and what it did this step: felled its tree (its x, -1 none), laid a log on the dam (true), cut a log from the fallen tree onto its pile (true) #
+type Beaver = (x = Int, face = Int, job = Int, t = Int, tree = Int, lodge = Int, dam = Int, felled = Int, laid = Bool, cut = Bool) in
 # ---- The gnome, a step at a time (sixty a second) ---- #
 # The gnome: where its feet are (x their middle, y their bottom, in thousandths of a tile), its speed (thousandths of a tile a step), the way it faces (-1, 1), whether it stands on something, climbs, floats at the water's surface or is under it, its breath (steps of it left, 600 at most), whether it has the diving gear, the tile it is digging (column dc, row dr; -1 none) and the steps it has dug it, and what happened this step: 0 nothing, 1 a tile dug out (dc, dr), 2 a jump, 3 into the water, 4 out of breath, 5 a dive #
 type Gnome = (x = Int, y = Int, vx = Int, vy = Int, face = Int, ground = Bool, climb = Bool, swim = Bool, under = Bool, air = Int, gear = Bool, dc = Int, dr = Int, dt = Int, ev = Int) in
@@ -29,6 +29,8 @@ type Near = (cx = Int, cy = Int, r0 = Int, r1 = Int, r2 = Int, r3 = Int, r4 = In
 type Pad = (dx = Int, up = Bool, down = Bool, jump = Bool, dig = Bool) in
 # The gnome as it has moved, halfway through its step (World.step, then World.finish): where it is, its speeds, the column of the wall it ran into (-1 none), whether it stands, climbs, floats, and jumped #
 type Moved = (x = Int, y = Int, vx = Int, vy = Int, hc = Int, ground = Bool, climb = Bool, floating = Bool, jumped = Bool) in
+# What a villager says: its name, and its line #
+type Talk = (name = String, line = String) in
 # ---- Roots and mycelium (as Gnome dig's scene grows them, dig/rules/Scene.hz) ---- #
 # A line of a root or a thread of mycelium: from x0, y0 to x1, y1, and its width, all in hundredths of a tile (x across the whole world, y down from the top of the sky) #
 type Line = (x0 = Int, y0 = Int, x1 = Int, y1 = Int, w = Int) in
