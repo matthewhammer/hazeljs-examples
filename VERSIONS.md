@@ -2,6 +2,10 @@
 
 Each version lists what the apps do as of that version. The newest version is first.
 
+## 0.0.75 (2026-11-23)
+
+- **Gnome dig: the gnome and the ghosts glide from cell to cell** (Matthew: "let's animate the tile-to-tile motion for ghosts and gnome, so it's not instant, but it still has the same rate of movement for repeated moves"). A move of one cell is drawn as a slide from the cell before, at an even speed, lasting until the next move could come: 150 ms through dug ground (the gnome waits 8 steps after a move), 217 ms digging (12 steps), and a ghost's pace (12 to 14 steps, 200 to 233 ms). Held, the gnome's moves join into one steady glide at the same rate as before, drawn a move behind the rules; the rules are unchanged. A jump (back to the top after a ghost catches you, a new level) is not slid, and nor is anything at 🤖's full speed. Checked in the page: holding left, the gnome's drawn place falls evenly from cell 7 to cell 0, a cell every 9 steps as before; a ghost's slide lasts its pace, 233 ms on level 1.
+
 ## 0.0.74 (2026-11-23)
 
 - **Gnome dig: the love blast** (Matthew asked how the love gun could be "more powerful" than the lantern, and said yes to the blast). With the love shooter, 💘 in the pad or L sends a stream of hearts straight ahead, the way the gnome faces, along the open tunnel until earth, bedrock or a boulder stops it. Every ghost it reaches, stunned or not, is won over for good: it turns pink, smiles and floats up out of the ground, 200 points each. It is ready again two seconds later (💘 dims meanwhile), slower than the lantern's one second, and only straight on, so the lantern still matters for ghosts round a corner. The hearts that fly by themselves at ghosts near you stay as they were. L is now the blast; the lantern is 💡, Enter or F.

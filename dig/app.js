@@ -23,7 +23,7 @@
   const W_ = 14, H_ = 16, TOP = 3;   // (0.0.64: three rows of sky above the game's ground, for the trees)
   const S = { built: null, libAt: 0, libFailed: false, compiledError: "", game: null, best: kept("best", 0),
               dir: -1, keys: [], flash: false, pops: [], stepMs: [], restartAt: 0, banner: null, swipe: null, startSeed: 1, scene: null, sceneKey: "", layers: null,
-              land: null, landKey: "", landAt: 0, drops: new Map(), dug: null, restarts: 0, works: new Map(), worksN: 0, scared: new Map(), puffs: [], pewAt: 0,
+              land: null, landKey: "", landAt: 0, drops: new Map(), dug: null, restarts: 0, works: new Map(), worksN: 0, scared: new Map(), puffs: [], pewAt: 0, slide: null, mslide: new Map(), gd: [0, 0],
               blast: false, beam: null, won: [], cheer: null, parts: [], partAt: 0 };
   const H = () => S.built && S.built.ok ? S.built.value : null;
   const SND = window.DigSound || null;   // (0.0.68, sound.js: the music, a tune each level, and the ground's sounds)
@@ -550,6 +550,27 @@
     c.restore();
     c.restore();
   }
+  // (0.0.75; Matthew: "let's animate the tile-to-tile motion for ghosts and gnome, so it's not instant, but it still has the same
+  // rate of movement for repeated moves (left, left, left completes is nearly the same speed, but is smoother)") A move of one
+  // cell is drawn as a slide from the cell before, at an even speed, lasting until the next move could come: the gnome's wait
+  // after it (8 steps through dug ground, 12 digging), a ghost's pace. Moves one after another join into one steady glide, a
+  // move behind the rules. A jump (back to the top, a new level) is not slid, and nor is anything at 🤖's full speed.
+  const slid = (s, c, r, now) => { if (!s || !(s.dur > 0)) return [c, r]; const q = (now - s.t0) / s.dur;
+    return q >= 1 || q < 0 ? [c, r] : [s.fc + (c - s.fc) * q, s.fr + (r - s.fr) * q]; };
+  function slides(g, g2) {
+    const now = performance.now(), stepMs = 1000 / 60 / (W && W.on ? (W.rate || 1) : 1), next = new Map();
+    S.slide = g2.level === g.level && g2.dead === 0 && Math.abs(g2.px - g.px) + Math.abs(g2.py - g.py) === 1
+      ? { fc: g.px, fr: g.py, t0: now, dur: (g2.pwait + 1) * stepMs }
+      : g2.px === g.px && g2.py === g.py ? S.slide : null;
+    if (g2.level === g.level) {   // (each ghost matched to the one it was: one in the same cell stayed, one a cell away moved)
+      const left = g.mons.slice(), take = p => { const i = left.findIndex(p); return i < 0 ? null : left.splice(i, 1)[0]; }, moved = [];
+      for (const m2 of g2.mons) { const k = m2.r * W_ + m2.c;
+        if (take(m => m.c === m2.c && m.r === m2.r)) { if (S.mslide.has(k)) next.set(k, S.mslide.get(k)); } else moved.push(m2); }
+      for (const m2 of moved) { const m = take(m1 => Math.abs(m1.c - m2.c) + Math.abs(m1.r - m2.r) === 1);
+        if (m) next.set(m2.r * W_ + m2.c, { fc: m.c, fr: m.r, t0: now, dur: g2.mpace * stepMs }); }
+    }
+    S.mslide = next;
+  }
   function draw() {
     fit();
     const c = ctx, u = cv.width / W_, g = S.game, now = performance.now();
@@ -558,6 +579,7 @@
     c.save(); c.translate(0, TOP * u);   // (the game's ground, row 0 its surface, three rows of sky above)
     for (let r = 1; r < H_; r++) { c.fillStyle = LAYERS[Math.min(3, Math.floor((r - 1) / 4))]; c.fillRect(0, r * u, cv.width, u + 0.5); }
     if (!g) { c.restore(); return; }
+    S.gd = slid(S.slide, g.px, g.py, now);   // (0.0.75: where the gnome is drawn, sliding)
     if (g.wt < H_) {   // (0.0.68) the ground water: the earth from row wt down a little blue, and the water table a wavy line
       c.fillStyle = "rgba(37, 99, 235, 0.16)"; c.fillRect(0, g.wt * u, cv.width, (H_ - g.wt) * u);
       c.strokeStyle = "rgba(147, 197, 253, 0.55)"; c.lineWidth = Math.max(1, u * 0.035); c.beginPath();
@@ -593,7 +615,8 @@
       // (0.0.70; Matthew: "let's show the ghosts with a scared face when they run, and an exclamation point") one running from the
       // sunlight or (0.0.71) from your love shooter: paler, trembling, eyes wide, its mouth an O, a "!" over it
       const k = m.r * W_ + m.c, scared = m.stun <= 0 && ((S.litC && S.litC.has(k)) || (S.scared.get(k) || 0) > now || (g.loves && Math.abs(m.c - g.px) + Math.abs(m.r - g.py) <= 3));
-      const x = (m.c + 0.5) * u + (scared ? Math.sin(now / 25) * u * 0.025 : 0), y = (m.r + 0.5) * u, bob = Math.sin(now / 160 + m.c) * u * 0.04;
+      const [mc, mr] = slid(S.mslide.get(k), m.c, m.r, now);   // (0.0.75: sliding from the cell before)
+      const x = (mc + 0.5) * u + (scared ? Math.sin(now / 25) * u * 0.025 : 0), y = (mr + 0.5) * u, bob = Math.sin(now / 160 + mc) * u * 0.04;
       c.fillStyle = m.stun > 0 ? "#c4b5fd" : scared ? "#fca5a5" : "#ef4444"; c.beginPath(); c.arc(x, y + bob, u * 0.38, Math.PI, 0); c.lineTo(x + u * 0.38, y + u * 0.36);
       for (let i = 3; i >= -3; i -= 2) c.lineTo(x + i * u * 0.11, y + u * (i % 4 === 1 || i % 4 === -3 ? 0.26 : 0.36)); c.closePath(); c.fill();
       c.fillStyle = "#fff"; c.beginPath(); c.arc(x - u * 0.13, y - u * 0.05 + bob, u * 0.1, 0, 7); c.arc(x + u * 0.13, y - u * 0.05 + bob, u * 0.1, 0, 7); c.fill();
@@ -613,7 +636,7 @@
         c.fillStyle = "#b91c1c"; c.font = `900 ${Math.round(u * 0.32)}px system-ui`; c.textAlign = "center"; c.textBaseline = "middle"; c.fillText("!", x, ey + u * 0.01); c.textBaseline = "alphabetic";
       } else { c.fillStyle = "#111827"; c.beginPath(); c.arc(x - u * 0.11, y - u * 0.04 + bob, u * 0.05, 0, 7); c.arc(x + u * 0.15, y - u * 0.04 + bob, u * 0.05, 0, 7); c.fill(); }
     }
-    if (!S.cheer && (g.dead === 0 || Math.floor(now / 120) % 2)) gnome(c, (g.px + 0.5) * u, (g.py + 0.5) * u, u, g.pd, g.flash <= 0, g.pwait > 0, now, g.diving, g.loves, g.lantern !== false);
+    if (!S.cheer && (g.dead === 0 || Math.floor(now / 120) % 2)) gnome(c, (S.gd[0] + 0.5) * u, (S.gd[1] + 0.5) * u, u, g.pd, g.flash <= 0, g.pwait > 0, now, g.diving, g.loves, g.lantern !== false);
     if (g.loves && g.dead === 0 && !S.cheer) hearts(c, g, u, now);
     if (L && S.dug && S.dug.front) c.drawImage(S.dug.front, 0, 0);   // (the roots in front of all of it)
     beam(c, u, now); wonOver(c, u, now);   // (0.0.74: the love blast and the ghosts it won over, in front of the roots too)
@@ -760,7 +783,7 @@
   // under the water: bubbles rising from you; without the gear, your breath over your head, a bubble for every 20 steps of it left,
   // red and blinking at the last two
   function bubbles(c, g, u, now) {
-    const x = (g.px + 0.5) * u, y = (g.py + 0.5) * u, s2 = g.pd === 3 ? -1 : 1;
+    const x = (S.gd[0] + 0.5) * u, y = (S.gd[1] + 0.5) * u, s2 = g.pd === 3 ? -1 : 1;
     c.save(); c.strokeStyle = "#e0f2fe"; c.lineWidth = u * 0.02;
     for (let i = 0; i < 4; i++) { const q = (now / 900 + i / 4) % 1, bx = x + s2 * u * 0.08 + Math.sin(now / 200 + i * 2) * u * 0.05, by = y - u * 0.3 - q * u * 0.9;
       c.globalAlpha = 1 - q; c.beginPath(); c.arc(bx, by, u * (i % 2 ? 0.05 : 0.03), 0, 7); c.stroke(); }
@@ -802,9 +825,9 @@
   }
   // with the love shooter: hearts flying from it to every awake ghost within three cells (the rules send those away)
   function hearts(c, g, u, now) {
-    const x0 = (g.px + 0.5) * u, y0 = (g.py + 0.5) * u;
+    const x0 = (S.gd[0] + 0.5) * u, y0 = (S.gd[1] + 0.5) * u;
     for (const m of g.mons) { if (m.stun > 0 || Math.abs(m.c - g.px) + Math.abs(m.r - g.py) > 3) continue;
-      const x1 = (m.c + 0.5) * u, y1 = (m.r + 0.5) * u;
+      const [mc, mr] = slid(S.mslide.get(m.r * W_ + m.c), m.c, m.r, now), x1 = (mc + 0.5) * u, y1 = (mr + 0.5) * u;
       for (let i = 0; i < 3; i++) { const q = (now / 450 + i / 3) % 1;
         c.globalAlpha = Math.min(1, (1 - q) * 2); heart(c, x0 + (x1 - x0) * q, y0 + (y1 - y0) * q - Math.sin(q * Math.PI) * u * 0.3, u * (0.16 + 0.06 * Math.sin(now / 120 + i)), i % 2 ? "#f472b6" : "#ec4899"); }
       c.globalAlpha = 1;
@@ -836,7 +859,7 @@
   // ---- a game, and every frame a step of the rules
   function newGame() {
     const h = H(); if (!h) return;
-    S.startSeed = 1 + Math.floor(Math.random() * 2000000000); S.restarts = 0; S.works = new Map(); S.worksN++; S.game = h.start(S.startSeed);
+    S.startSeed = 1 + Math.floor(Math.random() * 2000000000); S.restarts = 0; S.works = new Map(); S.worksN++; S.game = h.start(S.startSeed); S.slide = null; S.mslide = new Map();
     if (SND) { SND.start(); SND.tune(0); } S.pops = []; S.banner = null; S.flash = false; S.blast = false; S.dir = -1; S.keys = []; S.restartAt = 0; S.cheer = null; S.parts = []; S.beam = null; S.won = [];
     if (W && W.on) W.start(0);
     bar(); draw();
@@ -906,7 +929,7 @@
     else { dir = S.dir; flash = S.flash; S.flash = false; blast = S.blast; S.blast = false; }
     const t0 = performance.now(), g2 = h.step(g, dir, flash, blast);
     S.stepMs.push(performance.now() - t0); if (S.stepMs.length > 60) S.stepMs.shift();
-    heard(g, g2); S.game = g2;
+    heard(g, g2); slides(g, g2); S.game = g2;
     // (0.0.74; Matthew: "when we clear a level, let's play a special celebration music loop, animate the gnome cheering and smiling,
     // and have confetti/stars/bubbles spray around in the foreground --- wait for the user to tap/click/key press until loading next
     // level") the level just cleared held, as it was with the gnome in the last gem's cell, while the party goes on; the next level
@@ -924,7 +947,7 @@
   // (0.0.74) on from a cleared level: the next one, its tune, and what the level-cleared banner had to say of it
   function goOn() {
     const ch = S.cheer; if (!ch) return;
-    S.cheer = null; S.game = ch.next; S.parts = []; acc = 0;
+    S.cheer = null; S.game = ch.next; S.parts = []; acc = 0; S.slide = null; S.mslide = new Map();
     S.banner = { ...(S.banner || {}), text: `⛏️ Level ${ch.next.level + 1}`, t: performance.now(), long: !!(S.banner && S.banner.sub) };
     if (SND) SND.tune(ch.next.level);
     bar(); draw();
