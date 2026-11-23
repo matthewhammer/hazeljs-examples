@@ -21,6 +21,9 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 
 const QUICK = process.argv.includes("--quick");
+// (^report(54)) --no-interpreted: the jit and the compiled ways only, for a second build of the same package on the same
+// machine (its interpreter is the first build's)
+const NO_INTERP = process.argv.includes("--no-interpreted");
 const args = process.argv.slice(2).filter(a => !a.startsWith("--"));
 const [GAME, PKG, OUT] = args;
 if (!GAME || !PKG) { console.log("usage: node node/package-bench.mjs <game> <hazeljs package dir> [out.json] [--quick]"); process.exit(2); }
@@ -65,7 +68,7 @@ const runSpec = GAME === "astrology" ? { ...spec, tail: ONE_READING } : spec;
 
 // ---- the one-time costs, and the four ways
 const once = {};
-let t = now(); const built = Hazel.runProgram(runSpec); once.interpretedBuildMs = now() - t;
+let t = now(); const built = NO_INTERP ? { ok: true, value: null } : Hazel.runProgram(runSpec); once.interpretedBuildMs = NO_INTERP ? null : now() - t;
 if (!built.ok) { console.log("the interpreter did not build the rules", JSON.stringify(built.errors).slice(0, 500)); process.exit(1); }
 t = now(); const jitted = Hazel.jitProgram(spec); once.jitBuildMs = now() - t;
 once.jitCompiled = jitted.compiled; once.jitReason = jitted.reason || null;
@@ -78,11 +81,21 @@ const RT = "  const $R = (", PROG = "  const P = (function ($R) {\n", END = "\n 
 const a = page.indexOf(RT), b = page.indexOf(PROG), c = page.indexOf(END);
 if (a < 0 || b < a || c < b) { console.log("compiled.js is not as expected"); process.exit(1); }
 const pageMade = (page.match(/hazelgrove\/hazel ([0-9a-f]{7,40})/) || [])[1] || null;
-const ours = page.slice(0, a) + RT + comp.runtime + ");\n" + PROG + comp.js + page.slice(c);
+let ours = page.slice(0, a) + RT + comp.runtime + ");\n" + PROG + comp.js + page.slice(c);
+// (^report(54)) a runtime whose lists may be segments of arrays: the page's two list converters as segments (a copy of
+// the page's array, which the page may change later; a slice is one native copy, no cells)
+const SEGMENTS = comp.runtime.includes("seg(a)");
+once.listShape = SEGMENTS ? "hybrid" : "cells";
+if (SEGMENTS) {
+  const L = "  const list = xs => { let r = null; for (let i = xs.length - 1; i >= 0; i--) r = { h: xs[i], t: r }; return r; };";
+  const A = "  const array = l => { const out = []; for (let p = l; p !== null; p = p.t) out.push(p.h); return out; };";
+  if (!ours.includes(L) || !ours.includes(A)) { console.log("compiled.js's list converters are not as expected"); process.exit(1); }
+  ours = ours.replace(L, "  const list = xs => $R.seg(xs.slice());").replace(A, "  const array = l => $R.arr(l).slice();");
+}
 once.wrappedBytes = ours.length; once.pageCompiledFrom = pageMade;
 t = now(); const C = script(ours); once.compiledLoadMs = now() - t;
 const P = existsSync(new URL(`../${GAME}/plain.js`, import.meta.url)) ? script(file("plain.js")) : null;
-const WAYS = [["interpreted", built.value], ["jit", jitted.value], ["compiled", C], ...(P ? [["plain JS", P]] : [])];
+const WAYS = [...(NO_INTERP ? [] : [["interpreted", built.value]]), ["jit", jitted.value], ["compiled", C], ...(P ? [["plain JS", P]] : [])];
 
 // ---- the clock (node/three-way.mjs's)
 const median = xs => { const s = [...xs].sort((x, y) => x - y); return s.length % 2 ? s[(s.length - 1) / 2] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2; };
@@ -138,7 +151,7 @@ if (GAME === "i-ching") {
   for (const s of [{ tag: "One" }, { tag: "CelticCross" }, { tag: "YearAhead", value: { start: 10, theme: true } }])
     op(`a deal, ${s.tag}`, e => e.deal(s, us, true));
 } else if (GAME === "astrology") {
-  WAYS[0][1] = { reading: () => { const r = Hazel.runProgram(runSpec); if (!r.ok) throw new Error("not built"); return r.value; } };
+  if (!NO_INTERP) WAYS[0][1] = { reading: () => { const r = Hazel.runProgram(runSpec); if (!r.ok) throw new Error("not built"); return r.value; } };
   op("a chart (interpreted: the whole program built each time)", e => e.reading(BIRTH, SITE, DAY));
 } else if (GAME === "checkers") {
   let g = C.start; for (let i = 0; i < 8; i++) { const ms = C.moves(g); g = C.apply(g, ms[Math.floor(draw() * ms.length)]); }

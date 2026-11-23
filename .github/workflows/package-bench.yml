@@ -1,23 +1,26 @@
-# (ticket 795) every game timed four ways with one build of the hazeljs package (node/package-bench.mjs): its interpreter,
-# its jit, its compiler's JavaScript ahead of time, and plain JavaScript where a game has it. One runner per game, so a game's
-# four ways share a machine; the results (JSON, the printed lines, the machine) as one artifact per game. Runs on a push to
-# a bench/ branch, so main and the site are untouched.
+# (ticket 795, ^report(54)) hazel-jit's lists as cells against lists as cells and array segments (the hybrid), every game,
+# with two builds of the hazeljs package's hazel-lib.js on the same runner: the package branch's (cells) and the same with
+# hazel-jit-lists merged (hybrid). The jit and the ahead-of-time ways only (node/package-bench.mjs --no-interpreted): the
+# interpreter is the same in both. One runner per game; each build's commit is recorded in its results (Hazel.build).
 name: package bench
 on:
   push:
     branches: ["bench/**"]
   workflow_dispatch:
+env:
+  CELLS_URL: https://build.hazel.org/hazeljs/hazel-lib.js
+  HYBRID_URL: https://build.hazel.org/hazeljs-lists/hazel-lib.js
 jobs:
   bench:
     runs-on: ubuntu-latest
-    timeout-minutes: 150
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
         game: [i-ching, tarot, astrology, checkers, go, minesweeper, mahjong, solitaire, mahjong-solitaire, pinball, downhill, bricks, snake, trails, starwave, bugs, dig]
     steps:
       - uses: actions/checkout@v4
-      # hazeljs 0.0.11, not on npm: hazelgrove/hazeljs's editor-in-package at the commit that made it
+      # the package's own files (index.js, index.mjs) from 0.0.11; its hazel-lib.js replaced by each build's
       - uses: actions/checkout@v4
         with:
           repository: hazelgrove/hazeljs
@@ -26,14 +29,19 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: The machine
+      - name: The machine, and the two builds
         run: |
           mkdir -p bench
           { nproc; grep -m1 'model name' /proc/cpuinfo; node --version; } | tee bench/${{ matrix.game }}-machine.txt
-      - name: Four ways
+          cp -r hazeljs-pkg hazeljs-cells && curl -fsSL -A "Mozilla/5.0" "$CELLS_URL" -o hazeljs-cells/hazel-lib.js
+          cp -r hazeljs-pkg hazeljs-hybrid && curl -fsSL -A "Mozilla/5.0" "$HYBRID_URL" -o hazeljs-hybrid/hazel-lib.js
+          grep -o '[0-9a-f]\{40\}' hazeljs-cells/hazel-lib.js | grep -v '^0000' | head -1 | tee bench/cells-commit.txt
+          grep -o '[0-9a-f]\{40\}' hazeljs-hybrid/hazel-lib.js | grep -v '^0000' | head -1 | tee bench/hybrid-commit.txt
+      - name: Cells, then the hybrid
         run: |
           ulimit -s unlimited || ulimit -s 65536
-          node --stack-size=30000 --max-old-space-size=6000 node/package-bench.mjs ${{ matrix.game }} hazeljs-pkg bench/${{ matrix.game }}.json | tee bench/${{ matrix.game }}.txt
+          node --stack-size=30000 --max-old-space-size=6000 node/package-bench.mjs ${{ matrix.game }} hazeljs-cells bench/${{ matrix.game }}-cells.json --no-interpreted | tee bench/${{ matrix.game }}-cells.txt
+          node --stack-size=30000 --max-old-space-size=6000 node/package-bench.mjs ${{ matrix.game }} hazeljs-hybrid bench/${{ matrix.game }}-hybrid.json --no-interpreted | tee bench/${{ matrix.game }}-hybrid.txt
       - uses: actions/upload-artifact@v4
         if: ${{ always() }}
         with:
