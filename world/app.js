@@ -387,11 +387,16 @@
       if (p.rest) { if (S.frame % 8 === 0 && !floorAt(c, p.floor ?? Math.floor(p.y + 0.02))) p.rest = false; else continue; }
       const wet = inside(c, Math.floor(p.y)) && wat[at(c, Math.floor(p.y))] >= 0.5;
       p.vy = Math.min(wet ? 0.04 : 0.45, p.vy + (wet ? 0.004 : 0.012)); p.y += p.vy; p.x = Math.max(c + p.rad, Math.min(c + 1 - p.rad, p.x + p.vx));
-      const fr = Math.floor(p.y); if (!floorAt(c, fr)) continue;
-      // (landing: on the floor's top, or on the stones already lying there, rolling off to one side or the other)
-      let top = fr; for (const o of S.pebbles) if (o !== p && o.rest && Math.floor(o.x) === c && Math.abs(o.x - p.x) < (o.rad + p.rad) * 0.9 && o.y - o.rad * 1.1 < top) top = o.y - o.rad * 1.1;
-      if (top < fr) p.x += (p.x < c + 0.5 ? 1 : -1) * p.rad * 0.4 * (seededR(p.v)(3) + 0.3);
-      p.y = top; if (p.vy > 0.12) { p.vy = -p.vy * 0.25; p.y -= 0.01; } else { p.vy = 0; p.rest = true; p.vx = 0; p.floor = fr; } }
+      // (landing: on the stones already lying there, as it reaches the top of the heap, rolling a little off to one side; else on
+      // the floor. It had been put back on top of the heap only once it reached the floor, half a tile on, and fell again, and
+      // bounced, for ever: Matthew, "same bug")
+      const fr = Math.floor(p.y); let land = null, under = null;
+      for (const o of S.pebbles) if (o !== p && o.rest && Math.floor(o.x) === c && Math.abs(o.x - p.x) < (o.rad + p.rad) * 0.9) { const s2 = o.y - o.rad * 1.1;
+        if (p.y >= s2 && p.y - p.vy <= s2 + 0.002 && (land === null || s2 < land)) { land = s2; under = o; } }
+      if (land === null && floorAt(c, fr)) land = fr;
+      if (land === null) continue;
+      if (under) p.x = Math.max(c + p.rad, Math.min(c + 1 - p.rad, p.x + (p.x < under.x ? -1 : 1) * p.rad * 0.4 * (seededR(p.v)(3) + 0.3)));
+      p.y = land; if (p.vy > 0.12) { p.vy = -p.vy * 0.25; p.y -= 0.01; } else { p.vy = 0; p.rest = true; p.vx = 0; p.floor = under ? under.floor ?? fr : fr; } }
   }
   function drawPebbles(front, c0, c1, r0, r1) {
     if (!S.pebbles) return; const s = T;

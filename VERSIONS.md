@@ -2,6 +2,10 @@
 
 Each version lists what the apps do as of that version. The newest version is first.
 
+## 0.0.92 (2026-11-23)
+
+- **Gnome world: stones settle on a heap** (Matthew: "fallen rock keeps oscillating after reaching bottom surface"; then "same bug"): 0.0.91 kept a stone already lying on the heap still, but a stone falling onto the heap was only caught once it reached the floor below. It was then put back on top of the heap, half a tile up, fell again fast enough to bounce, and did so for ever. A falling stone now lands as it reaches the top of the stones already lying there, rolls a little off to one side, and lies still. Checked in a dry hole and a wet one: every stone at rest, none moving in 400 frames.
+
 ## 0.0.91 (2026-11-23)
 
 - **Gnome world: villagers** (Matthew: "let's put a lot of gnome NPCs into the world, and give them a chance to say something friendly to the main char when engaged"; "again, use Rien Poortvliet, but add our own imagination of variations for all villiagers"): sixty-nine of them, one or two in each room of the villages, sixteen out on the land and by the water, one on each great tree's platform by a house. Each is a gnome, a gnome wife or a child, stocky as Poortvliet paints them, and each looks its own:
