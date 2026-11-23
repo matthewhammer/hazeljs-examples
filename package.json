@@ -27,7 +27,8 @@
     "trails": "node node/trails.mjs",
     "starwave": "node node/starwave.mjs",
     "bugs": "node node/bugs.mjs",
-    "dig": "node node/dig.mjs"
+    "dig": "node node/dig.mjs",
+    "world": "node node/world.mjs"
   },
   "dependencies": {
     "hazeljs": "0.0.4"

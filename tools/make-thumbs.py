@@ -27,6 +27,7 @@ APPS = {
   "trails": ("Light trails", "against an opponent written in Hazel", ["two riders leaving walls", "of light; the first to", "crash loses; Hazel rides", "at three skills"]),
   "bugs": ("Butterfly garden", "a one-player game, its rules in Hazel", ["feed caterpillars nectar:", "they turn to butterflies", "that open the buds, till", "the garden is in bloom"]),
   "dig": ("Gnome dig", "a one-player game, its rules in Hazel", ["a gnome with a lantern", "digs for gems while", "monsters follow; boulders", "wobble, then fall"]),
+  "world": ("Gnome world", "a platform world, planned in Hazel", ["sixteen screens across:", "dig, climb, swim; rivers,", "beavers, tree houses, a", "village under a hill"]),
 }
 LIGHT = ".h{fill:#1f2328;font:700 15px system-ui,sans-serif}.m{fill:#5b6470;font:10px system-ui,sans-serif}.k{fill:#1f2328;font:11px system-ui,sans-serif}"
 DARK = ".h{fill:#e8e6e3}.m{fill:#a2a9b3}.k{fill:#e8e6e3}"

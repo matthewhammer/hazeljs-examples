@@ -1,0 +1,26 @@
+/* hazeljs-examples, Gnome world (0.0.76): the world on a wide canvas (16 by 9), the gems and hearts above it, four buttons
+   under it; in full screen (Matthew, 2026-11-23: "let's try to fill the entire available screen with game tiles in full
+   screen mode") the canvas is the whole window, the buttons over its bottom corners, faint, and the way out at the top */
+.gw-toggle { font-size: 1.15em; padding: 2px 8px; }
+.gw-toggle[aria-pressed="false"] { opacity: 0.45; text-decoration: line-through; }
+.gw-bar { display: flex; gap: 14px; flex-wrap: wrap; align-items: baseline; font-variant-numeric: tabular-nums; margin: 6px 0; }
+.gw-bar #gems { font-size: 1.5em; font-weight: 700; }
+.gw-wrap { position: relative; }
+.gw-wrap canvas { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; border-radius: 14px; touch-action: none; background: #8cc4ec;
+  box-shadow: 0 2px 12px rgb(0 0 0 / 0.25); -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+.gw-pad { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; max-width: 380px; margin: 10px auto 0; }
+.gw-pad button { font: inherit; font-size: 1.5em; padding: 10px 0; border-radius: 12px; border: 1px solid var(--line); background: var(--paper); color: var(--ink);
+  touch-action: none; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+.gw-pad button.held { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 20%, var(--paper)); }
+html.oracle-fs .gw-ui { display: block; padding: 0; background: #000; }
+html.oracle-fs .gw-ui > :not(.gw-wrap):not(.fs-bar) { display: none !important; }
+html.oracle-fs .gw-ui > .gw-wrap { position: fixed; inset: 0; z-index: 1; }
+html.oracle-fs .gw-ui .gw-wrap canvas { width: 100vw; height: 100vh; aspect-ratio: auto; border-radius: 0; box-shadow: none; }
+html.oracle-fs .gw-ui > .fs-bar { z-index: 3; top: 8px; right: 10px; opacity: 0.8; }
+html.oracle-fs .gw-ui .gw-pad { position: absolute; left: 12px; right: 12px; bottom: 12px; margin: 0; max-width: none; display: flex; justify-content: space-between; pointer-events: none; }
+html.oracle-fs .gw-ui .gw-pad button { pointer-events: auto; width: 74px; opacity: 0.5; background: rgb(255 255 255 / 0.55); }
+html.oracle-fs .gw-ui .gw-pad button[data-k="left"] { order: 1; }
+html.oracle-fs .gw-ui .gw-pad button[data-k="right"] { order: 2; margin-right: auto; margin-left: 8px; }
+html.oracle-fs .gw-ui .gw-pad button[data-k="down"] { order: 3; margin-right: 8px; }
+html.oracle-fs .gw-ui .gw-pad button[data-k="up"] { order: 4; }
+@media (hover: hover) and (pointer: fine) { html.oracle-fs .gw-ui .gw-pad { display: none; } }

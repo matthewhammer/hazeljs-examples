@@ -1,0 +1,121 @@
+// hazeljs-examples, Gnome world in Node: the same Hazel module as the page (world/rules/World.hz), built by hazeljs. It builds
+// the rules, makes a world's plan and checks it (the surface, the layers, the water table, the places in the world), lays out
+// the village and the hamlet and furnishes their rooms, grows the great trees' limbs, checks the sixteen tree house styles,
+// and runs the beavers for a while: each goes to a tree, gnaws it, drags the log to its dam and lays it. Then it times each.
+//   npm run world
+import HazelNpm from "hazeljs";
+import path from "node:path";
+import { pathToFileURL } from "node:url";
+// (HAZELJS=<a package dir>: that build instead, e.g. one with hazel-jit; with Hazel.jitProgram, the step compiled too, checked
+// against the interpreter's, step by step)
+const Hazel = process.env.HAZELJS ? (await import(pathToFileURL(path.resolve(process.env.HAZELJS, "index.mjs")).href)).default : HazelNpm;
+import { readFileSync } from "node:fs";
+const read = f => readFileSync(new URL("../world/rules/" + f, import.meta.url), "utf8").replace(/\s+$/, "");
+const TAIL = "(plan = World.plan, ground = World.ground, village = World.village, furnish = World.furnish, limbs = World.limbs, styles = World.styles, beaver = World.beaver, water_row = World.water_row, step = World.step)";
+const t0 = performance.now();
+const r = Hazel.runProgram({ preamble: read("preamble.hz"), modules: [{ name: "World", text: read("World.hz") }], tail: TAIL });
+console.log("built:", r.ok, `${(performance.now() - t0).toFixed(0)} ms`, (r.errors || []).map(e => `${e.module}: ${String(e.message).replace(/\s+/g, " ")}`).join(" | ").slice(0, 2500));
+if (!r.ok) process.exit(1);
+const G = r.value;
+let fail = 0; const bad = m => { fail++; if (fail < 20) console.log("FAIL:", m); };
+const time = (what, f) => { const t = performance.now(); const v = f(); console.log(`${what}: ${(performance.now() - t).toFixed(1)} ms`); return v; };
+const p = time("plan", () => G.plan(7));
+if (p.surface.length !== 57) bad(`surface samples ${p.surface.length}`);
+for (const s of p.surface) if (s < 20 || s > 44) bad(`surface row ${s}`);
+if (p.layers.length < 5) bad(`layers ${p.layers.length}`);
+for (const l of p.layers) if (l.thick.length !== 29) bad(`layer ${l.kind}: ${l.thick.length} samples`);
+if (p.table.length !== 29) bad(`table ${p.table.length}`);
+const by = {}; for (const q of p.places) (by[q.kind] = by[q.kind] || []).push(q);
+console.log("places:", Object.entries(by).map(([k, v]) => `${k}:${v.length}`).join(" "));
+for (const k of [10, 11, 12, 13, 14, 15, 20, 21, 30, 31, 40, 41, 42, 43, 44, 45, 50, 51]) if (!by[k]) bad(`no place of kind ${k}`);
+for (const q of p.places) if (q.x < 0 || q.x >= 448 || q.y < 0 || q.y >= 128) bad(`place ${JSON.stringify(q)} outside`);
+for (const k of [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]) { const g = G.ground(k); if (g.kind !== k) bad(`ground ${k}`); }
+console.log("grounds:", [1, 2, 3, 4, 5, 6, 7].map(k => { const g = G.ground(k); return `${g.name} dig ${g.dig} pores ${g.pores} flow ${g.flow}`; }).join("; "));
+const v = time("village", () => G.village(62, 46, 0, 7)), hm = G.village(254, 50, 1, 7);
+console.log(`village: ${v.length} rooms, x ${Math.min(...v.map(q => q.x))}..${Math.max(...v.map(q => q.x + q.w))}; hamlet ${hm.length}`);
+if (v.length < 12) bad(`village rooms ${v.length}`);
+const f = time("furnish (each kind)", () => [...Array(13)].map((_, k) => G.furnish(k, 8)));
+f.forEach((things, k) => { if (!things.length) bad(`room ${k}: nothing in it`); for (const t of things) if (t.at < 0 || t.at + t.w > 80) bad(`room ${k}: ${JSON.stringify(t)} outside`); });
+console.log("furnished:", f.map(t => t.map(x => x.kind).join(",")).join(" | "));
+for (const [kind, h, seed] of [[30, 30, 301], [31, 34, 302], [30, 28, 303]]) {
+  const L = G.limbs(kind, h, seed);
+  console.log(`limbs ${kind}: ${L.map(l => `${l.y}${l.side > 0 ? "R" : "L"}${l.len}h${l.house}${l.bridge ? "b" : ""}`).join(" ")}`);
+  if (L.length < 3) bad(`great tree ${kind}: ${L.length} limbs`);
+}
+if (G.styles.length < 12) bad(`styles ${G.styles.length}`);
+if (new Set(G.styles.map(s => s.latin)).size !== G.styles.length) bad("two styles with one Latin name");
+console.log("styles:", G.styles.map(s => s.latin).join(", "));
+// the beavers: a lodge at 250, its dam at 240, trees at 230, 262 and 300 (too far)
+let trees = [230, 262, 300], bs = [0, 1].map(i => ({ x: 25000, face: 1, job: 0, t: i * 5, tree: -1, lodge: 250, dam: 240, felled: -1, laid: false }));
+let felled = 0, laid = 0; const tb = performance.now(); let calls = 0;
+for (let n = 0; n < 900; n++) bs = bs.map(b => { calls++; const b2 = G.beaver(b, trees);
+  if (b2.felled >= 0) { felled++; trees = trees.filter(t => t !== b2.felled); }
+  if (b2.laid) laid++;
+  if (Math.abs(b2.x - b.x) > 30) bad(`a beaver jumped ${b.x} -> ${b2.x}`);
+  return b2; });
+console.log(`beavers: ${felled} trees felled, ${laid} logs laid, ${((performance.now() - tb) / calls).toFixed(2)} ms a step; trees left ${trees}`);
+if (felled !== 2 || laid !== 2) bad(`beavers felled ${felled} and laid ${laid}, not 2 and 2`);
+if (G.water_row(40, 36, 0) !== 40 || G.water_row(40, 36, 9) !== 37 || G.water_row(40, 36, 30) !== 37) bad("water_row");
+// the gnome on a patch of ground: soil from row 50 down, a pool of water (columns 20 to 27, rows 47 to 49, in a dip of the soil),
+// a ladder at column 12 from row 40 to 49
+const T = (c, r) => { if (c >= 20 && c <= 27) return r >= 50 ? 1 : r >= 47 ? 16 : 0; if (c === 12 && r >= 40 && r < 50) return 32; return r >= 50 ? 1 : (c >= 19 && c <= 28 && r >= 47 ? 1 : 0); };
+const near = g => { const cx = Math.floor(g.x / 1000), cy = Math.floor((g.y - 1) / 1000), row = r => T(cx - 1, r) + 128 * T(cx, r) + 16384 * T(cx + 1, r);
+  return { cx, cy, r0: row(cy - 3), r1: row(cy - 2), r2: row(cy - 1), r3: row(cy), r4: row(cy + 1) }; };
+const gnome0 = { x: 5500, y: 50000, vx: 0, vy: 0, face: 1, ground: true, climb: false, swim: false, under: false, air: 600, gear: false, dc: -1, dr: -1, dt: 0, ev: 0 };
+const pad = (dx = 0, up = false, down = false, jump = false) => ({ dx, up, down, jump });
+const run = (S, g, n, p, each) => { for (let i = 0; i < n; i++) { g = S(g, near(g), typeof p === "function" ? p(i) : p); if (each) each(g, i); } return g; };
+const checkGnome = (S, who) => {
+  let g = run(S, gnome0, 10, pad());
+  if (g.y !== 50000 || !g.ground) bad(`${who}: standing, y ${g.y} ground ${g.ground}`);
+  g = run(S, g, 30, pad(1));
+  console.log(`${who}: walked right 30 steps: x ${g.x} (from 5500)`);
+  if (g.x < 7500 || g.x > 8600 || g.y !== 50000) bad(`${who}: walking: x ${g.x} y ${g.y}`);
+  let top = g.y; g = run(S, g, 60, i => pad(0, i < 20, false, i === 0), q => { if (q.y < top) top = q.y; });
+  console.log(`${who}: a jump rose to ${top} (from 50000), back at ${g.y}`);
+  if (top > 48300 || top < 47600 || g.y !== 50000) bad(`${who}: jump top ${top}, end ${g.y}`);
+  let dug = null; g = run(S, g, 30, pad(0, false, true), q => { if (q.ev === 1 && !dug) dug = [q.dc, q.dr]; });
+  console.log(`${who}: dug down: ${dug}`);
+  if (!dug || dug[1] !== 50) bad(`${who}: digging down gave ${dug}`);
+  // into the pool: from x 19500 (on the dip's edge, row 47), walk right into the water, and float there
+  let w = { ...gnome0, x: 19500, y: 47000 }, ev3 = false;
+  w = run(S, w, 90, pad(1), q => { if (q.ev === 3) ev3 = true; });
+  console.log(`${who}: in the pool: x ${w.x} y ${w.y} swim ${w.swim} under ${w.under} air ${w.air}`);
+  if (!w.swim || w.under) bad(`${who}: not floating in the pool (swim ${w.swim}, under ${w.under})`);
+  let lowest = 0; w = run(S, w, 60, pad(0, false, true), q => { if (q.y > lowest) lowest = q.y; });
+  console.log(`${who}: dove to ${lowest}, air ${w.air}, under ${w.under}`);
+  if (!w.under || w.air >= 600) bad(`${who}: diving: under ${w.under}, air ${w.air}`);
+  w = run(S, w, 120, pad());
+  if (!w.swim || w.under) bad(`${who}: did not come back up (swim ${w.swim}, under ${w.under}, y ${w.y})`);
+  // the ladder: from its foot, up held: climbing up to row 40
+  let c = run(S, { ...gnome0, x: 12500 }, 120, pad(0, true));
+  console.log(`${who}: up the ladder: y ${c.y}, climbing ${c.climb}`);
+  if (c.y > 42000) bad(`${who}: climbing the ladder only got to ${c.y}`);
+  // a shaft one tile wide at column 30, dug up from a tunnel (row 49, columns 29 to 31): from x 30.9 (straddling 30 and 31), up
+  // held: eased into column 30, it climbs, digging the soil over its head
+  { const T0 = T; let dugUp = 0;
+    const T2 = (c, r) => (r === 49 && c >= 29 && c <= 31) ? 32 : (c === 30 && r >= 45 && r < 49) ? 32 : r >= 40 && c >= 25 && c <= 35 ? 1 : T0(c, r);
+    const near2 = g => { const cx = Math.floor(g.x / 1000), cy = Math.floor((g.y - 1) / 1000), row = r => T2(cx - 1, r) + 128 * T2(cx, r) + 16384 * T2(cx + 1, r);
+      return { cx, cy, r0: row(cy - 3), r1: row(cy - 2), r2: row(cy - 1), r3: row(cy), r4: row(cy + 1) }; };
+    let q = { ...gnome0, x: 30900, y: 50000 };
+    for (let i = 0; i < 200; i++) { q = S(q, near2(q), pad(0, true)); if (q.ev === 1) dugUp++; }
+    console.log(`${who}: up a shaft from x 30.9: x ${q.x} y ${q.y}, tiles dug ${dugUp}`);
+    if (q.y > 46000 || Math.abs(q.x - 30500) > 60 || !dugUp) bad(`${who}: the shaft: x ${q.x} y ${q.y}`); }
+  const t = performance.now(); run(S, gnome0, 300, i => pad(i % 50 < 25 ? 1 : -1, i % 40 === 0, false, i % 40 === 0));
+  console.log(`${who}: a step ${((performance.now() - t) / 300).toFixed(3)} ms`);
+};
+checkGnome(G.step, "interpreted");
+if (Hazel.jitProgram) {
+  const t1 = performance.now();
+  const J = Hazel.jitProgram({ preamble: read("preamble.hz"), modules: [{ name: "World", text: read("World.hz") }], tail: TAIL });
+  console.log(`jit: compiled ${J.compiled} ${J.reason || ""} in ${(performance.now() - t1).toFixed(0)} ms`);
+  if (J.compiled) {
+    checkGnome(J.value.step, "jit");
+    let a = gnome0, b = gnome0, diff = 0;
+    for (let i = 0; i < 400; i++) { const p = pad(i % 70 < 35 ? 1 : -1, i % 30 < 10, i % 90 > 80, i % 30 === 0); a = G.step(a, near(a), p); b = J.value.step(b, near(b), p);
+      if (JSON.stringify(a) !== JSON.stringify(b)) { diff++; if (diff < 3) console.log("jit differs at", i, JSON.stringify(a), JSON.stringify(b)); a = b; } }
+    if (diff) bad(`the jit's step differs from the interpreter's ${diff} times`);
+    const tp = performance.now(); J.value.plan(7); console.log(`jit: plan ${(performance.now() - tp).toFixed(1)} ms`);
+  }
+}
+console.log(fail ? `${fail} FAILED` : "all good");
+process.exit(fail ? 1 : 0);

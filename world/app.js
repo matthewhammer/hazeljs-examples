@@ -1,0 +1,888 @@
+// hazeljs-examples, Gnome world (0.0.76; Matthew, 2026-11-23: "I'd like a new variation of gnome dig. This one is called
+// 'gnome world.', until I think of a better name"; "move the gnome in a sub-tile way"; "a world that's larger than one
+// screen"; "fill the entire available screen with game tiles in full screen mode"; "the feel of a platform NES/SNES game ---
+// we scroll the level smoothly to center the gnome we control"; "at least 8 or 16 screen fulls of width, and maybe 4 or 8
+// screen fulls of height, between deep underground and trees and tree houses"). The world, 448 tiles across and 128 down
+// (sixteen screens of 28 by eight of 16), planned by Hazel (World.plan: the land, the rock, the rivers, the beavers, the
+// villages, the great trees, the places under the ground), and built here into its tiles. Every frame the gnome takes a step
+// in Hazel (World.step: running, jumping, climbing, digging, swimming), the beavers think in Hazel ten times a second
+// (World.beaver), and how high a dam holds its river is Hazel (World.water_row); here, the water seeping through the ground,
+// the boulders falling, the camera, and the drawing.
+//
+// (Matthew: "Or just use hazel jit as you prototype the game logic") The rules run compiled by hazel-jit: Hazel's library
+// from the hazeljs branch's build (hazelgrove/hazel#2857), whose Hazel.jitProgram compiles them as the page loads; where that
+// does not load, hazeljs 0.0.4 from npm runs them interpreted (?lib=npm asks for it), slower: a step 4 ms, not 0.02.
+(async () => {
+  "use strict";
+  const LIB_JIT = "https://build.hazel.org/hazeljs/hazel-lib.js", LIB_NPM = "https://cdn.jsdelivr.net/npm/hazeljs@0.0.4/hazel-lib.js";
+  const PROGRAM = "world", MODULES = ["World"];
+  const TAIL = "(plan = World.plan, ground = World.ground, village = World.village, furnish = World.furnish, limbs = World.limbs, styles = World.styles, beaver = World.beaver, water_row = World.water_row, step = World.step)";
+  const KEY = "hazeljs-examples/world/";
+  const Q = new URLSearchParams(location.search);
+  const $ = id => document.getElementById(id);
+  const text = async path => { const r = await fetch(path, { cache: "no-cache" }); if (!r.ok) throw new Error(path + ": " + r.status); return (await r.text()).replace(/\s+$/, ""); };
+  const load = src => new Promise((ok, no) => { const s = document.createElement("script"); s.src = src; s.onload = ok; s.onerror = () => no(new Error(src)); document.body.append(s); });
+  const kept = (k, dflt) => { try { const v = JSON.parse(localStorage.getItem(KEY + k)); return v === null ? dflt : v; } catch (e) { return dflt; } };
+  const keep = (k, v) => { try { localStorage.setItem(KEY + k, JSON.stringify(v)); } catch (e) { /* this visit only */ } };
+  const SND = window.DigSound || null;   // (Gnome dig's music and sounds, dig/sound.js)
+
+  // ---- the world's tiles: what is there (mat), its water (wat: for ground, the share of its pores full; for air, the share of
+  // the tile full of water), what is behind an open tile (bg), what is on it (fix), a gem in it, roots in it, a digging's cracks
+  const WW = 448, WH = 128, NN = WW * WH;
+  const AIR = 0, SOIL = 1, CLAY = 2, SAND = 3, SSTONE = 4, SHALE = 5, LIME = 6, GRANITE = 7, MASON = 8, TIMBER = 9;
+  const B_NONE = 0, B_DUG = 1, B_PLASTER = 2, B_WOOD = 3, B_STAIR = 4, B_CAVE = 5;
+  const F_LADDER = 1, F_PLAT = 2, F_STAIR = 3, F_BRIDGE = 4, F_HATCH = 5, F_DOOR = 6;
+  const mat = new Uint8Array(NN), wat = new Float32Array(NN), bg = new Uint8Array(NN), fix = new Uint8Array(NN), gem = new Uint8Array(NN), root = new Uint8Array(NN);
+  const surf0 = new Int16Array(WW), top = new Int16Array(WW);   // (the land's surface as made; the highest solid tile now)
+  const at = (c, r) => r * WW + c;
+  const inside = (c, r) => c >= 0 && c < WW && r >= 0 && r < WH;
+  // each kind of ground, from Hazel (World.ground): its pores (0 to 1), water's flow through it (a share of the pores a step), the
+  // share that clings, the steps to dig it, its color
+  const PORES = new Float32Array(10), FLOW = new Float32Array(10), CLING = new Float32Array(10), DIG = new Uint8Array(10), COLOR = [], NAME = [];
+  const S = { built: null, lib: "", libFailed: false, plan: null, seed: kept("seed", 7), rivers: [], dams: [], lodges: [], beavers: [], rooms: [], villages: [],
+    greats: [], trees: [], bushes: [], boulders: [], ducts: [], lamps: [], items: [], houses: [], bridges: [], smoke: [], parts: [], drops: [], rain: 0, rainAt: 0,
+    styles: [], g: null, hearts: 5, gems: kept("gems", 0), hurtAt: -1e9, faintAt: 0, start: { x: 12500, y: 0 }, keys: { left: false, right: false, up: false, down: false },
+    jumpQueued: false, cam: { x: 0, y: 0, set: false }, frame: 0, map: kept("map", true), banner: null, places: [], stepMs: [], beaverAt: 0, damAt: 0, minimapAt: -1e9, dirty: true };
+  const H = () => S.built && S.built.ok ? S.built.value : null;
+  let seedRand = 1;
+  const rand = () => { seedRand = (seedRand * 1103515245 + 12345) & 0x7fffffff; return seedRand / 0x7fffffff; };
+
+  // ---- building the world from Hazel's plan
+  function build(h, seed) {
+    const p = h.plan(seed); S.plan = p; seedRand = seed * 7 + 3;
+    for (let k = 0; k <= 9; k++) { const gr = h.ground(k); PORES[k] = gr.pores / 100; FLOW[k] = gr.flow / 1000; CLING[k] = gr.cling / 100; DIG[k] = gr.dig;
+      COLOR[k] = "#" + gr.color.toString(16).padStart(6, "0"); NAME[k] = gr.name; }
+    S.styles = h.styles;
+    mat.fill(AIR); wat.fill(0); bg.fill(B_NONE); fix.fill(0); gem.fill(0); root.fill(0);
+    const lerp = (a, i, step) => { const k = i / step, j = Math.min(a.length - 1, Math.floor(k)), f = k - j, b = a[Math.min(a.length - 1, j + 1)]; return a[j] * (1 - f) + b * f; };
+    for (let c = 0; c < WW; c++) {
+      const s = Math.round(lerp(p.surface, c, 8)); surf0[c] = s;
+      let r = s;
+      for (let L = 0; L < p.layers.length; L++) {
+        const lay = p.layers[L], last = L === p.layers.length - 1, t = last ? WH : Math.round(lerp(lay.thick, c, 16));
+        for (let k = 0; k < t && r < WH - 4; k++, r++) mat[at(c, r)] = lay.kind;
+      }
+      for (let r2 = WH - 4; r2 < WH; r2++) mat[at(c, r2)] = GRANITE;
+    }
+    const byKind = k => p.places.filter(q => q.kind === k);
+    const blob = (q, kind, fn) => { const cx = q.x + q.w / 2, cy = q.y + q.h / 2;
+      for (let c = q.x; c < q.x + q.w; c++) for (let r = q.y; r < q.y + q.h; r++) { if (!inside(c, r) || r < surf0[c] + 3 || r >= WH - 4) continue;
+        const u = (c + 0.5 - cx) / (q.w / 2), v = (r + 0.5 - cy) / (q.h / 2); if (u * u + v * v <= 1 + 0.25 * Math.sin(c * 1.7 + r)) fn ? fn(c, r) : (mat[at(c, r)] = kind); } };
+    // under the ground: old river gravel, limestone shelves (their caves), granite, and bowls of clay holding water
+    for (const q of byKind(41)) blob(q, SAND);
+    for (const q of byKind(42)) { blob(q, LIME);
+      for (let k = 0; k < 2 + (q.v % 2); k++) { const w = 4 + Math.floor(rand() * Math.max(2, q.w / 3)), hh = 2 + Math.floor(rand() * 2), x = q.x + 2 + Math.floor(rand() * Math.max(1, q.w - w - 4)), y = q.y + 2 + Math.floor(rand() * Math.max(1, q.h - hh - 3));
+        blob({ x, y, w, h: hh + 1 }, 0, (c, r) => { const i = at(c, r); if (mat[i] === LIME) { mat[i] = AIR; bg[i] = B_CAVE; } }); } }
+    for (const q of byKind(43)) blob(q, GRANITE);
+    for (const q of byKind(40)) { const cx = q.x + q.w / 2;
+      for (let c = q.x; c < q.x + q.w; c++) { if (c < 0 || c >= WW) continue; const u = (c + 0.5 - cx) / (q.w / 2), d = Math.round(q.h * Math.sqrt(Math.max(0, 1 - u * u)));
+        const bottom = q.y + Math.max(1, d);
+        for (let r = q.y; r < bottom && r < WH - 4; r++) { const i = at(c, r); if (r > surf0[c] + 2) { mat[i] = SAND; wat[i] = 1; } }
+        for (let r = bottom; r < bottom + 2 && r < WH - 4; r++) if (r > surf0[c] + 2) mat[at(c, r)] = CLAY;
+        if (Math.abs(u) > 0.85) for (let r = q.y - 1; r < bottom; r++) if (r > surf0[c] + 2) { mat[at(c, r)] = CLAY; wat[at(c, r)] = 0; } } }
+    // the rivers: the banks sloping down to each, its channel, a bed of sand and gravel under it
+    S.rivers = [];
+    for (const q of p.places.filter(q => q.kind >= 10 && q.kind <= 12)) {
+      const R = { kind: q.kind, x: q.x, w: q.w, natural: q.y, level: q.y, depth: q.h, bed: [], bank: 0, dam: null, name: ["a creek", "the stream", "the river"][q.kind - 10] };
+      for (let c = q.x - 4; c < q.x + q.w + 4; c++) { if (c < 0 || c >= WW || (c >= q.x && c < q.x + q.w)) continue;
+        const d = c < q.x ? q.x - c : c - (q.x + q.w - 1), t = q.y - 5 + Math.min(1, Math.floor((4 - d) / 2));
+        for (let r = surf0[c]; r < t; r++) mat[at(c, r)] = AIR;
+        if (surf0[c] < t) surf0[c] = t; }
+      for (let c = q.x; c < q.x + q.w; c++) { const u = (c - q.x + 0.5) / q.w * 2 - 1, d = Math.max(1, Math.round(q.h * Math.sqrt(Math.max(0.05, 1 - u * u))));
+        const bed = q.y + d; R.bed.push(bed);
+        for (let r = 0; r < bed; r++) { const i = at(c, r); mat[i] = AIR; bg[i] = B_NONE; }
+        for (let r = bed; r < bed + 2; r++) mat[at(c, r)] = SAND;
+        surf0[c] = bed; }
+      R.bank = Math.max(surf0[q.x - 1] ?? q.y - 4, surf0[q.x + q.w] ?? q.y - 4);
+      S.rivers.push(R);
+    }
+    // the beavers' lodges, dams and the beavers
+    S.lodges = byKind(13).map(q => ({ x: q.x, w: q.w, river: riverAt(q.x + q.w / 2) || riverAt(q.x + q.w + 3) || riverAt(q.x - 3) }));
+    S.dams = byKind(14).map(q => { const R = riverAt(q.x + q.w / 2); const d = { x: q.x, w: q.w, logs: q.v, river: R, at: q.x + Math.floor(q.w / 2) }; if (R) R.dam = d; return d; });
+    for (const d of S.dams) if (d.river) setLevel(h, d.river);
+    S.beavers = byKind(15).map(q => ({ b: { x: q.x * 100, face: 1, job: 0, t: 40 + q.v * 35, tree: -1, lodge: q.x, dam: q.w, felled: -1, laid: false }, px: q.x, py: 0, swing: q.v }));
+    // the villages, deep under the ground
+    S.rooms = []; S.ducts = []; S.lamps = []; S.items = []; S.villages = [];
+    for (const q of [...byKind(20), ...byKind(21)]) village(h, q, q.kind === 21 ? 1 : 0, p.seed);
+    // the great trees, their limbs, platforms, ladders or stair, houses, and rope bridges to the trees beside the stair tree
+    S.greats = []; S.houses = []; S.bridges = [];
+    S.trees = byKind(50).map(q => ({ x: q.x, kind: q.v, h: q.h, alive: true, grow: 1, fallAt: 0, regrow: 0, seed: q.x * 13 + q.h }));
+    for (const q of [...byKind(30), ...byKind(31)]) greatTree(h, q);
+    S.bushes = byKind(51).map(q => ({ x: q.x, v: q.v }));
+    // roots: under each tree, spreading and thinning down; water goes down them faster
+    for (const t of [...S.trees, ...S.greats.map(g => ({ x: g.x, h: g.h * 0.7 }))]) { const deep = Math.min(14, Math.round(t.h * 0.9)), s = surf0[t.x];
+      for (let r = s; r < s + deep && r < WH - 4; r++) { const spread = 1 + Math.floor((r - s) / 3);
+        for (let c = t.x - spread; c <= t.x + spread; c++) if (inside(c, r) && PORES[mat[at(c, r)]] > 0) root[at(c, r)] = Math.min(3, root[at(c, r)] + (Math.abs(c - t.x) <= 1 ? 2 : 1)); } }
+    // gems in veins, and boulders, each in the ground (never in a room's walls)
+    const diggable = i => mat[i] >= SOIL && mat[i] <= SHALE;
+    for (const q of byKind(44)) for (let k = 0; k < q.v; k++) { const c = q.x + Math.floor(rand() * (q.w + 2)) - 1, r = q.y + Math.floor(rand() * (q.h + 2)) - 1;
+      if (inside(c, r) && r > surf0[c] + 1 && diggable(at(c, r))) gem[at(c, r)] = 1 + Math.floor(rand() * 5); }
+    S.boulders = [];
+    for (const q of byKind(45)) { const c = q.x, r = q.y, i = inside(c, r) ? at(c, r) : -1;
+      if (i >= 0 && r > surf0[c] + 1 && diggable(i) && inside(c, r + 1) && diggable(at(c, r + 1))) { mat[i] = AIR; bg[i] = B_DUG; gem[i] = 0; S.boulders.push({ c, r, oy: 0, wob: -1, falling: false }); } }
+    // the water: below the table, the ground full; above it, damp; near a river, the table up to the river; caves under it full
+    for (let c = 0; c < WW; c++) {
+      let t = lerp(p.table, c, 16);
+      for (const R of S.rivers) { const d = c < R.x ? R.x - c : c >= R.x + R.w ? c - (R.x + R.w - 1) : 0; if (d < 40) t = Math.min(t, R.level + d / 3); }
+      for (let r = 0; r < WH; r++) { const i = at(c, r), m = mat[i];
+        if (m === AIR) { if (r >= t && r > surf0[c]) wat[i] = 1; continue; }
+        if (PORES[m] > 0 && wat[i] === 0) wat[i] = r >= t ? 1 : r < surf0[c] + 1 ? 0.3 : m === SAND ? 0.15 : 0.3; }
+    }
+    for (const R of S.rivers) holdRiver(R);
+    for (let c = 0; c < WW; c++) top[c] = topOf(c);
+    // where things are, for the words at the top of the picture
+    S.places = [
+      ...S.rivers.map(R => ({ x0: R.x - 3, x1: R.x + R.w + 3, name: R.dam ? `${R.name} and the beavers' dam` : R.name })),
+      ...S.greats.map(g => ({ x0: g.x - 9, x1: g.x + 9, name: g.kind === 31 ? "the stair tree" : "a great tree, its ladders" })),
+      ...S.villages.map(v => ({ x0: v.x0 - 2, x1: v.x1 + 2, name: v.which ? "the hamlet" : "the gnomes' village", under: true })),
+    ];
+    const g0 = { x: 12500, y: top[12] * 1000 };
+    S.start = g0;
+    S.g = { x: g0.x, y: g0.y, vx: 0, vy: 0, face: 1, ground: true, climb: false, swim: false, under: false, air: 600, gear: false, dc: -1, dr: -1, dt: 0, ev: 0 };
+    S.hearts = 5; S.cam.set = false; S.smoke = []; S.parts = []; S.minimapAt = -1e9; S.rain = 0; S.rainAt = S.frame + 60 * 60; S.banner = { text: "🌍 Gnome world", t: performance.now() };
+  }
+  const riverAt = x => S.rivers.find(R => x >= R.x - 0.5 && x < R.x + R.w + 0.5) || null;
+  const topOf = c => { for (let r = 0; r < WH; r++) if (mat[at(c, r)] !== AIR) return r; return WH; };
+  // (a dam's river at the height its logs hold it: World.water_row)
+  function setLevel(h, R) { R.level = R.dam ? h.water_row(R.natural, R.bank, R.dam.logs) : R.natural; }
+  function holdRiver(R) {
+    for (let k = 0; k < R.w; k++) { const c = R.x + k; for (let r = Math.min(R.level, R.natural) - 4; r < R.bed[k]; r++) { if (r < 0) continue; const i = at(c, r);
+      if (mat[i] === AIR && bg[i] === B_NONE) wat[i] = r >= R.level ? 1 : 0; } }
+  }
+  // a village: its rooms (World.village), walls of masonry round each, a timber floor, doorways between, the stair down from a
+  // door on the hill, the things in each room (World.furnish), a lamp in each, and its chimneys and shafts up to the meadow
+  function village(h, q, which, seed) {
+    const rooms = h.village(q.x, q.y, which, seed), x0 = q.x;
+    const set = (c, r, m, b) => { if (!inside(c, r)) return; const i = at(c, r); mat[i] = m; if (b != null) bg[i] = b; wat[i] = 0; gem[i] = 0; root[i] = 0; };
+    let bottom = 0;
+    for (const R of rooms) { bottom = Math.max(bottom, R.y + 4);
+      for (let c = R.x - 1; c <= R.x + R.w; c++) for (let r = R.y - 1; r <= R.y + 4; r++) { const i = at(c, r); if (bg[i] !== B_PLASTER && bg[i] !== B_WOOD) set(c, r, r === R.y + 4 ? TIMBER : MASON); }
+      for (let c = R.x; c < R.x + R.w; c++) for (let r = R.y; r < R.y + 4; r++) set(c, r, AIR, [5, 10, 2, 12].includes(R.kind) ? B_WOOD : B_PLASTER);
+      R.things = h.furnish(R.kind, R.w);
+      S.lamps.push({ x: R.x + R.w / 2, y: R.y + 0.7, r: 5.5 });
+      S.rooms.push(R); }
+    // doorways: between rooms side by side on a floor, and from the stair into each floor's first room
+    for (const R of rooms) { for (const o of rooms) if (o !== R && o.y === R.y && o.x === R.x + R.w + 1) for (let r = R.y + 1; r < R.y + 4; r++) { set(R.x + R.w, r, AIR, B_PLASTER); fix[at(R.x + R.w, r)] = F_DOOR; }
+      if (R.x === x0 + 3) for (let r = R.y + 1; r < R.y + 4; r++) { set(x0 + 2, r, AIR, B_PLASTER); fix[at(x0 + 2, r)] = F_DOOR; } }
+    // the stair: two columns, a ladder, walls of masonry, from the hatch in the hill down to the lowest floor
+    const s0 = Math.min(surf0[x0], surf0[x0 + 1]);
+    for (let r = s0 - 1; r < bottom; r++) { for (const c of [x0 - 1, x0 + 2]) { const i = at(c, r); if (r >= s0 && fix[i] !== F_DOOR) set(c, r, MASON); }
+      for (const c of [x0, x0 + 1]) { set(c, r, AIR, r >= s0 ? B_STAIR : B_NONE); fix[at(c, r)] = r === s0 ? F_HATCH : F_LADDER; } }
+    for (const c of [x0 - 1, x0, x0 + 1, x0 + 2]) set(c, bottom, MASON);
+    for (let c = x0 - 1; c <= x0 + 2; c++) surf0[c] = Math.max(surf0[c], s0);
+    // chimneys (over the hearth or the stove), light shafts and air shafts, each a duct of masonry up through the ground
+    for (const R of rooms) { if (!R.up) continue;
+      const hearth = R.things.find(t => t.kind === 4 || t.kind === 5), cx = R.up === 3 && hearth ? R.x + Math.floor((hearth.at + hearth.w / 2) / 10) : R.x + Math.floor(R.w / 2) + (R.up === 2 ? 1 : 0);
+      const top0 = surf0[cx];
+      for (let r = top0; r < R.y; r++) { const i = at(cx, r); if (mat[i] !== AIR && bg[i] !== B_PLASTER && bg[i] !== B_WOOD) set(cx, r, MASON); }
+      S.ducts.push({ kind: R.up, x: cx, y0: top0, y1: R.y, room: R });
+      if (R.up === 1) S.lamps.push({ x: cx + 0.5, y: R.y + 1.5, r: 4.5, sun: true }); }
+    // the diving gear, hung in the village's bath house (or its hall)
+    if (which === 0) { const bath = rooms.find(R => R.kind === 7) || rooms[0]; S.items.push({ kind: "gear", x: bath.x + bath.w - 1.2, y: bath.y + 2.2, taken: false }); }
+    S.villages.push({ which, x0, x1: Math.max(...rooms.map(R => R.x + R.w)), top: s0, bottom });
+  }
+  // a great tree: its limbs (World.limbs), a platform out along each, a ladder up its trunk (30) or a stair inside it (31), the
+  // houses at the limbs' ends; on the stair tree, rope bridges out to a tall tree beside it, a platform and a house on that
+  function greatTree(h, q) {
+    const foot = surf0[q.x], limbs = h.limbs(q.kind, q.h, q.v), half = q.kind === 31 ? 2 : 1;
+    const G = { kind: q.kind, x: q.x, foot, h: q.h, limbs, half, v: q.v };
+    const highest = Math.max(...limbs.map(l => l.y));
+    for (let r = foot - highest - 1; r < foot; r++) for (let c = q.x - (q.kind === 31 ? 1 : 0); c <= q.x + (q.kind === 31 ? 1 : 0); c++) if (inside(c, r) && mat[at(c, r)] === AIR) fix[at(c, r)] = q.kind === 31 ? F_STAIR : F_LADDER;
+    for (const L of limbs) { const row = foot - L.y;
+      for (let k = half; k <= half + L.len; k++) { const c = q.x + L.side * k; if (inside(c, row) && mat[at(c, row)] === AIR && !fix[at(c, row)]) fix[at(c, row)] = F_PLAT; }
+      const end = q.x + L.side * (half + L.len - 1.6);
+      if (L.house >= 0 && L.house < 100) S.houses.push({ style: L.house, x: end, row, side: L.side });
+      else if (L.house >= 100) S.houses.push({ style: L.house, x: q.x + L.side * (half + L.len - 0.6), row, side: L.side, small: true });
+      if (L.bridge) { const cx = q.x + L.side * (half + L.len + 8);
+        if (cx > 3 && cx < WW - 4 && !riverAt(cx) && !riverAt(cx - 2) && !riverAt(cx + 2)) {
+          for (let k = half + L.len + 1; k < half + L.len + 7; k++) { const c = q.x + L.side * k; if (inside(c, row) && mat[at(c, row)] === AIR) fix[at(c, row)] = F_BRIDGE; }
+          for (let c = cx - 2; c <= cx + 2; c++) if (inside(c, row) && mat[at(c, row)] === AIR) fix[at(c, row)] = F_PLAT;
+          const a = q.x + L.side * (half + L.len), b = q.x + L.side * (half + L.len + 6);
+          S.bridges.push({ x0: Math.min(a, b) + (L.side > 0 ? 1 : 0), x1: Math.max(a, b) + (L.side > 0 ? 1 : 0), row });
+          S.trees.push({ x: cx, kind: 0, h: L.y + 6, alive: true, grow: 1, fallAt: 0, regrow: 0, seed: cx * 7, tall: true, keep: true });
+          S.houses.push({ style: (q.v + L.y) % 16, x: cx, row, side: L.side }); } } }
+    S.greats.push(G);
+  }
+
+  // ---- the water, a step: down first (from the bottom up, so a step moves it at most a tile), as fast as the slower of the two
+  // grounds lets it, four times as fast where roots are, and never the share that clings; then across, where the tile below is
+  // full or holds water back: toward the drier side, the ground giving water to a tunnel only when nearly full itself. The
+  // rivers held at their level; now and then a shower over the land; a little drying at the surface
+  let sweep = 1;
+  function waterStep() {
+    for (let r = WH - 2; r >= 0; r--) { const base = r * WW;
+      for (let c = 0; c < WW; c++) { const a = base + c, wa = wat[a]; if (wa <= 0.0005) continue;
+        const ma = mat[a], pa = PORES[ma]; if (pa === 0) continue;
+        const b = a + WW, mb = mat[b], pb = PORES[mb]; if (pb === 0) continue;
+        const free = (wa - CLING[ma]) * pa; if (free <= 0) continue;
+        const room = (1 - wat[b]) * pb; if (room <= 0.0001) continue;
+        const k = Math.min(1, Math.min(FLOW[ma], FLOW[mb]) * (root[a] ? 1 + root[a] * 1.5 : 1));
+        const qv = Math.min(free * k, room);
+        wat[a] -= qv / pa; wat[b] += qv / pb; } }
+    sweep = -sweep;
+    for (let r = 0; r < WH - 1; r++) { const base = r * WW;
+      for (let n = 0; n < WW; n++) { const c = sweep > 0 ? n : WW - 1 - n, a = base + c, wa = wat[a]; if (wa <= 0.002) continue;
+        const ma = mat[a], pa = PORES[ma]; if (pa === 0) continue;
+        const b = a + WW; if (PORES[mat[b]] > 0 && wat[b] < 0.98) continue;
+        for (const d of [sweep, -sweep]) { const c2 = c + d; if (c2 < 0 || c2 >= WW) continue;
+          const n2 = base + c2, mn = mat[n2], pn = PORES[mn]; if (pn === 0) continue;
+          const sn = wat[n2]; if (sn >= wat[a] - 0.01) continue;
+          if (mn === AIR && ma !== AIR && wat[a] < 0.9) continue;
+          const k = Math.min(1, Math.min(FLOW[ma], FLOW[mn]) * 0.5 * (root[a] ? 2 : 1));
+          const qv = (wat[a] - sn) * Math.min(pa, pn) * 0.5 * k;
+          wat[a] -= qv / pa; wat[n2] += qv / pn; } } }
+    for (const R of S.rivers) holdRiver(R);
+    // a shower now and then (fourteen seconds, every two minutes or so), and drying at the surface
+    const now = S.frame;
+    if (!S.rain && now > S.rainAt) { S.rain = 14 * 60; S.rainAt = now + (100 + Math.floor(rand() * 80)) * 60; }
+    if (S.rain) { S.rain--; for (let n = 0; n < 24; n++) { const c = Math.floor(rand() * WW), r = top[c]; if (r >= WH || r > surf0[c] + 2) continue; const i = at(c, r);
+      if (PORES[mat[i]] > 0) wat[i] = Math.min(1, wat[i] + 0.06); else if (r > 0 && mat[at(c, r - 1)] === AIR) wat[at(c, r - 1)] = Math.min(1, wat[at(c, r - 1)] + 0.03); } }
+    if (now % 30 === 0) for (let c = 0; c < WW; c++) { const r = top[c]; if (r >= WH) continue; const i = at(c, r); if (PORES[mat[i]] > 0 && wat[i] > 0.25) wat[i] -= 0.004;
+      if (r > 0) { const j = at(c, r - 1); if (wat[j] > 0 && wat[j] < 0.2 && !riverAt(c)) wat[j] = Math.max(0, wat[j] - 0.01); } }
+  }
+
+  // ---- the gnome's step, in Hazel (World.step): the tiles round it, packed three to a number, each what is there, water, and
+  // whether it can be climbed
+  const boulderAt = (c, r) => S.boulders.some(b => b.c === c && (b.r === r || (b.falling && b.oy > 0 && b.r + 1 === r)));
+  function code(c, r) {
+    if (!inside(c, r)) return 7;
+    const i = at(c, r), m = mat[i]; let k = m;
+    if (m === AIR) { if (boulderAt(c, r)) k = 10; else if (fix[i] === F_PLAT || fix[i] === F_BRIDGE || fix[i] === F_HATCH) k = 11;
+      if (wat[i] >= 0.5) k += 16;
+      if (fix[i] === F_LADDER || fix[i] === F_STAIR || bg[i] === B_DUG) k += 32; }
+    return k;
+  }
+  function near(g) {
+    const cx = Math.floor(g.x / 1000), cy = Math.floor((g.y - 1) / 1000), row = r => code(cx - 1, r) + 128 * code(cx, r) + 16384 * code(cx + 1, r);
+    return { cx, cy, r0: row(cy - 3), r1: row(cy - 2), r2: row(cy - 1), r3: row(cy), r4: row(cy + 1) };
+  }
+  function digOut(c, r) {
+    const i = at(c, r), m = mat[i];
+    if (m === AIR) return;
+    const water = wat[i] * PORES[m];
+    mat[i] = AIR; bg[i] = B_DUG; wat[i] = water;
+    if (gem[i]) { S.gems++; keep("gems", S.gems); popWord("💎", c + 0.5, r + 0.3); if (SND) SND.gem(); gem[i] = 0; }
+    else if (SND && S.frame - (S.digSndAt || 0) > 8) { SND.dig(); S.digSndAt = S.frame; }
+    for (let k = 0; k < 7; k++) S.parts.push({ x: c + 0.5, y: r + 0.5, vx: (rand() - 0.5) * 0.12, vy: -rand() * 0.12, life: 30 + rand() * 20, col: COLOR[m] });
+    if (r <= top[c]) top[c] = topOf(c);
+    S.minimapAt = -1e9;
+  }
+  const words = [];
+  const popWord = (t, x, y) => words.push({ t, x, y, at: performance.now() });
+  function hurt(why) {
+    if (performance.now() - S.hurtAt < 1500) return;
+    S.hurtAt = performance.now(); S.hearts--; if (SND) SND.caught();
+    popWord(why, S.g.x / 1000, S.g.y / 1000 - 1.6);
+    if (S.hearts <= 0) { S.faintAt = performance.now(); S.banner = { text: "💫 The gnome fainted, and wakes up back home", t: performance.now() }; }
+  }
+  function gnomeStep(h) {
+    const k = S.keys, pad = { dx: (k.right ? 1 : 0) - (k.left ? 1 : 0), up: k.up, down: k.down, jump: S.jumpQueued };
+    S.jumpQueued = false;
+    const t0 = performance.now();
+    const g = h.step(S.g, near(S.g), pad);
+    S.stepMs.push(performance.now() - t0); if (S.stepMs.length > 120) S.stepMs.shift();
+    S.g = g;
+    if (g.ev === 1 && g.dc >= 0) digOut(g.dc, g.dr);
+    else if (g.ev === 3 && SND) SND.splash();
+    else if (g.ev === 4) hurt("😵 out of breath");
+    else if (g.ev === 5 && SND) SND.low();
+    // the diving gear, walked into
+    for (const it of S.items) if (!it.taken && Math.abs(it.x - g.x / 1000) < 0.8 && Math.abs(it.y - (g.y / 1000 - 0.5)) < 1) {
+      it.taken = true; S.g = { ...S.g, gear: true }; if (SND) SND.gem(); S.banner = { text: "🤿 The diving gear: breathe under the water as long as you like", t: performance.now() }; }
+  }
+  // ---- the boulders: one with open air under it wobbles, then falls (slower in the water), landing where it can fall no further;
+  // falling on the gnome, a heart
+  function bouldersStep() {
+    for (const b of S.boulders) {
+      const open = (c, r) => inside(c, r) && mat[at(c, r)] === AIR && !fix[at(c, r)] && !S.boulders.some(o => o !== b && o.c === c && o.r === r);
+      if (!b.falling) { if (!open(b.c, b.r + 1)) { b.wob = -1; continue; }
+        if (b.wob < 0) { b.wob = 45; if (SND) SND.wobble(); } else if (--b.wob <= 0) { b.falling = true; b.oy = 0; } continue; }
+      const wet = wat[at(b.c, b.r)] > 0.5;
+      b.oy += wet ? 0.04 : 0.11;
+      while (b.oy >= 1) { b.r++; b.oy -= 1; if (!open(b.c, b.r + 1)) { b.oy = 0; b.falling = false; b.wob = -1; if (SND) SND.land(); break; } }
+      const gx = S.g.x / 1000, gy = S.g.y / 1000;
+      if (b.falling && Math.abs(gx - (b.c + 0.5)) < 0.8 && gy > b.r + b.oy + 0.2 && gy - 0.9 < b.r + b.oy + 1) hurt("💥 a boulder");
+    }
+  }
+  // ---- the beavers (World.beaver, ten times a second): the trees standing near each's lodge, given; a tree it fells falls, and
+  // grows again from a sapling; a log laid raises its dam a little, and with it its river (World.water_row); a log washes away
+  // from each dam every minute
+  function beaversStep(h) {
+    for (const B of S.beavers) {
+      const near = S.trees.filter(t => t.alive && t.grow >= 1 && !t.keep && Math.abs(t.x - B.b.lodge) <= 36).map(t => t.x);
+      const b2 = h.beaver(B.b, near);
+      if (b2.felled >= 0) { const t = S.trees.find(t => t.x === b2.felled && t.alive); if (t) { t.alive = false; t.fallAt = S.frame; t.fallDir = b2.face; t.regrow = 90 * 60; } }
+      if (b2.laid) { const d = S.dams.find(d => Math.abs(d.at - b2.dam) <= 2); if (d && d.river) { d.logs = Math.min(d.logs + 1, 40); setLevel(h, d.river); } }
+      B.b = b2;
+    }
+    if (S.frame - S.damAt > 60 * 60) { S.damAt = S.frame; for (const d of S.dams) if (d.logs > 0 && d.river) { d.logs--; setLevel(h, d.river); } }
+    for (const t of S.trees) if (!t.alive && --t.regrow <= 0) { t.alive = true; t.grow = 0.15; }
+  }
+
+  // ---- one frame: the gnome, the boulders, the water, the beavers, the smoke; the camera after the gnome
+  function tick(h) {
+    S.frame++;
+    if (S.faintAt) { if (performance.now() - S.faintAt > 1800) { S.faintAt = 0; S.hearts = 5; S.g = { ...S.g, x: S.start.x, y: top[Math.floor(S.start.x / 1000)] * 1000, vx: 0, vy: 0, air: 600 }; S.cam.set = false; } }
+    else gnomeStep(h);
+    bouldersStep();
+    waterStep();
+    if (S.frame % 6 === 0) beaversStep(h);
+    for (const t of S.trees) if (t.alive && t.grow < 1) t.grow = Math.min(1, t.grow + 1 / (60 * 60));
+    for (const B of S.beavers) B.px += (B.b.x / 100 - B.px) * 0.18;
+    if (S.frame % 9 === 0) for (const d of S.ducts) if (d.kind === 3) S.smoke.push({ x: d.x + 0.5 + (rand() - 0.5) * 0.2, y: d.y0 - 2.2, r: 0.18, life: 0, drift: 0.004 + rand() * 0.006 });
+    for (const s of S.smoke) { s.y -= 0.012; s.x += s.drift; s.r += 0.006; s.life++; }
+    S.smoke = S.smoke.filter(s => s.life < 200);
+    for (const p of S.parts) { p.x += p.vx; p.y += p.vy; p.vy += 0.01; p.life--; }
+    S.parts = S.parts.filter(p => p.life > 0);
+  }
+
+  // ---- drawing: the sky and far hills, the trees, the ground (its tiles; the water in it as blue, darker the fuller), the
+  // rooms and their things, the great trees and their houses, the beavers, the boulders, the gnome, the water over all that is
+  // in it, the dark underground (lit by the lantern, the lamps and the light shafts), and the words and the map
+  const cv = $("world"), ctx = cv.getContext("2d");
+  let T = 32, VW = 30, VH = 17;
+  function fit() {
+    const r = cv.getBoundingClientRect(), d = Math.min(2, window.devicePixelRatio || 1);
+    const w = Math.max(320, Math.round(r.width * d)), hgt = Math.max(180, Math.round(r.height * d));
+    if (cv.width !== w || cv.height !== hgt) { cv.width = w; cv.height = hgt; texCache.clear(); }
+    T = Math.max(12, Math.round(hgt > w ? w / 15 : Math.min(w / 28, hgt / 15.75)));
+    VW = cv.width / T; VH = cv.height / T;
+  }
+  // (each kind of ground a few tiles' worth of texture, made once for the tile's size: specks, layers, cracks, bricks, planks)
+  const texCache = new Map();
+  function tex(kind, v) {
+    const key = kind * 8 + v; let t = texCache.get(key); if (t) return t;
+    t = document.createElement("canvas"); t.width = t.height = T; const c = t.getContext("2d");
+    let r = 1 + kind * 7 + v * 131; const R = () => { r = (r * 16807) % 2147483647; return r / 2147483647; };
+    const base = kind === 100 ? "#4a2f1d" : kind === 101 ? "#e8dcc4" : kind === 102 ? "#8a5a33" : kind === 103 ? "#6b6258" : kind === 104 ? "#3c3a3a" : COLOR[kind];
+    c.fillStyle = base; c.fillRect(0, 0, T, T);
+    const speck = (n, col, s) => { c.fillStyle = col; for (let k = 0; k < n; k++) c.fillRect(Math.floor(R() * T), Math.floor(R() * T), s, s); };
+    const u = Math.max(1, Math.round(T / 16));
+    if (kind === SOIL) { speck(14, "rgba(0,0,0,0.18)", 2 * u); speck(8, "rgba(255,230,190,0.15)", u); }
+    else if (kind === CLAY) { c.fillStyle = "rgba(255,255,255,0.08)"; c.fillRect(0, T * 0.3, T, u); c.fillRect(0, T * 0.72, T, u); speck(6, "rgba(0,0,0,0.12)", u); }
+    else if (kind === SAND) { for (let k = 0; k < 16; k++) { c.fillStyle = ["#a88b5a", "#d9c08a", "#8d7a63", "#c7ad7a"][k % 4]; c.beginPath(); c.arc(R() * T, R() * T, (0.5 + R() * 1.6) * u, 0, 7); c.fill(); } }
+    else if (kind === SSTONE) { c.fillStyle = "rgba(120,60,30,0.25)"; for (let y = (v * 3) % 5; y < T; y += Math.round(T / 4)) c.fillRect(0, y, T, u); speck(10, "rgba(255,230,200,0.18)", u); }
+    else if (kind === SHALE) { c.fillStyle = "rgba(0,0,0,0.25)"; for (let y = v; y < T; y += Math.round(T / 6)) c.fillRect(0, y, T, u); speck(6, "rgba(255,255,255,0.08)", u); }
+    else if (kind === LIME) { speck(10, "rgba(0,0,0,0.1)", u); c.strokeStyle = "rgba(90,80,60,0.35)"; c.lineWidth = u; c.beginPath(); c.arc(T * (0.3 + 0.4 * R()), T * (0.3 + 0.4 * R()), T * 0.12, 0.3, 5.5); c.stroke(); }
+    else if (kind === GRANITE) { for (let k = 0; k < 18; k++) { c.fillStyle = ["#5c5658", "#c9c2bd", "#b07a7a", "#3e3a3c"][k % 4]; c.fillRect(R() * T, R() * T, 2 * u, 2 * u); } }
+    else if (kind === MASON) { c.fillStyle = "rgba(60,50,40,0.55)"; const hh = T / 2; c.fillRect(0, hh - u / 2, T, u); c.fillRect(0, 0, T, u / 2);
+      c.fillRect((v % 2 ? T * 0.5 : T * 0.2), 0, u, hh); c.fillRect((v % 2 ? T * 0.15 : T * 0.7), hh, u, hh); speck(5, "rgba(255,255,255,0.1)", u); }
+    else if (kind === TIMBER) { c.fillStyle = "rgba(60,30,10,0.45)"; c.fillRect(0, T / 2, T, u); c.fillRect((v * 0.3 % 1) * T, 0, u, T / 2); c.fillStyle = "rgba(255,220,170,0.15)"; c.fillRect(0, 0, T, u); }
+    else if (kind === 100) { speck(12, "rgba(0,0,0,0.25)", 2 * u); speck(6, "rgba(255,220,180,0.08)", u); }   // (dug: the earth behind a tunnel)
+    else if (kind === 101) { speck(8, "rgba(120,100,70,0.12)", u); }   // (plaster)
+    else if (kind === 102) { c.fillStyle = "rgba(50,25,10,0.4)"; for (let x = 0; x < T; x += Math.round(T / 3)) c.fillRect(x, 0, u, T); }   // (wood paneling)
+    else if (kind === 103) { c.fillStyle = "rgba(30,25,20,0.45)"; c.fillRect(0, T / 2, T, u); c.fillRect(T / 2, 0, u, T / 2); c.fillRect(T / 5, T / 2, u, T / 2); }   // (the stair's stones)
+    else if (kind === 104) { speck(14, "rgba(255,255,255,0.06)", 2 * u); }   // (a cave)
+    texCache.set(key, t); return t;
+  }
+  const GEMS = ["", "#ef4444", "#22c55e", "#3b82f6", "#a855f7", "#f59e0b"];
+  // (the gnome, Gnome dig's own, copied from dig/app.js: its cap, beard and lantern; and, for the water, a swimmer's arms and a tilt)
+  const loverAt = () => {};
+  function gnome(c, x, y, u, d, ready, moving, now, diving, loves, lamp = true, cheer = false, pose = null) {
+    if (cheer) { d = 2; moving = false; }
+    const back = d === 0, flip = d === 3 ? -1 : 1, side = d === 1 || d === 3, step = moving ? Math.sin(now / 70) : 0;
+    const bob = cheer ? -Math.abs(Math.sin(now / 150)) * 6 : moving ? -Math.abs(step) * 1.4 : 0, wave = cheer ? Math.sin(now / 110) * 2.5 : 0;
+    c.save(); c.translate(x, y); c.scale(flip * u / 40, u / 40); c.translate(0, bob);
+    // (Gnome world: swimming along, he lies forward into the stroke, turned about his hips, his head up out of the water)
+    if (pose && pose.swim && pose.stroke) { c.translate(0, 6); c.rotate(1.0); c.translate(0, -6); }
+    const E = (cx, cy, rx, ry, col, rot = 0) => { c.fillStyle = col; c.beginPath(); c.ellipse(cx, cy, rx, ry, rot, 0, 7); c.fill(); };
+    if (!pose) E(0, 19 - bob, 13, 3.4, "rgba(0, 0, 0, 0.32)");   // (his shadow)
+    for (const s2 of [-1, 1]) {   // (boots, a step at a time, with fur at the top)
+      const lift = s2 * step > 0 ? -2 * Math.abs(step) : 0;
+      c.fillStyle = "#4b5563"; c.beginPath(); c.roundRect(s2 * 6 - 4 + (s2 > 0 ? 1 : -1), 13 + lift, 9, 6, 2.5); c.fill();
+      c.fillStyle = "#e5e7eb"; c.beginPath(); c.roundRect(s2 * 6 - 4, 11.5 + lift, 8, 3, 1.5); c.fill();
+    }
+    const tank = () => { c.fillStyle = "#facc15"; c.beginPath(); c.roundRect(back ? -5 : -15, -7, back ? 10 : 7, 17, 3.5); c.fill();
+      c.fillStyle = "#a16207"; c.fillRect(back ? -1.5 : -13, -9.5, 3, 3); };
+    if (diving && !back) tank();   // (0.0.68: the diving gear on, its air tank on his back, behind him, or, his back to us, on it)
+    // (the tunic, its sleeves and the belt)
+    c.fillStyle = "#3b5bab"; c.beginPath(); c.moveTo(-9, -3); c.lineTo(9, -3); c.lineTo(12, 13); c.quadraticCurveTo(0, 15, -12, 13); c.closePath(); c.fill();
+    c.fillStyle = "#2f4a8f"; c.beginPath(); c.moveTo(3, -3); c.lineTo(9, -3); c.lineTo(12, 13); c.quadraticCurveTo(7, 14.3, 4, 14.5); c.closePath(); c.fill();
+    c.fillStyle = "#7c4a1e"; c.fillRect(-11, 5.5, 22, 3.6);
+    if (diving && back) tank();
+    if (!back) { c.fillStyle = "#eab308"; c.beginPath(); c.roundRect(-3, 4.8, 6, 5, 1); c.fill(); c.fillStyle = "#7c4a1e"; c.fillRect(-1.2, 6.3, 2.4, 2); }
+    let lx = cheer ? 15 : side ? 14 : 13, ly = cheer ? -19 - wave : side ? 2 : 5;   // (the lantern's hand)
+    let hx = cheer ? -14 : -11, hy = cheer ? -16 + wave : 8;
+    // (Gnome world, after Messed Up Dress Up's swimmers: swimming along, the arms windmill half a turn apart, the front crawl;
+    // treading at the surface, the lantern held up out of the water, the other hand sculling)
+    if (pose && pose.swim) { const a = pose.t / 170;
+      if (pose.stroke) { lx = 10 + 13 * Math.cos(a); ly = -1 + 13 * Math.sin(a); hx = -6 + 13 * Math.cos(a + Math.PI); hy = -1 + 13 * Math.sin(a + Math.PI); }
+      else { lx = 13; ly = -16; hx = -13 + 2.5 * Math.sin(a * 2); hy = 3 + 1.5 * Math.cos(a * 2); } }   // (the other hand)
+    c.strokeStyle = "#3b5bab"; c.lineWidth = 4.5; c.lineCap = "round";
+    c.beginPath(); c.moveTo(-8, -1); c.lineTo(hx, hy - 1); c.moveTo(8, -1); c.lineTo(lx - 2, ly); c.stroke();
+    E(hx, hy, 2.4, 2.4, "#f2c9a0"); E(lx - 1.5, ly + 0.5, 2.4, 2.4, "#f2c9a0");
+    if (loves && !back) { c.save(); c.translate(hx - 1, hy + 1); loverAt(c, 0, 0, 26, now, false); c.restore(); }   // (0.0.71: the love shooter in his other hand)
+    // (the lantern: a handle, a dark frame, its glass lit when it is ready; 0.0.73: only once he has it)
+    if (lamp) {
+      if (ready) { const gl = c.createRadialGradient(lx + 1, ly + 7, 0, lx + 1, ly + 7, 12); gl.addColorStop(0, "rgba(254, 240, 138, 0.75)"); gl.addColorStop(1, "rgba(254, 240, 138, 0)"); c.fillStyle = gl; c.beginPath(); c.arc(lx + 1, ly + 7, 12, 0, 7); c.fill(); }
+    c.strokeStyle = "#1f2937"; c.lineWidth = 1.2; c.beginPath(); c.arc(lx + 1, ly + 2.5, 2.2, Math.PI, 0); c.stroke();
+    c.fillStyle = "#1f2937"; c.beginPath(); c.roundRect(lx - 2.5, ly + 2.5, 7, 9, 1.5); c.fill();
+    c.fillStyle = ready ? "#fef08a" : "#a16207"; c.beginPath(); c.roundRect(lx - 1.3, ly + 4, 4.6, 6, 1); c.fill();
+    }
+    if (back) {   // (his back: the beard showing at either side under the cap)
+      E(-7.5, -6, 3.5, 6, "#f1f5f9", 0.3); E(7.5, -6, 3.5, 6, "#f1f5f9", -0.3);
+      c.fillStyle = "#e5e7eb"; c.beginPath(); c.ellipse(0, -9.5, 8, 6.5, 0, 0, 7); c.fill();   // (white hair under the cap)
+      c.strokeStyle = "#cbd5e1"; c.lineWidth = 0.8; c.beginPath(); for (const hx of [-5, -2, 1, 4]) { c.moveTo(hx, -14); c.quadraticCurveTo(hx + 1, -9, hx, -4); } c.stroke();
+    } else {
+      // (the face, rosy cheeks, the beard down over the tunic, its strands)
+      c.fillStyle = "#f2c9a0"; c.beginPath(); c.ellipse(side ? 1.5 : 0, -10.5, 7.5, 6.5, 0, 0, 7); c.fill();
+      E(side ? -3 : -5, -8, 2.2, 1.6, "rgba(244, 114, 114, 0.45)"); E(side ? 6 : 5, -8, 2.2, 1.6, "rgba(244, 114, 114, 0.45)");
+      c.fillStyle = "#f8fafc"; c.beginPath(); c.moveTo(-8 + (side ? 1 : 0), -8); c.quadraticCurveTo(-10, 3, (side ? 2 : 0), 12); c.quadraticCurveTo(10, 3, 8 + (side ? 2 : 0), -8); c.quadraticCurveTo(side ? 2 : 0, -2, -8 + (side ? 1 : 0), -8); c.fill();
+      c.strokeStyle = "#cbd5e1"; c.lineWidth = 0.8; c.beginPath();
+      for (const bx of [-4, -1, 2, 5]) { const ox = side ? 1.5 : 0; c.moveTo(bx + ox, -3); c.quadraticCurveTo(bx * 0.6 + ox, 3, bx * 0.3 + ox, 8); }
+      c.stroke();
+      const fx = side ? 2.5 : 0;   // (the face turned a little toward the way he goes)
+      // eyes, each with a glint, under bushy white brows
+      for (const s2 of [-1, 1]) { const ex2 = fx + s2 * 3.2;
+        if (cheer) { c.strokeStyle = "#1f2937"; c.lineWidth = 1.1; c.beginPath(); c.arc(ex2, -10.4, 1.7, Math.PI * 1.12, Math.PI * 1.88); c.stroke(); }
+        else { E(ex2, -11.2, 1.5, 1.7, "#1f2937"); E(ex2 + 0.5, -11.8, 0.5, 0.5, "#ffffff"); }
+        c.fillStyle = "#f8fafc"; c.beginPath(); c.ellipse(ex2 + s2 * 0.5, cheer ? -14.2 : -13.4, 3, 1.4, s2 * 0.3, 0, 7); c.fill();
+        c.strokeStyle = "#cbd5e1"; c.lineWidth = 0.5; c.beginPath(); c.moveTo(ex2 - 2, -13.2); c.lineTo(ex2 + 2.4, -13.8); c.stroke(); }
+      if (cheer) { c.fillStyle = "#7f1d1d"; c.beginPath(); c.arc(fx, -5, 3.4, 0.08, Math.PI - 0.08); c.closePath(); c.fill(); E(fx, -2.5, 1.9, 1, "#f472b6"); }   // (his smile, open wide)
+      // the moustache, sweeping out from under the nose, and the round nose
+      E(fx - 3.6, -6.4, 4.6, 2.2, "#f1f5f9", 0.35); E(fx + 3.6, -6.4, 4.6, 2.2, "#f1f5f9", -0.35);
+      c.strokeStyle = "#cbd5e1"; c.lineWidth = 0.6; c.beginPath(); c.moveTo(fx, -7); c.lineTo(fx - 6.5, -5.2); c.moveTo(fx, -7); c.lineTo(fx + 6.5, -5.2); c.stroke();
+      E(fx + (side ? 1 : 0), -8.6, 2.9, 2.6, "#f0997d"); E(fx + (side ? 0.2 : -0.8), -9.4, 0.9, 0.7, "rgba(255, 255, 255, 0.6)");
+      if (diving) {   // (and the mask over his eyes, its strap round the back of his head)
+        c.strokeStyle = "#0f172a"; c.lineWidth = 1.3; c.beginPath(); c.moveTo(fx - 7, -11.5); c.lineTo(-9.5, -11); c.stroke();
+        c.fillStyle = "#0284c7"; c.beginPath(); c.roundRect(fx - 7.5, -15.2, 15, 7.6, 3); c.fill();
+        c.fillStyle = "rgba(224, 242, 254, 0.62)"; c.beginPath(); c.roundRect(fx - 6, -14, 12, 5.2, 2.2); c.fill();
+        E(fx - 3.5, -13, 1.6, 0.7, "rgba(255, 255, 255, 0.85)", -0.3);
+      }
+    }
+    if (back && diving) { c.strokeStyle = "#0f172a"; c.lineWidth = 1.3; c.beginPath(); c.moveTo(-8, -11.5); c.lineTo(8, -11.5); c.stroke(); }
+    // (the tall red cap, pulled down over the brows, its tip bending back)
+    c.fillStyle = "#dc2626"; c.beginPath(); c.moveTo(-10, -14.5); c.quadraticCurveTo(-7, -25, -1, -34); c.quadraticCurveTo(2, -36, 4, -32.5); c.quadraticCurveTo(7, -24, 10, -14.5); c.quadraticCurveTo(0, -16, -10, -14.5); c.fill();
+    c.fillStyle = "#b91c1c"; c.beginPath(); c.moveTo(3, -33); c.quadraticCurveTo(7, -24, 10, -14.5); c.quadraticCurveTo(6, -15.3, 4, -15.5); c.quadraticCurveTo(4, -24, 3, -33); c.fill();
+    c.strokeStyle = "rgba(255, 255, 255, 0.25)"; c.lineWidth = 1; c.beginPath(); c.moveTo(-6, -17.5); c.quadraticCurveTo(-4, -26, -0.5, -32); c.stroke();
+    c.restore();
+  }
+  function drawTree(t, x, y) {
+    const k = t.tall ? 1 : t.grow, hh = t.h * k * T, c = ctx;
+    if (!t.alive) {   // (felled: a falling trunk for a second, then a stump)
+      const f = Math.min(1, (S.frame - t.fallAt) / 50);
+      c.fillStyle = "#6b4a2b"; c.fillRect(x - 0.18 * T, y - 0.35 * T, 0.36 * T, 0.35 * T); c.fillStyle = "#d9b98a"; c.beginPath(); c.ellipse(x, y - 0.35 * T, 0.18 * T, 0.07 * T, 0, 0, 7); c.fill();
+      if (f < 1) { c.save(); c.translate(x, y - 0.35 * T); c.rotate((t.fallDir || 1) * f * Math.PI / 2); c.globalAlpha = 1 - f * 0.6; c.fillStyle = "#7a5a3a"; c.fillRect(-0.15 * T, -hh, 0.3 * T, hh); c.restore(); }
+      return; }
+    const trunk = t.kind === 2 ? "#e9e4da" : t.kind === 3 ? "#cfc8b8" : "#6b4a2b";
+    c.fillStyle = trunk; c.beginPath(); c.moveTo(x - 0.22 * T * k, y); c.lineTo(x - 0.1 * T * k, y - hh * 0.75); c.lineTo(x + 0.1 * T * k, y - hh * 0.75); c.lineTo(x + 0.22 * T * k, y); c.fill();
+    if (t.kind === 2) { c.fillStyle = "#333"; for (let j = 1; j < 6; j++) c.fillRect(x - 0.12 * T * k, y - hh * j / 8, 0.12 * T * k, 0.05 * T); }
+    const greens = [["#2f7d32", "#3c9a40", "#4fb04f"], ["#1f5f3a", "#2a6e45", "#33804f"], ["#7cb342", "#9ccc65", "#8bc34a"], ["#a5c34a", "#c0d860", "#93b33a"], ["#6a9a4a", "#87b25d", "#5c8a3d"]][t.kind];
+    if (t.kind === 1) { for (let j = 0; j < 4; j++) { const w = (1.6 - j * 0.32) * T * k, yy = y - hh * (0.25 + j * 0.2); c.fillStyle = greens[j % 3]; c.beginPath(); c.moveTo(x - w, yy); c.lineTo(x, yy - hh * 0.32); c.lineTo(x + w, yy); c.fill(); } return; }
+    if (t.kind === 4) { c.fillStyle = greens[0]; c.beginPath(); c.ellipse(x, y - hh * 0.82, 1.6 * T * k, hh * 0.3, 0, 0, 7); c.fill();
+      c.strokeStyle = greens[2]; c.lineWidth = Math.max(1, T / 14); for (let j = -6; j <= 6; j++) { c.beginPath(); c.moveTo(x + j * 0.25 * T * k, y - hh * 0.85); c.quadraticCurveTo(x + j * 0.32 * T * k, y - hh * 0.5, x + j * 0.3 * T * k, y - hh * 0.3); c.stroke(); } return; }
+    let r = t.seed; const R = () => { r = (r * 16807 + 7) % 2147483647; return r / 2147483647; };
+    const n = t.tall ? 16 : 8;
+    for (let j = 0; j < n; j++) { c.fillStyle = greens[j % 3]; c.beginPath(); c.arc(x + (R() - 0.5) * 1.8 * T * k * (t.tall ? 2 : 1), y - hh * (0.65 + R() * 0.3), (0.55 + R() * 0.4) * T * k * (t.tall ? 1.4 : 1), 0, 7); c.fill(); }
+  }
+  // a tree house (one of the sixteen styles, World.styles), its floor at y, its middle at x
+  function drawHouse(H0, x, y) {
+    const c = ctx, s = T, col = n => "#" + n.toString(16).padStart(6, "0");
+    if (H0.small) {   // (a bird house on a post, or a squirrel's round house)
+      c.fillStyle = H0.style === 100 ? "#c0703a" : "#8a6a4a"; c.fillRect(x - 0.35 * s, y - 0.8 * s, 0.7 * s, 0.7 * s);
+      c.fillStyle = "#5a3a20"; c.beginPath(); c.moveTo(x - 0.5 * s, y - 0.8 * s); c.lineTo(x, y - 1.2 * s); c.lineTo(x + 0.5 * s, y - 0.8 * s); c.fill();
+      c.fillStyle = "#1a1008"; c.beginPath(); c.arc(x, y - 0.5 * s, 0.13 * s, 0, 7); c.fill();
+      if (H0.style === 101) { c.fillStyle = "#b5651d"; c.beginPath(); c.arc(x + 0.45 * s, y - 0.25 * s, 0.13 * s, 0, 7); c.fill(); }
+      return; }
+    const st = S.styles[H0.style % S.styles.length]; if (!st) return;
+    const w = 3.8 * s, hh = 2.5 * s, L = x - w / 2, top0 = y - hh;
+    // (the walls: shingles, in rows, the trim at the corners)
+    c.fillStyle = col(st.walls); c.fillRect(L, top0, w, hh);
+    c.fillStyle = "rgba(0,0,0,0.13)"; for (let yy = top0 + s * 0.3; yy < y; yy += s * 0.3) c.fillRect(L, yy, w, Math.max(1, s / 24));
+    c.fillStyle = col(st.trim); c.fillRect(L, top0, s * 0.12, hh); c.fillRect(L + w - s * 0.12, top0, s * 0.12, hh); c.fillRect(L - s * 0.1, y - s * 0.12, w + s * 0.2, s * 0.12);
+    // (the door, rounded at the top, and two windows)
+    c.fillStyle = "#4a2e1a"; c.beginPath(); c.roundRect(x - 0.35 * s, y - 1.3 * s, 0.7 * s, 1.3 * s, [0.35 * s, 0.35 * s, 0, 0]); c.fill();
+    c.fillStyle = "#f2c12e"; c.beginPath(); c.arc(x + 0.18 * s, y - 0.62 * s, 0.05 * s, 0, 7); c.fill();
+    for (const sd of [-1, 1]) { const wx = x + sd * 1.15 * s, wy = y - 1.55 * s;
+      c.fillStyle = "#ffe29a"; c.strokeStyle = col(st.trim); c.lineWidth = Math.max(1, s / 14);
+      c.beginPath(); if (st.win === 1) c.arc(wx, wy, 0.33 * s, 0, 7); else if (st.win === 3) c.roundRect(wx - 0.3 * s, wy - 0.4 * s, 0.6 * s, 0.75 * s, [0.3 * s, 0.3 * s, 0, 0]); else c.rect(wx - 0.32 * s, wy - 0.32 * s, 0.64 * s, 0.64 * s); c.fill(); c.stroke();
+      c.beginPath(); if (st.win === 2) { c.moveTo(wx - 0.32 * s, wy); c.lineTo(wx, wy - 0.32 * s); c.lineTo(wx + 0.32 * s, wy); c.lineTo(wx, wy + 0.32 * s); c.closePath(); } else { c.moveTo(wx - 0.3 * s, wy); c.lineTo(wx + 0.3 * s, wy); c.moveTo(wx, wy - 0.35 * s); c.lineTo(wx, wy + 0.35 * s); } c.stroke(); }
+    // (the roof, of its kind: gables with rafter tails and braces, a hip, a cap, a cone, a dome, a shed roof, thatch)
+    c.fillStyle = col(st.roofc); c.strokeStyle = "rgba(0,0,0,0.3)"; c.lineWidth = Math.max(1, s / 18);
+    const R = st.roof, ov = 0.45 * s; c.beginPath();
+    if (R === 0) { c.moveTo(L - ov, top0); c.lineTo(x, top0 - 1.2 * s); c.lineTo(L + w + ov, top0); }
+    else if (R === 1) { c.moveTo(L - ov * 0.6, top0); c.lineTo(x, top0 - 2 * s); c.lineTo(L + w + ov * 0.6, top0); }
+    else if (R === 2) { c.moveTo(L - ov, top0); c.lineTo(L + w * 0.3, top0 - 1.2 * s); c.lineTo(L + w * 0.7, top0 - 1.2 * s); c.lineTo(L + w + ov, top0); }
+    else if (R === 3) { c.moveTo(L - ov * 1.4, top0 + 0.2 * s); c.bezierCurveTo(L - ov, top0 - 2.4 * s, L + w + ov, top0 - 2.4 * s, L + w + ov * 1.4, top0 + 0.2 * s); }
+    else if (R === 4) { c.moveTo(L - ov, top0 + 0.1 * s); c.bezierCurveTo(L - ov, top0 - 1.6 * s, L + w + ov, top0 - 1.6 * s, L + w + ov, top0 + 0.1 * s); }
+    else if (R === 5) { c.moveTo(L - ov, top0); c.lineTo(x, top0 - 2.6 * s); c.lineTo(L + w + ov, top0); }
+    else if (R === 6) { c.moveTo(L, top0); c.arc(x, top0, w / 2, Math.PI, 0); }
+    else if (R === 7) { c.moveTo(L - ov, top0 - 0.2 * s); c.lineTo(L + w + ov, top0 - 1.1 * s); c.lineTo(L + w + ov, top0); c.lineTo(L - ov, top0); }
+    else { c.moveTo(L - ov * 1.3, top0 + 0.3 * s); c.quadraticCurveTo(x, top0 - 2.4 * s, L + w + ov * 1.3, top0 + 0.3 * s); }
+    c.closePath(); c.fill(); c.stroke();
+    if (R === 3) { c.fillStyle = "rgba(255,255,255,0.85)"; for (const [dx, dy, rr] of [[-0.9, -0.9, 0.22], [0.5, -1.2, 0.17], [1.2, -0.6, 0.14], [-0.1, -1.5, 0.12]]) { c.beginPath(); c.arc(x + dx * s, top0 + dy * s, rr * s, 0, 7); c.fill(); } }
+    if (R === 4) { c.strokeStyle = "rgba(0,0,0,0.25)"; for (let j = -3; j <= 3; j++) { c.beginPath(); c.moveTo(x + j * 0.5 * s, top0); c.lineTo(x + j * 0.35 * s, top0 - 1.1 * s); c.stroke(); } c.fillStyle = col(st.roofc); c.fillRect(x - 0.06 * s, top0 - 1.6 * s, 0.12 * s, 0.4 * s); }
+    if (R === 8) { c.strokeStyle = "rgba(90,70,20,0.5)"; for (let j = 0; j < 14; j++) { const xx = L - ov + j * (w + 2 * ov) / 13; c.beginPath(); c.moveTo(xx, top0 + 0.25 * s); c.lineTo(xx + 0.05 * s, top0 - 0.1 * s); c.stroke(); } }
+    if (R <= 1) { c.fillStyle = col(st.trim); for (let j = 0; j < 4; j++) { c.fillRect(L - ov + j * 0.18 * s, top0 - 0.05 * s, 0.07 * s, 0.25 * s); c.fillRect(L + w + ov - j * 0.18 * s - 0.07 * s, top0 - 0.05 * s, 0.07 * s, 0.25 * s); }
+      c.strokeStyle = col(st.trim); c.lineWidth = Math.max(1, s / 12); for (const sd of [-1, 1]) { c.beginPath(); c.moveTo(x + sd * w * 0.46, top0); c.lineTo(x + sd * w * 0.46, top0 + 0.35 * s); c.lineTo(x + sd * w * 0.3, top0); c.stroke(); } }
+    // (its one thing more)
+    const M = st.more; c.lineWidth = Math.max(1, s / 14);
+    if (M === 1) { c.fillStyle = col(st.trim); for (const sd of [-1, 1]) { c.beginPath(); c.moveTo(x + sd * 0.75 * s - 0.08 * s, y - 1.6 * s); c.lineTo(x + sd * 0.75 * s + 0.08 * s, y - 1.6 * s); c.lineTo(x + sd * 0.75 * s + 0.14 * s, y - 0.25 * s); c.lineTo(x + sd * 0.75 * s - 0.14 * s, y - 0.25 * s); c.fill(); c.fillStyle = "#8e8a80"; c.fillRect(x + sd * 0.75 * s - 0.18 * s, y - 0.25 * s, 0.36 * s, 0.25 * s); c.fillStyle = col(st.trim); } }
+    else if (M === 2) { c.fillStyle = col(st.trim); c.fillRect(L - 0.5 * s, top0 + 0.6 * s, 0.5 * s, 0.1 * s); for (let j = 0; j < 4; j++) c.fillRect(L - 0.5 * s + j * 0.15 * s, top0 + 0.25 * s, 0.05 * s, 0.4 * s); c.fillRect(L - 0.5 * s, top0 + 0.25 * s, 0.5 * s, 0.06 * s); }
+    else if (M === 3) { c.fillStyle = col(st.walls); c.fillRect(L + w - 0.5 * s, top0 - 1.6 * s, 0.8 * s, 1.6 * s); c.fillStyle = col(st.roofc); c.beginPath(); c.moveTo(L + w - 0.7 * s, top0 - 1.6 * s); c.lineTo(L + w - 0.1 * s, top0 - 2.7 * s); c.lineTo(L + w + 0.5 * s, top0 - 1.6 * s); c.fill(); c.fillStyle = "#ffe29a"; c.fillRect(L + w - 0.25 * s, top0 - 1.2 * s, 0.3 * s, 0.4 * s); }
+    else if (M === 4) { c.fillStyle = "#8b4a3a"; c.fillRect(L + w * 0.72, top0 - 1.6 * s, 0.4 * s, 1.2 * s); }
+    else if (M === 5) { c.fillStyle = col(st.walls); c.fillRect(x - 0.4 * s, top0 - 0.9 * s, 0.8 * s, 0.7 * s); c.fillStyle = "#ffe29a"; c.fillRect(x - 0.22 * s, top0 - 0.75 * s, 0.44 * s, 0.4 * s); c.fillStyle = col(st.roofc); c.beginPath(); c.moveTo(x - 0.55 * s, top0 - 0.9 * s); c.lineTo(x, top0 - 1.35 * s); c.lineTo(x + 0.55 * s, top0 - 0.9 * s); c.fill(); }
+    else if (M === 6) { c.fillStyle = "#c8a032"; c.beginPath(); c.moveTo(x - 0.25 * s, top0 - 1.2 * s); c.quadraticCurveTo(x, top0 - 1.8 * s, x + 0.25 * s, top0 - 1.2 * s); c.fill(); }
+    else if (M === 7) { c.strokeStyle = "#b8860b"; c.lineWidth = 0.16 * s; c.beginPath(); c.moveTo(x - 0.2 * s, top0 - 1.6 * s); c.lineTo(x + 0.9 * s, top0 - 2.4 * s); c.stroke(); }
+    else if (M === 8) { for (const sd of [-1, 1]) { c.fillStyle = "#7a4a2a"; c.fillRect(x + sd * 1.15 * s - 0.4 * s, y - 1.15 * s, 0.8 * s, 0.15 * s); for (let j = 0; j < 3; j++) { c.fillStyle = ["#e85d75", "#f2c12e", "#e53935"][j]; c.beginPath(); c.arc(x + sd * 1.15 * s + (j - 1) * 0.25 * s, y - 1.2 * s, 0.09 * s, 0, 7); c.fill(); } } }
+    else if (M === 9) { c.fillStyle = "#7a5230"; c.fillRect(L + w + 0.05 * s, y - 0.75 * s, 0.5 * s, 0.75 * s); c.fillStyle = "#4a3020"; c.fillRect(L + w + 0.05 * s, y - 0.55 * s, 0.5 * s, 0.06 * s); }
+    else if (M === 10) { c.strokeStyle = "#333"; c.beginPath(); c.moveTo(x, top0 - (R === 1 ? 2 : 1.2) * s); c.lineTo(x, top0 - (R === 1 ? 2.6 : 1.8) * s); c.moveTo(x - 0.3 * s, top0 - (R === 1 ? 2.45 : 1.65) * s); c.lineTo(x + 0.3 * s, top0 - (R === 1 ? 2.45 : 1.65) * s); c.stroke(); }
+    else if (M === 11) { c.fillStyle = "#e3b448"; for (let j = 0; j < 3; j++) { c.beginPath(); c.ellipse(L - 0.35 * s, y - 0.2 * s - j * 0.22 * s, (0.32 - j * 0.07) * s, 0.12 * s, 0, 0, 7); c.fill(); } }
+  }
+  // a thing in a room (World.furnish), its left edge at x, standing on the floor at y, w its width (all in pixels)
+  function drawThing(k, x, y, w) {
+    const c = ctx, s = T, m = x + w / 2;
+    const box = (col, bx, by, bw, bh, rr = 0) => { c.fillStyle = col; c.beginPath(); c.roundRect(bx, by, bw, bh, rr); c.fill(); };
+    const ell = (col, ex, ey, rx, ry) => { c.fillStyle = col; c.beginPath(); c.ellipse(ex, ey, rx, ry, 0, 0, 7); c.fill(); };
+    const wood = "#8b5a2b", dark = "#5a3a1e";
+    switch (k) {
+      case 1: box(dark, x, y - 0.9 * s, 0.12 * s, 0.9 * s); box(dark, x + w - 0.12 * s, y - 0.6 * s, 0.12 * s, 0.6 * s); box("#e9e1d0", x + 0.1 * s, y - 0.55 * s, w - 0.2 * s, 0.25 * s, 3); box("#c0392b", x + 0.4 * s, y - 0.5 * s, w - 0.5 * s, 0.22 * s, 3); ell("#fff", x + 0.3 * s, y - 0.62 * s, 0.22 * s, 0.1 * s); box(wood, x, y - 0.3 * s, w, 0.12 * s); break;
+      case 2: box(wood, x, y - 0.8 * s, w, 0.1 * s); box(dark, x + 0.1 * s, y - 0.7 * s, 0.08 * s, 0.7 * s); box(dark, x + w - 0.18 * s, y - 0.7 * s, 0.08 * s, 0.7 * s); ell("#e9e1d0", m, y - 0.86 * s, 0.18 * s, 0.05 * s); break;
+      case 3: box(dark, x + 0.05 * s, y - 1.05 * s, 0.07 * s, 1.05 * s); box(wood, x, y - 0.5 * s, w, 0.08 * s); box(dark, x + w - 0.1 * s, y - 0.45 * s, 0.07 * s, 0.45 * s); break;
+      case 4: box("#7d7068", x, y - 2.2 * s, w, 2.2 * s); box("#5a4f48", x - 0.1 * s, y - 1.5 * s, w + 0.2 * s, 0.14 * s); box("#1a120c", x + 0.25 * s, y - 1.25 * s, w - 0.5 * s, 1.25 * s, [0.4 * s, 0.4 * s, 0, 0]);
+        { const f = Math.sin(S.frame / 4) * 0.08 * s; ell("#f59e0b", m, y - 0.35 * s, 0.32 * s, 0.32 * s + f); ell("#fde047", m, y - 0.25 * s, 0.16 * s, 0.2 * s - f / 2); } break;
+      case 5: box("#2d2d2d", x, y - 1.1 * s, w, 1.1 * s, 3); box("#444", x - 0.05 * s, y - 1.15 * s, w + 0.1 * s, 0.1 * s); box("#c2410c", x + 0.2 * s, y - 0.6 * s, 0.35 * s, 0.25 * s); box("#888", x + w * 0.6, y - 1.35 * s, 0.3 * s, 0.22 * s, 2); break;
+      case 6: { const sy = y - 2.4 * s; box(wood, x, sy, w, 0.08 * s); box(wood, x, sy + 0.7 * s, w, 0.08 * s); for (let j = 0; j < Math.floor(w / (0.3 * s)); j++) { box(["#d97706", "#65a30d", "#b91c1c", "#e5e7eb"][j % 4], x + 0.08 * s + j * 0.3 * s, sy - 0.32 * s, 0.2 * s, 0.32 * s, 2); box(["#92400e", "#e5e7eb", "#4d7c0f"][j % 3], x + 0.1 * s + j * 0.3 * s, sy + 0.4 * s, 0.18 * s, 0.3 * s, 2); } break; }
+      case 7: box("#8b5a2b", x, y - 1 * s, w, 1 * s, 0.25 * s); box("#555", x, y - 0.8 * s, w, 0.06 * s); box("#555", x, y - 0.25 * s, w, 0.06 * s); break;
+      case 8: box("#6b4a2b", m - 0.25 * s, y - 0.45 * s, 0.5 * s, 0.45 * s); c.fillStyle = "#3a3a3a"; c.beginPath(); c.moveTo(x, y - 0.65 * s); c.lineTo(x + w, y - 0.65 * s); c.lineTo(x + w - 0.2 * s, y - 0.45 * s); c.lineTo(x + 0.2 * s, y - 0.45 * s); c.fill(); break;
+      case 9: c.fillStyle = "#7a4a2a"; c.beginPath(); c.moveTo(x, y - 0.3 * s); c.lineTo(x + w, y - 0.55 * s); c.lineTo(x + w, y - 0.15 * s); c.closePath(); c.fill(); box("#3a2a1a", x + w - 0.1 * s, y - 0.5 * s, 0.2 * s, 0.4 * s); break;
+      case 10: box(wood, x, y - 0.9 * s, w, 0.12 * s); box(dark, x + 0.1 * s, y - 0.8 * s, 0.1 * s, 0.8 * s); box(dark, x + w - 0.2 * s, y - 0.8 * s, 0.1 * s, 0.8 * s); box("#777", x + 0.3 * s, y - 1.15 * s, 0.5 * s, 0.08 * s); box("#a0522d", x + 0.3 * s, y - 1.12 * s, 0.12 * s, 0.25 * s);
+        c.strokeStyle = "#555"; c.lineWidth = Math.max(1, s / 16); for (let j = 0; j < 4; j++) { c.beginPath(); c.moveTo(x + w * 0.5 + j * 0.2 * s, y - 2.2 * s); c.lineTo(x + w * 0.5 + j * 0.2 * s, y - 1.7 * s); c.stroke(); } break;
+      case 11: box(dark, x, y - 2.4 * s, w, 2.4 * s); for (let r = 0; r < 4; r++) for (let j = 0; j < Math.floor(w / (0.13 * s)) - 1; j++) box(["#b91c1c", "#1d4ed8", "#15803d", "#a16207", "#7e22ce"][(r * 3 + j) % 5], x + 0.08 * s + j * 0.13 * s, y - 2.3 * s + r * 0.58 * s, 0.1 * s, 0.45 * s); break;
+      case 12: box(wood, x, y - 0.85 * s, w, 0.1 * s); box(dark, x + 0.05 * s, y - 0.75 * s, 0.4 * s, 0.75 * s); box(dark, x + w - 0.12 * s, y - 0.75 * s, 0.08 * s, 0.75 * s); box("#f5f0e1", x + w - 0.4 * s, y - 1.05 * s, 0.08 * s, 0.2 * s); ell("#fde047", x + w - 0.36 * s, y - 1.12 * s, 0.05 * s, 0.08 * s); box("#e9e1d0", x + 0.5 * s, y - 0.9 * s, 0.4 * s, 0.05 * s); break;
+      case 13: c.fillStyle = "#9a6a3a"; c.beginPath(); c.moveTo(x, y - 0.8 * s); c.lineTo(x + w, y - 0.8 * s); c.lineTo(x + w - 0.15 * s, y); c.lineTo(x + 0.15 * s, y); c.fill(); box("#7dd3fc", x + 0.05 * s, y - 0.75 * s, w - 0.1 * s, 0.1 * s); box("#555", x, y - 0.55 * s, w, 0.05 * s); break;
+      case 14: box("#3f6212", m - 0.12 * s, y - 1.3 * s, 0.24 * s, 1.3 * s); box("#4d7c0f", m - 0.2 * s, y - 1.35 * s, 0.4 * s, 0.1 * s); c.strokeStyle = "#3f6212"; c.lineWidth = 0.08 * s; c.beginPath(); c.moveTo(m, y - 1.25 * s); c.lineTo(m + 0.45 * s, y - 1.55 * s); c.stroke(); box("#3f6212", m + 0.1 * s, y - 1.0 * s, 0.25 * s, 0.08 * s); break;
+      case 15: box(wood, x, y - 1 * s, w, 0.1 * s); box(dark, x + 0.08 * s, y - 0.9 * s, 0.08 * s, 0.9 * s); box(dark, x + w - 0.16 * s, y - 0.9 * s, 0.08 * s, 0.9 * s); ell("#e5e7eb", m, y - 1.08 * s, 0.25 * s, 0.08 * s); box("#94a3b8", m - 0.25 * s, y - 1.9 * s, 0.5 * s, 0.6 * s, 0.25 * s); break;
+      case 16: box("#5a3a1e", x, y - 0.4 * s, w, 0.4 * s); for (let j = 0; j < Math.floor(w / (0.25 * s)); j++) { const mx = x + 0.15 * s + j * 0.25 * s; box("#f5f0e1", mx - 0.03 * s, y - 0.6 * s, 0.06 * s, 0.2 * s); ell(j % 2 ? "#c2410c" : "#e8d9b5", mx, y - 0.62 * s, 0.12 * s, 0.06 * s); } break;
+      case 17: box(wood, x, y - 2 * s, 0.1 * s, 2 * s); box(wood, x + w - 0.1 * s, y - 2 * s, 0.1 * s, 2 * s); box(wood, x, y - 2 * s, w, 0.1 * s); box(wood, x, y - 0.9 * s, w, 0.1 * s);
+        c.strokeStyle = "#d4a373"; c.lineWidth = Math.max(1, s / 30); for (let j = 1; j < 10; j++) { c.beginPath(); c.moveTo(x + j * w / 10, y - 1.9 * s); c.lineTo(x + j * w / 10, y - 0.9 * s); c.stroke(); } box("#b45309", x + 0.15 * s, y - 1.5 * s, w - 0.3 * s, 0.4 * s); break;
+      case 18: c.strokeStyle = wood; c.lineWidth = 0.08 * s; c.beginPath(); c.arc(x + w * 0.6, y - 0.85 * s, 0.42 * s, 0, 7); c.stroke(); c.beginPath(); c.moveTo(x + w * 0.6, y - 0.85 * s); c.lineTo(x + w * 0.6, y); c.moveTo(x, y); c.lineTo(x + 0.3 * s, y - 0.6 * s); c.stroke();
+        c.save(); c.translate(x + w * 0.6, y - 0.85 * s); c.rotate(S.frame / 20); c.lineWidth = Math.max(1, s / 24); c.beginPath(); for (let j = 0; j < 4; j++) { c.moveTo(0, 0); c.lineTo(Math.cos(j * 0.8) * 0.4 * s, Math.sin(j * 0.8) * 0.4 * s); } c.stroke(); c.restore(); box("#f5f0e1", x + 0.15 * s, y - 0.95 * s, 0.2 * s, 0.25 * s, 3); break;
+      case 19: box("#9a6a3a", m - 0.22 * s, y - 0.9 * s, 0.44 * s, 0.9 * s, 0.1 * s); box(dark, m - 0.03 * s, y - 1.3 * s, 0.06 * s, 0.4 * s); break;
+      case 20: box(dark, x, y - 2.6 * s, w, 2.6 * s, 0.15 * s); ell("#f5f0e1", m, y - 2.15 * s, w * 0.35, w * 0.35); c.strokeStyle = "#333"; c.lineWidth = Math.max(1, s / 24); c.beginPath(); c.moveTo(m, y - 2.15 * s); c.lineTo(m, y - 2.3 * s); c.moveTo(m, y - 2.15 * s); c.lineTo(m + 0.1 * s, y - 2.15 * s); c.stroke();
+        { const a = Math.sin(S.frame / 30) * 0.35; c.strokeStyle = "#c8a032"; c.lineWidth = Math.max(1, s / 20); c.beginPath(); c.moveTo(m, y - 1.7 * s); c.lineTo(m + Math.sin(a) * 0.8 * s, y - 1.7 * s + Math.cos(a) * 0.8 * s); c.stroke(); ell("#c8a032", m + Math.sin(a) * 0.8 * s, y - 1.7 * s + Math.cos(a) * 0.8 * s, 0.1 * s, 0.1 * s); } break;
+      case 21: { const a = Math.sin(S.frame / 40) * 0.06; c.save(); c.translate(m, y); c.rotate(a); box(wood, -w / 2, -0.55 * s, w, 0.08 * s); box(dark, w / 2 - 0.12 * s, -1.2 * s, 0.08 * s, 0.7 * s); c.strokeStyle = dark; c.lineWidth = 0.07 * s; c.beginPath(); c.moveTo(-w / 2, -0.05 * s); c.quadraticCurveTo(0, 0.12 * s, w / 2, -0.05 * s); c.stroke(); box(dark, -w / 2 + 0.1 * s, -0.5 * s, 0.07 * s, 0.45 * s); c.restore(); break; }
+      case 22: box("#a16207", x, y - 1.3 * s, w, 1.3 * s, 3); box("#ca8a04", x + 0.08 * s, y - 1.2 * s, w - 0.16 * s, 0.5 * s, 2); box("#bfe3f5", x + 0.15 * s, y - 1.15 * s, w - 0.3 * s, 0.3 * s, 2); box("#888", x + w - 0.2 * s, y - 0.6 * s, 0.08 * s, 0.2 * s); break;
+      case 23: box("#9f1239", x, y - 0.06 * s, w, 0.06 * s); box("#f59e0b", x + 0.2 * s, y - 0.06 * s, w - 0.4 * s, 0.03 * s); break;
+      case 25: c.fillStyle = "#c9a26b"; c.beginPath(); c.moveTo(x, y - 0.8 * s); c.quadraticCurveTo(m, y + 0.1 * s, x + w, y - 0.8 * s); c.lineTo(x + w - 0.1 * s, y - 0.35 * s); c.lineTo(x + 0.1 * s, y - 0.35 * s); c.fill(); box("#bae6fd", x + 0.15 * s, y - 0.75 * s, w - 0.3 * s, 0.2 * s, 3); break;
+      case 26: box("#7a4a2a", x, y - 0.7 * s, w, 0.7 * s, 3); box("#5a3a1e", x, y - 0.7 * s, w, 0.2 * s, 3); box("#c8a032", m - 0.06 * s, y - 0.55 * s, 0.12 * s, 0.15 * s); break;
+      case 27: box("#8e8a80", x, y - 1 * s, w, 1 * s, 0.1 * s); c.fillStyle = "rgba(0,0,0,0.2)"; for (let j = 0; j < 3; j++) c.fillRect(x, y - 0.33 * s * (j + 1), w, Math.max(1, s / 20)); box(dark, x + 0.1 * s, y - 2.1 * s, 0.1 * s, 1.1 * s); box(dark, x + w - 0.2 * s, y - 2.1 * s, 0.1 * s, 1.1 * s); box(dark, x + 0.1 * s, y - 2.1 * s, w - 0.2 * s, 0.1 * s);
+        box("#6b6b6b", m - 0.15 * s, y - 1.75 * s + Math.sin(S.frame / 50) * 0.2 * s, 0.3 * s, 0.3 * s, 2); break;
+      case 28: box("#b45309", m - 0.25 * s, y - 0.45 * s, 0.5 * s, 0.45 * s, [0, 0, 0.1 * s, 0.1 * s]); c.strokeStyle = "#15803d"; c.lineWidth = 0.08 * s; for (let j = -2; j <= 2; j++) { c.beginPath(); c.moveTo(m, y - 0.45 * s); c.quadraticCurveTo(m + j * 0.25 * s, y - 1.2 * s, m + j * 0.38 * s, y - 0.8 * s); c.stroke(); } break;
+      case 29: box("#7c2d12", x, y - 2.6 * s, w, 1.3 * s); box("#f59e0b", x + 0.1 * s, y - 2.5 * s, w - 0.2 * s, 1.1 * s); ell("#15803d", m, y - 2 * s, w * 0.3, 0.3 * s); box(dark, x - 0.05 * s, y - 2.65 * s, w + 0.1 * s, 0.08 * s); break;
+      case 30: box(wood, x, y - 0.8 * s, w, 0.12 * s); for (const f of [0.1, 0.5, 0.88]) box(dark, x + w * f - 0.05 * s, y - 0.7 * s, 0.1 * s, 0.7 * s); box(dark, x + 0.1 * s, y - 0.4 * s, w - 0.2 * s, 0.08 * s);
+        for (let j = 0; j < Math.floor(w / (0.6 * s)); j++) { ell("#e9e1d0", x + 0.4 * s + j * 0.6 * s, y - 0.86 * s, 0.17 * s, 0.05 * s); } break;
+      case 31: box("#8e8a80", x, y - 0.9 * s, w, 0.9 * s, 2); box("#6b6b6b", x + 0.1 * s, y - 0.85 * s, w - 0.2 * s, 0.25 * s, 2); box("#9a6a3a", x + w - 0.45 * s, y - 1.25 * s, 0.35 * s, 0.35 * s, 2); break;
+      case 32: c.strokeStyle = "#7a7a7a"; c.lineWidth = 0.18 * s; c.beginPath(); c.arc(m, y - 0.75 * s, 0.35 * s, 0, 7); c.stroke(); box(dark, x, y - 0.5 * s, w, 0.08 * s); box(dark, x + 0.05 * s, y - 0.45 * s, 0.08 * s, 0.45 * s); box(dark, x + w - 0.13 * s, y - 0.45 * s, 0.08 * s, 0.45 * s); break;
+      case 33: box(dark, m - 0.05 * s, y - 0.7 * s, 0.1 * s, 0.7 * s); ell("#2563eb", m, y - 0.95 * s, 0.25 * s, 0.25 * s); ell("#16a34a", m - 0.05 * s, y - 1 * s, 0.1 * s, 0.13 * s); break;
+      case 34: c.strokeStyle = "#333"; c.lineWidth = Math.max(1, s / 20); c.beginPath(); c.moveTo(m, y - 1.4 * s); c.lineTo(m, y - 0.95 * s); c.stroke(); ell("#2d2d2d", m, y - 0.75 * s, 0.3 * s, 0.24 * s); ell("#f59e0b", m, y - 0.2 * s, 0.25 * s, 0.18 * s); break;
+      case 35: box(dark, x, y - 2.2 * s, w, 0.08 * s); for (let j = 0; j < 3; j++) box(["#166534", "#7c2d12", "#1e3a8a"][j], x + 0.1 * s + j * 0.28 * s, y - 2.15 * s, 0.24 * s, 0.9 * s, [0, 0, 0.1 * s, 0.1 * s]); break;
+      case 36: box(dark, x, y - 2.2 * s, 0.1 * s, 2.2 * s); box(dark, x + w - 0.1 * s, y - 2.2 * s, 0.1 * s, 2.2 * s); for (const yy of [0.35, 1.35]) { box(wood, x, y - yy * s, w, 0.1 * s); box("#1d4ed8", x + 0.2 * s, y - (yy + 0.22) * s, w - 0.3 * s, 0.2 * s, 3); ell("#fff", x + 0.3 * s, y - (yy + 0.28) * s, 0.18 * s, 0.08 * s); } break;
+    }
+  }
+  function drawBeaver(B, x, y, swimming) {
+    const c = ctx, s = T, f = B.b.face || 1, job = B.b.job;
+    if (job === 0 && !swimming) return;   // (in the lodge, resting)
+    c.save(); c.translate(x, y); c.scale(f, 1);
+    const bob = job === 2 ? Math.sin(S.frame / 3) * 0.05 * s : 0;
+    c.fillStyle = "#3b2a1e"; c.beginPath(); c.ellipse(-0.55 * s, -0.1 * s, 0.32 * s, 0.11 * s, -0.2, 0, 7); c.fill();   // (the tail, flat)
+    c.fillStyle = "#7a4a28"; c.beginPath(); c.ellipse(0, -0.3 * s, 0.42 * s, 0.28 * s, 0, 0, 7); c.fill();
+    c.beginPath(); c.ellipse(0.38 * s, -0.42 * s + bob, 0.2 * s, 0.17 * s, 0, 0, 7); c.fill();
+    c.fillStyle = "#1a1008"; c.beginPath(); c.arc(0.45 * s, -0.48 * s + bob, 0.035 * s, 0, 7); c.fill(); c.beginPath(); c.arc(0.57 * s, -0.42 * s + bob, 0.04 * s, 0, 7); c.fill();
+    c.fillStyle = "#fde68a"; c.fillRect(0.5 * s, -0.36 * s + bob, 0.06 * s, 0.08 * s);
+    c.fillStyle = "#5a3a1e"; c.beginPath(); c.arc(0.28 * s, -0.58 * s + bob, 0.06 * s, 0, 7); c.fill();
+    if (!swimming) { c.fillStyle = "#5a3a1e"; c.fillRect(-0.2 * s, -0.1 * s, 0.1 * s, 0.12 * s); c.fillRect(0.2 * s, -0.1 * s, 0.1 * s, 0.12 * s); }
+    if (job === 3) { c.fillStyle = "#8b5a2b"; c.beginPath(); c.roundRect(-1.4 * s, -0.55 * s, 1.9 * s, 0.22 * s, 0.1 * s); c.fill(); c.fillStyle = "#d9b98a"; c.beginPath(); c.ellipse(-1.4 * s, -0.44 * s, 0.06 * s, 0.11 * s, 0, 0, 7); c.fill(); }
+    c.restore();
+  }
+  function draw() {
+    fit();
+    const now = performance.now(), W = cv.width, Hh = cv.height, s = T, g = S.g;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    if (!g) { ctx.fillStyle = "#8cc4ec"; ctx.fillRect(0, 0, W, Hh); return; }
+    // (the camera: smoothly after the gnome, a little ahead the way it faces, kept inside the world)
+    const gx = g.x / 1000, gy = g.y / 1000 - 0.45, tx = gx + g.face * 1.2 - VW / 2, ty = gy - VH / 2;
+    if (!S.cam.set) { S.cam.x = tx; S.cam.y = ty; S.cam.set = true; }
+    S.cam.x += (tx - S.cam.x) * 0.12; S.cam.y += (ty - S.cam.y) * 0.12;
+    S.cam.x = Math.max(0, Math.min(WW - VW, S.cam.x)); S.cam.y = Math.max(0, Math.min(WH - VH, S.cam.y));
+    const camX = Math.round(S.cam.x * s) / s, camY = Math.round(S.cam.y * s) / s;
+    const c0 = Math.max(0, Math.floor(camX) - 1), c1 = Math.min(WW - 1, Math.ceil(camX + VW) + 1), r0 = Math.max(0, Math.floor(camY) - 1), r1 = Math.min(WH - 1, Math.ceil(camY + VH) + 1);
+    // the sky, the sun, far hills (slower, behind), clouds
+    const sk = ctx.createLinearGradient(0, 0, 0, Hh); sk.addColorStop(0, "#5fa8e0"); sk.addColorStop(1, "#cfe9f7"); ctx.fillStyle = sk; ctx.fillRect(0, 0, W, Hh);
+    const skyY = y => (y - camY) * s;
+    ctx.fillStyle = "#fff6c2"; ctx.beginPath(); ctx.arc(W * 0.82, skyY(6) * 0.4 + s * 2, s * 1.4, 0, 7); ctx.fill();
+    for (const [par, col, amp, base] of [[0.25, "#a8c8a0", 4, 33], [0.5, "#86b07a", 3, 36]]) { ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(0, Hh);
+      for (let px = 0; px <= W + 8; px += 8) { const wx = (px / s + camX * par); ctx.lineTo(px, (base - amp * (Math.sin(wx / 9) * 0.6 + Math.sin(wx / 23 + 1) * 0.8) - camY * (1 - par) - camY * par) * s); }
+      ctx.lineTo(W, Hh); ctx.fill(); }
+    for (let k = 0; k < 9; k++) { const cx = ((k * 61 + now / 900) % (WW * 0.6)) * 1.6 - camX * 0.35 * s / s; const x = (cx - camX * 0.0) * s * 0.5 + ((k * 137) % W), y = skyY(4 + (k * 7) % 12) * 0.6 + s;
+      ctx.fillStyle = "rgba(255,255,255,0.75)"; ctx.beginPath(); ctx.ellipse(((x % (W + 400)) + W + 400) % (W + 400) - 200, y, s * 1.6, s * 0.45, 0, 0, 7); ctx.fill(); }
+    ctx.save(); ctx.translate(-camX * s, -camY * s);
+    // (behind the open tiles below the land: the earth dug, the rooms' walls, the stair's stones, a cave's rock)
+    for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) { const i = at(c, r); if (mat[i] !== AIR) continue; const b = bg[i];
+      if (b === B_NONE && (r < surf0[c] || riverAt(c))) continue;
+      const k = b === B_PLASTER ? 101 : b === B_WOOD ? 102 : b === B_STAIR ? 103 : b === B_CAVE ? 104 : 100;
+      ctx.drawImage(tex(k, (c * 7 + r * 3) & 3), c * s, r * s); }
+    // the trees and bushes on the land (behind the great trees)
+    for (const t of S.trees) if (t.x >= c0 - 4 && t.x <= c1 + 4) drawTree(t, (t.x + 0.5) * s, surf0[t.x] * s);
+    for (const b of S.bushes) if (b.x >= c0 - 2 && b.x <= c1 + 2) { const x = (b.x + 0.5) * s, y = surf0[b.x] * s; ctx.fillStyle = ["#3c8a3a", "#4f9a3a", "#2f7d32"][b.v];
+      for (const [dx, dy, rr] of [[-0.35, -0.3, 0.38], [0.3, -0.32, 0.36], [0, -0.55, 0.4]]) { ctx.beginPath(); ctx.arc(x + dx * s, y + dy * s, rr * s, 0, 7); ctx.fill(); } }
+    // the great trees: trunk, roots flaring, limbs under the platforms, leaves, then (after the ground) the platforms and houses
+    for (const G of S.greats) { if (G.x + 12 < c0 || G.x - 12 > c1) continue;
+      const x = (G.x + 0.5) * s, y = G.foot * s, hh = G.h * s, bw = (G.half + 0.6) * s;
+      ctx.fillStyle = "#2f7d32"; for (let j = 0; j < 26; j++) { const a = j * 2.4, rr = (0.9 + (j % 5) * 0.25) * s * 1.6; ctx.fillStyle = ["#2f7d32", "#3c9a40", "#266b30", "#4fb04f"][j % 4]; ctx.beginPath(); ctx.arc(x + Math.cos(a) * (2 + j % 7) * s * 0.9, y - hh * (0.78 + 0.22 * Math.sin(a * 1.3)), rr, 0, 7); ctx.fill(); }
+      for (const L of G.limbs) { const ly = y - L.y * s, ex = x + L.side * (G.half + L.len + 0.3) * s; ctx.strokeStyle = "#5e3d22"; ctx.lineCap = "round";
+        ctx.lineWidth = 0.55 * s; ctx.beginPath(); ctx.moveTo(x, ly + 1.4 * s); ctx.quadraticCurveTo(x + L.side * (G.half + L.len * 0.4) * s, ly + 0.9 * s, ex, ly + 0.25 * s); ctx.stroke();
+        ctx.lineWidth = 0.22 * s; ctx.beginPath(); ctx.moveTo(x + L.side * (G.half + L.len * 0.5) * s, ly + 0.6 * s); ctx.lineTo(x + L.side * (G.half + L.len * 0.8) * s, ly - 1.8 * s); ctx.stroke();
+        for (let j = 0; j < 5; j++) { ctx.fillStyle = ["#3c9a40", "#2f7d32", "#4fb04f"][j % 3]; ctx.beginPath(); ctx.arc(ex + (j - 2) * 0.5 * s, ly - (2.4 + (j % 2) * 0.6) * s, 0.85 * s, 0, 7); ctx.fill(); } }
+      ctx.fillStyle = "#6e4a2c"; ctx.beginPath(); ctx.moveTo(x - bw - 1.2 * s, y); ctx.quadraticCurveTo(x - bw, y - 0.5 * s, x - bw * 0.9, y - 1.2 * s); ctx.lineTo(x - 0.45 * s, y - hh); ctx.lineTo(x + 0.45 * s, y - hh); ctx.lineTo(x + bw * 0.9, y - 1.2 * s); ctx.quadraticCurveTo(x + bw, y - 0.5 * s, x + bw + 1.2 * s, y); ctx.fill();
+      ctx.strokeStyle = "rgba(40,25,10,0.45)"; ctx.lineWidth = Math.max(1, s / 12); for (let j = -2; j <= 2; j++) { ctx.beginPath(); ctx.moveTo(x + j * bw * 0.35, y); ctx.quadraticCurveTo(x + j * bw * 0.25, y - hh * 0.5, x + j * 0.1 * s, y - hh); ctx.stroke(); }
+      if (G.kind === 31) {   // (the stair inside: the trunk cut away, a winding stair round a post, a door to each limb)
+        const top0 = y - (Math.max(...G.limbs.map(l => l.y)) + 1.2) * s, iw = (G.half + 0.2) * 2 * s * 0.75;
+        ctx.fillStyle = "#2a1a0e"; ctx.beginPath(); ctx.roundRect(x - iw / 2, top0, iw, y - top0, [iw / 2, iw / 2, 0, 0]); ctx.fill();
+        ctx.fillStyle = "#5e3d22"; ctx.fillRect(x - 0.12 * s, top0 + 0.3 * s, 0.24 * s, y - top0 - 0.3 * s);
+        for (let yy = y - 0.5 * s, j = 0; yy > top0 + 0.4 * s; yy -= 0.5 * s, j++) { const a = j * 0.9, sx = Math.sin(a); ctx.fillStyle = Math.cos(a) > 0 ? "#b07a48" : "#7a5230";
+          ctx.beginPath(); ctx.moveTo(x, yy); ctx.lineTo(x + sx * iw * 0.46, yy - 0.12 * s); ctx.lineTo(x + sx * iw * 0.46, yy + 0.02 * s); ctx.lineTo(x, yy + 0.12 * s); ctx.fill(); }
+        for (const L of G.limbs) { const ly = y - L.y * s; ctx.fillStyle = "#4a2e1a"; ctx.beginPath(); ctx.roundRect(x + L.side * (iw / 2) - (L.side > 0 ? 0 : 0.35 * s), ly - 1 * s, 0.35 * s, 1 * s, [0.15 * s, 0.15 * s, 0, 0]); ctx.fill(); } }
+    }
+    // the ground: each solid tile's texture, grass where the sky is over it, its gem, the cracks of a digging, and its water as blue
+    const dc = g.dt > 0 ? g.dc : -1, dr = g.dr;
+    for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) { const i = at(c, r), m = mat[i]; if (m === AIR) continue;
+      ctx.drawImage(tex(m, (c * 3 + r * 5) & 3), c * s, r * s);
+      if (r === top[c] && r <= surf0[c] + 1 && m <= SSTONE) { ctx.fillStyle = "#4caf50"; ctx.fillRect(c * s, r * s, s, s * 0.22); ctx.fillStyle = "#66bb6a"; for (let j = 0; j < 4; j++) ctx.fillRect(c * s + j * s / 4 + s / 16, r * s - s * 0.12, s / 12, s * 0.16); }
+      const w0 = wat[i]; if (PORES[m] > 0 && w0 > 0.05) { ctx.fillStyle = `rgba(30,90,200,${(0.08 + 0.5 * w0 * w0).toFixed(3)})`; ctx.fillRect(c * s, r * s, s, s);
+        if (w0 > 0.95 && ((c * 7 + r * 3 + (S.frame >> 4)) % 9 === 0)) { ctx.fillStyle = "rgba(200,230,255,0.6)"; ctx.fillRect(c * s + s * 0.4, r * s + s * 0.4, s * 0.12, s * 0.12); } }
+      if (gem[i]) { const tw = 0.5 + 0.5 * Math.sin(now / 300 + c + r); ctx.fillStyle = GEMS[gem[i]]; ctx.beginPath(); ctx.moveTo(c * s + s * 0.5, r * s + s * 0.2); ctx.lineTo(c * s + s * 0.78, r * s + s * 0.45); ctx.lineTo(c * s + s * 0.5, r * s + s * 0.8); ctx.lineTo(c * s + s * 0.22, r * s + s * 0.45); ctx.fill();
+        ctx.fillStyle = `rgba(255,255,255,${(0.4 + 0.5 * tw).toFixed(2)})`; ctx.fillRect(c * s + s * 0.42, r * s + s * 0.32, s * 0.1, s * 0.1); }
+      if (c === dc && r === dr) { ctx.strokeStyle = "rgba(0,0,0,0.6)"; ctx.lineWidth = Math.max(1, s / 14); const f = Math.min(1, g.dt / Math.max(1, DIG[m])); ctx.beginPath();
+        for (let j = 0; j < 1 + Math.floor(f * 4); j++) { const a = j * 1.7; ctx.moveTo(c * s + s / 2, r * s + s / 2); ctx.lineTo(c * s + s / 2 + Math.cos(a) * s * 0.45 * f, r * s + s / 2 + Math.sin(a) * s * 0.45 * f); } ctx.stroke(); } }
+    // roots, faint, through the ground
+    ctx.strokeStyle = "rgba(230,200,150,0.35)"; ctx.lineWidth = Math.max(1, s / 18);
+    for (const t of S.trees) { if (t.x < c0 - 3 || t.x > c1 + 3 || !t.alive) continue; const x = (t.x + 0.5) * s, y = surf0[t.x] * s; let rr = t.seed;
+      for (let j = 0; j < 5; j++) { rr = (rr * 16807) % 2147483647; const a = (rr % 1000) / 1000; ctx.beginPath(); ctx.moveTo(x, y); ctx.quadraticCurveTo(x + (a - 0.5) * 3 * s, y + t.h * 0.4 * s, x + (a - 0.5) * 4 * s, y + t.h * (0.6 + a * 0.5) * s); ctx.stroke(); } }
+    // the rooms' things, the doorways' frames, a lamp in each room
+    for (const R of S.rooms) { if (R.x + R.w < c0 || R.x > c1 || R.y + 5 < r0 || R.y > r1) continue;
+      for (const t of R.things) drawThing(t.kind, (R.x + t.at / 10) * s, (R.y + 4) * s, t.w / 10 * s);
+      const lx = (R.x + R.w / 2) * s, ly = R.y * s; ctx.strokeStyle = "#333"; ctx.lineWidth = Math.max(1, s / 24); ctx.beginPath(); ctx.moveTo(lx, ly); ctx.lineTo(lx, ly + 0.45 * s); ctx.stroke();
+      ctx.fillStyle = "#3a3a3a"; ctx.fillRect(lx - 0.12 * s, ly + 0.45 * s, 0.24 * s, 0.32 * s); ctx.fillStyle = "#fde68a"; ctx.fillRect(lx - 0.08 * s, ly + 0.5 * s, 0.16 * s, 0.22 * s); }
+    for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) if (fix[at(c, r)] === F_DOOR && fix[at(c, r - 1)] !== F_DOOR) { ctx.fillStyle = "#6b4a2b"; ctx.fillRect(c * s, r * s, s, 0.15 * s); ctx.fillRect(c * s, r * s, 0.12 * s, 3 * s); ctx.fillRect(c * s + s - 0.12 * s, r * s, 0.12 * s, 3 * s); }
+    // ladders, the stair's steps, platforms, the hatch, rope bridges
+    for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) { const f = fix[at(c, r)]; if (!f) continue; const x = c * s, y = r * s;
+      if (f === F_LADDER) { ctx.fillStyle = "#8b5e34"; ctx.fillRect(x + 0.18 * s, y, 0.1 * s, s); ctx.fillRect(x + 0.72 * s, y, 0.1 * s, s); ctx.fillStyle = "#a0703f"; ctx.fillRect(x + 0.18 * s, y + 0.2 * s, 0.64 * s, 0.09 * s); ctx.fillRect(x + 0.18 * s, y + 0.7 * s, 0.64 * s, 0.09 * s); }
+      else if (f === F_PLAT || f === F_HATCH) { ctx.fillStyle = f === F_HATCH ? "#7a4a28" : "#8b5a2b"; ctx.fillRect(x, y, s, 0.2 * s); ctx.fillStyle = "rgba(0,0,0,0.25)"; ctx.fillRect(x + s * 0.48, y, Math.max(1, s / 20), 0.2 * s); }
+      else if (f === F_BRIDGE) { const sag = Math.sin(((c % 7) + 0.5) / 7 * Math.PI) * 0.12 * s; ctx.fillStyle = "#a0703f"; ctx.fillRect(x + 0.05 * s, y + sag, 0.9 * s, 0.14 * s); ctx.strokeStyle = "#d8c49a"; ctx.lineWidth = Math.max(1, s / 20); ctx.beginPath(); ctx.moveTo(x, y - 0.6 * s + sag); ctx.lineTo(x + s, y - 0.6 * s + sag); ctx.moveTo(x + 0.5 * s, y - 0.6 * s + sag); ctx.lineTo(x + 0.5 * s, y + sag); ctx.stroke(); } }
+    for (const hs of S.houses) if (hs.x > c0 - 4 && hs.x < c1 + 4) drawHouse(hs, (hs.x + 0.5) * s, hs.row * s);
+    // the village's door on the hill: a porch over the hatch; chimneys with smoke, light shafts' glass domes, air shafts' caps
+    for (const v of S.villages) { const x = (v.x0 + 1) * s, y = v.top * s; if (v.x0 < c0 - 4 || v.x0 > c1 + 4) continue;
+      ctx.fillStyle = "#8e8a80"; ctx.fillRect(x - 1.3 * s, y - 1.6 * s, 0.25 * s, 1.6 * s); ctx.fillRect(x + 1.05 * s, y - 1.6 * s, 0.25 * s, 1.6 * s);
+      ctx.fillStyle = "#b91c1c"; ctx.beginPath(); ctx.moveTo(x - 1.6 * s, y - 1.6 * s); ctx.lineTo(x, y - 2.6 * s); ctx.lineTo(x + 1.6 * s, y - 1.6 * s); ctx.fill();
+      ctx.fillStyle = "#fff"; for (const [dx, dy] of [[-0.6, -1.9], [0.4, -2.2], [0.9, -1.8]]) { ctx.beginPath(); ctx.arc(x + dx * s, y + dy * s, 0.1 * s, 0, 7); ctx.fill(); } }
+    for (const d of S.ducts) { if (d.x < c0 - 2 || d.x > c1 + 2) continue; const x = d.x * s, y0 = d.y0 * s;
+      if (d.kind === 3) { ctx.fillStyle = "#8b4a3a"; ctx.fillRect(x + 0.2 * s, y0 - 2.2 * s, 0.6 * s, 2.2 * s); ctx.fillStyle = "#6b3a2a"; ctx.fillRect(x + 0.12 * s, y0 - 2.3 * s, 0.76 * s, 0.2 * s); }
+      else if (d.kind === 1) { ctx.fillStyle = "rgba(200,235,255,0.85)"; ctx.beginPath(); ctx.arc(x + 0.5 * s, y0, 0.55 * s, Math.PI, 0); ctx.fill(); ctx.strokeStyle = "#555"; ctx.lineWidth = Math.max(1, s / 20); ctx.stroke(); }
+      else { ctx.fillStyle = "#6b7280"; ctx.fillRect(x + 0.38 * s, y0 - 0.9 * s, 0.24 * s, 0.9 * s); ctx.beginPath(); ctx.ellipse(x + 0.5 * s, y0 - 0.95 * s, 0.45 * s, 0.18 * s, 0, Math.PI, 0); ctx.fill(); }
+      // (through the rooms above its own, the duct as a pipe along the wall; and into its own room, a chimney hood or a beam of light)
+      for (const R of S.rooms) if (R !== d.room && d.x >= R.x && d.x < R.x + R.w && R.y < d.y1) { ctx.fillStyle = d.kind === 3 ? "#6b3a2a" : "#7a7a7a"; ctx.fillRect(x + 0.3 * s, R.y * s, 0.4 * s, 4 * s); }
+      if (d.kind === 1) { const R = d.room; const gr = ctx.createLinearGradient(0, R.y * s, 0, (R.y + 4) * s); gr.addColorStop(0, "rgba(255,240,180,0.45)"); gr.addColorStop(1, "rgba(255,240,180,0)"); ctx.fillStyle = gr;
+        ctx.beginPath(); ctx.moveTo(x + 0.2 * s, R.y * s); ctx.lineTo(x + 0.8 * s, R.y * s); ctx.lineTo(x + 1.8 * s, (R.y + 4) * s); ctx.lineTo(x - 0.8 * s, (R.y + 4) * s); ctx.fill(); } }
+    for (const sm of S.smoke) { ctx.fillStyle = `rgba(200,200,200,${(0.5 * (1 - sm.life / 200)).toFixed(3)})`; ctx.beginPath(); ctx.arc(sm.x * s, sm.y * s, sm.r * s, 0, 7); ctx.fill(); }
+    // the beavers' lodges (domes of sticks) and dams (logs across the river, up to the water), behind the water
+    for (const L of S.lodges) { if (!L.river || L.x > c1 + 6 || L.x + L.w < c0 - 6) continue; const R = L.river, k = Math.max(0, Math.min(R.w - 1, L.x - R.x)), bed = R.bed[k] ?? R.level + 2;
+      const x = (L.x + L.w / 2) * s, y = bed * s, hh = (bed - R.level + 1.4) * s; ctx.fillStyle = "#6b4a2b"; ctx.beginPath(); ctx.ellipse(x, y, L.w / 2 * s, hh, 0, Math.PI, 0); ctx.fill();
+      ctx.strokeStyle = "#3a2414"; ctx.lineWidth = Math.max(1, s / 12); for (let j = 0; j < 22; j++) { const a = Math.PI + (j / 22) * Math.PI, rr = 0.4 + (j % 3) * 0.2; ctx.beginPath(); ctx.moveTo(x + Math.cos(a) * L.w / 2 * s * rr, y + Math.sin(a) * hh * rr); ctx.lineTo(x + Math.cos(a + 0.4) * L.w / 2 * s * (rr + 0.3), y + Math.sin(a + 0.4) * hh * (rr + 0.3)); ctx.stroke(); } }
+    for (const d of S.dams) { const R = d.river; if (!R || R.x > c1 + 2 || R.x + R.w < c0 - 2) continue; ctx.globalAlpha = 0.45;
+      for (let k = 0; k < R.w; k++) { const c = R.x + k; for (let rr = R.bed[k] - 1; rr >= R.level - 0.5; rr -= 0.5) { ctx.fillStyle = (k + Math.floor(rr * 2)) % 2 ? "#7a5230" : "#8b6040"; ctx.beginPath(); ctx.roundRect(c * s - 0.05 * s, rr * s, s * 1.1, 0.46 * s, 0.2 * s); ctx.fill(); } }
+      ctx.globalAlpha = 1; ctx.strokeStyle = "#5e3d22"; ctx.lineWidth = Math.max(1, s / 10); for (let k = 0; k < R.w * 2; k++) { const x = (R.x + k / 2) * s; ctx.beginPath(); ctx.moveTo(x, (R.level - 0.4) * s); ctx.lineTo(x + 0.3 * s, (R.level - 0.9 - (k % 3) * 0.2) * s); ctx.stroke(); } }
+    // the beavers, the boulders, the diving gear, the gnome, the dirt flying
+    for (const B of S.beavers) { const c = Math.floor(B.px), R = riverAt(c + 0.5), y = R ? R.level + 0.35 : surf0[Math.max(0, Math.min(WW - 1, c))]; B.py += ((B.py || y) === 0 ? y : (y - B.py) * 0.25); if (c < c0 - 3 || c > c1 + 3) continue; drawBeaver(B, (B.px + 0.5) * s, B.py * s, !!R); }
+    for (const b of S.boulders) { if (b.c < c0 - 1 || b.c > c1 + 1 || b.r < r0 - 1 || b.r > r1 + 1) continue; const sh = b.wob > 0 ? Math.sin(now / 30) * 0.05 * s : 0, x = (b.c + 0.5) * s + sh, y = (b.r + b.oy + 0.5) * s;
+      ctx.fillStyle = "#7d7b78"; ctx.beginPath(); ctx.ellipse(x, y + 0.04 * s, 0.47 * s, 0.44 * s, 0, 0, 7); ctx.fill(); ctx.fillStyle = "#a8a5a0"; ctx.beginPath(); ctx.ellipse(x - 0.12 * s, y - 0.12 * s, 0.22 * s, 0.16 * s, -0.4, 0, 7); ctx.fill(); }
+    for (const it of S.items) if (!it.taken) { const x = it.x * s, y = it.y * s + Math.sin(now / 300) * 0.06 * s; ctx.fillStyle = "#facc15"; ctx.beginPath(); ctx.roundRect(x - 0.18 * s, y - 0.35 * s, 0.36 * s, 0.7 * s, 0.15 * s); ctx.fill();
+      ctx.fillStyle = "#0284c7"; ctx.beginPath(); ctx.roundRect(x + 0.2 * s, y - 0.3 * s, 0.45 * s, 0.25 * s, 0.1 * s); ctx.fill(); ctx.font = `${Math.round(0.6 * s)}px sans-serif`; ctx.fillText("✨", x - 0.6 * s, y - 0.4 * s); }
+    const blink = performance.now() - S.hurtAt < 1500 && Math.floor(now / 100) % 2 === 0;
+    if (!S.faintAt && !blink) {
+      const moving = Math.abs(g.vx) > 10 || (g.climb && (S.keys.up || S.keys.down)), d = g.climb && !g.ground ? 0 : g.face > 0 ? 1 : 3;
+      const swimPose = g.swim && !g.gear ? { swim: true, stroke: Math.abs(g.vx) > 10, t: now } : g.under ? { swim: true, stroke: true, under: true, t: now } : null;
+      gnome(ctx, gx * s, (g.y / 1000) * s - 0.48 * s, s * 0.98, d, true, moving, now, g.gear, false, true, false, swimPose);
+      if (g.under && !g.gear) { for (let j = 0; j < Math.ceil(g.air / 120); j++) { ctx.strokeStyle = g.air < 150 && Math.floor(now / 150) % 2 ? "#ef4444" : "rgba(220,240,255,0.9)"; ctx.lineWidth = Math.max(1, s / 20); ctx.beginPath(); ctx.arc((gx - 0.5 + j * 0.25) * s, (g.y / 1000 - 1.25 - (j % 2) * 0.12) * s, 0.09 * s, 0, 7); ctx.stroke(); } }
+      if (g.swim && !g.under) { ctx.strokeStyle = "rgba(255,255,255,0.8)"; ctx.lineWidth = Math.max(1, s / 16); const wl = Math.floor((g.y / 1000 - 0.45)) ; const sx = gx * s, sy = (wl) * s;
+        for (const sd of [-1, 1]) { ctx.beginPath(); ctx.arc(sx + sd * (0.45 + (now % 900) / 900 * 0.5) * s, sy, 0.18 * s, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke(); } }
+    }
+    for (const p of S.parts) { ctx.fillStyle = p.col; ctx.fillRect(p.x * s, p.y * s, s * 0.1, s * 0.1); }
+    // the water in the open (rivers, caves, tunnels flooded): over everything in it, so what is under it shows through, bluer
+    for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) { const i = at(c, r); if (mat[i] !== AIR) continue; const w0 = wat[i]; if (w0 < 0.03) continue;
+      const above = r > 0 && mat[at(c, r - 1)] === AIR && wat[at(c, r - 1)] > 0.5, hgt = above ? 1 : Math.min(1, w0);
+      ctx.fillStyle = "rgba(40,120,210,0.45)"; ctx.fillRect(c * s, (r + 1 - hgt) * s, s, hgt * s + 0.5);
+      if (!above) { ctx.fillStyle = "rgba(220,240,255,0.6)"; ctx.fillRect(c * s, (r + 1 - hgt) * s, s, Math.max(1, s / 16)); } }
+    // rain, in a shower
+    if (S.rain) { ctx.strokeStyle = "rgba(200,220,255,0.6)"; ctx.lineWidth = Math.max(1, s / 24); ctx.beginPath(); for (let k = 0; k < 120; k++) { const x = (c0 + ((k * 37.7 + S.frame * 0.3 * (k % 3 + 1)) % (c1 - c0 + 1))) * s, y = (r0 + ((k * 13.3 + S.frame * 0.5) % (r1 - r0 + 1))) * s; const col = Math.floor(x / s); if (col >= 0 && col < WW && y / s < top[col]) { ctx.moveTo(x, y); ctx.lineTo(x - 0.1 * s, y + 0.5 * s); } } ctx.stroke(); }
+    // the dark under the ground: each tile darker the further it is under the sky, lit by the lantern, the lamps and the light
+    // shafts; drawn as a tiny picture, a pixel a tile, stretched smooth over the view
+    {
+      const lw = c1 - c0 + 3, lh = r1 - r0 + 3, img = darkImg(lw, lh), d = img.data;
+      const lights = [{ x: gx, y: gy, r: 6.5 }, ...S.lamps.filter(l => l.x > c0 - 8 && l.x < c1 + 8 && l.y > r0 - 8 && l.y < r1 + 8)];
+      for (let j = 0; j < lh; j++) for (let k = 0; k < lw; k++) { const c = c0 - 1 + k, r = r0 - 1 + j; let a = 0;
+        if (c >= 0 && c < WW && r >= 0 && r < WH) { const sky = Math.min(top[c], surf0[c]); a = r <= sky ? 0 : Math.min(0.9, (r - sky) / 6);
+          if (a > 0) { let L = 0; for (const l of lights) { const dx = c + 0.5 - l.x, dy = r + 0.5 - l.y, q = 1 - Math.sqrt(dx * dx + dy * dy) / l.r; if (q > L) L = q; } a *= 1 - Math.min(1, L * 1.3); } }
+        const o = (j * lw + k) * 4; d[o] = 6; d[o + 1] = 4; d[o + 2] = 12; d[o + 3] = Math.round(a * 255); }
+      darkCtx.putImageData(img, 0, 0); ctx.imageSmoothingEnabled = true; ctx.drawImage(darkCv, 0, 0, lw, lh, (c0 - 1) * s, (r0 - 1) * s, lw * s, lh * s);
+    }
+    // words floating up
+    ctx.textAlign = "center"; ctx.font = `bold ${Math.round(0.55 * s)}px sans-serif`;
+    for (let k = words.length - 1; k >= 0; k--) { const w = words[k], f = (now - w.at) / 1200; if (f > 1) { words.splice(k, 1); continue; } ctx.globalAlpha = 1 - f; ctx.fillStyle = "#fff"; ctx.strokeStyle = "rgba(0,0,0,0.6)"; ctx.lineWidth = 3; ctx.strokeText(w.t, w.x * s, (w.y - f) * s); ctx.fillText(w.t, w.x * s, (w.y - f) * s); ctx.globalAlpha = 1; }
+    ctx.restore();
+    hud(now);
+  }
+  const darkCv = document.createElement("canvas"), darkCtx = darkCv.getContext("2d"); let darkData = null;
+  function darkImg(w, h) { if (darkCv.width !== w || darkCv.height !== h || !darkData) { darkCv.width = w; darkCv.height = h; darkData = darkCtx.createImageData(w, h); } return darkData; }
+  // ---- the words over the picture: the hearts, the gems, how deep or how high, the place; a banner; and the map of the world
+  const mapCv = document.createElement("canvas"); mapCv.width = WW; mapCv.height = WH; const mapCtx = mapCv.getContext("2d"); const mapImg = mapCtx.createImageData(WW, WH);
+  const MAPCOL = [[0, 0, 0], [122, 74, 36], [160, 99, 74], [194, 163, 107], [200, 135, 90], [91, 95, 102], [207, 202, 184], [138, 133, 136], [156, 143, 128], [139, 90, 43]];
+  function minimap() {
+    const d = mapImg.data;
+    for (let r = 0; r < WH; r++) for (let c = 0; c < WW; c++) { const i = at(c, r), o = i * 4, m = mat[i]; let col;
+      if (m === AIR) col = wat[i] > 0.5 ? [50, 110, 200] : r < surf0[c] ? [150, 200, 235] : bg[i] === B_PLASTER || bg[i] === B_WOOD ? [230, 200, 140] : bg[i] === B_STAIR ? [120, 110, 100] : [60, 40, 28];
+      else { col = MAPCOL[m]; if (PORES[m] > 0 && wat[i] > 0.6) col = [col[0] * 0.6, col[1] * 0.7, col[2] * 0.6 + 80]; if (gem[i]) col = [255, 255, 255]; }
+      d[o] = col[0]; d[o + 1] = col[1]; d[o + 2] = col[2]; d[o + 3] = 255; }
+    mapCtx.putImageData(mapImg, 0, 0);
+  }
+  function hud(now) {
+    const W = cv.width, Hh = cv.height, k = Math.max(1, Math.min(2.2, W / 900)), g = S.g;
+    ctx.save(); ctx.textAlign = "left"; ctx.textBaseline = "top";
+    const pill = (x, y, w, h) => { ctx.fillStyle = "rgba(0,0,0,0.35)"; ctx.beginPath(); ctx.roundRect(x, y, w, h, 10 * k); ctx.fill(); };
+    ctx.font = `${Math.round(18 * k)}px sans-serif`;
+    const hearts = "❤️".repeat(Math.max(0, S.hearts)) + "🤍".repeat(Math.max(0, 5 - S.hearts));
+    const RV = g ? riverAt(g.x / 1000) : null, land = g ? (RV ? RV.natural - 4 : surf0[Math.floor(g.x / 1000)]) : 0, depth = g ? Math.round(g.y / 1000 - land) : 0;
+    const where = g && (g.swim || g.under) ? (g.under ? "🫧 under the water" : "🏊 swimming") : depth > 1 ? `⛏️ ${depth} m down` : depth < -2 ? `🌳 ${-depth} m up` : "🌿 on the land";
+    const gx = g ? g.x / 1000 : 0, place = (S.places.find(p => gx >= p.x0 && gx <= p.x1 && (!p.under || depth > 3)) || { name: "" }).name;
+    const line = `${hearts}  💎 ${S.gems}  ${where}${g && g.gear ? "  🤿" : ""}${place ? "  ·  " + place : ""}`;
+    const tw = ctx.measureText(line).width;
+    pill(10 * k, 10 * k, tw + 20 * k, 30 * k); ctx.fillStyle = "#fff"; ctx.fillText(line, 20 * k, 15 * k);
+    if (g && g.under && !g.gear) { const f = g.air / 600; pill(10 * k, 46 * k, 160 * k, 16 * k); ctx.fillStyle = f < 0.25 ? "#ef4444" : "#7dd3fc"; ctx.fillRect(14 * k, 50 * k, 152 * k * f, 8 * k); }
+    if (S.banner && now - S.banner.t < 3500) { const f = Math.min(1, (3500 - (now - S.banner.t)) / 500); ctx.globalAlpha = f; ctx.font = `bold ${Math.round(24 * k)}px sans-serif`; ctx.textAlign = "center";
+      const bw = ctx.measureText(S.banner.text).width; pill(W / 2 - bw / 2 - 16 * k, Hh * 0.18, bw + 32 * k, 40 * k); ctx.fillStyle = "#fff"; ctx.fillText(S.banner.text, W / 2, Hh * 0.18 + 8 * k); ctx.globalAlpha = 1; }
+    if (S.map && g) {
+      if (S.frame - S.minimapAt > 45) { minimap(); S.minimapAt = S.frame; }
+      const mw = Math.min(W * 0.3, 340 * k), mh = mw * WH / WW, mx = W - mw - 10 * k, my = 10 * k + (document.documentElement.classList.contains("oracle-fs") ? 40 * k : 0);
+      ctx.globalAlpha = 0.85; ctx.imageSmoothingEnabled = false; ctx.drawImage(mapCv, mx, my, mw, mh); ctx.globalAlpha = 1;
+      ctx.strokeStyle = "#fff"; ctx.lineWidth = 1.5; ctx.strokeRect(mx + S.cam.x / WW * mw, my + S.cam.y / WH * mh, VW / WW * mw, VH / WH * mh);
+      ctx.fillStyle = "#ef4444"; ctx.beginPath(); ctx.arc(mx + gx / WW * mw, my + g.y / 1000 / WH * mh, 3 * k, 0, 7); ctx.fill(); ctx.strokeStyle = "rgba(255,255,255,0.6)"; ctx.strokeRect(mx, my, mw, mh); }
+    ctx.restore();
+    if (S.frame % 15 === 0) { $("gems").textContent = `💎 ${S.gems}`; $("hearts").textContent = hearts; $("where").textContent = place || where; }
+  }
+
+  // ---- the loop: a step each sixtieth of a second (several to catch up, at most four a frame), then the picture
+  let acc = 0, lastT = 0;
+  function frame(t) {
+    requestAnimationFrame(frame);
+    const h = H();
+    if (!h || !S.g || document.hidden || (P && P.paused())) { lastT = t; draw(); return; }
+    acc += Math.min(100, t - (lastT || t)) * 60 / 1000; lastT = t;
+    let n = 0;
+    try { while (acc >= 1 && n < 4) { tick(h); acc -= 1; n++; } } catch (e) { S.built = { ...S.built, ok: false, threw: String(e && e.message || e) }; drawStatus(); console.error(e); return; }
+    if (n >= 4) acc = 0;
+    draw();
+  }
+  requestAnimationFrame(frame);
+
+  // ---- the keys and the buttons
+  const KEYS = { ArrowLeft: "left", a: "left", A: "left", ArrowRight: "right", d: "right", D: "right", ArrowUp: "up", w: "up", W: "up", z: "up", Z: "up", ArrowDown: "down", s: "down", S: "down" };
+  const typing = e => /^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName) && e.target.type !== "checkbox";
+  addEventListener("keydown", e => {
+    if (typing(e)) return;
+    const k = KEYS[e.key];
+    if (k) { if (e.key.startsWith("Arrow")) e.preventDefault(); if (k === "up" && !S.keys.up) S.jumpQueued = true; S.keys[k] = true; }
+    else if (e.key === "m" || e.key === "M") toggleMap();
+  });
+  addEventListener("keyup", e => { const k = KEYS[e.key]; if (k) S.keys[k] = false; });
+  addEventListener("blur", () => { for (const k in S.keys) S.keys[k] = false; });
+  for (const b of document.querySelectorAll(".gw-pad button[data-k]")) {
+    const k = b.dataset.k;
+    b.addEventListener("pointerdown", e => { e.preventDefault(); b.setPointerCapture && b.setPointerCapture(e.pointerId); b.classList.add("held"); if (k === "up" && !S.keys.up) S.jumpQueued = true; S.keys[k] = true; });
+    for (const ev of ["pointerup", "pointercancel", "lostpointercapture"]) b.addEventListener(ev, () => { b.classList.remove("held"); S.keys[k] = false; });
+    b.addEventListener("contextmenu", e => e.preventDefault());
+  }
+  function toggleMap() { S.map = !S.map; keep("map", S.map); $("map").setAttribute("aria-pressed", String(S.map)); }
+  $("map").setAttribute("aria-pressed", String(S.map));
+  $("map").addEventListener("click", () => { toggleMap(); $("map").blur(); });
+  $("new").addEventListener("click", () => { const h = H(); if (!h) return; S.seed = 1 + Math.floor(Math.random() * 100000); keep("seed", S.seed); build(h, S.seed); $("new").blur(); });
+  addEventListener("resize", () => draw());
+  const P = window.HazelPause ? window.HazelPause.make({ into: $("new").parentElement, over: $("world").parentElement,
+    onChange: paused => { if (!SND) return; if (paused) SND.stop(); else SND.tune(0); } }) : null;
+  if (SND) {
+    const sw = (id, get, set) => { const b = $(id); if (!b) return; b.setAttribute("aria-pressed", String(get()));
+      b.addEventListener("click", () => { set(!get()); b.setAttribute("aria-pressed", String(get())); if (get()) SND.gesture(0); b.blur(); }); };
+    sw("music", () => SND.musicOn, on => { SND.music(on); if (on) SND.tune(0); });
+    sw("sfx", () => SND.soundsOn, on => SND.sounds(on));
+    if (window.HazelVolume) {
+      window.HazelVolume.slider($("music"), { label: "Music volume", get: () => SND.volumeOf("music"), set: v => SND.setVolume("music", v), isOn: () => SND.musicOn });
+      window.HazelVolume.slider($("sfx"), { label: "Sounds volume", get: () => SND.volumeOf("sfx"), set: v => SND.setVolume("sfx", v), isOn: () => SND.soundsOn, hear: () => SND.gem() });
+    }
+    for (const ev of ["pointerdown", "keydown"]) addEventListener(ev, () => SND.gesture(0), true);
+  } else for (const id of ["music", "sfx"]) { const b = $(id); if (b) b.hidden = true; }
+
+  // ---- the rules: Hazel's library (with hazel-jit: the hazeljs branch's build; else npm's 0.0.4), the program built and,
+  // where the library can, compiled; then the world made from its plan
+  function drawStatus() {
+    const st = $("status"), b = S.built;
+    if (!window.Hazel) { st.className = "status wait"; st.textContent = S.libFailed ? "Hazel did not load: check the connection, then reload." : "⏳ Loading Hazel, whose rules plan the world and move the gnome…"; return; }
+    if (!b) { st.className = "status wait"; st.textContent = "⏳ Building the rules…"; return; }
+    if (b.ok) { const ms = S.stepMs.length ? (S.stepMs.reduce((a, v) => a + v, 0) / S.stepMs.length).toFixed(3) : "…";
+      st.className = "status ok"; st.textContent = b.compiled ? `✓ Hazel's rules, compiled by hazel-jit as the page loaded (${(b.ms / 1000).toFixed(1)} s, the hazeljs branch's build): the gnome's step about ${ms} ms.`
+        : `✓ Hazel's rules, built by hazeljs ${S.lib === LIB_NPM ? "0.0.4" : ""} in ${(b.ms / 1000).toFixed(1)} s and interpreted${b.reason ? " (not compiled: " + b.reason + ")" : ""}: the gnome's step about ${ms} ms, so the world may go slowly.`; return; }
+    st.className = "status no";
+    st.textContent = "The rules have an error, so the world cannot be made: " + (b.threw || (b.errors || []).map(e => (e.module ? e.module + ": " : "") + String(e.message || e).replace(/\s+/g, " ")).join("; ") || "they did not build");
+  }
+  setInterval(() => { if (S.built && S.built.ok) drawStatus(); }, 3000);
+  let L = null, timer = 0;
+  function buildRules() {
+    if (!window.Hazel || !L) return;
+    const sp = L.spec(PROGRAM, TAIL), key = JSON.stringify(sp);
+    if (S.built && S.built.key === key) return;
+    const t0 = performance.now(); let r, threw = "";
+    const jit = typeof window.Hazel.jitProgram === "function" && !Q.has("interpreted");
+    try { r = jit ? window.Hazel.jitProgram(sp) : window.Hazel.runProgram(sp); } catch (e) { threw = String(e && e.message || e); r = { ok: false, errors: [] }; }
+    const v = r.value && typeof r.value === "object" ? r.value : null;
+    S.built = { key, ok: !!v && typeof v.step === "function" && typeof v.plan === "function" && !(r.errors || []).length, compiled: !!r.compiled, reason: r.reason || "", value: v, errors: r.errors || [], threw, ms: performance.now() - t0 };
+    S.stepMs = [];
+    if (S.built.ok) { try { build(v, S.seed); } catch (e) { S.built = { ...S.built, ok: false, threw: "making the world: " + String(e && e.message || e) }; console.error(e); } }
+    drawStatus();
+  }
+  function loadLib() {
+    drawStatus();
+    const want = Q.get("lib") === "npm" ? [LIB_NPM] : [LIB_JIT, LIB_NPM];
+    const next = i => { if (i >= want.length) { S.libFailed = true; drawStatus(); return; }
+      const s = document.createElement("script"); s.src = want[i]; s.async = true;
+      s.onload = () => { S.lib = want[i]; drawStatus(); setTimeout(buildRules, 30); }; s.onerror = () => { s.remove(); next(i + 1); };
+      document.head.append(s); };
+    next(0);
+  }
+  try {
+    const [pre, ...mods] = await Promise.all([text("rules/preamble.hz"), ...MODULES.map(m => text(`rules/${m}.hz`))]);
+    document.querySelector(`pre.hazel[data-program="${PROGRAM}"]:not([data-module])`).textContent = pre;
+    MODULES.forEach((m, i) => { document.querySelector(`pre.hazel[data-module="${m}"]`).textContent = mods[i]; });
+    window.HazelListingsOptions = { start: "request" };
+    await load("../shared/hazel-listings.js?v=0.0.24");
+    L = window.HazelListings; L.tail(PROGRAM, TAIL);
+    L.onChange(PROGRAM, () => { clearTimeout(timer); timer = setTimeout(buildRules, 350); });
+    loadLib();
+  } catch (e) {
+    $("status").textContent = "Could not start: " + (e && e.message || e) + ". Serve this folder over http (python3 -m http.server) and open it from localhost.";
+  }
+  $("reset-rules").addEventListener("click", () => { if (L) L.reset(PROGRAM); });
+  // ---- ⚙️ Advanced: this device's speed (600 of the gnome's steps through Hazel)
+  if (window.OracleAdvanced) window.OracleAdvanced.panel({
+    holder: $("advanced"), name: "Gnome world", built: () => S.built, libAt: () => 0, keysIn: null,
+    mode: () => ({ asked: S.built && S.built.compiled ? "compiled" : "interpreted", error: null }),
+    about: "600 of the gnome's steps through Hazel, running and jumping",
+    work: async say => {
+      const h = H(); if (!h || !S.g) return { data: { hazel: false }, text: ["Hazel was not ready, so nothing was timed in it"] };
+      say("🧪 measuring: 600 steps…"); let g = S.g; const t0 = performance.now();
+      for (let n = 0; n < 600; n++) g = h.step(g, near(g), { dx: n % 120 < 60 ? 1 : -1, up: n % 40 < 10, down: false, jump: n % 40 === 0 });
+      const ms = (performance.now() - t0) / 600;
+      return { data: { step: +ms.toFixed(4) }, text: [`a step of the gnome through Hazel: ${ms.toFixed(3)} ms`] };
+    },
+  });
+  if (Q.has("test")) window.WorldTest = { S, tick: n => { const h = H(); for (let i = 0; i < n; i++) tick(h); draw(); }, draw, near, code, at, mat, wat, fix, bg };
+  document.body.classList.add("js");
+  draw();
+})();

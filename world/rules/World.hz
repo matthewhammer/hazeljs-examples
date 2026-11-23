@@ -1,0 +1,244 @@
+# Gnome world (Matthew, 2026-11-23: "a new variation of gnome dig ... called gnome world"): a world sixteen screens across and eight down, from the deep rock up to the tops of great trees, planned here by chance from a seed: the lie of the land, the layers of rock under it and where the water stands in them, the creeks, the stream and the river, the beavers and their lodges and dams, the gnomes' village deep under a hill and its rooms and what is in them, the great trees and the houses on their limbs, in sixteen styles; and each beaver's mind, and how high its dam holds the water. The page moves the gnome, the water and the falling boulders, and draws it all #
+let wide : Int = 448;
+let tall : Int = 128;
+let md : (Int, Int) -> Int = fun (a, b) -> a - (a / b) * b;
+let next : Int -> Int = fun s -> md(s * 48271 + 11, 2147483647);
+let absi : Int -> Int = fun v -> if v < 0 then 0 - v else v;
+# a number from 0 to 999 for the seed and k, the same each time #
+let hash : (Int, Int) -> Int = fun (s, k) -> md(next(next(md(s * 7919 + k * 104729 + 17, 2147483647))) / 7, 1000);
+let cat : ([Place], [Place]) -> [Place] = fun (a, b) -> case a | [] => b | x :: rest => x :: cat(rest, b) end;
+let has : ([Int], Int) -> Bool = fun (l, v) -> case l | [] => false | x :: rest => x == v || has(rest, v) end;
+# ---- The land ---- #
+# the surface's row at column x: 40, less the land's gentle waves, a hill over the village (round column 84), and the hills rising to the east #
+let rise : (Int, Int) -> Int = fun (seed, x) ->
+  let wave = (hash(seed, x / 32) - 500) * 5 / 1000 + (hash(seed + 1, x / 8) - 500) * 2 / 1000 in
+  let hill = (let d = absi(x - 84) in if d < 30 then (30 - d) / 4 else 0) in
+  let hills = (if x > 330 then (x - 330) / 14 + (hash(seed + 2, x / 16) - 500) * 4 / 1000 else 0) in
+  40 - wave - hill - hills;
+let samples : (Int, Int) -> [Int] = fun (seed, i) -> if i > 56 then [] else rise(seed, i * 8) :: samples(seed, i + 1);
+# a layer's thickness at every 16th column, from lo to hi tiles #
+let thick : (Int, Int, Int, Int, Int) -> [Int] = fun (seed, k, lo, hi, i) -> if i > 28 then [] else (lo + md(hash(seed + k * 13, i), hi - lo + 1)) :: thick(seed, k, lo, hi, i + 1);
+# n places of a kind, by chance, as the spec says #
+let scatter : (Int, Spec, Int) -> [Place] = fun (seed, sp, i) ->
+  if i >= sp.n then [] else
+  let r : Int -> Int = fun k -> hash(seed + sp.kind * 1009 + i * 31, k) in
+  (kind = sp.kind, x = sp.x0 + md(r(1), sp.xr), y = sp.y0 + md(r(2), sp.yr), w = sp.w0 + md(r(3), sp.wr), h = sp.h0 + md(r(4), sp.hr), v = sp.v0 + md(r(5), sp.vr)) :: scatter(seed, sp, i + 1);
+# ---- The kinds of ground ---- #
+# Dug and porous: soil, sand and gravel (fast for water), sandstone (slow); dug and not porous: clay, shale (water stands on them: a bowl of clay holds it); not dug, porous: limestone, cracked, water going down through it; not dug, not porous: granite, and the gnomes' masonry and timber #
+let ground : Int -> Ground = fun k ->
+  if k == 1 then (kind = 1, name = "soil", dig = 10, pores = 45, flow = 10, cling = 30, color = 8014372)
+  else if k == 2 then (kind = 2, name = "clay", dig = 18, pores = 0, flow = 0, cling = 0, color = 10510154)
+  else if k == 3 then (kind = 3, name = "sand and gravel", dig = 6, pores = 35, flow = 35, cling = 8, color = 12755819)
+  else if k == 4 then (kind = 4, name = "sandstone", dig = 26, pores = 22, flow = 5, cling = 15, color = 13141850)
+  else if k == 5 then (kind = 5, name = "shale", dig = 34, pores = 0, flow = 0, cling = 0, color = 5988198)
+  else if k == 6 then (kind = 6, name = "limestone", dig = 0, pores = 15, flow = 18, cling = 10, color = 13617848)
+  else if k == 7 then (kind = 7, name = "granite", dig = 0, pores = 0, flow = 0, cling = 0, color = 9078152)
+  else if k == 8 then (kind = 8, name = "masonry", dig = 0, pores = 0, flow = 0, cling = 0, color = 10260352)
+  else if k == 9 then (kind = 9, name = "timber", dig = 0, pores = 0, flow = 0, cling = 0, color = 9133611)
+  else (kind = 0, name = "air", dig = 0, pores = 100, flow = 900, cling = 0, color = 0);
+# ---- The plan ---- #
+# The world from its seed: the rivers first (the creek, the river, the stream, a creek in the hills), each its water four rows under the land (room for a dam to raise it); the beavers' lodges and dams on the river and the stream, three beavers and two; the three great trees (ladders, a stair inside, ladders); the village under the hill and a hamlet past the river; the trees, thick in the forest and by the water (willows and aspens there, which the beavers fell), pines in the hills, none in the water, by a great tree or at a door; bushes; and under the ground, by chance, bowls of clay, beds of old river gravel, shelves of limestone with caves, bodies of granite, veins of gems and boulders #
+let plan : Int -> Plan = fun seed ->
+  let j : Int -> Int = fun k -> md(hash(seed, 200 + k), 9) - 4 in
+  let river : (Int, Int, Int, Int) -> Place = fun (kind, x, w, h) -> (kind = kind, x = x, y = rise(seed, x + w / 2) + 4, w = w, h = h, v = 0) in
+  let creek = river(10, 120 + j(1), 3, 2) in
+  let big = river(12, 212 + j(2), 20, 7) in
+  let stream = river(11, 300 + j(3), 9, 4) in
+  let creek2 = river(10, 404 + j(4), 4, 2) in
+  let rivers = [creek, big, stream, creek2] in
+  let lodge1 = big.x + big.w - 6 in
+  let lodge2 = stream.x - 4 in
+  let dam1 = big.x + big.w / 2 in
+  let dam2 = stream.x + stream.w / 2 in
+  let beavers = [(kind = 13, x = lodge1, y = big.y, w = 5, h = 3, v = 0), (kind = 14, x = big.x, y = big.y, w = big.w, h = big.h, v = 2),
+                 (kind = 15, x = lodge1 + 2, y = 0, w = dam1, h = 0, v = 0), (kind = 15, x = lodge1 + 2, y = 0, w = dam1, h = 0, v = 1), (kind = 15, x = lodge1 + 2, y = 0, w = dam1, h = 0, v = 2),
+                 (kind = 13, x = lodge2, y = stream.y, w = 4, h = 3, v = 1), (kind = 14, x = stream.x, y = stream.y, w = stream.w, h = stream.h, v = 1),
+                 (kind = 15, x = lodge2 + 2, y = 0, w = dam2, h = 0, v = 3), (kind = 15, x = lodge2 + 2, y = 0, w = dam2, h = 0, v = 4)] in
+  let g1 = 34 + j(5) in let g2 = 166 + j(6) in let g3 = 364 + j(7) in
+  let greats = [(kind = 30, x = g1, y = rise(seed, g1), w = 3, h = 30, v = hash(seed, 301)),
+                (kind = 31, x = g2, y = rise(seed, g2), w = 5, h = 34, v = hash(seed, 302)),
+                (kind = 30, x = g3, y = rise(seed, g3), w = 3, h = 28, v = hash(seed, 303))] in
+  let hamlet = 254 + j(8) in
+  let villages = [(kind = 20, x = 62, y = 46, w = 40, h = 24, v = 4), (kind = 21, x = hamlet, y = 50, w = 26, h = 12, v = 2)] in
+  let blocked : Int -> Bool = fun x -> (let in_water : [Place] -> Bool = fun ps -> case ps | [] => false | p :: rest => (x >= p.x - 2 && x <= p.x + p.w + 1) || in_water(rest) end in
+    in_water(rivers) || absi(x - g1) < 6 || absi(x - g2) < 7 || absi(x - g3) < 6 || (x >= 58 && x <= 66) || (x >= hamlet - 4 && x <= hamlet + 3)) in
+  let wet : Int -> Bool = fun x -> (let close : [Place] -> Bool = fun ps -> case ps | [] => false | p :: rest => (x >= p.x - 14 && x <= p.x + p.w + 14) || close(rest) end in close(rivers)) in
+  let species : Int -> Int = fun x -> (let r = hash(seed, 700 + x) in if wet(x) then (if md(r, 2) == 0 then 4 else 3) else if x > 330 then (if md(r, 3) == 0 then 2 else 1) else md(r, 3)) in
+  let trees : Int -> [Place] = fun x -> if x >= 446 then [] else
+    (let r = hash(seed, 600 + x) in
+     let dense = (if wet(x) then 700 else if x >= 128 && x <= 205 then 650 else 300) in
+     if r < dense && !blocked(x) then (kind = 50, x = x, y = 0, w = 1, h = 6 + md(r, 5), v = species(x)) :: trees(x + 3 + md(r / 3, 3)) else trees(x + 2 + md(r / 3, 3))) in
+  let bushes : Int -> [Place] = fun x -> if x >= 446 then [] else
+    (let r = hash(seed, 800 + x) in if r < 260 && !blocked(x) then (kind = 51, x = x, y = 0, w = 1, h = 1, v = md(r, 3)) :: bushes(x + 5 + md(r, 4)) else bushes(x + 3)) in
+  let under = cat(scatter(seed, (kind = 40, n = 8, x0 = 8, xr = 430, y0 = 48, yr = 14, w0 = 8, wr = 7, h0 = 4, hr = 3, v0 = 0, vr = 1), 0),
+              cat(scatter(seed, (kind = 41, n = 6, x0 = 0, xr = 430, y0 = 56, yr = 16, w0 = 14, wr = 13, h0 = 2, hr = 2, v0 = 0, vr = 1), 0),
+              cat(scatter(seed, (kind = 42, n = 5, x0 = 10, xr = 410, y0 = 78, yr = 20, w0 = 18, wr = 17, h0 = 6, hr = 5, v0 = 0, vr = 1000), 0),
+              cat(scatter(seed, (kind = 43, n = 8, x0 = 0, xr = 440, y0 = 96, yr = 22, w0 = 6, wr = 10, h0 = 4, hr = 5, v0 = 0, vr = 1), 0),
+              cat(scatter(seed, (kind = 44, n = 12, x0 = 4, xr = 440, y0 = 44, yr = 18, w0 = 3, wr = 1, h0 = 3, hr = 1, v0 = 3, vr = 4), 0),
+              cat(scatter(seed + 5, (kind = 44, n = 22, x0 = 4, xr = 440, y0 = 60, yr = 60, w0 = 3, wr = 1, h0 = 3, hr = 1, v0 = 4, vr = 6), 0),
+                  scatter(seed, (kind = 45, n = 36, x0 = 4, xr = 440, y0 = 44, yr = 60, w0 = 1, wr = 1, h0 = 1, hr = 1, v0 = 0, vr = 1), 0))))))) in
+  let table : Int -> [Int] = fun i -> if i > 28 then [] else (74 + md(hash(seed, 900 + i), 9) - 4) :: table(i + 1) in
+  (seed = seed, surface = samples(seed, 0),
+   layers = [(kind = 1, thick = thick(seed, 1, 3, 5, 0)), (kind = 2, thick = thick(seed, 2, 0, 3, 0)), (kind = 4, thick = thick(seed, 3, 5, 11, 0)),
+             (kind = 5, thick = thick(seed, 4, 2, 6, 0)), (kind = 3, thick = thick(seed, 5, 0, 3, 0)), (kind = 4, thick = thick(seed, 6, 6, 12, 0)),
+             (kind = 5, thick = thick(seed, 7, 3, 7, 0)), (kind = 4, thick = thick(seed, 8, 8, 16, 0)), (kind = 2, thick = thick(seed, 9, 1, 4, 0)),
+             (kind = 4, thick = thick(seed, 10, 40, 40, 0))],
+   table = table(0),
+   places = cat(rivers, cat(beavers, cat(greats, cat(villages, cat(trees(2), cat(bushes(5), under)))))));
+# ---- The gnomes' houses, deep under the ground ---- #
+# A village's rooms (which 0, the village: four floors; 1, a hamlet: two): each floor six rows under the one above, its rooms side by side eastward from the stair (columns x0 to x0 + 2, a ladder down from the door), a wall between each; the kitchens, the sitting room and the workshop with a chimney, the hall, the library and the nursery with a light shaft, the dining room, the bedrooms and the bath house with an air shaft #
+let village : (Int, Int, Int, Int) -> [Room] = fun (x0, top, which, seed) ->
+  let kinds : Int -> [Int] = fun f -> if which == 1 then (if f == 0 then [0, 1, 2] else [9, 3, 11]) else
+    (if f == 0 then [0, 1, 6, 3] else if f == 1 then [10, 5, 2, 12] else if f == 2 then [4, 7, 9, 8] else [11, 2, 3]) in
+  let floors = (if which == 1 then 2 else 4) in
+  let up : Int -> Int = fun k -> if k == 1 || k == 10 || k == 4 then 3 else if k == 0 || k == 5 || k == 12 then 1 else if k == 6 || k == 2 || k == 7 then 2 else 0 in
+  let width : (Int, Int) -> Int = fun (k, i) -> (if k == 0 || k == 3 || k == 9 then 6 else if k == 1 || k == 4 || k == 10 then 9 else 8) + md(hash(seed, k * 7 + i), 3) - 1 in
+  let row : ([Int], Int, Int, Int) -> [Room] = fun (ks, x, y, i) -> case ks | [] => [] | k :: rest => (let w = width(k, i) in (kind = k, x = x, y = y, w = w, h = 4, up = up(k)) :: row(rest, x + w + 1, y, i + 1)) end in
+  let both : ([Room], [Room]) -> [Room] = fun (a, b) -> case a | [] => b | r :: rest => r :: both(rest, b) end in
+  let go : Int -> [Room] = fun f -> if f >= floors then [] else both(row(kinds(f), x0 + 3, top + f * 6, f * 10), go(f + 1)) in
+  go(0);
+# What stands in a room of each kind, all made without electricity (the page draws each): 1 a bed, 2 a table, 3 a chair, 4 a hearth, 5 a wood stove, 6 a shelf of jars, 7 a barrel, 8 an anvil, 9 bellows, 10 a workbench, 11 a bookcase, 12 a writing desk and candle, 13 a wooden tub, 14 a hand pump, 15 a washstand, 16 a bed of mushrooms, 17 a loom, 18 a spinning wheel, 19 a butter churn, 20 a pendulum clock, 21 a rocking chair, 22 an icebox, 23 a rug, 25 a cradle, 26 a chest, 27 a well with its crank, 28 a fern in a pot, 29 a tapestry, 30 a long table and benches, 31 a stone sink and bucket, 32 a pedal grindstone, 33 a globe, 34 a kettle on its hook, 35 pegs and cloaks, 36 bunk beds; each with its width in tenths of a tile #
+let stuff : Int -> [Thing] = fun k ->
+  let t : (Int, Int) -> Thing = fun (kind, w) -> (kind = kind, at = 0, w = w) in
+  if k == 0 then [t(35, 9), t(26, 10), t(20, 6), t(28, 5)]
+  else if k == 1 then [t(4, 14), t(34, 6), t(2, 14), t(3, 5), t(31, 10), t(22, 8), t(19, 5), t(6, 10)]
+  else if k == 2 then [t(1, 18), t(15, 7), t(26, 9), t(21, 8), t(29, 8)]
+  else if k == 3 then [t(7, 7), t(7, 7), t(6, 12), t(6, 12), t(26, 9)]
+  else if k == 4 then [t(9, 7), t(4, 12), t(8, 8), t(10, 16), t(32, 8)]
+  else if k == 5 then [t(11, 10), t(12, 12), t(3, 5), t(11, 10), t(33, 5)]
+  else if k == 6 then [t(30, 26), t(20, 6), t(6, 10)]
+  else if k == 7 then [t(5, 10), t(13, 16), t(14, 6), t(15, 7)]
+  else if k == 8 then [t(16, 14), t(16, 14), t(7, 7)]
+  else if k == 9 then [t(27, 14), t(14, 6), t(7, 7), t(31, 10)]
+  else if k == 10 then [t(4, 14), t(21, 8), t(23, 20), t(18, 9), t(29, 8)]
+  else if k == 11 then [t(17, 16), t(18, 9), t(26, 9), t(28, 5)]
+  else [t(25, 9), t(36, 16), t(28, 5), t(29, 8)];
+# a room's things, as many as fit in its width (w tiles) less a little, spread evenly across it #
+let furnish : (Int, Int) -> [Thing] = fun (k, w) ->
+  let room = w * 10 - 4 in
+  let fit : ([Thing], Int) -> [Thing] = fun (l, used) -> case l | [] => [] | x :: rest => if used + x.w > room then [] else x :: fit(rest, used + x.w + 2) end in
+  let total : [Thing] -> Int = fun l -> case l | [] => 0 | x :: rest => x.w + total(rest) end in
+  let count : [Thing] -> Int = fun l -> case l | [] => 0 | _ :: rest => 1 + count(rest) end in
+  let these = fit(stuff(k), 0) in
+  let gap = (w * 10 - total(these)) / (count(these) + 1) in
+  let place : ([Thing], Int) -> [Thing] = fun (l, at) -> case l | [] => [] | x :: rest => (kind = x.kind, at = at + gap, w = x.w) :: place(rest, at + gap + x.w) end in
+  place(these, 0);
+# ---- The great trees ---- #
+# A great tree's limbs (kind 30, with ladders; 31, a stair inside its trunk), h tall: the first nine rows up, then every four or five, side to side, up to five rows from its top; seven in ten end in a tree house of one of the sixteen styles, the rest in a bird house or a squirrel's house; on the stair tree, two limbs in three have a rope bridge across to the next one up #
+let limbs : (Int, Int, Int) -> [Limb] = fun (kind, h, seed) ->
+  let go : (Int, Int, Int) -> [Limb] = fun (y, side, i) ->
+    if y > h - 5 then [] else
+    (let r = hash(seed, i) in
+     let pick = md(r / 10, 10) in
+     (y = y, side = side, len = 4 + md(r, 5), house = (if pick < 7 then md(hash(seed, i + 50), 16) else if pick < 9 then 100 else 101), bridge = kind == 31 && md(r / 100, 3) != 0) :: go(y + 4 + md(r / 7, 2), 0 - side, i + 1)) in
+  go(9, (if md(seed, 2) == 0 then 1 else 0 - 1), 0);
+# The sixteen styles of tree house, gnome-made in the craftsman way: low or steep gables with rafter tails and braces, shingles, divided windows, tapered posts; each its own roof, colors, windows and one thing more #
+let styles : [Style] = [
+  (name = "Mushroom Lodge", latin = "Domus Fungorum", roof = 3, walls = 15391160, roofc = 12597547, trim = 7029286, win = 1, more = 4),
+  (name = "Oak Bungalow", latin = "Casa Quercina", roof = 0, walls = 9410425, roofc = 5978665, trim = 15852486, win = 2, more = 1),
+  (name = "Acorn Cottage", latin = "Casula Glandis", roof = 4, walls = 13214315, roofc = 7228202, trim = 4074008, win = 3, more = 8),
+  (name = "Owl's Watch", latin = "Specula Noctuae", roof = 5, walls = 8022613, roofc = 4148794, trim = 15253872, win = 1, more = 3),
+  (name = "Moss Gable", latin = "Tectum Muscosum", roof = 1, walls = 10506797, roofc = 5143866, trim = 15722194, win = 0, more = 9),
+  (name = "Pinecone Villa", latin = "Villa Pinea", roof = 2, walls = 7311218, roofc = 8079917, trim = 14272931, win = 2, more = 2),
+  (name = "Thatch Nook", latin = "Tugurium Stramineum", roof = 8, walls = 14205861, roofc = 13150545, trim = 6111287, win = 3, more = 8),
+  (name = "Star Gazer", latin = "Speculum Stellarum", roof = 6, walls = 3098712, roofc = 10135989, trim = 15909198, win = 1, more = 7),
+  (name = "Bell Loft", latin = "Turris Campanae", roof = 1, walls = 11887901, roofc = 3362392, trim = 16050648, win = 3, more = 6),
+  (name = "Honey Hut", latin = "Casa Mellifera", roof = 0, walls = 14922824, roofc = 9198123, trim = 5978654, win = 2, more = 11),
+  (name = "Weathervane Workshop", latin = "Officina Ventorum", roof = 7, walls = 9137991, roofc = 4873507, trim = 14734775, win = 0, more = 10),
+  (name = "Ivy Porch House", latin = "Domus Hederacea", roof = 2, walls = 14143154, roofc = 3890746, trim = 8015405, win = 0, more = 1),
+  (name = "Lantern Library", latin = "Bibliotheca Silvestris", roof = 1, walls = 7162945, roofc = 3033698, trim = 15783308, win = 3, more = 5),
+  (name = "Fern Cabin", latin = "Casula Filicum", roof = 0, walls = 5597999, roofc = 9127187, trim = 16113331, win = 2, more = 4),
+  (name = "Birch Bower", latin = "Umbraculum Betulae", roof = 7, walls = 15921126, roofc = 6187837, trim = 3092271, win = 0, more = 8),
+  (name = "Toadstool Tower", latin = "Turricula Boleti", roof = 3, walls = 16181192, roofc = 13849600, trim = 6111287, win = 1, more = 3)];
+# ---- The beavers ---- #
+# A beaver's step (ten a second): resting in its lodge until it is time, then off to the nearest standing tree within 36 tiles of its lodge (trees: the standing trees' columns); it gnaws it four seconds, and it falls; it drags the log to its dam (slower), lays it two seconds, and goes home to rest. A tree gone before it gets there (another beaver's), and it goes home #
+let beaver : (Beaver, [Int]) -> Beaver = fun (b, trees) ->
+  let near : ([Int], Int, Int) -> Int = fun (ts, best, bd) -> case ts | [] => best | t :: rest => (let d = absi(t * 100 - b.x) in if absi(t - b.lodge) <= 36 && d < bd then near(rest, t, d) else near(rest, best, bd)) end in
+  let go : (Int, Int) -> Int = fun (to, sp) -> if absi(to - b.x) <= sp then to else if to > b.x then b.x + sp else b.x - sp in
+  let face : Int -> Int = fun to -> if to > b.x then 1 else if to < b.x then 0 - 1 else b.face in
+  let be : (Int, Int, Int, Int, Int, Int, Bool) -> Beaver = fun (x, f, job, t, tree, felled, laid) -> (x = x, face = f, job = job, t = t, tree = tree, lodge = b.lodge, dam = b.dam, felled = felled, laid = laid) in
+  let none = 0 - 1 in
+  if b.job == 0 then (if b.t > 0 then be(b.x, b.face, 0, b.t - 1, none, none, false) else (let tr = near(trees, none, 1000000) in if tr >= 0 then be(b.x, face(tr * 100), 1, 0, tr, none, false) else be(b.x, b.face, 0, 60, none, none, false)))
+  else if b.job == 1 then (if !has(trees, b.tree) then be(b.x, b.face, 5, 0, none, none, false) else (let to = b.tree * 100 + (if b.x < b.tree * 100 then 0 - 60 else 60) in if absi(to - b.x) <= 25 then be(to, face(b.tree * 100), 2, 40, b.tree, none, false) else be(go(to, 25), face(to), 1, 0, b.tree, none, false)))
+  else if b.job == 2 then (if !has(trees, b.tree) then be(b.x, b.face, 5, 0, none, none, false) else if b.t > 1 then be(b.x, b.face, 2, b.t - 1, b.tree, none, false) else be(b.x, b.face, 3, 0, none, b.tree, false))
+  else if b.job == 3 then (let to = b.dam * 100 in if absi(to - b.x) <= 15 then be(to, b.face, 4, 20, none, none, false) else be(go(to, 15), face(to), 3, 0, none, none, false))
+  else if b.job == 4 then (if b.t > 1 then be(b.x, b.face, 4, b.t - 1, none, none, false) else be(b.x, b.face, 5, 0, none, none, true))
+  else (let to = b.lodge * 100 in if absi(to - b.x) <= 30 then be(to, b.face, 0, 80, none, none, false) else be(go(to, 30), face(to), 5, 0, none, none, false));
+# How high a dam holds its river: the water's own row (natural), a row higher for every three logs, but never over the lower bank (its row, bank) #
+let water_row : (Int, Int, Int) -> Int = fun (natural, bank, logs) -> (let r = natural - logs / 3 in if r < bank + 1 then bank + 1 else r);
+# ---- The gnome ---- #
+# a tile in the window round the gnome (dc -1 to 1 across, dr -3 to 1 down, from the tile its feet are in); outside it, open #
+let tile : (Near, Int, Int) -> Int = fun (n, dc, dr) ->
+  if dc < 0 - 1 || dc > 1 || dr < 0 - 3 || dr > 1 then 0 else
+  (let row = (if dr == 0 - 3 then n.r0 else if dr == 0 - 2 then n.r1 else if dr == 0 - 1 then n.r2 else if dr == 0 then n.r3 else n.r4) in
+   md(row / (if dc == 0 - 1 then 1 else if dc == 0 then 128 else 16384), 128));
+# The gnome's step (Matthew, 2026-11-23: "move the gnome in a sub-tile way, so it's not tied to one tile at a time"; "the feel of a platform NES/SNES game"): running (92 thousandths of a tile a step, eased), falling (11 more a step, 267 at most), a jump of two tiles (let go of up and it is cut short), climbing a ladder, the stair or any tunnel dug (70 a step, any way); a box 0.66 of a tile wide and 0.88 tall, stopped by solid tiles, and by a platform only from above (down held: through it). Pushing across into ground that can be dug, standing or climbing, digs it; so does down, standing, into the ground underfoot, and up into the ground just over its head; a tile takes as many steps as its ground says. (Matthew: "when the gnome doesn't have the diving suit, we should permit them to swim on the surface. pressing down forces them to start to go under the surface, and starts the air timer") In the water without the diving gear it floats, its head out, and swims across; down held, it dives, slowly; let go, it rises again; up pressed at the surface, a hop out onto the bank. Its head under the water, its breath runs down (600 steps, ten seconds), and comes back five times as fast out of it. With the gear it swims any way, as long as it likes #
+let step : (Gnome, Near, Pad) -> Gnome = fun (g, n, p) ->
+  let hw = 330 in let hh = 880 in let none = 0 - 1 in
+  let mini : (Int, Int) -> Int = fun (a, b) -> if a < b then a else b in
+  let maxi : (Int, Int) -> Int = fun (a, b) -> if a > b then a else b in
+  let at : (Int, Int) -> Int = fun (c, r) -> tile(n, c - n.cx, r - n.cy) in
+  let what : (Int, Int) -> Int = fun (c, r) -> md(at(c, r), 16) in
+  let solid : (Int, Int) -> Bool = fun (c, r) -> (let w = what(c, r) in w >= 1 && w <= 10) in
+  let wet : (Int, Int) -> Bool = fun (c, r) -> md(at(c, r) / 16, 2) == 1 in
+  let climbs : (Int, Int) -> Bool = fun (c, r) -> md(at(c, r) / 32, 2) == 1 in
+  let digs : (Int, Int) -> Int = fun (c, r) -> (let w = what(c, r) in if w >= 1 && w <= 7 then ground(w).dig else 0) in
+  let cx = g.x / 1000 in
+  let feet = (g.y - 1) / 1000 in
+  let head = (g.y - hh) / 1000 in
+  let midw = wet(cx, (g.y - 450) / 1000) in
+  let headw = wet(cx, (g.y - 800) / 1000) in
+  let can_climb = climbs((g.x - hw) / 1000, feet) || climbs((g.x + hw) / 1000, feet) || climbs(cx, head) in
+  let climbing = can_climb && !midw && (g.climb || p.up || p.down) in
+  let floating = midw && !headw && !g.gear && !p.down in
+  # the water's surface over the gnome: the top of the highest wet tile above its middle, in the window #
+  let top_wet : Int -> Int = fun r -> if r > n.cy - 3 && wet(cx, r - 1) then top_wet(r - 1) else r in
+  let surface = top_wet((g.y - 450) / 1000) * 1000 in
+  let up_tile = (g.y - hh - 1) / 1000 in
+  let dig_up = p.up && (g.ground || climbing) && digs(cx, up_tile) > 0 && g.y - hh - (up_tile + 1) * 1000 < 150 in
+  let run = g.vx + (p.dx * 92 - g.vx) / 4 in
+  # (climbing, or down held standing, with no way across held: eased to the middle of its column, so it fits a shaft one tile wide) #
+  let snap = (cx * 1000 + 500 - g.x) / 3 in
+  let vx = (if climbing then (if p.dx == 0 then snap else p.dx * 70) else if midw then p.dx * (if g.gear then 55 else 58) else if p.dx == 0 && p.down && g.ground then snap else if p.dx == 0 && absi(run) < 8 then 0 else run) in
+  let jumped = g.ground && p.jump && !dig_up && !midw && !climbing in
+  let vy = (if climbing then (if p.up && !dig_up then 0 - 70 else if p.down then 70 else 0)
+    else if midw then
+      (if g.gear then (if p.up then 0 - 55 else if p.down then 55 else g.vy * 4 / 5)
+       else if p.down then mini(g.vy + 6, 45)
+       else if headw then maxi(g.vy * 3 / 4 - 9, 0 - 60)
+       else if p.jump then 0 - 160
+       else (surface + 480 - g.y) / 4)
+    else if jumped then 0 - 208
+    else (let v = g.vy + 11 in mini((if !p.up && v < 0 - 70 then 0 - 70 else v), 267))) in
+  # across: stopped by a solid tile in the rows the gnome is in #
+  let nx0 = g.x + vx in
+  let blocked : Int -> Bool = fun c -> solid(c, head) || solid(c, feet) in
+  let hc = (if vx > 0 && blocked((nx0 + hw) / 1000) then (nx0 + hw) / 1000 else if vx < 0 && nx0 - hw >= 0 && blocked((nx0 - hw) / 1000) then (nx0 - hw) / 1000 else none) in
+  let nx1 = (if hc < 0 then nx0 else if vx > 0 then hc * 1000 - hw - 1 else (hc + 1) * 1000 + hw) in
+  let nx = maxi(hw, mini(nx1, wide * 1000 - hw)) in
+  # down: onto a solid tile, or a platform it was above (not with down held); up: its head against a solid tile #
+  let l = (nx - hw) / 1000 in let rr = (nx + hw) / 1000 in
+  let ny0 = g.y + vy in
+  let fr = (ny0 - 1) / 1000 in
+  let lands_on : Int -> Bool = fun c -> solid(c, fr) || (what(c, fr) == 11 && !p.down) in
+  let land = vy > 0 && g.y <= fr * 1000 && (lands_on(l) || lands_on(rr)) in
+  let hr = (ny0 - hh) / 1000 in
+  let bump = vy < 0 && (solid(l, hr) || solid(rr, hr)) in
+  let ny = (if land then fr * 1000 else if bump then (hr + 1) * 1000 + hh else ny0) in
+  let below = ny / 1000 in
+  let ground_now = md(ny, 1000) == 0 && (solid(l, below) || solid(rr, below) || ((what(l, below) == 11 || what(rr, below) == 11) && !p.down)) in
+  # digging: pushing across into a tile that can be dug (standing or climbing), down into the one underfoot (standing or climbing), or up into the one over its head #
+  let side = (if p.dx != 0 && hc >= 0 && (g.ground || climbing) then (if digs(hc, feet) > 0 then hc * 1000 + feet else if digs(hc, head) > 0 then hc * 1000 + head else none) else none) in
+  let underfoot = g.y / 1000 in
+  let target = (if side >= 0 then side
+    else if p.down && (g.ground || climbing) && md(g.y, 1000) == 0 && digs(cx, underfoot) > 0 then cx * 1000 + underfoot
+    else if dig_up then cx * 1000 + up_tile else none) in
+  let tc = (if target < 0 then none else target / 1000) in
+  let tr = (if target < 0 then none else md(target, 1000)) in
+  let dt = (if target < 0 then 0 else if tc == g.dc && tr == g.dr then g.dt + 1 else 1) in
+  let dug = target >= 0 && dt >= digs(tc, tr) in
+  let air = (if headw && !g.gear then g.air - 1 else mini(600, g.air + 5)) in
+  let ev = (if dug then 1 else if air <= 0 then 4 else if jumped then 2 else if midw && !g.swim && !g.under && g.vy > 30 then 3 else if p.down && g.swim && !g.gear then 5 else 0) in
+  (x = nx, y = ny, vx = (if hc >= 0 then 0 else vx), vy = (if land || bump then 0 else vy), face = (if p.dx != 0 then p.dx else g.face),
+   ground = ground_now, climb = climbing, swim = floating || (midw && !headw), under = headw, air = (if air <= 0 then 600 else air), gear = g.gear,
+   dc = tc, dr = tr, dt = (if dug then 0 else dt), ev = ev)
