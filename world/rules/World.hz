@@ -224,7 +224,8 @@ let step : (Gnome, Near, Pad) -> Gnome = fun (g, n, p) ->
   let midw = wet(cx, (g.y - 450) / 1000) in
   let headw = wet(cx, (g.y - 800) / 1000) in
   let can_climb = climbs((g.x - hw) / 1000, feet) || climbs((g.x + hw) / 1000, feet) || climbs(cx, head) in
-  let climbing = can_climb && !midw && (g.climb || p.up || p.down) in
+  # (in the water, only with up held: so a ladder built in a pit of water climbs out of it) #
+  let climbing = can_climb && (!midw || p.up) && (g.climb || p.up || p.down) in
   let floating = midw && !headw && !g.gear && !p.down in
   # the water's surface over the gnome: the top of the highest wet tile above its middle, in the window #
   let top_wet : Int -> Int = fun r -> if r > n.cy - 3 && wet(cx, r - 1) then top_wet(r - 1) else r in

@@ -2,6 +2,10 @@
 
 Each version lists what the apps do as of that version. The newest version is first.
 
+## 0.0.80 (2026-11-23)
+
+- **Gnome world: building out of a pit** (Matthew: "I should be able to build a bridge out of any pit"): 🪵, or B. Standing at the edge of a pit or of the water, a plank is laid ahead at the gnome's own level, a bridge across, a plank a press; in a pit, or in its water, a ladder goes up the gnome's own column, two rungs a press, to climb out by. In the water, up held on a ladder climbs it.
+
 ## 0.0.79 (2026-11-23)
 
 - **Gnome world: the great trees' crowns grow from their trunks** (Matthew: "top of tree still looks like multiple trunks, and crown isn't natural"): the trunk tapers up into five great limbs, each forking again and again, with many tree-sized leaf pads at the tips, darker behind and lighter in front; a branch up from each platform's limb, pads at its tips over the house.

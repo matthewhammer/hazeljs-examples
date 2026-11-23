@@ -302,6 +302,18 @@
     if (r <= top[c]) top[c] = topOf(c);
     S.minimapAt = -1e9;
   }
+  // (Matthew: "I should be able to build a bridge out of any pit") 🪵, B: standing at the edge of a pit or of the water, a plank
+  // laid ahead at the gnome's own level, a bridge across, a plank a press; else, in a pit (or in its water), a ladder up the
+  // gnome's own column, two rungs a press, to climb out by
+  function buildHere() {
+    const g = S.g; if (!g || S.faintAt) return;
+    const c = Math.floor(g.x / 1000), stand = Math.floor(g.y / 1000), feet = Math.floor((g.y - 1) / 1000), ahead = c + g.face;
+    const open = (cc, rr) => inside(cc, rr) && mat[at(cc, rr)] === AIR && !fix[at(cc, rr)] && !boulderAt(cc, rr);
+    if (g.ground && open(ahead, stand)) { fix[at(ahead, stand)] = F_PLAT; S.works.set(at(ahead, stand), "plank"); popWord("🪵", ahead + 0.5, stand - 0.4); if (SND) SND.land(); return; }
+    let n = 0;
+    for (let r = feet; r > feet - 6 && n < 2; r--) { if (!inside(c, r) || mat[at(c, r)] !== AIR) break; if (!fix[at(c, r)]) { fix[at(c, r)] = F_LADDER; n++; } }
+    if (n) { popWord("🪜", c + 0.5, feet - 1); if (SND) SND.land(); }
+  }
   const words = [];
   const popWord = (t, x, y) => words.push({ t, x, y, at: performance.now() });
   function hurt(why) {
@@ -1158,6 +1170,7 @@
     const k = KEYS[e.key];
     if (k) { if (e.key.startsWith("Arrow")) e.preventDefault(); if (k === "up" && !S.keys.up) S.jumpQueued = true; S.keys[k] = true; }
     else if (e.key === "m" || e.key === "M") toggleMap();
+    else if (e.key === "b" || e.key === "B") { e.preventDefault(); buildHere(); }
   });
   addEventListener("keyup", e => { const k = KEYS[e.key]; if (k) S.keys[k] = false; });
   addEventListener("blur", () => { for (const k in S.keys) S.keys[k] = false; });
@@ -1167,6 +1180,7 @@
     for (const ev of ["pointerup", "pointercancel", "lostpointercapture"]) b.addEventListener(ev, () => { b.classList.remove("held"); S.keys[k] = false; });
     b.addEventListener("contextmenu", e => e.preventDefault());
   }
+  { const b = $("build"); if (b) b.addEventListener("pointerdown", e => { e.preventDefault(); buildHere(); }); }
   function toggleMap() { S.map = !S.map; keep("map", S.map); $("map").setAttribute("aria-pressed", String(S.map)); }
   $("map").setAttribute("aria-pressed", String(S.map));
   $("map").addEventListener("click", () => { toggleMap(); $("map").blur(); });
