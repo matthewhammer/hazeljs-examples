@@ -2,6 +2,10 @@
 
 Each version lists what the apps do as of that version. The newest version is first.
 
+## 0.0.94 (2026-11-23)
+
+- **Gnome world: ears** (Matthew: "gnomes should have ears"; "or long hair obscuring it"): the gnome, facing us, has an ear out at each side of his head, half behind his face, his sideburns over their fronts (in profile he had one already). The villagers' gnomes and children have theirs too; a gnome wife's hair falls over hers.
+
 ## 0.0.93 (2026-11-23)
 
 - **Gnome world: frame times on the screen** (Matthew: "it seems like there are performance challenges now with gnome world"; "can we add a FPS HUD please?"). In the lower left: frames a second; the frame's time from one to the next; the worst frame of the last second; the world's steps and the drawing in each frame. The drawing is timed in parts (sky, trees, bushes, fallen trees, flowers, great trees, ground, roots, tunnels, surface, rooms, ladders, lodges, creatures, water, dark), each part smoothed over a second, and the three costliest are shown. Green from 55 fps, amber from 40, red below. F hides it.

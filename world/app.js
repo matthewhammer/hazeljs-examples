@@ -817,6 +817,9 @@
       c.strokeStyle = "#cbd5e1"; c.lineWidth = 0.8; c.beginPath(); for (const hx of [-5, -2, 1, 4]) { c.moveTo(hx, -14); c.quadraticCurveTo(hx + 1, -9, hx, -4); } c.stroke();
     } else {
       // (the face, rosy cheeks, the beard down over the tunic, its strands)
+      // (Matthew: "gnomes should have ears") his ears, out at the sides of his head, half behind his face, the sideburns over their fronts
+      for (const s2 of [-1, 1]) { const ex3 = (side ? 1.5 : 0) + s2 * (side && s2 < 0 ? 7.6 : 8.4), sc3 = side && s2 < 0 ? 0.8 : 1;
+        E(ex3, -10.6, 1.9 * sc3, 2.8, "#efbf94", s2 * 0.15); E(ex3 + s2 * 0.3, -10.4, 0.9 * sc3, 1.6, "#d99a76", s2 * 0.15); }
       c.fillStyle = "#f2c9a0"; c.beginPath(); c.ellipse(side ? 1.5 : 0, -10.5, 7.5, 6.5, 0, 0, 7); c.fill();
       // (Gnome world; Matthew: "gnome should have side burns connecting head hair to beard") down each side of his face,
       // from the hair under the cap to the beard
@@ -1382,7 +1385,11 @@
     // (the head: face, cheeks, eyes under a bushy brow, the big round nose; beard or braids; the cap)
     const hy = -0.6 + br;
     if (v.kind === 1) for (const e of [-1, 1]) { c.strokeStyle = L.hair; c.lineWidth = 0.05 * u; c.lineCap = "round"; c.beginPath(); c.moveTo(x + e * 0.11 * u, y + (hy - 0.02) * u); c.quadraticCurveTo(x + e * 0.17 * u, y + (hy + 0.1) * u, x + e * 0.14 * u, y + (hy + 0.24) * u); c.stroke(); ell(L.hair, e * 0.14, hy + 0.26, 0.025, 0.02); c.lineCap = "butt"; }
+    // (Matthew: "gnomes should have ears"; "or long hair obscuring it") ears out at the sides, half behind the face; a wife's hair
+    // falls over hers
+    if (v.kind !== 1) for (const e of [-1, 1]) { ell("#eab993", e * 0.15, hy + 0.005, 0.034, 0.052, e * 0.15); ell("#d49474", e * 0.155, hy + 0.01, 0.016, 0.03, e * 0.15); }
     ell("#f1c9a5", 0, hy, 0.145, 0.135);
+    if (v.kind === 1) for (const e of [-1, 1]) ell(L.hair, e * 0.135, hy + 0.01, 0.04, 0.085, e * 0.2);
     if (L.cheeks) for (const e of [-1, 1]) ell("rgba(230,120,110,0.45)", e * 0.075, hy + 0.035, 0.035, 0.025);
     if (v.kind === 0) { poly2(L.beard, [[-0.12, hy + 0.01], [0.12, hy + 0.01], [0.06, hy + 0.08 + L.beardLen], [0, hy + 0.12 + L.beardLen], [-0.06, hy + 0.08 + L.beardLen]]);
       for (const e of [-1, 1]) ell(L.beard, e * 0.05, hy + 0.045, 0.06, 0.028, e * 0.3);
