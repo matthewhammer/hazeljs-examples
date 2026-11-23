@@ -276,11 +276,13 @@
   const boulderAt = (c, r) => S.boulders.some(b => b.c === c && (b.r === r || (b.falling && b.oy > 0 && b.r + 1 === r)));
   function code(c, r) {
     if (!inside(c, r)) return 7;
-    const i = at(c, r), m = mat[i]; let k = m;
-    if (m === AIR) { if (S.g && S.g.climbPack && treeAt(c, r)) k += 32; if (boulderAt(c, r)) k = 10; else if (fix[i] === F_PLAT || fix[i] === F_BRIDGE || fix[i] === F_HATCH) k = 11;
-      if (wat[i] >= 0.5) k += 16;
-      if ((fix[i] === F_LADDER || fix[i] === F_STAIR || bg[i] === B_DUG) && k < 32) k += 32; }
-    return k;
+    const i = at(c, r), m = mat[i];
+    if (m !== AIR) return m;
+    // (what is there, its water and whether it can be climbed, each worked out apart and then added: a platform across a tree's
+    // trunk stays climbable with the pack; it had lost its climbing to the platform, and the gnome stuck under it)
+    const what = boulderAt(c, r) ? 10 : fix[i] === F_PLAT || fix[i] === F_BRIDGE || fix[i] === F_HATCH ? 11 : 0;
+    const climb = fix[i] === F_LADDER || fix[i] === F_STAIR || bg[i] === B_DUG || (!!S.g && !!S.g.climbPack && what !== 10 && treeAt(c, r));
+    return what + (wat[i] >= 0.5 ? 16 : 0) + (climb ? 32 : 0);
   }
   function near(g) {
     const cx = Math.floor(g.x / 1000), cy = Math.floor((g.y - 1) / 1000), row = r => code(cx - 1, r) + 128 * code(cx, r) + 16384 * code(cx + 1, r);

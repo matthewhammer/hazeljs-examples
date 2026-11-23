@@ -2,6 +2,10 @@
 
 Each version lists what the apps do as of that version. The newest version is first.
 
+## 0.0.86 (2026-11-23)
+
+- **Gnome world: climbing a tree past a platform** (Matthew: "tree climb ability gets stuck here", on the tall tree by the stair tree): where a platform crossed a tree's trunk (the tall trees' platforms at their rope bridges), the platform's tile had lost its climbing, so with the pack the gnome stopped under it, dropped back and climbed again. Now what is in a tile, its water and whether it can be climbed are worked out apart and added, and the gnome climbs straight on up past the platform into the crown.
+
 ## 0.0.85 (2026-11-23)
 
 - **Gnome world: things to be found stand out** (Matthew: "the items themselves need more emph in the game"): the diving gear and the tree-climbing pack are drawn half again as large, on a pulsing golden halo with sparkles going round them, bobbing, a sign over each with its name; each glows in the dark underground; and while one is off the screen, a pointer at the screen's edge shows the way to it and how far it is.
