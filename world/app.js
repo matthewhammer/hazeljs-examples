@@ -923,9 +923,51 @@
       case 36: box(dark, x, y - 2.2 * s, 0.1 * s, 2.2 * s); box(dark, x + w - 0.1 * s, y - 2.2 * s, 0.1 * s, 2.2 * s); for (const yy of [0.35, 1.35]) { box(wood, x, y - yy * s, w, 0.1 * s); box("#1d4ed8", x + 0.2 * s, y - (yy + 0.22) * s, w - 0.3 * s, 0.2 * s, 3); ell("#fff", x + 0.3 * s, y - (yy + 0.28) * s, 0.18 * s, 0.08 * s); } break;
     }
   }
+  // (Matthew: "the interior of the beaver dams' house structures should be shown", with a cutaway of a lodge) A lodge in
+  // cutaway, as the world is: a dome of sticks and mud on the river's bed (or on the bank), stones round its foot; inside, its
+  // chamber, dry, just above the water: the feeding floor, peeled sticks on it, and the nest, higher, its bedding of shredded
+  // wood; two tunnels from the floor down through the base to the entrances under the water; the air vent at the top, where
+  // the sticks are loose; and the beavers resting in it, curled up asleep
+  function drawLodge(L, s) {
+    const c = ctx, R = L.river, mid = L.x + L.w / 2, k = Math.floor(mid) - R.x, inCh = k >= 0 && k < R.w;
+    const base = inCh ? R.bed[k] : surf0[Math.max(0, Math.min(WW - 1, Math.floor(mid)))], lvl = R.level, r = seededR(L.x * 7 + 3);
+    const cx = mid * s, by = base * s, W = (L.w / 2 + 1.1) * s, topY = (Math.min(lvl, base) - 3.3) * s, ry = by - topY;
+    const dome = () => { c.beginPath(); c.moveTo(cx - W, by); c.bezierCurveTo(cx - W, by - ry * 0.75, cx - W * 0.55, topY, cx, topY); c.bezierCurveTo(cx + W * 0.55, topY, cx + W, by - ry * 0.75, cx + W, by); c.closePath(); };
+    // (the mass: mud packed among the sticks)
+    c.fillStyle = "#5e4128"; dome(); c.fill();
+    c.save(); dome(); c.clip();
+    c.lineCap = "round";
+    for (let j = 0; j < 140; j++) { const a = r(j) * Math.PI, d = 0.55 + 0.45 * r(j + 300), x = cx + Math.cos(a) * W * d * (r(j + 600) < 0.5 ? -1 : 1), y = by - Math.sin(a) * ry * d * (0.4 + 0.6 * r(j + 900)) + (r(j + 1200) - 0.5) * s * 0.3;
+      const ang = (r(j + 1500) - 0.5) * 2.4, len = s * (0.4 + 0.7 * r(j + 1800));
+      c.strokeStyle = ["#8a6440", "#a07a4a", "#6b4a2b", "#c4a274", "#4a3220"][j % 5]; c.lineWidth = Math.max(1, s * (0.05 + 0.05 * r(j + 2100)));
+      c.beginPath(); c.moveTo(x - Math.cos(ang) * len / 2, y - Math.sin(ang) * len / 2); c.lineTo(x + Math.cos(ang) * len / 2, y + Math.sin(ang) * len / 2); c.stroke(); }
+    // (the chamber: a dry room just above the water, its floor a little over the waterline; the nest higher, to the east)
+    const fy = (lvl - 0.15) * s, chH = Math.min(1.7 * s, (fy - topY) * 0.66), chW = W * 0.62;
+    c.fillStyle = "#24170d"; c.beginPath(); c.moveTo(cx - chW, fy); c.bezierCurveTo(cx - chW, fy - chH * 0.9, cx - chW * 0.4, fy - chH * 1.1, cx + chW * 0.1, fy - chH); c.bezierCurveTo(cx + chW * 0.7, fy - chH * 1.15, cx + chW * 1.05, fy - chH * 0.8, cx + chW, fy - s * 0.25); c.lineTo(cx + chW * 0.3, fy - s * 0.25); c.lineTo(cx + chW * 0.25, fy); c.closePath(); c.fill();
+    c.fillStyle = "#4a3220"; c.fillRect(cx - chW, fy - s * 0.06, chW * 1.25, s * 0.1); c.fillRect(cx + chW * 0.25, fy - s * 0.31, chW * 0.75, s * 0.1);
+    c.strokeStyle = "#d8c48a"; c.lineWidth = Math.max(1, s / 28); c.beginPath();
+    for (let j = 0; j < 26; j++) { const x = cx + chW * (0.3 + 0.65 * r(j + 2400)), y = fy - s * (0.32 + 0.12 * r(j + 2500)); c.moveTo(x, y); c.lineTo(x + s * (r(j + 2600) - 0.5) * 0.4, y - s * 0.04 * r(j + 2700)); } c.stroke();
+    c.strokeStyle = "#e8d8b0"; c.lineWidth = Math.max(1, s / 16); c.beginPath(); for (let j = 0; j < 3; j++) { const x = cx - chW * (0.8 - 0.25 * j); c.moveTo(x, fy - s * 0.1); c.lineTo(x + s * 0.35, fy - s * 0.14); } c.stroke();
+    // (two tunnels down from the floor, through the base, to the entrances under the water)
+    c.strokeStyle = "#1b2833"; c.lineWidth = s * 0.42;
+    for (const [x0, x1] of [[cx - chW * 0.55, cx - W * 0.85], [cx - chW * 0.1, cx + W * 0.2]]) { c.beginPath(); c.moveTo(x0, fy - s * 0.05); c.quadraticCurveTo((x0 + x1) / 2, fy + (by - fy) * 0.35, x1, by - s * 0.35); c.stroke(); }
+    // (the air vent, loose sticks at the top)
+    c.strokeStyle = "rgba(255,240,210,0.25)"; c.lineWidth = Math.max(1, s / 20); c.beginPath(); for (let j = 0; j < 5; j++) { const x = cx + (j - 2) * s * 0.12; c.moveTo(x, topY + s * 0.1); c.lineTo(x + s * 0.05, topY + s * 0.5); } c.stroke();
+    // (the beavers resting, curled up asleep in the nest)
+    let n = 0;
+    for (const B of S.beavers) { if (B.b.job !== 0 || Math.abs(B.b.lodge - mid) > 4) continue; const x = cx + chW * (0.45 + 0.22 * n) - (n > 1 ? chW * 0.9 : 0), y = fy - s * (n > 1 ? 0.12 : 0.36); n++;
+      c.fillStyle = "#3b2a1e"; c.beginPath(); c.ellipse(x - s * 0.2, y - s * 0.05, s * 0.2, s * 0.07, -0.4, 0, 7); c.fill();
+      c.fillStyle = "#7a4a28"; c.beginPath(); c.ellipse(x, y - s * 0.17, s * 0.3, s * 0.18, 0, 0, 7); c.fill(); c.beginPath(); c.ellipse(x + s * 0.24, y - s * 0.12, s * 0.13, s * 0.1, 0, 0, 7); c.fill();
+      c.strokeStyle = "#1a1008"; c.lineWidth = Math.max(1, s / 30); c.beginPath(); c.arc(x + s * 0.27, y - s * 0.15, s * 0.03, 0.2, Math.PI - 0.2); c.stroke();
+      if (Math.floor(performance.now() / 900 + n) % 3 === 0) { c.fillStyle = "rgba(255,255,255,0.7)"; c.font = `${Math.round(0.28 * s)}px sans-serif`; c.fillText("z", x + s * 0.3, y - s * 0.45); } }
+    c.restore();
+    c.strokeStyle = "#3a2818"; c.lineWidth = Math.max(1, s / 14); dome(); c.stroke();
+    // (stones round its foot)
+    for (let j = 0; j < 7; j++) { c.fillStyle = ["#8a8580", "#a39e98", "#6f6a66"][j % 3]; c.beginPath(); c.ellipse(cx - W + (j + 0.5) * W * 2 / 7, by - s * 0.08, s * (0.18 + 0.1 * r(j + 3000)), s * 0.12, 0, 0, 7); c.fill(); }
+  }
   function drawBeaver(B, x, y, swimming) {
     const c = ctx, s = T, f = B.b.face || 1, job = B.b.job;
-    if (job === 0 && !swimming) return;   // (in the lodge, resting)
+    if (job === 0) return;   // (in the lodge, resting: drawn there, drawLodge)
     c.save(); c.translate(x, y); c.scale(f, 1);
     const bob = job === 2 ? Math.sin(S.frame / 3) * 0.05 * s : 0;
     c.fillStyle = "#3b2a1e"; c.beginPath(); c.ellipse(-0.55 * s, -0.1 * s, 0.32 * s, 0.11 * s, -0.2, 0, 7); c.fill();   // (the tail, flat)
@@ -1057,14 +1099,12 @@
         ctx.beginPath(); ctx.moveTo(x + 0.2 * s, R.y * s); ctx.lineTo(x + 0.8 * s, R.y * s); ctx.lineTo(x + 1.8 * s, (R.y + 4) * s); ctx.lineTo(x - 0.8 * s, (R.y + 4) * s); ctx.fill(); } }
     for (const sm of S.smoke) { ctx.fillStyle = `rgba(200,200,200,${(0.5 * (1 - sm.life / 200)).toFixed(3)})`; ctx.beginPath(); ctx.arc(sm.x * s, sm.y * s, sm.r * s, 0, 7); ctx.fill(); }
     // the beavers' lodges (domes of sticks) and dams (logs across the river, up to the water), behind the water
-    for (const L of S.lodges) { if (!L.river || L.x > c1 + 6 || L.x + L.w < c0 - 6) continue; const R = L.river, k = Math.max(0, Math.min(R.w - 1, L.x - R.x)), bed = R.bed[k] ?? R.level + 2;
-      const x = (L.x + L.w / 2) * s, y = bed * s, hh = (bed - R.level + 1.4) * s; ctx.fillStyle = "#6b4a2b"; ctx.beginPath(); ctx.ellipse(x, y, L.w / 2 * s, hh, 0, Math.PI, 0); ctx.fill();
-      ctx.strokeStyle = "#3a2414"; ctx.lineWidth = Math.max(1, s / 12); for (let j = 0; j < 22; j++) { const a = Math.PI + (j / 22) * Math.PI, rr = 0.4 + (j % 3) * 0.2; ctx.beginPath(); ctx.moveTo(x + Math.cos(a) * L.w / 2 * s * rr, y + Math.sin(a) * hh * rr); ctx.lineTo(x + Math.cos(a + 0.4) * L.w / 2 * s * (rr + 0.3), y + Math.sin(a + 0.4) * hh * (rr + 0.3)); ctx.stroke(); } }
+    for (const L of S.lodges) { if (!L.river || L.x > c1 + 8 || L.x + L.w < c0 - 8) continue; drawLodge(L, s); }
     for (const d of S.dams) { const R = d.river; if (!R || R.x > c1 + 2 || R.x + R.w < c0 - 2) continue; ctx.globalAlpha = 0.45;
       for (let k = 0; k < R.w; k++) { const c = R.x + k; for (let rr = R.bed[k] - 1; rr >= R.level - 0.5; rr -= 0.5) { ctx.fillStyle = (k + Math.floor(rr * 2)) % 2 ? "#7a5230" : "#8b6040"; ctx.beginPath(); ctx.roundRect(c * s - 0.05 * s, rr * s, s * 1.1, 0.46 * s, 0.2 * s); ctx.fill(); } }
       ctx.globalAlpha = 1; ctx.strokeStyle = "#5e3d22"; ctx.lineWidth = Math.max(1, s / 10); for (let k = 0; k < R.w * 2; k++) { const x = (R.x + k / 2) * s; ctx.beginPath(); ctx.moveTo(x, (R.level - 0.4) * s); ctx.lineTo(x + 0.3 * s, (R.level - 0.9 - (k % 3) * 0.2) * s); ctx.stroke(); } }
     // the beavers, the boulders, the diving gear, the gnome, the dirt flying
-    for (const B of S.beavers) { const c = Math.floor(B.px), R = riverAt(c + 0.5), y = R ? R.level + 0.35 : surf0[Math.max(0, Math.min(WW - 1, c))]; B.py += ((B.py || y) === 0 ? y : (y - B.py) * 0.25); if (c < c0 - 3 || c > c1 + 3) continue; drawBeaver(B, (B.px + 0.5) * s, B.py * s, !!R); }
+    for (const B of S.beavers) { const c = Math.floor(B.px), R = riverAt(c + 0.5), y = R ? R.level + 0.35 : surf0[Math.max(0, Math.min(WW - 1, c))]; B.py = B.py ? B.py + (y - B.py) * 0.25 : y; if (c < c0 - 3 || c > c1 + 3) continue; drawBeaver(B, (B.px + 0.5) * s, B.py * s, !!R); }
     for (const b of S.boulders) { if (b.c < c0 - 1 || b.c > c1 + 1 || b.r < r0 - 1 || b.r > r1 + 1) continue; const sh = b.wob > 0 ? Math.sin(now / 30) * 0.05 * s : 0, x = (b.c + 0.5) * s + sh, y = (b.r + b.oy + 0.5) * s;
       ctx.fillStyle = "#7d7b78"; ctx.beginPath(); ctx.ellipse(x, y + 0.04 * s, 0.47 * s, 0.44 * s, 0, 0, 7); ctx.fill(); ctx.fillStyle = "#a8a5a0"; ctx.beginPath(); ctx.ellipse(x - 0.12 * s, y - 0.12 * s, 0.22 * s, 0.16 * s, -0.4, 0, 7); ctx.fill(); }
     for (const it of S.items) if (!it.taken && it.kind === "climb") { const x = it.x * s, y = it.y * s + Math.sin(now / 300) * 0.06 * s;
@@ -1120,7 +1160,7 @@
     const d = mapImg.data;
     for (let r = 0; r < WH; r++) for (let c = 0; c < WW; c++) { const i = at(c, r), o = i * 4, m = mat[i]; let col;
       if (m === AIR) col = wat[i] > 0.5 ? [50, 110, 200] : r < surf0[c] ? [150, 200, 235] : bg[i] === B_PLASTER || bg[i] === B_WOOD ? [230, 200, 140] : bg[i] === B_STAIR ? [120, 110, 100] : [60, 40, 28];
-      else { col = MAPCOL[m]; if (PORES[m] > 0 && wat[i] > 0.6) col = [col[0] * 0.6, col[1] * 0.7, col[2] * 0.6 + 80]; if (gem[i]) col = [255, 255, 255]; }
+      else { col = MAPCOL[m]; if (PORES[m] > 0 && wat[i] > 0.6) col = [col[0] * 0.6, col[1] * 0.7, col[2] * 0.6 + 80]; if (gem[i]) col = [[0, 0, 0], [255, 90, 90], [90, 235, 120], [110, 160, 255], [200, 120, 255], [255, 200, 60]][gem[i]]; }
       if (m === AIR && fix[i] && fix[i] !== F_DOOR) col = fix[i] === F_LADDER || fix[i] === F_STAIR ? [196, 150, 95] : [139, 94, 52];   // (ladders, the stair, platforms, bridges, planks)
       d[o] = col[0]; d[o + 1] = col[1]; d[o + 2] = col[2]; d[o + 3] = 255; }
     mapCtx.putImageData(mapImg, 0, 0);
@@ -1178,7 +1218,15 @@
       const mw = Math.min(W * 0.3, 340 * k), mh = mw * WH / WW, mx = W - mw - 10 * k, my = 10 * k + (document.documentElement.classList.contains("oracle-fs") ? 40 * k : 0);
       ctx.globalAlpha = 0.88; ctx.imageSmoothingEnabled = true; ctx.drawImage(map2Cv, mx, my, mw, mh); ctx.globalAlpha = 1;
       ctx.strokeStyle = "#fff"; ctx.lineWidth = 1.5; ctx.strokeRect(mx + S.cam.x / WW * mw, my + S.cam.y / WH * mh, VW / WW * mw, VH / WH * mh);
-      ctx.fillStyle = "#ef4444"; ctx.beginPath(); ctx.arc(mx + gx / WW * mw, my + g.y / 1000 / WH * mh, 3 * k, 0, 7); ctx.fill(); ctx.strokeStyle = "rgba(255,255,255,0.6)"; ctx.strokeRect(mx, my, mw, mh); }
+      // (Matthew: "overview map should show placement of all items on map that can be aquired") each thing still to be found,
+      // marked where it is: the diving gear 🤿 and the tree-climbing pack 🧗, on a dark spot, big enough to read; the gems are the
+      // map's colored flecks, each its own color
+      ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.font = `${Math.round(13 * k)}px sans-serif`;
+      for (const it of S.items) { if (it.taken) continue; const ix = mx + it.x / WW * mw, iy = my + it.y / WH * mh;
+        ctx.fillStyle = "rgba(0,0,0,0.55)"; ctx.beginPath(); ctx.arc(ix, iy, 8 * k, 0, 7); ctx.fill(); ctx.strokeStyle = "#fde68a"; ctx.lineWidth = 1.5; ctx.stroke();
+        ctx.fillText(it.kind === "climb" ? "🧗" : "🤿", ix, iy + 0.5 * k); }
+      ctx.textAlign = "left"; ctx.textBaseline = "top";
+      ctx.fillStyle = "#ef4444"; ctx.beginPath(); ctx.arc(mx + gx / WW * mw, my + g.y / 1000 / WH * mh, 3 * k, 0, 7); ctx.fill(); ctx.strokeStyle = "rgba(255,255,255,0.6)"; ctx.lineWidth = 1; ctx.strokeRect(mx, my, mw, mh); }
     ctx.restore();
     if (S.frame % 15 === 0) { $("gems").textContent = `💎 ${S.gems}`; $("hearts").textContent = hearts; $("where").textContent = place || where; }
   }

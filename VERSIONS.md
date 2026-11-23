@@ -2,6 +2,11 @@
 
 Each version lists what the apps do as of that version. The newest version is first.
 
+## 0.0.82 (2026-11-23)
+
+- **Gnome world: inside the beavers' lodges** (Matthew: "the interior of the beaver dams' house structures should be shown", with a cutaway of a lodge): each lodge drawn in cutaway, as the world is: a dome of sticks and mud on the river's bed or the bank, standing well out of the water, stones round its foot; inside, its chamber, dry, just above the water, the feeding floor with peeled sticks and the nest higher, its bedding of shredded wood; two tunnels from the floor down through the base to the entrances under the water; the air vent at the top; and the beavers resting there, curled up asleep. (Resting beavers are no longer drawn outside, and a beaver no longer drops in from the sky when it first comes into view.)
+- **What can be found, on the world map** (Matthew: "overview map should show placement of all items on map that can be aquired"): the diving gear 🤿 and the tree-climbing pack 🧗 are marked where they lie until taken; the gems are the map's flecks, each its own color.
+
 ## 0.0.81 (2026-11-23)
 
 - **Gnome world: the trees and tree houses on the world map** (Matthew: "foreground trees and tree houses do not appear in the overview map HUD"; "the overview map should not use ovals for tree pads. Use triangles, if you must"; "arrays of triangles"). Over the map's tiles, on a layer two pixels a tile: each tree's crown as an array of triangles, its pads (a leafy tree's stacked three, two, one; a pine's tiers; a willow's dome with its tassels hanging as narrow triangles), and its trunk, or a felled tree's stump; each great tree's crown in rows of pads, more over each house, its trunk, limbs and ladder or stair; each tree house, its walls, roof and door in its own colors; and the ladders, platforms, bridges and planks.
