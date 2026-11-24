@@ -22,7 +22,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: hazelgrove/hazeljs
-          ref: 41c6cb0
+          ref: 41c6cb05a4134fb4c12cc73639116a212685b239
           path: pkg-c
       - name: The same package with the trial's library (idea A)
         run: |
