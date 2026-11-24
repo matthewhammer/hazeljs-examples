@@ -850,13 +850,16 @@
   }
   // (Matthew: "let's add a gnome picker --- the user can choose which main char they want: gnome dad (current choice), gnome mom,
   // gnome girl, gnome boy") who the player is, each one's look: the cap, the clothes, the hair, and size (the children four
-  // fifths as tall, standing on the same ground); dad's white beard and moustache; mom's auburn braids over her shoulders, her
-  // dress and apron; the girl's honey pigtails and freckles, her dress and apron; the boy's brown fringe and freckles
+  // fifths as tall, standing on the same ground; Matthew: "the girl's clothing is black and magenta -- with stylized hat with
+  // those two themes": her dress black, her apron and cuffs magenta, her cap magenta striped in black round the cone, its brim
+  // black); dad's white beard and moustache; mom's auburn braids over her shoulders, her
+  // dress and apron; the girl's brunette pigtails and freckles, her dress and apron; the boy's sandy-blond fringe and freckles (Matthew: "let's make
+  // the girl brunette and the boy sandy-blond")
   const HEROES = {
     dad: { name: "Gnome dad", size: 1, cap: "#dc2626", capDk: "#b91c1c", brim: "#a51c1c", coat: "#5ba3d6", coatDk: "#4386b8", cuff: "#3f7fae", legFar: "#3a6f99", hair: "#f1f5f9", hair2: "#e5e7eb", hairDk: "#cbd5e1", brow: "#f8fafc", nose: 2.9, beard: true },
     mom: { name: "Gnome mom", size: 0.95, cap: "#4f7d2e", capDk: "#3f6824", brim: "#33561c", coat: "#a3557a", coatDk: "#874262", cuff: "#733654", legFar: "#5b3a4c", hair: "#b0703c", hair2: "#9a5e30", hairDk: "#7a4520", brow: "#7a4520", nose: 2.3, dress: true, apron: "#f4ecd8", braids: true, lashes: true },
-    girl: { name: "Gnome girl", size: 0.8, cap: "#d9467a", capDk: "#b8335f", brim: "#a12b53", coat: "#f0b43c", coatDk: "#d39a26", cuff: "#b8821d", legFar: "#9a6a1c", hair: "#e8b04a", hair2: "#d49a35", hairDk: "#a8741e", brow: "#a8741e", nose: 2.0, dress: true, apron: "#fff7e6", pigtails: true, lashes: true, freckles: true },
-    boy: { name: "Gnome boy", size: 0.8, cap: "#2f6db5", capDk: "#245a96", brim: "#1e4c80", coat: "#4f9a3a", coatDk: "#3f7f2e", cuff: "#356b27", legFar: "#2f5f25", hair: "#8a5a2b", hair2: "#7a4e24", hairDk: "#5c3a1a", brow: "#5c3a1a", nose: 2.0, fringe: true, freckles: true },
+    girl: { name: "Gnome girl", size: 0.8, cap: "#e0287f", capDk: "#b81d66", brim: "#1c181e", stripe: "#1c181e", coat: "#2a2430", coatDk: "#1a161e", cuff: "#d6247a", legFar: "#141016", hair: "#6e4326", hair2: "#5c351c", hairDk: "#3f2412", brow: "#4a2c16", nose: 2.0, dress: true, apron: "#e0287f", pigtails: true, lashes: true, freckles: true },
+    boy: { name: "Gnome boy", size: 0.8, cap: "#2f6db5", capDk: "#245a96", brim: "#1e4c80", coat: "#4f9a3a", coatDk: "#3f7f2e", cuff: "#356b27", legFar: "#2f5f25", hair: "#d9b46c", hair2: "#c49d58", hairDk: "#94743a", brow: "#a08048", nose: 2.0, fringe: true, freckles: true },
   };
   const heroLook = who => HEROES[who || S.hero] || HEROES.dad;
   // (the gnome, Gnome dig's own, copied from dig/app.js: its cap, beard and lantern; and, for the water, a swimmer's arms and a tilt)
@@ -994,6 +997,8 @@
       if (L.pigtails) pigtails(); }
     // (the tall red cap, pulled down over the brows, its tip bending back)
     c.fillStyle = L.cap; c.beginPath(); c.moveTo(-10, -14.5); c.quadraticCurveTo(-7, -25, -1, -34); c.quadraticCurveTo(2, -36, 4, -32.5); c.quadraticCurveTo(7, -24, 10, -14.5); c.quadraticCurveTo(0, -16, -10, -14.5); c.fill();
+    if (L.stripe) { c.save(); c.beginPath(); c.moveTo(-10, -14.5); c.quadraticCurveTo(-7, -25, -1, -34); c.quadraticCurveTo(2, -36, 4, -32.5); c.quadraticCurveTo(7, -24, 10, -14.5); c.quadraticCurveTo(0, -16, -10, -14.5); c.clip();
+      c.strokeStyle = L.stripe; c.lineWidth = 2.4; c.beginPath(); for (let k = 0; k < 4; k++) { const y0 = -18.5 - k * 4.6; c.moveTo(-12, y0 + 1.6); c.quadraticCurveTo(0, y0 - 1.4, 12, y0 - 2.4); } c.stroke(); c.restore(); }   // (the girl's stripes round the cone)
     c.fillStyle = L.capDk; c.beginPath(); c.moveTo(3, -33); c.quadraticCurveTo(7, -24, 10, -14.5); c.quadraticCurveTo(6, -15.3, 4, -15.5); c.quadraticCurveTo(4, -24, 3, -33); c.fill();
     c.strokeStyle = "rgba(255, 255, 255, 0.25)"; c.lineWidth = 1; c.beginPath(); c.moveTo(-6, -17.5); c.quadraticCurveTo(-4, -26, -0.5, -32); c.stroke();
     c.strokeStyle = L.brim; c.lineWidth = 2; c.lineCap = "round"; c.beginPath(); c.moveTo(-9.6, -15.3); c.quadraticCurveTo(0, -16.8, 9.6, -15.3); c.stroke(); c.lineCap = "butt";   // (its brim)
@@ -1066,6 +1071,9 @@
       c.strokeStyle = "#0f172a"; c.lineWidth = 1.3; c.beginPath(); c.moveTo(2.5, -11.5); c.lineTo(-6, -11); c.stroke(); }
     // (the cap: its brim over the brow, the cone leaning back, the tip bending down behind him)
     c.fillStyle = L.cap; c.beginPath(); c.moveTo(9.5, -13.6); c.quadraticCurveTo(6, -24, -1, -30); c.quadraticCurveTo(-6, -34.5, -11.5, -31.5); c.quadraticCurveTo(-8.5, -29.5, -8, -25); c.quadraticCurveTo(-8.5, -18, -8.5, -12); c.quadraticCurveTo(0, -15.4, 9.5, -13.6); c.fill();
+    if (L.stripe) { c.save(); c.beginPath(); c.moveTo(9.5, -13.6); c.quadraticCurveTo(6, -24, -1, -30); c.quadraticCurveTo(-6, -34.5, -11.5, -31.5); c.quadraticCurveTo(-8.5, -29.5, -8, -25); c.quadraticCurveTo(-8.5, -18, -8.5, -12); c.quadraticCurveTo(0, -15.4, 9.5, -13.6); c.clip();
+      c.strokeStyle = L.stripe; c.lineWidth = 2.4; c.beginPath(); for (let k = 0; k < 4; k++) { const y0 = -17.5 - k * 4.2; c.moveTo(-10, y0 + 1 + k * 0.6); c.quadraticCurveTo(0, y0 - 1, 10, y0 - 3 + k * 0.8); } c.stroke(); c.restore();
+      c.strokeStyle = L.brim; c.lineWidth = 2; c.lineCap = "round"; c.beginPath(); c.moveTo(-8.3, -12.4); c.quadraticCurveTo(0, -15.2, 9.3, -13.8); c.stroke(); c.lineCap = "butt"; }
     c.fillStyle = L.capDk; c.beginPath(); c.moveTo(-8.5, -12); c.quadraticCurveTo(-8.5, -18, -8, -25); c.quadraticCurveTo(-8.5, -29.5, -11.5, -31.5); c.quadraticCurveTo(-5, -26, -4.5, -13.2); c.fill();
     c.strokeStyle = "rgba(255, 255, 255, 0.25)"; c.lineWidth = 1; c.beginPath(); c.moveTo(6, -16.5); c.quadraticCurveTo(3, -24, -2, -28.5); c.stroke();
     // (the near arm, the lantern held out ahead, glowing)

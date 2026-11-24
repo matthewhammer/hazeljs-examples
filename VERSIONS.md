@@ -2,6 +2,10 @@
 
 Each version lists what the apps do as of that version. The newest version is first.
 
+## 0.0.97 (2026-11-23)
+
+- **Gnome world: the girl and the boy, new looks** (Matthew: "let's make the girl brunette and the boy sandy-blond"; "the girl's clothing is black and magenta -- with stylized hat with those two themes"). The girl's pigtails are brunette, tied with magenta ribbons; her dress is black, her apron and cuffs magenta, and her cap magenta, striped in black round the cone, its brim black, from the front, behind and the side. The boy's fringe is sandy-blond. The picker's pictures and the booklet's drawing of the four follow.
+
 ## 0.0.96 (2026-11-23)
 
 - **Gnome world: plants in the rivers** (Matthew: "rivers creeks and so on -- -should have aquatic plants anchored on the bottom, sometimes"; "let's also have lily pads that float on top with roots that extend down into the pond bed (or very edge of river)"; "lily pads have locus flowers --- realistic ones"). Placed once from each river: here and there on the bed tape grass (long ribbons, where it is deep), pondweed (a stem of oval leaves) and milfoil (feathery whorls), all swaying in the current; reeds and bulrushes standing up out of the shallows at the edges; and toward the banks, where the water is five rows deep or less, clumps of lily pads riding the waves, each on its stem from a rhizome rooted in the bed. Over some a sacred lotus: petals white at the base flushing to rose, veined, the back ones splayed, the inner ones upright round the flat seed pod and its golden stamens; or a bud. Each plant stands on the ground under it, a bank's slope too, and goes if that ground is dug away.
