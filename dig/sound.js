@@ -71,6 +71,7 @@
     music: on => C.music(on), sounds: on => C.sounds(on),
     get musicOn() { return C.musicOn; }, get soundsOn() { return C.soundsOn; },
     volumeOf: C.volumeOf, setVolume: C.setVolume,
+    hush: k => { if (C.hush) C.hush(k); },
     status: C.status,
     ...SFX,
   };

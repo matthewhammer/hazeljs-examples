@@ -507,9 +507,9 @@
     // low-pass, its tail going on after the deck has gone). The first deck's song, at, next are the song, at, next above
     let decks = [], echo = null;
 
-    const S = { music: kept("music", true), sfx: kept("sfx", true), tune: 0, notes: 0, sounds: 0,
+    const S = { music: kept("music", true), sfx: kept("sfx", true), tune: 0, notes: 0, sounds: 0, hush: 1,
                 vol: { music: kept("music-volume", 1), sfx: kept("sfx-volume", 1) } };   // (0.0.56: each slider's level, 0 to 1)
-    const level = which => (which === "music" ? S.music : S.sfx) ? LOUD[which] * S.vol[which] : 0;
+    const level = which => (which === "music" ? S.music : S.sfx) ? LOUD[which] * S.vol[which] * (which === "music" ? S.hush : 1) : 0;
     function wave(duty) {   // (a pulse wave, on for `duty` of each cycle: its first 32 harmonics)
       const n = 32, re = new Float32Array(n), im = new Float32Array(n);
       for (let k = 1; k < n; k++) re[k] = 2 * Math.sin(Math.PI * k * duty) / (Math.PI * k);
@@ -625,6 +625,9 @@
       stop, mix,
       music(on) { S.music = !!on; keep("music", S.music); if (!ctx) return; musicBus.gain.cancelScheduledValues(ctx.currentTime); musicBus.gain.setTargetAtTime(level("music"), ctx.currentTime, 0.05); if (!on) stop(); },
       sounds(on) { S.sfx = !!on; keep("sfx", S.sfx); if (ctx) sfxBus.gain.setTargetAtTime(level("sfx"), ctx.currentTime, 0.05); },
+      // (0.0.104, Gnome world's villagers read aloud) the music softened to k of its level while a voice speaks, and back at 1:
+      // for now only, not kept like the slider
+      hush(k) { S.hush = Math.max(0, Math.min(1, k)); if (!ctx) return; const g = musicBus.gain; g.cancelScheduledValues(ctx.currentTime); g.setTargetAtTime(level("music"), ctx.currentTime, k < 1 ? 0.08 : 0.3); },
       get musicOn() { return S.music; }, get soundsOn() { return S.sfx; },
       // (0.0.56) how loud the music or the sounds are, 0 to 1, each its own slider's, kept on this device
       volumeOf: which => S.vol[which],

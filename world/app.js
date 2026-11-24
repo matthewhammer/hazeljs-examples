@@ -20,6 +20,20 @@
 // does not load, hazeljs 0.0.4 from npm runs them interpreted (?lib=npm asks for it), slower: a step 4 ms, not 0.02.
 (async () => {
   "use strict";
+  // (0.0.104; Matthew, 2026-11-24: on the iPad, while walking, "the screen zooms into some form that gets stuck", only the
+  // background hills to be seen; out of full screen it is right again, back in full screen wrong again; and "the ipad has a
+  // broken screen, and I'm not sure if the input from touching meets the usual input expectations") What the page meets, kept
+  // from its start for 🐞 under ⚙️ Advanced: the last errors, the touches (how many at once, pinches), and the page's zoom
+  const WATCH = { t0: performance.now(), errors: [], touchMax: 0, multi: 0, gestures: 0, gesturesBlocked: 0, pointers: {}, lastTouch: null, zoomMin: 1, zoomMax: 1, zoomAt: null, zoomResets: 0 };
+  const noteError = (msg, where) => { const k = String(msg).slice(0, 160), e = WATCH.errors.find(x => x.msg === k);
+    if (e) { e.n++; e.last = performance.now(); } else { WATCH.errors.push({ msg: k, where: where || "", n: 1, first: performance.now(), last: performance.now() }); if (WATCH.errors.length > 8) WATCH.errors.shift(); } };
+  addEventListener("error", e => noteError(e.message || e.error, e.filename ? `${String(e.filename).split("/").pop()}:${e.lineno}:${e.colno}` : ""));
+  addEventListener("unhandledrejection", e => noteError("(promise) " + (e.reason && e.reason.message || e.reason)));
+  document.addEventListener("touchstart", e => { const n = e.touches.length; WATCH.touchMax = Math.max(WATCH.touchMax, n); if (n >= 2) WATCH.multi++;
+    const t = e.touches[0]; if (t) WATCH.lastTouch = { x: Math.round(t.clientX), y: Math.round(t.clientY), n, at: performance.now() }; }, { capture: true, passive: true });
+  document.addEventListener("pointerdown", e => { WATCH.pointers[e.pointerType || "?"] = (WATCH.pointers[e.pointerType || "?"] || 0) + 1; }, { capture: true, passive: true });
+  if (window.visualViewport) { const vz = () => { const z = visualViewport.scale; WATCH.zoomMin = Math.min(WATCH.zoomMin, z); WATCH.zoomMax = Math.max(WATCH.zoomMax, z); if (Math.abs(z - 1) > 0.01) WATCH.zoomAt = performance.now(); };
+    visualViewport.addEventListener("resize", vz); visualViewport.addEventListener("scroll", vz); }
   const LIB_JIT = "https://build.hazel.org/hazeljs/hazel-lib.js", LIB_NPM = "https://cdn.jsdelivr.net/npm/hazeljs@0.0.4/hazel-lib.js";
   const PROGRAM = "world", MODULES = ["World"];
   const TAIL = "(plan = World.plan, ground = World.ground, village = World.village, furnish = World.furnish, limbs = World.limbs, styles = World.styles, beaver = World.beaver, water_row = World.water_row, step = World.step, roots = World.roots, threads = World.threads, greet = World.greet, dig_steps = World.dig_steps)";
@@ -187,7 +201,7 @@
     for (const v of S.villages) { const mine = S.rooms.filter(R => R.x >= v.x0 && R.x < v.x1), R = mine.find(R => R.kind === 1) || mine[0];
       if (R) S.heartItems.push({ x: R.x + R.w * 0.5, y: R.y + 3.3, taken: false }); }
     for (const hs of S.houses) if (!hs.small) S.heartItems.push({ x: hs.x + 0.5 + hs.side * 0.6, y: hs.row - 0.55, taken: false });
-    S.works = new Map(); S.hearts = 5; S.cam.set = false; S.smoke = []; S.parts = []; S.pebbles = []; S.piles = []; S.fallen = []; S.talk = null; rootChunks.clear(); S.minimapAt = -1e9; S.rain = 0; S.rainAt = S.frame + 60 * 60; S.banner = { text: "🌍 Gnome world", t: performance.now() };
+    S.works = new Map(); S.hearts = 5; S.cam.set = false; S.smoke = []; S.parts = []; S.pebbles = []; S.piles = []; S.fallen = []; S.talk = null; hushTalk(); rootChunks.clear(); S.minimapAt = -1e9; S.rain = 0; S.rainAt = S.frame + 60 * 60; S.banner = { text: "🌍 Gnome world", t: performance.now() };
   }
   const riverAt = x => S.rivers.find(R => x >= R.x - 0.5 && x < R.x + R.w + 0.5) || null;
   const topOf = c => { for (let r = 0; r < WH; r++) if (mat[at(c, r)] !== AIR) return r; return WH; };
@@ -1785,8 +1799,8 @@
   function villagersStep(h) {
     if (!S.villagers || !S.g) return; const g = S.g, gx = g.x / 1000, gy = g.y / 1000, mid = S.cam.x + VW / 2;
     for (const v of S.villagers) { if (Math.abs(v.x - mid) < VW) villagerMove(v); if (v.mode !== "walk" && Math.abs(v.x - gx) < 4 && Math.abs(v.y - gy) < 2) v.face = gx > v.x ? 1 : -1; }
-    if (S.talk && S.frame > S.talk.until) S.talk = null;
-    if (S.frame % 6) return;
+    if (S.talk && S.frame > S.talk.until && !S.talk.speaking) S.talk = null;
+    if (S.frame % 6 || (S.talk && S.talk.speaking)) return;
     let best = null, bd = 1e9; for (const v of S.villagers) { if (villagerAway(v)) continue; const dx = Math.abs(v.x - gx), dy = Math.abs(v.y - gy); if (dx < 1.7 && dy < 1.3 && dx < bd) { bd = dx; best = v; } }
     if (!best || (S.talk && S.talk.v === best) || S.frame < best.nextAt || Math.abs(g.vx) > 40) return;
     if (typeof h.greet === "function") { let t = null; try { t = h.greet(best.id, best.kind, best.where, best.n, best.rank ?? 0, best.count ?? 1); } catch (e) { t = null; }
@@ -1935,17 +1949,60 @@
     else if (a === "rock") { const k = Math.sin(t * 2) * 0.1; c.save(); c.translate(x + f * 0.4 * u, y - 0.05 * u); c.rotate(k); c.fillStyle = "#8b5a2b"; c.beginPath(); c.ellipse(0, 0, 0.18 * u, 0.1 * u, 0, 0, Math.PI); c.fill(); c.fillStyle = "#f3d9e0"; c.fillRect(-0.1 * u, -0.08 * u, 0.2 * u, 0.08 * u); c.restore(); }
   }
   function drawTalk(s) {
-    const T2 = S.talk; if (!T2) return; const v = T2.v, c = ctx, x = v.x * s, y = (v.y - 1.25 * v.look.size) * s, fs = Math.max(11, Math.round(0.3 * s)), pad = 0.18 * s, maxW = 5.2 * s;
+    const T2 = S.talk; if (!T2) { if (!LINE) S.talkBtn = null; return; } const v = T2.v, c = ctx, x = v.x * s, y = (v.y - 1.25 * v.look.size) * s, fs = Math.max(11, Math.round(0.3 * s)), pad = 0.18 * s, maxW = 5.2 * s;
     c.font = `${fs}px system-ui, sans-serif`; const words = T2.line.split(" "), lines = []; let cur = "";
     for (const w of words) { const t = cur ? cur + " " + w : w; if (c.measureText(t).width > maxW && cur) { lines.push(cur); cur = w; } else cur = t; } if (cur) lines.push(cur);
     c.font = `bold ${fs}px system-ui, sans-serif`; const nameW = T2.name ? c.measureText(T2.name).width : 0; c.font = `${fs}px system-ui, sans-serif`;
-    const w = Math.max(nameW, ...lines.map(l => c.measureText(l).width)) + pad * 2, lh = fs * 1.25, h = (lines.length + (T2.name ? 1 : 0)) * lh + pad * 1.4, bx = x - w / 2, by = y - h;
+    // (0.0.104) room on the right for the listen button, when there are words to read aloud
+    const lh = fs * 1.25, bs = SPEECH && spoken(T2.line) ? Math.max(lh * 1.3, 0.5 * s) : 0, textH = (lines.length + (T2.name ? 1 : 0)) * lh;
+    const w = Math.max(nameW, ...lines.map(l => c.measureText(l).width)) + pad * 2 + (bs ? bs + pad * 0.6 : 0), h = Math.max(textH, bs) + pad * 1.4, bx = x - w / 2, by = y - h;
     c.fillStyle = "rgba(255,252,240,0.96)"; c.strokeStyle = "#5a3a1e"; c.lineWidth = Math.max(1, s / 30); c.beginPath(); c.roundRect(bx, by, w, h, 0.2 * s); c.fill(); c.stroke();
     c.beginPath(); c.moveTo(x - 0.15 * s, by + h - 1); c.lineTo(x, by + h + 0.25 * s); c.lineTo(x + 0.15 * s, by + h - 1); c.closePath(); c.fill(); c.beginPath(); c.moveTo(x - 0.15 * s, by + h); c.lineTo(x, by + h + 0.25 * s); c.lineTo(x + 0.15 * s, by + h); c.stroke();
     c.textAlign = "left"; c.textBaseline = "top"; let ty = by + pad * 0.7;
     if (T2.name) { c.font = `bold ${fs}px system-ui, sans-serif`; c.fillStyle = "#7a2a1a"; c.fillText(T2.name, bx + pad, ty); ty += lh; c.font = `${fs}px system-ui, sans-serif`; }
     c.fillStyle = "#2a2018"; for (const l of lines) { c.fillText(l, bx + pad, ty); ty += lh; } c.textBaseline = "alphabetic";
+    if (bs) {   // (the listen button: a speaker in a round button, its waves pulsing while it speaks)
+      const R = bs / 2, cx = bx + w - pad * 0.7 - R, cy = by + h / 2, ux = R / 10, k = T2.speaking ? 1 + 0.18 * Math.sin(performance.now() / 110) : 1;
+      c.fillStyle = T2.speaking ? "#2e7d32" : "#2f6fb5"; c.beginPath(); c.arc(cx, cy, R, 0, 7); c.fill();
+      c.fillStyle = "#fff"; c.beginPath(); c.moveTo(cx - 5.2 * ux, cy - 2.2 * ux); c.lineTo(cx - 2.6 * ux, cy - 2.2 * ux); c.lineTo(cx + 0.8 * ux, cy - 5.4 * ux); c.lineTo(cx + 0.8 * ux, cy + 5.4 * ux); c.lineTo(cx - 2.6 * ux, cy + 2.2 * ux); c.lineTo(cx - 5.2 * ux, cy + 2.2 * ux); c.closePath(); c.fill();
+      c.strokeStyle = "#fff"; c.lineWidth = Math.max(1, 1.2 * ux); c.lineCap = "round";
+      for (const [r, a] of [[3.4, 0.75], [5.8, 0.8]]) { c.beginPath(); c.arc(cx + 1.6 * ux, cy, r * ux * k, -a, a); c.stroke(); } c.lineCap = "butt";
+      // (where it is on the canvas, in its pixels, for a tap: a little bigger than drawn, for small fingers)
+      if (!LINE && c.getTransform) { const m = c.getTransform(), p0 = m.transformPoint(new DOMPoint(cx - R * 1.4, cy - R * 1.4)), p1 = m.transformPoint(new DOMPoint(cx + R * 1.4, cy + R * 1.4));
+        S.talkBtn = { x0: Math.min(p0.x, p1.x), y0: Math.min(p0.y, p1.y), x1: Math.max(p0.x, p1.x), y1: Math.max(p0.y, p1.y), talk: T2 }; }
+    } else if (!LINE) S.talkBtn = null;
   }
+  // (N, through Matthew, 2026-11-24: "can the popups with text from NPCs also have a "listen" button in that bubble that speaks
+  // the text? He's still learning to read"; "Use voices that match the NPC") Listening: the speaker button in a villager's
+  // bubble, or L, reads its line aloud in a voice of the villager's own, chosen from the voices the browser has: a gnome a
+  // man's voice, low, lower and slower with a white or grey beard; a gnome wife a woman's voice, a little high; a child a high
+  // voice, a little quicker; each villager always the same one. All a little slow, for a child learning to read. While it
+  // speaks, the bubble stays up, no other villager cuts in, and the music softens; the emoji in a line are not read out.
+  const SPEECH = typeof speechSynthesis !== "undefined" && typeof SpeechSynthesisUtterance === "function" ? speechSynthesis : null;
+  const SAYS_FEMALE = /female|woman|girl|samantha|victoria|karen|moira|tessa|fiona|zira|susan|serena|kate|allison|\bava\b|joanna|salli|kimberly|emma|\bamy\b|libby|sonia|aria|jenny|catherine|nicky|martha|ellie|natasha|clara|zoe/i;
+  const SAYS_MALE = /\bmale\b|\bman\b|daniel|\balex\b|fred|david|mark|george|james|\btom\b|oliver|aaron|arthur|gordon|rishi|thomas|\bguy\b|ryan|christopher|eric|brian|matthew|joey|justin|liam|william/i;
+  const OLD_BEARDS = new Set(["#f5f5f5", "#e0e0e0", "#bdbdbd"]);
+  function spoken(t) { return String(t || "").replace(/[\p{Extended_Pictographic}\u{1F1E6}-\u{1F1FF}\uFE0F\u200D]/gu, "").replace(/\s+/g, " ").trim(); }
+  function voiceOf(v) {
+    const all = SPEECH ? SPEECH.getVoices() : [], en = all.filter(x => /^en/i.test(x.lang)), pool = en.length ? en : all;
+    const female = pool.filter(x => SAYS_FEMALE.test(x.name)), male = pool.filter(x => !SAYS_FEMALE.test(x.name) && SAYS_MALE.test(x.name));
+    const want = v.kind === 0 ? male : female, from = want.length ? want : pool, q = ((v.id * 2654435761) >>> 0) / 4294967296, old = v.kind === 0 && OLD_BEARDS.has(v.look.beard);
+    return { voice: from.length ? from[v.id % from.length] : null,
+      pitch: v.kind === 2 ? 1.55 + 0.25 * q : v.kind === 1 ? 1.12 + 0.15 * q : (old ? 0.6 : 0.78) + 0.15 * q,
+      rate: v.kind === 2 ? 0.98 : v.kind === 1 ? 0.9 : old ? 0.78 : 0.86 };
+  }
+  let saying = 0;   // (the latest utterance: an earlier one's end, arriving after a new one began, leaves the music soft)
+  function listen() {
+    const T2 = S.talk; if (!SPEECH || !T2) return; const text = spoken(T2.line); if (!text) return;
+    SPEECH.cancel(); const u = new SpeechSynthesisUtterance(text), V = voiceOf(T2.v), me = ++saying;
+    if (V.voice) { u.voice = V.voice; u.lang = V.voice.lang; } else u.lang = "en-US";
+    u.pitch = V.pitch; u.rate = V.rate;
+    const done = () => { if (me !== saying) return; if (S.talk === T2) { T2.speaking = false; T2.until = Math.max(T2.until, S.frame + 60 * 2); } if (SND && SND.hush) SND.hush(1); };
+    u.onend = done; u.onerror = done;
+    T2.speaking = true; T2.until = Math.max(T2.until, S.frame + 60 * 3); if (SND && SND.hush) SND.hush(0.3);
+    SPEECH.speak(u);
+  }
+  function hushTalk() { saying++; if (SPEECH && (SPEECH.speaking || SPEECH.pending)) SPEECH.cancel(); if (SND && SND.hush) SND.hush(1); }
   // (Matthew: "trees should have squirrels running around, and generally avoiding the gnome") Squirrels: three in each great
   // tree, one in each tall one, red or grey. They run along the limbs the tree is drawn with (its crown grown again, in tiles,
   // and laid out as paths: each limb a run of points, its base joined to the limb it grows from), up and down the trunk, out
@@ -3461,7 +3518,12 @@
     else if (e.key === "f" || e.key === "F") PERF.on = !PERF.on;
     else if (e.key === "b" || e.key === "B") { e.preventDefault(); buildHere(); }
     else if (e.key === "r" || e.key === "R" || e.key === "e" || e.key === "E") { e.preventDefault(); rideToggle(); }
+    else if (e.key === "l" || e.key === "L") { e.preventDefault(); listen(); }
   });
+  // (0.0.104) a tap or a click on the listen button in a villager's bubble
+  cv.addEventListener("pointerdown", e => { const B = S.talkBtn; if (!B || B.talk !== S.talk) return; const r = cv.getBoundingClientRect();
+    const px = (e.clientX - r.left) * cv.width / r.width, py = (e.clientY - r.top) * cv.height / r.height;
+    if (px >= B.x0 && px <= B.x1 && py >= B.y0 && py <= B.y1) { e.preventDefault(); listen(); } });
   addEventListener("keyup", e => { const k = KEYS[e.key]; if (k) S.keys[k] = false; });
   addEventListener("blur", () => { for (const k in S.keys) S.keys[k] = false; });
   for (const b of document.querySelectorAll(".gw-pad button[data-k]")) {
@@ -3562,7 +3624,7 @@
     if (d.ride) S.ride = { ...d.ride, safe: d.ride.safe ? { ...d.ride.safe } : null }; if (d.mount) S.mount = { ...d.mount }; S.carrots = d.carrots || 0;
     if (HEROES[d.hero]) { S.hero = d.hero; keep("hero", S.hero); heroPicker(); }
     keep("seed", S.seed);
-    rootChunks.clear(); S.minimapAt = -1e9; S.cam.set = false; S.party = null; S.confetti = []; S.talk = null; S.parts = []; S.smoke = [];
+    rootChunks.clear(); S.minimapAt = -1e9; S.cam.set = false; S.party = null; S.confetti = []; S.talk = null; hushTalk(); S.parts = []; S.smoke = [];
   }
   function stopBot() { BOT.on = false; $("run").setAttribute("aria-pressed", "false"); for (const k in S.keys) S.keys[k] = false; }
   const stamp = () => { const d = new Date(), p = n => String(n).padStart(2, "0"); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}`; };
@@ -3676,7 +3738,55 @@
   }
   $("reset-rules").addEventListener("click", () => { if (L) L.reset(PROGRAM); });
   // ---- ⚙️ Advanced: this device's speed (600 of the gnome's steps through Hazel)
+  // (0.0.104) In full screen, no zooming of the page: a pinch (two touches, or a broken screen's phantom two) or a double tap
+  // anywhere but the picture and the pad, which never zoomed, zoomed the whole page, and in full screen that shows a corner of
+  // the picture: sky and hills. iOS Safari's pinch is its gesture events; the rest is touch-action (world.css). A zoom already
+  // there is put back to 1 on going full screen and whenever it appears there: the viewport's limit set to 1 for a moment.
+  const FS = () => document.documentElement.classList.contains("oracle-fs");
+  for (const ev of ["gesturestart", "gesturechange"]) document.addEventListener(ev, e => { if (ev === "gesturestart") WATCH.gestures++; if (FS()) { e.preventDefault(); if (ev === "gesturestart") WATCH.gesturesBlocked++; } }, { passive: false });
+  const vpMeta = document.querySelector('meta[name="viewport"]'), vpWas = vpMeta ? vpMeta.getAttribute("content") : "";
+  let unzooming = false;
+  function unzoom() { if (!vpMeta || unzooming || !window.visualViewport || Math.abs(visualViewport.scale - 1) < 0.01) return; unzooming = true; WATCH.zoomResets++;
+    vpMeta.setAttribute("content", vpWas + ", maximum-scale=1"); setTimeout(() => { vpMeta.setAttribute("content", vpWas); unzooming = false; addEventListener("resize", () => {}, { once: true }); window.dispatchEvent(new Event("resize")); }, 400); }
+  new MutationObserver(() => { if (FS()) unzoom(); }).observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+  if (window.visualViewport) visualViewport.addEventListener("resize", () => { if (FS()) unzoom(); });
+  // (0.0.104; Matthew: "add something I can run under advanced that produces a string to paste into the etherpad we used for
+  // mess up dress up with information about the camera/view state or other state that could be buggy in some way") 🐞: what
+  // the game sees, as text to paste: the page and its zoom, full screen, the canvas and its tiles, the camera and the gnome, the
+  // keys held, the touches, the frames, the pictures' memory, Hazel, the last errors
+  function bugReport() {
+    const r = n => Math.round(n), f2 = n => n == null || !isFinite(n) ? "?" : (+n).toFixed(2), ago = t => t == null ? "never" : `${((performance.now() - t) / 1000).toFixed(0)} s ago`;
+    const vv = window.visualViewport, cr = cv.getBoundingClientRect(), g = S.g || {}, med = xs => xs.length ? [...xs].sort((a, b) => a - b)[xs.length >> 1] : null;
+    const held = Object.keys(S.keys || {}).filter(k => S.keys[k]), pads = [...document.querySelectorAll(".gw-pad button.held")].map(b => b.dataset.k || b.id);
+    const fe = document.fullscreenElement || document.webkitFullscreenElement || null;
+    const lines = [
+      `🐞 Gnome world, ${(document.querySelector(".advanced-version") || {}).textContent || "version ?"} · ${new Date().toISOString()} · the page up ${((performance.now() - WATCH.t0) / 60000).toFixed(1)} min`,
+      `device: ${navigator.userAgent} · touch points ${navigator.maxTouchPoints || 0} · screen ${screen.width}×${screen.height} · dpr ${f2(devicePixelRatio)} · window ${innerWidth}×${innerHeight}${screen.orientation ? " · " + screen.orientation.type : ""}`,
+      `full screen: the page's ${FS() ? "on" : "off"} · the browser's ${fe ? (fe.id || fe.tagName.toLowerCase()) : "none"}`,
+      vv ? `page zoom: ${f2(vv.scale)} (seen ${f2(WATCH.zoomMin)} to ${f2(WATCH.zoomMax)}, last off 1 ${ago(WATCH.zoomAt)}; put back ${WATCH.zoomResets} times) · visible ${r(vv.width)}×${r(vv.height)} at ${r(vv.offsetLeft)},${r(vv.offsetTop)} · page scrolled ${r(scrollX)},${r(scrollY)}` : "page zoom: no visualViewport",
+      `canvas: on the page ${r(cr.width)}×${r(cr.height)} at ${r(cr.left)},${r(cr.top)} · pixels ${cv.width}×${cv.height} · a tile ${f2(T)} px (cap ${TCAP}${S.tileFix ? ", fixed at " + S.tileFix : ""}) · view ${f2(VW)}×${f2(VH)} tiles${S.camFix ? " · camera FIXED at " + JSON.stringify(S.camFix) : ""}`,
+      `camera: ${f2(S.cam.x)},${f2(S.cam.y)} (set ${!!S.cam.set}) · world ${WW}×${WH} tiles · the gnome at ${f2((g.x || 0) / 1000)},${f2((g.y || 0) / 1000)} moving ${r(g.vx || 0)},${r(g.vy || 0)} · ${["ground", "swim", "under", "climb"].filter(k => g[k]).join(", ") || "in the air"}${S.ride && S.ride.on ? " · riding Clover" : ""}${BOT.on ? " · speed run on" : ""}`,
+      `keys held: ${held.join(", ") || "none"} · pad buttons held: ${pads.join(", ") || "none"} · map ${S.map ? "on" : "off"}`,
+      `touches: at most ${WATCH.touchMax} at once · ${WATCH.multi} starts with two or more · pinch gestures ${WATCH.gestures} (stopped ${WATCH.gesturesBlocked}) · pointers ${JSON.stringify(WATCH.pointers)} · the last touch ${WATCH.lastTouch ? `${WATCH.lastTouch.n} at ${WATCH.lastTouch.x},${WATCH.lastTouch.y}, ${ago(WATCH.lastTouch.at)}` : "none"}`,
+      `frames: ${S.frame} · a frame ${f2(med(PERF.frames))} ms (median of the last ${PERF.frames.length}) · a tick ${f2(med(PERF.ticks))} ms · paused ${!!(P && P.paused())} · hidden ${document.hidden}`,
+      `pictures: whole ${f2(wholePx / 1e6)} of ${WHOLE_BUDGET / 1e6} Mpx · strips ${f2(stripPx / 1e6)} of ${STRIP_BUDGET / 1e6} Mpx · ${spriteCache.size} pictures, ${strips.size} strips · painted ${SPRITES.painted}`,
+      `hazel: ${S.built ? `${S.built.ok ? "ready" : "NOT ready"}${S.built.compiled ? ", compiled" : ""}${S.built.threw ? ", threw: " + S.built.threw : ""}` : "not built"} · ${S.lib || "?"}`,
+      WATCH.errors.length ? "errors: " + WATCH.errors.map(e => `${e.msg}${e.where ? " @ " + e.where : ""} ×${e.n} (first ${ago(e.first)}, last ${ago(e.last)})`).join(" | ") : "errors: none",
+    ];
+    return lines.join("\n");
+  }
+  const bugOut = document.createElement("textarea"); bugOut.readOnly = true; bugOut.rows = 7; bugOut.className = "bug-report"; bugOut.placeholder = "🐞 what the game sees shows here";
+  const bugBtn = document.createElement("button"); bugBtn.type = "button"; bugBtn.className = "primary"; bugBtn.textContent = "🐞 write down what the game sees";
+  const bugCopy = document.createElement("button"); bugCopy.type = "button"; bugCopy.textContent = "📋 copy";
+  const bugPad = document.createElement("a"); bugPad.href = (window.OracleAdvanced && window.OracleAdvanced.PAD) || "https://pad.riseup.net/p/LgBrn8VRzEJxrsmMW82I"; bugPad.target = "_blank"; bugPad.rel = "noopener"; bugPad.textContent = "📝 then paste it here";
+  bugBtn.addEventListener("click", () => { try { bugOut.value = bugReport(); } catch (e) { bugOut.value = "🐞 the report itself failed: " + (e && e.message || e); } bugCopy.textContent = "📋 copy"; });
+  bugCopy.addEventListener("click", () => { if (!bugOut.value) bugOut.value = bugReport(); bugOut.select();
+    try { navigator.clipboard.writeText(bugOut.value).then(() => { bugCopy.textContent = "📋 copied"; }, () => document.execCommand("copy")); } catch (e) { document.execCommand("copy"); } });
+  const bugCap = document.createElement("h3"); bugCap.className = "advanced-cap"; bugCap.textContent = "🐞 What the game sees, for a bug report";
+  const bugRow = document.createElement("div"); bugRow.className = "speed-row"; bugRow.append(bugBtn, bugCopy, bugPad);
+  const bugHint = document.createElement("p"); bugHint.className = "muted speed-hint"; bugHint.textContent = "When something looks wrong, press it here before reloading: the screen, its zoom and full screen, the camera, the touches the page has felt, and its last errors, as lines to paste.";
   if (window.OracleAdvanced) window.OracleAdvanced.panel({
+    extras: [bugCap, bugRow, bugOut, bugHint],
     holder: $("advanced"), name: "Gnome world", built: () => S.built, libAt: () => 0, keysIn: null,
     mode: () => ({ asked: S.built && S.built.compiled ? "compiled" : "interpreted", error: null }),
     about: "600 of the gnome's steps through Hazel, running and jumping",
@@ -3689,6 +3799,7 @@
     },
   });
   if (Q.has("test")) window.WorldTest = { gemFound, gem, spriteCache, SPRITES, birdBody, BIRD, bushSprite, drawSprite, strips, drawRabbit, gnomeProfile, RABBIT_FUR, cellWords, digSteps, ITEM, mat, wat, at, WH, WW, BOT, botPlan, dist, botEnter, botStand, botClimb, profile: gnomeProfile, front: gnome, map: () => { minimap(); return map2Cv; }, look: (x, y) => { S.camFix = x == null ? null : { x, y }; draw(); }, paintHouse, paintSmallHouse, squirrelBody, drawVillager, drawVillagerProfile, drawBusy, S, tick: n => { const h = H(); for (let i = 0; i < n; i++) tick(h); draw(); }, draw, near, code, at, mat, wat, fix, bg, stone, shape, surf0, treeMask, digOut, tile: () => T, drawPebbles, PERF, timedDraw: () => timedDraw(), lineCtx, lineScene, paintTall, leafyTree, drawLodge };
+  if (Q.has("test")) Object.assign(window.WorldTest, { listen, voiceOf, spoken, hushTalk });
   if (Q.has("test")) Object.assign(window.WorldTest, { snapshot, saveText, readSave, loadText, restartNow: () => restartNow(H()), askRestart, stopBot, digest, bot: on => { if (on !== BOT.on) $("run").click(); return BOT.on; } });
   document.body.classList.add("js");
   draw();

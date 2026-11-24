@@ -247,5 +247,5 @@
     app.holder.replaceChildren(box);
   }
   // (0.0.45) and the 📲 section alone, for the front page: one icon for every activity (offlineText, offlineNow: its own words)
-  window.OracleAdvanced = { panel, stats, painted, offline: offlineSection };
+  window.OracleAdvanced = { panel, stats, painted, offline: offlineSection, PAD };   // (0.0.104: PAD, for an app's own lines to paste, Gnome world's 🐞)
 })();

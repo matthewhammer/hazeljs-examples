@@ -17,6 +17,9 @@
 .gw-pad button { font: inherit; font-size: 1.5em; padding: 10px 0; border-radius: 12px; border: 1px solid var(--line); background: var(--paper); color: var(--ink);
   touch-action: none; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
 .gw-pad button.held { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 20%, var(--paper)); }
+/* (0.0.104) in full screen nothing scrolls and nothing zooms: a pinch or a double tap anywhere (a broken screen's phantom
+   touches too) zoomed the page, and in full screen that shows only a corner of the picture, sky and hills */
+html.oracle-fs, html.oracle-fs body { touch-action: none; overscroll-behavior: none; }
 html.oracle-fs .gw-ui { display: block; padding: 0; background: #000; }
 html.oracle-fs .gw-ui > :not(.gw-wrap):not(.fs-bar) { display: none !important; }
 html.oracle-fs .gw-ui > .gw-wrap { position: fixed; inset: 0; z-index: 1; }
@@ -41,3 +44,6 @@ html.oracle-fs .gw-ui .gw-pad button#ride { order: 4; margin-right: 8px; }
 .gw-ask-buttons { display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end; margin-top: 16px; }
 .gw-ask-buttons button { font: inherit; font-size: 1.05em; padding: 10px 16px; min-height: 44px; border-radius: 10px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); cursor: pointer; }
 .gw-ask-buttons .gw-ask-yes { border-color: var(--warn); background: color-mix(in srgb, var(--warn) 16%, var(--paper)); font-weight: 700; }
+
+/* (0.0.104) ⚙️ Advanced's 🐞: what the game sees, as lines to paste */
+textarea.bug-report { width: 100%; box-sizing: border-box; font: 12px/1.4 ui-monospace, monospace; white-space: pre; overflow: auto; }
