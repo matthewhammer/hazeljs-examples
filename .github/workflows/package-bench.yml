@@ -1,4 +1,4 @@
-# (ticket 795) every game timed four ways with one build of the hazeljs package (node/package-bench.mjs): its interpreter,
+# (ticket 795; 2026-11-24: with #2857's converters) every game timed four ways with one build of the hazeljs package (node/package-bench.mjs): its interpreter,
 # its jit, its compiler's JavaScript ahead of time, and plain JavaScript where a game has it. One runner per game, so a game's
 # four ways share a machine; the results (JSON, the printed lines, the machine) as one artifact per game. Runs on a push to
 # a bench/ branch, so main and the site are untouched.
@@ -23,6 +23,13 @@ jobs:
           repository: hazelgrove/hazeljs
           ref: b149ed58f25aa5b938d6459363861dbb95ff5f5a
           path: hazeljs-pkg
+      # (ticket 795, 2026-11-24) the same package, its hazel-lib.js from hazelgrove/hazel#2857 at a97b6f7465 (build.hazel.org/hazeljs, the
+      # converters by declared type), so the change from run 45247119864 is the library alone
+      - name: The library from #2857 a97b6f7465
+        run: |
+          curl -sfL -A "Mozilla/5.0" https://build.hazel.org/hazeljs/hazel-lib.js -o hazeljs-pkg/hazel-lib.js
+          grep -o 'build:"[0-9a-f]*"' hazeljs-pkg/hazel-lib.js | head -1
+          grep -q 'build:"a97b6f7465' hazeljs-pkg/hazel-lib.js
       - uses: actions/setup-node@v4
         with:
           node-version: 22
