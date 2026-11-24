@@ -23,7 +23,11 @@ import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
-const QUICK = process.argv.includes("--quick"), RUNS = process.argv.includes("--runs");
+const QUICK = process.argv.includes("--quick"), RUNS = process.argv.includes("--runs") || process.argv.includes("--count-tuples"), COUNT = process.argv.includes("--count-tuples");
+// (ticket 847, idea A against build 6) --aot-as-is: the ahead-of-time way is the game's own compiled.js as the site ships it,
+// not the package's compileProgram in it (a package whose records are objects breaks the page's own converters, written for
+// arrays); --no-interp: the interpreter not built nor timed
+const AOT_AS_IS = process.argv.includes("--aot-as-is"), NO_INTERP = process.argv.includes("--no-interp");
 const args = process.argv.slice(2).filter(a => !a.startsWith("--"));
 const [GAME, PKG, OUT] = args;
 if (!GAME || !PKG) { console.log("usage: node node/package-bench.mjs <game> <hazeljs package dir> [out.json] [--quick]"); process.exit(2); }
@@ -68,7 +72,7 @@ const runSpec = GAME === "astrology" ? { ...spec, tail: ONE_READING } : spec;
 
 // ---- the one-time costs, and the four ways
 const once = {};
-let t = now(); const built = Hazel.runProgram(runSpec); once.interpretedBuildMs = now() - t;
+let t = now(); const built = NO_INTERP ? { ok: true, value: null } : Hazel.runProgram(runSpec); once.interpretedBuildMs = NO_INTERP ? null : now() - t;
 if (!built.ok) { console.log("the interpreter did not build the rules", JSON.stringify(built.errors).slice(0, 500)); process.exit(1); }
 t = now(); const jitted = Hazel.jitProgram(spec); once.jitBuildMs = now() - t;
 once.jitCompiled = jitted.compiled; once.jitReason = jitted.reason || null;
@@ -81,11 +85,14 @@ const RT = "  const $R = (", PROG = "  const P = (function ($R) {\n", END = "\n 
 const a = page.indexOf(RT), b = page.indexOf(PROG), c = page.indexOf(END);
 if (a < 0 || b < a || c < b) { console.log("compiled.js is not as expected"); process.exit(1); }
 const pageMade = (page.match(/hazelgrove\/hazel ([0-9a-f]{7,40})/) || [])[1] || null;
-const ours = page.slice(0, a) + RT + comp.runtime + ");\n" + PROG + comp.js + page.slice(c);
+let ours = page.slice(0, a) + RT + comp.runtime + ");\n" + PROG + comp.js + page.slice(c);
+// (--count-tuples, ticket 847: how many tuples the compiled rules make with every entry labeled, with some, as each game plays its run)
+if (COUNT) { const at = ours.indexOf("tup(vs, ls) {"); if (at < 0) { console.log("no tup in the runtime"); process.exit(1); }
+  ours = ours.slice(0, at) + 'tup(vs, ls) { const C = globalThis.$TC || (globalThis.$TC = { all: 0, some: 0 }); C[ls.every(l => l !== null) ? "all" : "some"]++;' + ours.slice(at + "tup(vs, ls) {".length); }
 once.wrappedBytes = ours.length; once.pageCompiledFrom = pageMade;
-t = now(); const C = script(ours); once.compiledLoadMs = now() - t;
+t = now(); const C = script(AOT_AS_IS ? page : ours); once.compiledLoadMs = now() - t; once.aotAsIs = AOT_AS_IS;
 const P = existsSync(new URL(`../${GAME}/plain.js`, import.meta.url)) ? script(file("plain.js")) : null;
-const WAYS = [["interpreted", built.value], ["jit", jitted.value], ["compiled", C], ...(P ? [["plain JS", P]] : [])];
+const WAYS = [...(NO_INTERP ? [] : [["interpreted", built.value]]), ["jit", jitted.value], ["compiled", C], ...(P ? [["plain JS", P]] : [])];
 
 // ---- the clock (node/three-way.mjs's)
 const median = xs => { const s = [...xs].sort((x, y) => x - y); return s.length % 2 ? s[(s.length - 1) / 2] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2; };
@@ -143,7 +150,7 @@ if (RUNS) {
   for (const s of [{ tag: "One" }, { tag: "CelticCross" }, { tag: "YearAhead", value: { start: 10, theme: true } }])
     op(`a deal, ${s.tag}`, e => e.deal(s, us, true));
 } else if (GAME === "astrology") {
-  WAYS[0][1] = { reading: () => { const r = Hazel.runProgram(runSpec); if (!r.ok) throw new Error("not built"); return r.value; } };
+  if (!NO_INTERP) WAYS[0][1] = { reading: () => { const r = Hazel.runProgram(runSpec); if (!r.ok) throw new Error("not built"); return r.value; } };
   op("a chart (interpreted: the whole program built each time)", e => e.reading(BIRTH, SITE, DAY));
 } else if (GAME === "checkers") {
   let g = C.start; for (let i = 0; i < 8; i++) { const ms = C.moves(g); g = C.apply(g, ms[Math.floor(draw() * ms.length)]); }
@@ -238,9 +245,10 @@ function player(e, fresh) {
   return p;
 }
 function run(name, rec, replay) {
+  if (COUNT) { const C = globalThis.$TC || { all: 0, some: 0 }; console.log(`tuples, ${GAME}, ${name}: every entry labeled ${C.all}, some labeled ${C.some}`); runs.push({ name, tuples: { ...C } }); return; }
   const row = { name, steps: rec.inputs.length, ways: {} };
   const want = replay(player(C, false).call, rec);
-  const ways = [WAYS[0], WAYS[1], ["jit, fresh copies", jitted.value, true], ...WAYS.slice(2)];
+  const ways = WAYS.flatMap(w => w[0] === "jit" ? [w, ["jit, fresh copies", jitted.value, true]] : [w]);
   for (const [way, impl, fresh] of ways) {
     try {
       const play = () => { const p = player(impl, !!fresh); const end = replay(p.call, rec); return { end, ms: p.ms, calls: p.calls }; };

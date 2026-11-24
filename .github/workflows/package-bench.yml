@@ -1,10 +1,8 @@
-# (ticket 795; 2026-11-24: with #2857's converters) every game timed four ways with one build of the hazeljs package (node/package-bench.mjs): its interpreter,
-# its jit, its compiler's JavaScript ahead of time, and plain JavaScript where a game has it. One runner per game, so a game's
-# four ways share a machine; the results (JSON, the printed lines, the machine) as one artifact per game. Runs on a push to
-# a bench/ branch, so main and the site are untouched.
-# (2026-11-24, branch bench/runs-ca851b4: #2857 at ca851b422d, the memos as links on the objects, not WeakMaps) with --runs: each game's own run of states, every way from the same start, each
-# call given what that way's last call answered (the jit's memos meet only what a page would give them); the three games
-# whose calls stand alone (I Ching, tarot, astrology) have no run and are left out.
+# (ticket 847, 2026-11-24) records the page's way, idea A against idea C: each game's own run of states (node/package-bench.mjs
+# --runs) twice on one runner, through the jit of hazeljs 0.0.12 (hazelgrove/hazel ec2a330996, build 6: records as arrays
+# carrying their labels, idea C) and through the jit of hazelgrove/hazel's trial/847-records-objects (records as plain objects,
+# idea A), the games' own compiled.js as the ahead-of-time reference for both (--aot-as-is), the interpreter left out. Runs on
+# a push to a bench/ branch, so main and the site are untouched.
 name: package bench
 on:
   push:
@@ -13,26 +11,27 @@ on:
 jobs:
   bench:
     runs-on: ubuntu-latest
-    timeout-minutes: 150
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
         game: [checkers, go, minesweeper, mahjong, solitaire, mahjong-solitaire, pinball, downhill, bricks, snake, trails, starwave, bugs, dig]
     steps:
       - uses: actions/checkout@v4
-      # hazeljs 0.0.11, not on npm: hazelgrove/hazeljs's editor-in-package at the commit that made it
+      # hazeljs 0.0.12, not on npm: hazelgrove/hazeljs's editor-in-package at the commit that made it (hazel-lib.js from ec2a330996)
       - uses: actions/checkout@v4
         with:
           repository: hazelgrove/hazeljs
-          ref: b149ed58f25aa5b938d6459363861dbb95ff5f5a
-          path: hazeljs-pkg
-      # (ticket 795, 2026-11-24) the same package, its hazel-lib.js from hazelgrove/hazel#2857 at a97b6f7465 (build.hazel.org/hazeljs, the
-      # converters by declared type), so the change from run 45247119864 is the library alone
-      - name: The library from #2857 ca851b422d
+          ref: 41c6cb0
+          path: pkg-c
+      - name: The same package with the trial's library (idea A)
         run: |
-          curl -sfL -A "Mozilla/5.0" https://build.hazel.org/hazeljs/hazel-lib.js -o hazeljs-pkg/hazel-lib.js
-          grep -o 'build:"[0-9a-f]*"' hazeljs-pkg/hazel-lib.js | head -1
-          grep -q 'build:"ca851b422d' hazeljs-pkg/hazel-lib.js
+          cp -r pkg-c pkg-a
+          curl -sfL -A "Mozilla/5.0" https://build.hazel.org/trial/847-records-objects/hazel-lib.js -o pkg-a/hazel-lib.js
+          grep -o 'build:"[0-9a-f]*"' pkg-c/hazel-lib.js | head -1
+          grep -o 'build:"[0-9a-f]*"' pkg-a/hazel-lib.js | head -1
+          grep -q 'build:"ec2a330996' pkg-c/hazel-lib.js
+          grep -q 'build:"TRIALSHA' pkg-a/hazel-lib.js
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -40,12 +39,13 @@ jobs:
         run: |
           mkdir -p bench
           { nproc; grep -m1 'model name' /proc/cpuinfo; node --version; } | tee bench/${{ matrix.game }}-machine.txt
-      - name: Four ways
+      - name: Idea C, then idea A, on this runner
         run: |
           ulimit -s unlimited || ulimit -s 65536
-          node --stack-size=30000 --max-old-space-size=6000 node/package-bench.mjs ${{ matrix.game }} hazeljs-pkg bench/${{ matrix.game }}-runs.json --runs | tee bench/${{ matrix.game }}-runs.txt
+          node --stack-size=30000 --max-old-space-size=6000 node/package-bench.mjs ${{ matrix.game }} pkg-c bench/${{ matrix.game }}-c.json --runs --aot-as-is --no-interp | tee bench/${{ matrix.game }}-c.txt
+          node --stack-size=30000 --max-old-space-size=6000 node/package-bench.mjs ${{ matrix.game }} pkg-a bench/${{ matrix.game }}-a.json --runs --aot-as-is --no-interp | tee bench/${{ matrix.game }}-a.txt
       - uses: actions/upload-artifact@v4
         if: ${{ always() }}
         with:
-          name: runs-${{ matrix.game }}
+          name: ac-${{ matrix.game }}
           path: bench/
