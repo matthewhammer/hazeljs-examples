@@ -22,7 +22,7 @@
   "use strict";
   const LIB_JIT = "https://build.hazel.org/hazeljs/hazel-lib.js", LIB_NPM = "https://cdn.jsdelivr.net/npm/hazeljs@0.0.4/hazel-lib.js";
   const PROGRAM = "world", MODULES = ["World"];
-  const TAIL = "(plan = World.plan, ground = World.ground, village = World.village, furnish = World.furnish, limbs = World.limbs, styles = World.styles, beaver = World.beaver, water_row = World.water_row, step = World.step, roots = World.roots, threads = World.threads, greet = World.greet)";
+  const TAIL = "(plan = World.plan, ground = World.ground, village = World.village, furnish = World.furnish, limbs = World.limbs, styles = World.styles, beaver = World.beaver, water_row = World.water_row, step = World.step, roots = World.roots, threads = World.threads, greet = World.greet, dig_steps = World.dig_steps)";
   const KEY = "hazeljs-examples/world/";
   const Q = new URLSearchParams(location.search);
   const $ = id => document.getElementById(id);
@@ -45,9 +45,13 @@
   // each kind of ground, from Hazel (World.ground): its pores (0 to 1), water's flow through it (a share of the pores a step), the
   // share that clings, the steps to dig it, its color
   const PORES = new Float32Array(10), FLOW = new Float32Array(10), CLING = new Float32Array(10), DIG = new Uint8Array(10), COLOR = [], NAME = [];
+  // (0.0.95) the steps a tile takes to dig, from the rules (World.dig_steps), for each digger (none, the good, the super), each kind
+  // of ground, and each band of rows: the ground, the bedrock (the last four rows) and the world's floor (the very last)
+  const DIGT = new Uint8Array(3 * 10 * 3);
+  const digSteps = (m, r, tool) => m > 9 ? 0 : DIGT[((Math.min(2, Math.max(0, tool | 0)) * 10 + m) * 3) + (r >= WH - 1 ? 2 : r >= WH - 4 ? 1 : 0)];
   const S = { built: null, lib: "", libFailed: false, plan: null, seed: kept("seed", 7), rivers: [], dams: [], lodges: [], beavers: [], rooms: [], villages: [],
     greats: [], trees: [], bushes: [], shrooms: [], flowers: [], rootSets: [], threadSets: [], rootPlan: [], boulders: [], ducts: [], lamps: [], items: [], houses: [], bridges: [], smoke: [], parts: [], drops: [], rain: 0, rainAt: 0,
-    styles: [], dry: [], works: new Map(), windNow: 0.2, leaves: [], g: null, hearts: 5, gems: kept("gems", 0), hurtAt: -1e9, faintAt: 0, start: { x: 12500, y: 0 }, keys: { left: false, right: false, up: false, down: false, dig: false },
+    styles: [], dry: [], works: new Map(), windNow: 0.2, leaves: [], g: null, hero: kept("hero", "dad"), hearts: 5, gems: kept("gems", 0), hurtAt: -1e9, faintAt: 0, start: { x: 12500, y: 0 }, keys: { left: false, right: false, up: false, down: false, dig: false },
     jumpQueued: false, cam: { x: 0, y: 0, set: false }, frame: 0, map: kept("map", true), banner: null, places: [], stepMs: [], beaverAt: 0, damAt: 0, minimapAt: -1e9, dirty: true };
   const H = () => S.built && S.built.ok ? S.built.value : null;
   let seedRand = 1;
@@ -57,6 +61,7 @@
   function build(h, seed) {
     const p = h.plan(seed); S.plan = p; seedRand = seed * 7 + 3;
     for (let k = 0; k <= 9; k++) { const gr = h.ground(k); PORES[k] = gr.pores / 100; FLOW[k] = gr.flow / 1000; CLING[k] = gr.cling / 100; DIG[k] = gr.dig;
+      for (let t = 0; t < 3; t++) [60, WH - 3, WH - 1].forEach((r, b) => { DIGT[(t * 10 + k) * 3 + b] = h.dig_steps ? h.dig_steps(k, r, t) : t === 0 && b < 2 && k <= 5 ? gr.dig : 0; });
       COLOR[k] = "#" + gr.color.toString(16).padStart(6, "0"); NAME[k] = gr.name; }
     S.styles = h.styles;
     mat.fill(AIR); wat.fill(0); bg.fill(B_NONE); fix.fill(0); gem.fill(0); root.fill(0); stone.fill(0); shape.fill(0);
@@ -111,6 +116,7 @@
     // the villages, deep under the ground
     S.rooms = []; S.ducts = []; S.lamps = []; S.items = []; S.villages = [];
     for (const q of [...byKind(20), ...byKind(21)]) village(h, q, q.kind === 21 ? 1 : 0, p.seed);
+    if (!S.items.some(it => it.kind === "good")) { const ws = S.rooms.find(R => R.kind === 4) || S.rooms[0]; if (ws) S.items.push({ kind: "good", x: ws.x + 0.9, y: ws.y + 3.2, taken: false }); }
     // the great trees, their limbs, platforms, ladders or stair, houses, and rope bridges to the trees beside the stair tree
     S.greats = []; S.houses = []; S.bridges = [];
     S.trees = byKind(50).map(q => ({ x: q.x, kind: q.v, h: q.h, alive: true, grow: 1, fallAt: 0, regrow: 0, seed: q.x * 13 + q.h }));
@@ -148,6 +154,14 @@
         if (m === AIR) { if (r >= t && r > surf0[c]) wat[i] = 1; continue; }
         if (PORES[m] > 0 && wat[i] === 0) wat[i] = r >= t ? 1 : r < surf0[c] + 1 ? 0.3 : m === SAND ? 0.15 : 0.3; }
     }
+    // (0.0.95) the super digger, deep: on the floor of the deepest cave in the limestone, which the good digger digs into; with no
+    // cave, in a pocket in a body of granite near the bedrock
+    { let best = -1; for (let i = 0; i + WW < NN; i++) if (bg[i] === B_CAVE && mat[i] === AIR && mat[i + WW] !== AIR) best = i;
+      if (best < 0) { const c0 = Math.floor(WW * 0.62), r0 = WH - 11;
+        for (let c = c0 - 4; c <= c0 + 4; c++) for (let r = r0 - 3; r <= r0 + 3; r++) { const i = at(c, r); mat[i] = GRANITE; bg[i] = B_NONE; wat[i] = 0; gem[i] = 0; stone[i] = 0; root[i] = 0; shape[i] = 0; }
+        for (let c = c0 - 1; c <= c0 + 1; c++) for (let r = r0 - 1; r <= r0; r++) { const i = at(c, r); mat[i] = AIR; bg[i] = B_CAVE; }
+        best = at(c0, r0); }
+      const c = best % WW, r = (best - c) / WW; S.items.push({ kind: "super", x: c + 0.5, y: r + 0.45, taken: false }); }
     for (const R of S.rivers) holdRiver(R);
     for (let c = 0; c < WW; c++) top[c] = topOf(c);
     S.dry = []; for (let i = 0; i < NN; i++) if (mat[i] === AIR && (bg[i] === B_PLASTER || bg[i] === B_WOOD || bg[i] === B_STAIR)) S.dry.push(i);
@@ -159,7 +173,7 @@
     ];
     const g0 = { x: 12500, y: top[12] * 1000 };
     S.start = g0;
-    S.g = { x: g0.x, y: g0.y, vx: 0, vy: 0, face: 1, ground: true, climb: false, swim: false, under: false, air: 600, gear: false, dc: -1, dr: -1, dt: 0, ev: 0 };
+    S.g = { x: g0.x, y: g0.y, vx: 0, vy: 0, face: 1, ground: true, climb: false, swim: false, under: false, air: 600, gear: false, tool: 0, dc: -1, dr: -1, dt: 0, ev: 0 };
     S.works = new Map(); S.hearts = 5; S.cam.set = false; S.smoke = []; S.parts = []; S.pebbles = []; S.piles = []; S.fallen = []; S.talk = null; rootChunks.clear(); S.minimapAt = -1e9; S.rain = 0; S.rainAt = S.frame + 60 * 60; S.banner = { text: "🌍 Gnome world", t: performance.now() };
   }
   const riverAt = x => S.rivers.find(R => x >= R.x - 0.5 && x < R.x + R.w + 0.5) || null;
@@ -200,6 +214,9 @@
       if (R.up === 1) S.lamps.push({ x: cx + 0.5, y: R.y + 1.5, r: 4.5, sun: true }); }
     // the diving gear, hung in the village's bath house (or its hall)
     if (which === 0) { const bath = rooms.find(R => R.kind === 7) || rooms[0]; S.items.push({ kind: "gear", x: bath.x + bath.w - 1.2, y: bath.y + 2.2, taken: false }); }
+    // (Matthew: "let's give more power ups in gnome world: * good digger * super digger") the good digger, leaning in the hamlet's
+    // workshop (with no hamlet, the village's: placed once the villages are laid out)
+    if (which === 1) { const ws = rooms.find(R => R.kind === 4) || rooms[rooms.length - 1]; S.items.push({ kind: "good", x: ws.x + 0.9, y: ws.y + 3.2, taken: false }); }
     S.villages.push({ which, x0, x1: Math.max(...rooms.map(R => R.x + R.w)), top: s0, bottom });
   }
   // a great tree: its limbs (World.limbs), a platform out along each, a ladder up its trunk (30) or a stair inside it (31), the
@@ -291,7 +308,7 @@
   const treeAt = (c, r) => inside(c, r) && treeMask[at(c, r)] === 1;
   const boulderAt = (c, r) => S.boulders.some(b => b.c === c && (b.r === r || (b.falling && b.oy > 0 && b.r + 1 === r)));
   function code(c, r) {
-    if (!inside(c, r)) return 7;
+    if (!inside(c, r)) return 8;   // (0.0.95: masonry, which nothing digs; it was granite, which the diggers dig)
     const i = at(c, r), m = mat[i];
     if (m !== AIR) return m + 64 * shape[i];
     // (what is there, its water and whether it can be climbed, each worked out apart and then added: a platform across a tree's
@@ -372,9 +389,9 @@
   const stonesIn = v => { const r = seededR(v * 5 + 1), n = 1 + (v % 3), out = []; for (let k = 0; k < n; k++) { const rad = (n === 1 ? 0.2 : 0.13) + 0.09 * r(k * 3 + 2); out.push({ dx: rad + (1 - 2 * rad) * (n === 1 ? 0.5 + 0.3 * (r(k * 3) - 0.5) : (k + 0.5) / n), dy: rad + (1 - 2 * rad) * r(k * 3 + 1), rad, v: v * 7 + k }); } return out; };
   // (a tile's stones, set in it, drawn once for each look and size: a picture a tile square)
   const stoneTiles = new Map();
-  function stoneTile(v) { const key = v + ":" + T; let cv = stoneTiles.get(key); if (cv) return cv;
+  function stoneTile(v) { const key = v + ":" + T + (LINE ? ":line" : ""); let cv = stoneTiles.get(key); if (cv) return cv;
     if (stoneTiles.size > 400) stoneTiles.clear(); cv = document.createElement("canvas"); cv.width = cv.height = Math.ceil(T); const c = cv.getContext("2d");
-    for (const st of stonesIn(v)) drawStone(c, st.dx * T, st.dy * T, st.rad * T, st.v, true, false); stoneTiles.set(key, cv); return cv; }
+    const c2 = LINE ? lineCtx(c) : c; for (const st of stonesIn(v)) drawStone(c2, st.dx * T, st.dy * T, st.rad * T, st.v, true, false); stoneTiles.set(key, cv); return cv; }
   function dropStones(c, r, v) {
     for (const st of stonesIn(v)) S.pebbles.push({ x: c + st.dx, y: r + st.dy + st.rad * 0.6, vy: 0, vx: (st.dx - 0.5) * 0.01, rad: st.rad, v: st.v, front: seededR(st.v)(9) < 0.4, rest: false });
   }
@@ -431,13 +448,20 @@
   // gem, the nearest first, digging to it, swimming (with the gear) where the water is. Its way to each is found here, over the
   // tiles (a cheapest-path search, each move's cost the steps it takes); a target it cannot get to, after four tries, is left
   // and reported. (The search wants Hazel too: over the world's 57,344 tiles it waits on arrays, ticket 846)
+  // (0.0.95) the things to find: each one's sign, its label over it, its name in the speed run, its banner when found
+  const ITEM = {
+    climb: { icon: "🧗", label: "🧗 tree-climbing pack", what: "🧗 the climbing pack", banner: "🧗 The tree-climbing pack: climb any tree, like a squirrel (↑)" },
+    gear: { icon: "🤿", label: "🤿 diving gear", what: "🤿 the diving gear", banner: "🤿 The diving gear: breathe under the water as long as you like" },
+    good: { icon: "⛏️", label: "⛏️ good digger", what: "⛏️ the good digger", banner: "⛏️ The good digger: tough ground goes faster, and limestone and granite give way" },
+    super: { icon: "⚒️", label: "⚒️ super digger", what: "⚒️ the super digger", banner: "⚒️ The super digger: three times as fast, through anything, even the bedrock" },
+  };
   const BOT = { on: false, phase: "", queue: [], cur: null, path: [], k: 0, lastCell: -1, still: 0, tries: 0, skipped: [], frames: 0, t0: 0, items: 0, parts: 0, partsAll: 0, gems: 0, gemsAll: 0, report: null };
   const dist = new Float64Array(NN), prev = new Int32Array(NN), heapI = new Int32Array(NN * 8), heapD = new Float64Array(NN * 8);   // (64-bit: in 32, a cost a hair lower rounded back to the same, and two tiles went on "improving" each other until the search's limit)
   function botClimb(c, r) { const i = at(c, r); return fix[i] === F_LADDER || fix[i] === F_STAIR || fix[i] === F_HATCH || bg[i] === B_DUG || wat[i] >= 0.5 || (!!S.g.climbPack && treeAt(c, r)); }
   function botStand(c, r) { if (r + 1 >= WH) return true; const b = at(c, r + 1); return mat[b] !== AIR || fix[b] === F_PLAT || fix[b] === F_BRIDGE || fix[b] === F_HATCH || boulderAt(c, r + 1); }
   // (a tile's cost to go into: open, a step; ground that can be dug, its digging too; rock that cannot, a boulder: no way)
   function botEnter(c, r) { if (!inside(c, r)) return Infinity; const i = at(c, r), m = mat[i];
-    if (m !== AIR) return m >= SOIL && m <= SHALE ? 1 + DIG[m] / 11 : Infinity;
+    if (m !== AIR) { const d = digSteps(m, r, S.g.tool); return d > 0 ? 1 + d / 11 : Infinity; }
     if (boulderAt(c, r)) return Infinity;
     if (wat[i] >= 0.5 && !S.g.gear) { const deep = r > 0 && wat[at(c, r - 1)] >= 0.5 && r > 1 && wat[at(c, r - 2)] >= 0.5; return deep ? 40 : 1.6; }
     return 1; }
@@ -461,7 +485,10 @@
   }
   function botTargets(phase) {
     const g = S.g, gc = g.x / 1000, gr = g.y / 1000;
-    if (phase === "items") return S.items.filter(it => !it.taken).sort((a, b) => Math.hypot(a.x - gc, a.y - gr) - Math.hypot(b.x - gc, b.y - gr)).map(it => ({ c: Math.floor(it.x), r: Math.floor(it.y), what: it.kind === "climb" ? "🧗 the climbing pack" : "🤿 the diving gear", item: it }));
+    if (phase === "items") { const left = S.items.filter(it => !it.taken).sort((a, b) => Math.hypot(a.x - gc, a.y - gr) - Math.hypot(b.x - gc, b.y - gr));
+      // (the good digger before the super digger, which lies in rock that only a digger digs)
+      const sup = left.findIndex(it => it.kind === "super"), good = left.findIndex(it => it.kind === "good"); if (sup >= 0 && good > sup) left.splice(good, 0, ...left.splice(sup, 1));
+      return left.map(it => ({ c: Math.floor(it.x), r: Math.floor(it.y), what: ITEM[it.kind].what, item: it })); }
     if (phase === "trees") { const out = [];
       for (const G of [...S.greats].sort((a, b) => Math.abs(a.x - gc) - Math.abs(b.x - gc))) {
         const name = G.kind === 31 ? "the stair tree" : "a great tree";
@@ -532,8 +559,10 @@
       if (i >= 0 && gem[i] && mat[i] === AIR) { gem[i] = 0; S.gems++; keep("gems", S.gems); popWord("💎", c + 0.5, r + 0.3); if (SND) SND.gem(); } }
     // the diving gear, walked into
     for (const it of S.items) if (!it.taken && Math.abs(it.x - g.x / 1000) < 0.8 && Math.abs(it.y - (g.y / 1000 - 0.5)) < 1) { it.taken = true; if (SND) SND.gem();
-      if (it.kind === "climb") { S.g = { ...S.g, climbPack: true }; S.banner = { text: "🧗 The tree-climbing pack: climb any tree, like a squirrel (↑)", t: performance.now() }; }
-      else { S.g = { ...S.g, gear: true }; S.banner = { text: "🤿 The diving gear: breathe under the water as long as you like", t: performance.now() }; } }
+      if (it.kind === "climb") S.g = { ...S.g, climbPack: true };
+      else if (it.kind === "gear") S.g = { ...S.g, gear: true };
+      else S.g = { ...S.g, tool: Math.max(S.g.tool || 0, it.kind === "super" ? 2 : 1) };
+      S.banner = { text: ITEM[it.kind].banner, t: performance.now() }; }
   }
   // ---- the boulders: one with open air under it wobbles, then falls (slower in the water), landing where it can fall no further;
   // falling on the gnome, a heart
@@ -591,13 +620,20 @@
   const sway = (seed, k = 1) => { const w = S.windNow || 0, t = performance.now(); return k * (w * 0.05 + (0.012 + 0.03 * Math.abs(w)) * Math.sin(t / (900 - 380 * Math.min(1, Math.abs(w))) + seed * 1.7)); };
   // (a picture drawn in bands, each pushed across by the sway, more toward its top (a tree bending), or, for a willow's
   // tassels, more toward their tips, below)
+  // (0.0.95, Matthew: "the wind reduces the FPS to 11FPS?") Each band shifted across by whole pixels, not sheared: a sheared
+  // picture is filtered as it is drawn, and in full screen the trees took 47 ms a frame so; shifted, at the picture's own size
+  // (sprite: painted at the tile's size), a band is copied as it is, a tenth the cost. As many bands as keep each step to two and a half
+  // pixels or so (80 at most), so that the bend still reads as a curve
   function drawSwaying(sp, x, y, k, lean, tassels = false, n = 6) {
-    const f = T / sp.res * k, w = sp.cv.width, h = sp.cv.height, hT = h / sp.res * k;
+    const f = T / sp.res * k, w = sp.cv.width, h = sp.cv.height, hT = h / sp.res * k, one = Math.abs(f - 1) < 0.001;
     const push = v => (tassels ? Math.max(0, (v - 0.12) / 0.88) ** 1.3 * 1.6 + (1 - v) * 0.3 : (1 - v) * (1 - v)) * lean * hT * T;   // (v: 0 at the top, 1 at the foot)
-    const X = x - sp.ox * T * k, Y = y - sp.oy * T * k;
-    if (Math.abs(lean) < 0.0005) { ctx.drawImage(sp.cv, X, Y, w * f, h * f); return; }
-    for (let i = 0; i < n; i++) { const sy = Math.floor(i * h / n), sh = Math.min(h - sy, Math.ceil(h / n) + 1), pt = push(sy / h), pb = push((sy + sh) / h);
-      ctx.save(); ctx.translate(X + pt, Y + sy * f); ctx.transform(1, 0, (pb - pt) / (sh * f), 1, 0, 0); ctx.drawImage(sp.cv, 0, sy, w, sh, 0, 0, w * f, sh * f); ctx.restore(); }
+    const X = x - sp.ox * T * k, Y = y - sp.oy * T * k, RX = Math.round(X), RY = Math.round(Y);
+    if (Math.abs(lean) < 0.0005) { if (one) ctx.drawImage(sp.cv, RX, RY); else ctx.drawImage(sp.cv, X, Y, w * f, h * f); return; }
+    const span = Math.abs(push(1) - push(0)) + Math.abs(push(0.5) - push(0)), m = Math.max(n, Math.min(80, Math.ceil(span / 2.5)));
+    for (let i = 0; i < m; i++) { const sy = Math.floor(i * h / m), sh = Math.floor((i + 1) * h / m) - sy; if (sh <= 0) continue;
+      const dx = Math.round(push((sy + sh / 2) / h));
+      if (one) ctx.drawImage(sp.cv, 0, sy, w, sh, RX + dx, RY + sy, w, sh);
+      else { const sh1 = Math.min(h - sy, sh + 1); ctx.drawImage(sp.cv, 0, sy, w, sh1, X + dx, Y + sy * f, w * f, sh1 * f); } }
   }
   // ---- one frame: the gnome, the boulders, the water, the beavers, the smoke; the camera after the gnome
   function tick(h) {
@@ -620,20 +656,27 @@
   // ---- drawing: the sky and far hills, the trees, the ground (its tiles; the water in it as blue, darker the fuller), the
   // rooms and their things, the great trees and their houses, the beavers, the boulders, the gnome, the water over all that is
   // in it, the dark underground (lit by the lantern, the lamps and the light shafts), and the words and the map
-  const cv = $("world"), ctx = cv.getContext("2d");
+  const cv = $("world"), realCtx = cv.getContext("2d"); let ctx = realCtx, LINE = false;
   let T = 32, VW = 30, VH = 17;
+  // (0.0.95, Matthew: "the wind reduces the FPS to 11FPS?") At most 56 pixels a tile: in full screen, at twice the pixels of the
+  // screen, a tile was 80 and more, every picture stretched and filtered to it, 92 ms a frame; the canvas is drawn at most this
+  // fine and the browser scales it to the screen. The trees, the bushes and the roots are painted at this size, and drawn 1:1
+  const TCAP = 56;
+  const tileFor = (w, hgt) => Math.max(12, Math.round(hgt > w ? w / 15 : Math.min(w / 28, hgt / 15.75)));
   function fit() {
     const r = cv.getBoundingClientRect(), d = Math.min(2, window.devicePixelRatio || 1);
-    const w = Math.max(320, Math.round(r.width * d)), hgt = Math.max(180, Math.round(r.height * d));
+    let w = Math.max(320, Math.round(r.width * d)), hgt = Math.max(180, Math.round(r.height * d));
+    const t0 = tileFor(w, hgt); if (t0 > TCAP) { const q = TCAP / t0; w = Math.round(w * q); hgt = Math.round(hgt * q); }
     if (cv.width !== w || cv.height !== hgt) { cv.width = w; cv.height = hgt; texCache.clear(); }
-    T = Math.max(12, Math.round(hgt > w ? w / 15 : Math.min(w / 28, hgt / 15.75)));
+    T = Math.min(TCAP, tileFor(w, hgt));
     VW = cv.width / T; VH = cv.height / T;
   }
   // (each kind of ground a few tiles' worth of texture, made once for the tile's size: specks, layers, cracks, bricks, planks)
   const texCache = new Map();
   function tex(kind, v) {
-    const key = kind * 8 + v; let t = texCache.get(key); if (t) return t;
+    const key = kind * 8 + v + (LINE ? 100000 : 0); let t = texCache.get(key); if (t) return t;
     t = document.createElement("canvas"); t.width = t.height = T; const c = t.getContext("2d");
+    if (LINE) { c.fillStyle = "#fff"; c.fillRect(0, 0, T, T); texCache.set(key, t); return t; }
     let r = 1 + kind * 7 + v * 131; const R = () => { r = (r * 16807) % 2147483647; return r / 2147483647; };
     const base = kind === 100 ? "#4a2f1d" : kind === 101 ? "#e8dcc4" : kind === 102 ? "#8a5a33" : kind === 103 ? "#6b6258" : kind === 104 ? "#3c3a3a" : COLOR[kind];
     c.fillStyle = base; c.fillRect(0, 0, T, T);
@@ -737,7 +780,7 @@
   const dirtyRootsAt = (c, r) => { const ch = rootChunks.get(Math.floor(c / RCH) + "," + Math.floor(r / RCH)); if (ch) ch.dirty = true; };
   const dirtyRootsX = (x0, x1) => { for (const [k, ch] of rootChunks) { const cx = +k.split(",")[0]; if ((cx + 1) * RCH >= x0 && cx * RCH <= x1) ch.dirty = true; } };
   function rootChunk(cx, cy) {
-    const k = cx + "," + cy, res = Math.min(T, 48); let ch = rootChunks.get(k);
+    const k = cx + "," + cy, res = Math.min(T, TCAP); let ch = rootChunks.get(k);
     if (ch && ch.res === res && !ch.dirty) { rootChunks.delete(k); rootChunks.set(k, ch); return ch; }
     const x0 = cx * RCH, y0 = cy * RCH, W = Math.ceil(RCH * res), sets = S.rootSets.filter(R => R.x1 >= x0 - 1 && R.x0 <= x0 + RCH + 1), tsets = S.threadSets.filter(R => R.x1 >= x0 - 1 && R.x0 <= x0 + RCH + 1);
     const mk = () => { const c = document.createElement("canvas"); c.width = c.height = W; return c; }, tmp = mk(), tg = tmp.getContext("2d");
@@ -765,16 +808,30 @@
     return ch;
   }
   function drawRootChunks(c0, c1, r0, r1, s, which) {
+    if (LINE) return;
     for (let cy = Math.floor(r0 / RCH); cy <= Math.floor(r1 / RCH); cy++) for (let cx = Math.floor(c0 / RCH); cx <= Math.floor(c1 / RCH); cx++) {
       const ch = rootChunk(cx, cy), img = ch[which]; if (img) ctx.drawImage(img, cx * RCH * s, cy * RCH * s, RCH * s, RCH * s); }
   }
+  // (Matthew: "let's add a gnome picker --- the user can choose which main char they want: gnome dad (current choice), gnome mom,
+  // gnome girl, gnome boy") who the player is, each one's look: the cap, the clothes, the hair, and size (the children four
+  // fifths as tall, standing on the same ground); dad's white beard and moustache; mom's auburn braids over her shoulders, her
+  // dress and apron; the girl's honey pigtails and freckles, her dress and apron; the boy's brown fringe and freckles
+  const HEROES = {
+    dad: { name: "Gnome dad", size: 1, cap: "#dc2626", capDk: "#b91c1c", brim: "#a51c1c", coat: "#5ba3d6", coatDk: "#4386b8", cuff: "#3f7fae", legFar: "#3a6f99", hair: "#f1f5f9", hair2: "#e5e7eb", hairDk: "#cbd5e1", brow: "#f8fafc", nose: 2.9, beard: true },
+    mom: { name: "Gnome mom", size: 0.95, cap: "#4f7d2e", capDk: "#3f6824", brim: "#33561c", coat: "#a3557a", coatDk: "#874262", cuff: "#733654", legFar: "#5b3a4c", hair: "#b0703c", hair2: "#9a5e30", hairDk: "#7a4520", brow: "#7a4520", nose: 2.3, dress: true, apron: "#f4ecd8", braids: true, lashes: true },
+    girl: { name: "Gnome girl", size: 0.8, cap: "#d9467a", capDk: "#b8335f", brim: "#a12b53", coat: "#f0b43c", coatDk: "#d39a26", cuff: "#b8821d", legFar: "#9a6a1c", hair: "#e8b04a", hair2: "#d49a35", hairDk: "#a8741e", brow: "#a8741e", nose: 2.0, dress: true, apron: "#fff7e6", pigtails: true, lashes: true, freckles: true },
+    boy: { name: "Gnome boy", size: 0.8, cap: "#2f6db5", capDk: "#245a96", brim: "#1e4c80", coat: "#4f9a3a", coatDk: "#3f7f2e", cuff: "#356b27", legFar: "#2f5f25", hair: "#8a5a2b", hair2: "#7a4e24", hairDk: "#5c3a1a", brow: "#5c3a1a", nose: 2.0, fringe: true, freckles: true },
+  };
+  const heroLook = who => HEROES[who || S.hero] || HEROES.dad;
   // (the gnome, Gnome dig's own, copied from dig/app.js: its cap, beard and lantern; and, for the water, a swimmer's arms and a tilt)
   const loverAt = () => {};
-  function gnome(c, x, y, u, d, ready, moving, now, diving, loves, lamp = true, cheer = false, pose = null) {
+  function gnome(c, x, y, u, d, ready, moving, now, diving, loves, lamp = true, cheer = false, pose = null, who = null) {
     if (cheer) { d = 2; moving = false; }
+    const L = heroLook(who);
     const back = d === 0, flip = d === 3 ? -1 : 1, side = d === 1 || d === 3, step = moving ? Math.sin(now / 70) : 0;
     const bob = cheer ? -Math.abs(Math.sin(now / 150)) * 6 : moving ? -Math.abs(step) * 1.4 : 0, wave = cheer ? Math.sin(now / 110) * 2.5 : 0;
     c.save(); c.translate(x, y); c.scale(flip * u / 40, u / 40); c.translate(0, bob);
+    if (L.size !== 1) { c.translate(0, 19); c.scale(L.size, L.size); c.translate(0, -19); }   // (smaller, the feet where they were)
     // (Gnome world: swimming along, he lies forward into the stroke, turned about his hips, his head up out of the water)
     if (pose && pose.swim && pose.stroke) { c.translate(0, 6); c.rotate(1.0); c.translate(0, -6); }
     const E = (cx, cy, rx, ry, col, rot = 0) => { c.fillStyle = col; c.beginPath(); c.ellipse(cx, cy, rx, ry, rot, 0, 7); c.fill(); };
@@ -787,12 +844,17 @@
     const tank = () => { c.fillStyle = "#facc15"; c.beginPath(); c.roundRect(back ? -5 : -15, -7, back ? 10 : 7, 17, 3.5); c.fill();
       c.fillStyle = "#a16207"; c.fillRect(back ? -1.5 : -13, -9.5, 3, 3); };
     if (diving && !back) tank();   // (0.0.68: the diving gear on, its air tank on his back, behind him, or, his back to us, on it)
-    // (the tunic, its sleeves and the belt)
-    c.fillStyle = "#5ba3d6"; c.beginPath(); c.moveTo(-9, -3); c.lineTo(9, -3); c.lineTo(12, 13); c.quadraticCurveTo(0, 15, -12, 13); c.closePath(); c.fill();
-    c.fillStyle = "#4386b8"; c.beginPath(); c.moveTo(3, -3); c.lineTo(9, -3); c.lineTo(12, 13); c.quadraticCurveTo(7, 14.3, 4, 14.5); c.closePath(); c.fill();
-    c.fillStyle = "#5c3a1a"; c.fillRect(-11.5, 4.6, 23, 5);
+    // (the tunic, its sleeves and the belt; or the dress, longer and fuller, its apron over the front tied at the waist)
+    const hem = L.dress ? 16 : 13, flare = L.dress ? 13.5 : 12;
+    c.fillStyle = L.coat; c.beginPath(); c.moveTo(-9, -3); c.lineTo(9, -3); c.lineTo(flare, hem); c.quadraticCurveTo(0, hem + 2, -flare, hem); c.closePath(); c.fill();
+    c.fillStyle = L.coatDk; c.beginPath(); c.moveTo(3, -3); c.lineTo(9, -3); c.lineTo(flare, hem); c.quadraticCurveTo(7, hem + 1.3, 4, hem + 1.5); c.closePath(); c.fill();
+    if (!L.dress) { c.fillStyle = "#5c3a1a"; c.fillRect(-11.5, 4.6, 23, 5); }
+    else if (!back) { c.fillStyle = L.apron; c.beginPath(); c.moveTo(-6.5, 3); c.lineTo(6.5, 3); c.quadraticCurveTo(8.5, 10, 7.5, hem - 0.5); c.quadraticCurveTo(0, hem + 1.2, -7.5, hem - 0.5); c.quadraticCurveTo(-8.5, 10, -6.5, 3); c.fill();
+      c.strokeStyle = "rgba(120,90,60,0.35)"; c.lineWidth = 0.6; c.beginPath(); c.moveTo(-3, 6); c.quadraticCurveTo(-3.5, 10, -3.2, hem - 1); c.moveTo(2.5, 6); c.quadraticCurveTo(3, 10, 2.8, hem - 1); c.stroke();
+      c.fillStyle = L.apron; c.fillRect(-10, 2.4, 20, 2.2); c.fillStyle = "rgba(120,90,60,0.25)"; c.fillRect(-10, 4.2, 20, 0.5); }
+    else { c.fillStyle = L.apron; c.fillRect(-10, 2.4, 20, 2.2); E(0, 3.5, 2.2, 1.6, L.apron); E(-2.6, 6, 1, 2.6, L.apron, 0.3); E(2.6, 6, 1, 2.6, L.apron, -0.3); }   // (the apron's bow, at the back)
     if (diving && back) tank();
-    if (!back) { c.fillStyle = "#d9a93a"; c.beginPath(); c.roundRect(-3.6, 3.9, 7.2, 6.4, 1.2); c.fill(); c.fillStyle = "#5c3a1a"; c.fillRect(-1.8, 5.6, 3.6, 3); c.fillStyle = "#f2d27a"; c.fillRect(-3.2, 4.2, 6.4, 0.9); }
+    if (!back && !L.dress) { c.fillStyle = "#d9a93a"; c.beginPath(); c.roundRect(-3.6, 3.9, 7.2, 6.4, 1.2); c.fill(); c.fillStyle = "#5c3a1a"; c.fillRect(-1.8, 5.6, 3.6, 3); c.fillStyle = "#f2d27a"; c.fillRect(-3.2, 4.2, 6.4, 0.9); }
     let lx = cheer ? 15 : side ? 14 : 13, ly = cheer ? -19 - wave : side ? 2 : 5;   // (the lantern's hand)
     let hx = cheer ? -14 : -11, hy = cheer ? -16 + wave : 8;
     // (Gnome world, after Messed Up Dress Up's swimmers: swimming along, the arms windmill half a turn apart, the front crawl;
@@ -800,49 +862,84 @@
     if (pose && pose.swim) { const a = pose.t / 170;
       if (pose.stroke) { lx = 10 + 13 * Math.cos(a); ly = -1 + 13 * Math.sin(a); hx = -6 + 13 * Math.cos(a + Math.PI); hy = -1 + 13 * Math.sin(a + Math.PI); }
       else { lx = 13; ly = -16; hx = -13 + 2.5 * Math.sin(a * 2); hy = 3 + 1.5 * Math.cos(a * 2); } }   // (the other hand)
-    c.strokeStyle = "#5ba3d6"; c.lineWidth = 4.5; c.lineCap = "round";
+    c.strokeStyle = L.coat; c.lineWidth = 4.5; c.lineCap = "round";
     c.beginPath(); c.moveTo(-8, -1); c.lineTo(hx, hy - 1); c.moveTo(8, -1); c.lineTo(lx - 2, ly); c.stroke();
-    E(hx, hy, 2.4, 2.4, "#f2c9a0"); E(lx - 1.5, ly + 0.5, 2.4, 2.4, "#f2c9a0");
+    // (Matthew: "realistic hands, with indications of fingers") each hand at a cuff of the sleeve, darker: a palm, four fingers curled
+    // (the lines between them), a thumb; the lantern's hand closed round its handle, drawn after it, below
+    const cuff = (x0, y0, s2) => { E(x0, y0, 2.9, 1.7, L.cuff, s2 * 0.6); c.strokeStyle = "rgba(0,0,0,0.18)"; c.lineWidth = 0.4; c.beginPath(); c.ellipse(x0, y0, 2.9, 1.7, s2 * 0.6, 0.2, Math.PI - 0.2); c.stroke(); };
+    const hand = (x0, y0, s2) => { E(x0, y0, 2.5, 2.3, "#f2c9a0"); E(x0 + s2 * 1.7, y0 - 1.1, 1.05, 1.45, "#ebbd93", s2 * -0.6);
+      c.strokeStyle = "#c98f6c"; c.lineWidth = 0.42; c.lineCap = "round"; c.beginPath(); for (const k of [-0.8, 0.1, 1.0]) { c.moveTo(x0 - s2 * 2.1, y0 + k); c.quadraticCurveTo(x0 - s2 * 0.8, y0 + k + 0.35, x0 + s2 * 0.7, y0 + k * 1.05 + 0.25); } c.stroke(); c.lineCap = "butt"; };
+    cuff(hx + 0.9, hy - 1.6, -1); hand(hx, hy, -1); cuff(lx - 2.6, ly - 1.0, 1);
     if (loves && !back) { c.save(); c.translate(hx - 1, hy + 1); loverAt(c, 0, 0, 26, now, false); c.restore(); }   // (0.0.71: the love shooter in his other hand)
     // (the lantern: a handle, a dark frame, its glass lit when it is ready; 0.0.73: only once he has it)
     if (lamp) {
       if (ready) { const gl = c.createRadialGradient(lx + 1, ly + 7, 0, lx + 1, ly + 7, 12); gl.addColorStop(0, "rgba(254, 240, 138, 0.75)"); gl.addColorStop(1, "rgba(254, 240, 138, 0)"); c.fillStyle = gl; c.beginPath(); c.arc(lx + 1, ly + 7, 12, 0, 7); c.fill(); }
-    c.strokeStyle = "#1f2937"; c.lineWidth = 1.2; c.beginPath(); c.arc(lx + 1, ly + 2.5, 2.2, Math.PI, 0); c.stroke();
-    c.fillStyle = "#1f2937"; c.beginPath(); c.roundRect(lx - 2.5, ly + 2.5, 7, 9, 1.5); c.fill();
-    c.fillStyle = ready ? "#fef08a" : "#a16207"; c.beginPath(); c.roundRect(lx - 1.3, ly + 4, 4.6, 6, 1); c.fill();
+    // (Matthew: "detailed lantern") its ring handle; a little roof and a knob on it; four posts and a crossbar round two panes of
+    // glass, lit; inside, the flame on its wick; a base plate under it all
+    { const cx = lx + 1, tp = ly + 3, dk = "#262626";
+      c.strokeStyle = dk; c.lineWidth = 0.9; c.beginPath(); c.moveTo(cx - 2.4, tp + 0.6); c.quadraticCurveTo(cx - 2.2, tp - 3.4, cx, tp - 3.4); c.quadraticCurveTo(cx + 2.2, tp - 3.4, cx + 2.4, tp + 0.6); c.stroke();
+      c.fillStyle = dk; c.beginPath(); c.moveTo(cx - 3.3, tp + 1.7); c.lineTo(cx - 1.5, tp - 0.1); c.lineTo(cx + 1.5, tp - 0.1); c.lineTo(cx + 3.3, tp + 1.7); c.closePath(); c.fill();
+      E(cx, tp - 0.5, 0.8, 0.7, "#3a3a3a");
+      c.fillStyle = ready ? "#fef08a" : "#b08a3a"; c.fillRect(cx - 2.6, tp + 1.7, 5.2, 7.6);
+      if (ready) { c.fillStyle = "#f59e0b"; c.beginPath(); c.moveTo(cx, tp + 3.2); c.quadraticCurveTo(cx + 1.5, tp + 5.8, cx, tp + 7.2); c.quadraticCurveTo(cx - 1.5, tp + 5.8, cx, tp + 3.2); c.fill();
+        c.fillStyle = "#fffbeb"; c.beginPath(); c.moveTo(cx, tp + 4.4); c.quadraticCurveTo(cx + 0.7, tp + 6, cx, tp + 6.9); c.quadraticCurveTo(cx - 0.7, tp + 6, cx, tp + 4.4); c.fill(); }
+      c.fillStyle = dk; c.fillRect(cx - 0.5, tp + 7.1, 1, 1.2);
+      for (const px of [cx - 3, cx + 2.3]) c.fillRect(px, tp + 1.5, 0.75, 8.2); c.fillRect(cx - 0.3, tp + 1.7, 0.6, 7.6); c.fillRect(cx - 2.9, tp + 5.3, 5.8, 0.5);
+      c.fillStyle = "rgba(255,255,255,0.55)"; c.fillRect(cx - 2.1, tp + 2.3, 0.6, 2.4);
+      c.fillStyle = dk; c.beginPath(); c.moveTo(cx - 3.2, tp + 9.3); c.lineTo(cx + 3.2, tp + 9.3); c.lineTo(cx + 3.6, tp + 10.6); c.lineTo(cx - 3.6, tp + 10.6); c.closePath(); c.fill(); }
     }
-    if (back) {   // (his back: the beard showing at either side under the cap)
-      E(-7.5, -6, 3.5, 6, "#f1f5f9", 0.3); E(7.5, -6, 3.5, 6, "#f1f5f9", -0.3);
-      c.fillStyle = "#e5e7eb"; c.beginPath(); c.ellipse(0, -9.5, 8, 6.5, 0, 0, 7); c.fill();   // (white hair under the cap)
-      c.strokeStyle = "#cbd5e1"; c.lineWidth = 0.8; c.beginPath(); for (const hx of [-5, -2, 1, 4]) { c.moveTo(hx, -14); c.quadraticCurveTo(hx + 1, -9, hx, -4); } c.stroke();
+    hand(lx - 1.4, ly + 0.2, 1);
+    // (mom's braids, down over her shoulders, ribbons at their ends; the girl's pigtails, out from under her cap at either side)
+    const plait = (x0, y0, x1, y1, n, r0) => { for (let i = 0; i < n; i++) { const t = i / (n - 1), px = x0 + (x1 - x0) * t, py = y0 + (y1 - y0) * t, rr = r0 * (1 - 0.3 * t);
+        E(px, py, rr, rr * 0.8, i % 2 ? L.hair2 : L.hair); c.strokeStyle = L.hairDk; c.lineWidth = 0.45; c.beginPath(); c.arc(px, py, rr * 0.75, 0.4, 2.7); c.stroke(); } };
+    const pigtails = () => { const ox = side ? 1.5 : 0; for (const s2 of [-1, 1]) { const bx = ox + s2 * 9.5; plait(bx, -13, bx + s2 * 4.5, -6, 4, 2.3); E(bx + s2 * 5.2, -5, 1.4, 2.2, L.hair, s2 * -0.5); E(bx + s2 * 1.6, -11.2, 1.6, 1.1, L.cap); } };
+    const braids = () => { const ox = side ? 1.5 : 0; for (const s2 of [-1, 1]) { const bx = ox + s2 * 7.2; plait(bx, -8, bx + s2 * 1.2, 4.5, 6, 2.1); E(bx + s2 * 1.3, 6.2, 1.6, 1.1, L.capDk); E(bx + s2 * 1.4, 7.6, 1.1, 1.6, L.hair2); } };
+    if (back) {   // (his back: the beard showing at either side under the cap; hers, her hair down her back, the braids or pigtails)
+      if (L.beard) { E(-7.5, -6, 3.5, 6, L.hair, 0.3); E(7.5, -6, 3.5, 6, L.hair, -0.3); }
+      if (L.braids) { c.fillStyle = L.hair2; c.beginPath(); c.moveTo(-8, -14); c.quadraticCurveTo(-9.5, -4, -6, 1); c.lineTo(6, 1); c.quadraticCurveTo(9.5, -4, 8, -14); c.closePath(); c.fill(); }
+      c.fillStyle = L.hair2; c.beginPath(); c.ellipse(0, -9.5, 8, 6.5, 0, 0, 7); c.fill();   // (the hair under the cap)
+      c.strokeStyle = L.hairDk; c.lineWidth = 0.8; c.beginPath(); for (const hx of [-5, -2, 1, 4]) { c.moveTo(hx, -14); c.quadraticCurveTo(hx + 1, -9, hx, L.braids ? 0 : -4); } c.stroke();
+      if (L.pigtails) pigtails();
     } else {
       // (the face, rosy cheeks, the beard down over the tunic, its strands)
+      // (mom's and the girl's hair, long, behind the face and down past it at the sides; it covers their ears)
+      if (L.braids || L.pigtails) { const ox = side ? 1.5 : 0; c.fillStyle = L.hair2; c.beginPath(); c.moveTo(ox - 9, -15); c.quadraticCurveTo(ox - 10.5, -8, ox - 8, L.braids ? -3 : -6); c.lineTo(ox + 8, L.braids ? -3 : -6); c.quadraticCurveTo(ox + 10.5, -8, ox + 9, -15); c.closePath(); c.fill(); }
       // (Matthew: "gnomes should have ears") his ears, out at the sides of his head, half behind his face, the sideburns over their fronts
-      for (const s2 of [-1, 1]) { const ex3 = (side ? 1.5 : 0) + s2 * (side && s2 < 0 ? 7.6 : 8.4), sc3 = side && s2 < 0 ? 0.8 : 1;
+      if (!L.braids && !L.pigtails) for (const s2 of [-1, 1]) { const ex3 = (side ? 1.5 : 0) + s2 * (side && s2 < 0 ? 7.6 : 8.4), sc3 = side && s2 < 0 ? 0.8 : 1;
         E(ex3, -10.6, 1.9 * sc3, 2.8, "#efbf94", s2 * 0.15); E(ex3 + s2 * 0.3, -10.4, 0.9 * sc3, 1.6, "#d99a76", s2 * 0.15); }
-      c.fillStyle = "#f2c9a0"; c.beginPath(); c.ellipse(side ? 1.5 : 0, -10.5, 7.5, 6.5, 0, 0, 7); c.fill();
+      c.fillStyle = "#f2c9a0"; c.beginPath(); c.ellipse(side ? 1.5 : 0, L.beard ? -10.5 : -10.1, 7.5, L.beard ? 6.5 : 7, 0, 0, 7); c.fill();
       // (Gnome world; Matthew: "gnome should have side burns connecting head hair to beard") down each side of his face,
       // from the hair under the cap to the beard
-      for (const s2 of [-1, 1]) { const sx = (side ? 1.5 : 0) + s2 * (side && s2 > 0 ? 6.4 : 6.9); c.fillStyle = "#f1f5f9"; c.beginPath(); c.moveTo(sx - 1.6, -15); c.quadraticCurveTo(sx - s2 * 0.4, -11, sx - 1.4 * s2 + (s2 < 0 ? 0 : 0), -6.5); c.lineTo(sx + s2 * 1.8, -7); c.quadraticCurveTo(sx + s2 * 2.2, -11, sx + 1.6, -15); c.closePath(); c.fill(); }
+      if (L.beard) for (const s2 of [-1, 1]) { const sx = (side ? 1.5 : 0) + s2 * (side && s2 > 0 ? 6.4 : 6.9); c.fillStyle = L.hair; c.beginPath(); c.moveTo(sx - 1.6, -15); c.quadraticCurveTo(sx - s2 * 0.4, -11, sx - 1.4 * s2 + (s2 < 0 ? 0 : 0), -6.5); c.lineTo(sx + s2 * 1.8, -7); c.quadraticCurveTo(sx + s2 * 2.2, -11, sx + 1.6, -15); c.closePath(); c.fill(); }
       E(side ? -3 : -5, -8, 2.2, 1.6, "rgba(244, 114, 114, 0.45)"); E(side ? 6 : 5, -8, 2.2, 1.6, "rgba(244, 114, 114, 0.45)");
-      c.fillStyle = "#f8fafc"; c.beginPath(); c.moveTo(-8 + (side ? 1 : 0), -8); c.quadraticCurveTo(-10, 3, (side ? 2 : 0), 12); c.quadraticCurveTo(10, 3, 8 + (side ? 2 : 0), -8); c.quadraticCurveTo(side ? 2 : 0, -2, -8 + (side ? 1 : 0), -8); c.fill();
-      c.strokeStyle = "#cbd5e1"; c.lineWidth = 0.8; c.beginPath();
-      for (const bx of [-4, -1, 2, 5]) { const ox = side ? 1.5 : 0; c.moveTo(bx + ox, -3); c.quadraticCurveTo(bx * 0.6 + ox, 3, bx * 0.3 + ox, 8); }
-      c.stroke();
+      if (L.freckles) { c.fillStyle = "rgba(150, 85, 45, 0.55)"; for (const [fx3, fy3] of [[-5.6, -8.6], [-4.2, -7.6], [-6.2, -7.4], [4.6, -8.6], [6, -7.6], [3.8, -7.4]]) { c.beginPath(); c.arc(fx3 + (side ? 1.5 : 0), fy3, 0.42, 0, 7); c.fill(); } }
+      if (L.beard) { c.fillStyle = "#f8fafc"; c.beginPath(); c.moveTo(-8 + (side ? 1 : 0), -8); c.quadraticCurveTo(-10, 3, (side ? 2 : 0), 12); c.quadraticCurveTo(10, 3, 8 + (side ? 2 : 0), -8); c.quadraticCurveTo(side ? 2 : 0, -2, -8 + (side ? 1 : 0), -8); c.fill();
+      // (Matthew: "beard and beard texture") its locks, wavy, down to curls along its hem
+      { const ox = side ? 1.5 : 0; for (const [bx, by] of [[-6.6, 0.5], [-4.6, 5.2], [-2.2, 9.4], [2.4, 9.4], [4.8, 5.2], [6.8, 0.5]]) E(bx + ox, by, 1.7, 1.5, "#f1f5f9", bx * 0.08);
+        c.strokeStyle = "#cbd5e1"; c.lineWidth = 0.7; c.lineCap = "round"; c.beginPath();
+        for (const bx of [-5, -3, -1, 1, 3, 5]) { c.moveTo(bx * 0.9 + ox, -4); c.bezierCurveTo(bx * 0.9 + ox + 1, -1, bx * 0.75 + ox - 1, 3, bx * 0.55 + ox + 0.5, 7 - Math.abs(bx) * 0.6); }
+        for (const [bx, by] of [[-6.6, 0.5], [-4.6, 5.2], [-2.2, 9.4], [2.4, 9.4], [4.8, 5.2], [6.8, 0.5]]) { c.moveTo(bx + ox + 0.9, by - 0.5); c.arc(bx + ox, by, 0.9, -0.5, 2.6); }
+        c.stroke(); c.lineCap = "butt"; } }
+      if (L.braids) braids();
       const fx = side ? 2.5 : 0;   // (the face turned a little toward the way he goes)
       // eyes, each with a glint, under bushy white brows
       for (const s2 of [-1, 1]) { const ex2 = fx + s2 * 3.2;
         if (cheer) { c.strokeStyle = "#1f2937"; c.lineWidth = 1.1; c.beginPath(); c.arc(ex2, -10.4, 1.7, Math.PI * 1.12, Math.PI * 1.88); c.stroke(); }
         else { E(ex2, -11.2, 1.5, 1.7, "#1f2937"); E(ex2 + 0.5, -11.8, 0.5, 0.5, "#ffffff"); }
-        c.fillStyle = "#f8fafc"; c.beginPath(); c.ellipse(ex2 + s2 * 0.5, cheer ? -14.2 : -13.4, 3, 1.4, s2 * 0.3, 0, 7); c.fill();
-        c.strokeStyle = "#cbd5e1"; c.lineWidth = 0.5; c.beginPath(); c.moveTo(ex2 - 2, -13.2); c.lineTo(ex2 + 2.4, -13.8); c.stroke(); }
+        if (L.beard) { c.fillStyle = L.brow; c.beginPath(); c.ellipse(ex2 + s2 * 0.5, cheer ? -14.2 : -13.4, 3, 1.4, s2 * 0.3, 0, 7); c.fill();
+          c.strokeStyle = L.hairDk; c.lineWidth = 0.5; c.beginPath(); c.moveTo(ex2 - 2, -13.2); c.lineTo(ex2 + 2.4, -13.8); c.stroke(); }
+        else { c.strokeStyle = L.brow; c.lineWidth = 0.55; c.lineCap = "round"; c.beginPath(); c.arc(ex2 + s2 * 0.3, cheer ? -11.4 : -10.8, 3.2, Math.PI * 1.3, Math.PI * 1.7); c.stroke();   // (a soft brow, a fine arch, high)
+          if (L.lashes && !cheer) { c.strokeStyle = "#1f2937"; c.lineWidth = 0.4; c.beginPath(); c.moveTo(ex2 + s2 * 1.3, -12.4); c.quadraticCurveTo(ex2 + s2 * 2.1, -12.7, ex2 + s2 * 2.5, -13.3); c.stroke(); }   // (a lash flicked up at the outer corner)
+          c.lineCap = "butt"; } }
       if (cheer) { c.fillStyle = "#7f1d1d"; c.beginPath(); c.arc(fx, -5, 3.4, 0.08, Math.PI - 0.08); c.closePath(); c.fill(); E(fx, -2.5, 1.9, 1, "#f472b6"); }   // (his smile, open wide)
       // (Gnome world; Matthew: "draw lips/mouth") his mouth, just showing under the moustache
-      if (!cheer) { E(fx, -4.1, 2.2, 1.15, "#8b2a2a"); E(fx + 0.1, -3.55, 1.7, 0.6, "#e58a7f"); }
+      if (!cheer && L.beard) { E(fx, -3.3, 1.7, 0.75, "#d9776a"); c.strokeStyle = "#8b2a2a"; c.lineWidth = 0.9; c.lineCap = "round"; c.beginPath(); c.arc(fx, -5.0, 2.0, 0.4, Math.PI - 0.4); c.stroke(); c.lineCap = "butt"; }   // (Matthew: "let's have them generally look content")
+      // (no beard: a smile under the nose, the lips just showing)
+      if (!cheer && !L.beard) { E(fx, -4.7, 1.5, 0.6, "#d9776a"); c.strokeStyle = "#8b2a2a"; c.lineWidth = 0.75; c.lineCap = "round"; c.beginPath(); c.arc(fx, -6.6, 1.9, 0.45, Math.PI - 0.45); c.stroke(); c.lineCap = "butt"; }
       // the moustache, sweeping out from under the nose, and the round nose
-      E(fx - 3.6, -6.4, 4.6, 2.2, "#f1f5f9", 0.35); E(fx + 3.6, -6.4, 4.6, 2.2, "#f1f5f9", -0.35);
-      c.strokeStyle = "#cbd5e1"; c.lineWidth = 0.6; c.beginPath(); c.moveTo(fx, -7); c.lineTo(fx - 6.5, -5.2); c.moveTo(fx, -7); c.lineTo(fx + 6.5, -5.2); c.stroke();
-      E(fx + (side ? 1 : 0), -8.6, 2.9, 2.6, "#f0997d"); E(fx + (side ? 0.2 : -0.8), -9.4, 0.9, 0.7, "rgba(255, 255, 255, 0.6)");
+      if (L.beard) { E(fx - 3.6, -6.4, 4.6, 2.2, L.hair, 0.35); E(fx + 3.6, -6.4, 4.6, 2.2, L.hair, -0.35);
+        c.strokeStyle = L.hairDk; c.lineWidth = 0.6; c.beginPath(); c.moveTo(fx, -7); c.lineTo(fx - 6.5, -5.2); c.moveTo(fx, -7); c.lineTo(fx + 6.5, -5.2); c.stroke(); }
+      const nz = L.nose, ny = L.beard ? -8.6 : -8.9; E(fx + (side ? 1 : 0), ny, nz, nz * 0.9, "#f0997d"); E(fx + (side ? 0.2 : -0.8), ny - 0.8 * nz / 2.9, 0.9 * nz / 2.9, 0.7 * nz / 2.9, "rgba(255, 255, 255, 0.6)");
       if (diving) {   // (and the mask over his eyes, its strap round the back of his head)
         c.strokeStyle = "#0f172a"; c.lineWidth = 1.3; c.beginPath(); c.moveTo(fx - 7, -11.5); c.lineTo(-9.5, -11); c.stroke();
         c.fillStyle = "#0284c7"; c.beginPath(); c.roundRect(fx - 7.5, -15.2, 15, 7.6, 3); c.fill();
@@ -851,10 +948,19 @@
       }
     }
     if (back && diving) { c.strokeStyle = "#0f172a"; c.lineWidth = 1.3; c.beginPath(); c.moveTo(-8, -11.5); c.lineTo(8, -11.5); c.stroke(); }
+    // (Matthew: "hair hat") white hair curling out under the cap at each side, down to the sideburns
+    if (!back) for (const s2 of [-1, 1]) { const hx2 = (side ? 1.5 : 0) + s2 * 8.2; for (const [dx, dy, r2] of [[0, -14.2, 2.1], [s2 * 1.1, -12.6, 1.7], [-s2 * 1.4, -14.8, 1.6]]) E(hx2 + dx, dy, r2, r2 * 0.85, L.hair);
+      c.strokeStyle = L.hairDk; c.lineWidth = 0.5; c.beginPath(); c.arc(hx2, -14.2, 1.2, 0.3, 2.8); c.arc(hx2 + s2 * 1.1, -12.6, 0.9, 0.3, 2.8); c.stroke(); }
+    // (the boy's fringe, over his brow under the cap; mom's and the girl's hair parted under theirs)
+    if (!back && !L.beard) { const ox = side ? 1.5 : 0;
+      if (L.fringe) { c.fillStyle = L.hair; c.beginPath(); c.moveTo(ox - 7.5, -14.6); for (let i = 0; i <= 6; i++) { const xx = ox - 7.5 + i * 2.5; c.quadraticCurveTo(xx + 1.25, -15.4, xx + 1.25 + (i < 6 ? 0.6 : 0), i % 2 ? -12.4 : -12.9); } c.lineTo(ox + 7.5, -14.6); c.closePath(); c.fill(); }
+      else { c.fillStyle = L.hair; c.beginPath(); c.moveTo(ox - 7.6, -14.4); c.quadraticCurveTo(ox - 3.5, -14.6, ox, -13.2); c.quadraticCurveTo(ox + 3.5, -14.6, ox + 7.6, -14.4); c.lineTo(ox + 7.6, -15.4); c.lineTo(ox - 7.6, -15.4); c.closePath(); c.fill(); }
+      if (L.pigtails) pigtails(); }
     // (the tall red cap, pulled down over the brows, its tip bending back)
-    c.fillStyle = "#dc2626"; c.beginPath(); c.moveTo(-10, -14.5); c.quadraticCurveTo(-7, -25, -1, -34); c.quadraticCurveTo(2, -36, 4, -32.5); c.quadraticCurveTo(7, -24, 10, -14.5); c.quadraticCurveTo(0, -16, -10, -14.5); c.fill();
-    c.fillStyle = "#b91c1c"; c.beginPath(); c.moveTo(3, -33); c.quadraticCurveTo(7, -24, 10, -14.5); c.quadraticCurveTo(6, -15.3, 4, -15.5); c.quadraticCurveTo(4, -24, 3, -33); c.fill();
+    c.fillStyle = L.cap; c.beginPath(); c.moveTo(-10, -14.5); c.quadraticCurveTo(-7, -25, -1, -34); c.quadraticCurveTo(2, -36, 4, -32.5); c.quadraticCurveTo(7, -24, 10, -14.5); c.quadraticCurveTo(0, -16, -10, -14.5); c.fill();
+    c.fillStyle = L.capDk; c.beginPath(); c.moveTo(3, -33); c.quadraticCurveTo(7, -24, 10, -14.5); c.quadraticCurveTo(6, -15.3, 4, -15.5); c.quadraticCurveTo(4, -24, 3, -33); c.fill();
     c.strokeStyle = "rgba(255, 255, 255, 0.25)"; c.lineWidth = 1; c.beginPath(); c.moveTo(-6, -17.5); c.quadraticCurveTo(-4, -26, -0.5, -32); c.stroke();
+    c.strokeStyle = L.brim; c.lineWidth = 2; c.lineCap = "round"; c.beginPath(); c.moveTo(-9.6, -15.3); c.quadraticCurveTo(0, -16.8, 9.6, -15.3); c.stroke(); c.lineCap = "butt";   // (its brim)
     c.restore();
   }
   // (Matthew: "when the gnome is moving laterally, let's draw them in profile, like mario 3 as inspiration") The gnome from the
@@ -864,18 +970,20 @@
   // ahead; his boots in a stride, a step every fifth of a second or so, his body bobbing; in the air, his legs tucked, the far
   // one back, the near one forward; with the diving gear, its tank on his back and its mask over his eye; swimming along, lying
   // forward into the stroke, his arms windmilling, his feet kicking
-  function gnomeProfile(c, x, y, u, face, moving, ground, vy, now, diving, pose) {
+  function gnomeProfile(c, x, y, u, face, moving, ground, vy, now, diving, pose, who = null) {
+    const L = heroLook(who);
     const swim = pose && pose.swim, stroke = swim && pose.stroke, p = now / 85;
     const run = moving && ground && !swim, bob = run ? -Math.abs(Math.sin(p)) * 1.6 : 0;
     const E = (cx, cy, rx, ry, col, rot = 0) => { c.fillStyle = col; c.beginPath(); c.ellipse(cx, cy, rx, ry, rot, 0, 7); c.fill(); };
     c.save(); c.translate(x, y); c.scale((face < 0 ? -1 : 1) * u / 40, u / 40); c.translate(0, bob);
+    if (L.size !== 1) { c.translate(0, 19); c.scale(L.size, L.size); c.translate(0, -19); }
     if (stroke) { c.translate(0, 6); c.rotate(1.05); c.translate(0, -6); }
     else if (!ground && !swim) c.rotate(vy < 0 ? -0.08 : 0.06);
     else if (run) { c.translate(0, 18); c.rotate(0.08); c.translate(0, -18); }   // (leaning into the run)
     if (!swim && ground) E(0, 19 - bob, 12, 3.2, "rgba(0, 0, 0, 0.3)");
     // (the legs: a stride running; tucked in the air; kicking in the water; the far one darker, behind)
     const leg = (a, near) => { const hx = near ? 1.5 : -1.5, hy = 10, fx = hx + Math.sin(a) * 8, fy = hy + Math.cos(a) * 8;
-      c.strokeStyle = near ? "#4386b8" : "#3a6f99"; c.lineWidth = 5; c.lineCap = "round"; c.beginPath(); c.moveTo(hx, hy); c.lineTo(fx, fy); c.stroke();
+      c.strokeStyle = near ? L.coatDk : L.legFar; c.lineWidth = 5; c.lineCap = "round"; c.beginPath(); c.moveTo(hx, hy); c.lineTo(fx, fy); c.stroke();
       c.fillStyle = near ? "#5a3a22" : "#47301c"; c.beginPath(); c.roundRect(fx - 3.2, fy - 1.5, 9, 5, 2.4); c.fill();
       c.fillStyle = near ? "#7a5636" : "#64462c"; c.beginPath(); c.roundRect(fx - 3, fy - 2.8, 6, 2.6, 1.2); c.fill(); };
     const kick = stroke ? Math.sin(p * 2.2) * 0.45 : 0;
@@ -884,36 +992,49 @@
     const shoulder = [0, -1.5], armAt = a => [shoulder[0] + Math.sin(a) * 10, shoulder[1] + Math.cos(a) * 10];
     const farA = stroke ? p * 1.2 + Math.PI : run ? -aNear * 0.9 : !ground ? -2.3 : 0.3, nearA = stroke ? p * 1.2 : run ? 0.9 + aNear * 0.25 : !ground ? 2.2 : 1.1;
     if (diving) { c.fillStyle = "#facc15"; c.beginPath(); c.roundRect(-13, -7, 7, 17, 3.5); c.fill(); c.fillStyle = "#a16207"; c.fillRect(-11, -9.5, 3, 3); }
-    { const [hx, hy] = armAt(farA); c.strokeStyle = "#4386b8"; c.lineWidth = 4.5; c.lineCap = "round"; c.beginPath(); c.moveTo(-1, -1); c.lineTo(hx - 1, hy); c.stroke(); E(hx - 1, hy, 2.3, 2.3, "#e0b48a"); }
+    { const [hx, hy] = armAt(farA); c.strokeStyle = L.coatDk; c.lineWidth = 4.5; c.lineCap = "round"; c.beginPath(); c.moveTo(-1, -1); c.lineTo(hx - 1, hy); c.stroke(); E(hx - 1, hy, 2.3, 2.3, "#e0b48a"); }
     leg(aFar, false);
     // (the tunic, the back of it shaded; the belt, the buckle in front)
-    c.fillStyle = "#5ba3d6"; c.beginPath(); c.moveTo(-6, -3); c.lineTo(5.5, -3); c.quadraticCurveTo(9, 4, 10, 13); c.quadraticCurveTo(0, 15, -9.5, 13); c.quadraticCurveTo(-8, 4, -6, -3); c.fill();
-    c.fillStyle = "#4386b8"; c.beginPath(); c.moveTo(-6, -3); c.lineTo(-2, -3); c.lineTo(-3, 14); c.quadraticCurveTo(-7, 13.8, -9.5, 13); c.quadraticCurveTo(-8, 4, -6, -3); c.fill();
-    c.fillStyle = "#5c3a1a"; c.fillRect(-9.2, 4.6, 19.2, 5); c.fillStyle = "#d9a93a"; c.beginPath(); c.roundRect(5.6, 3.9, 5, 6.4, 1.2); c.fill(); c.fillStyle = "#5c3a1a"; c.fillRect(7, 5.6, 2.2, 3);
+    const hem = L.dress ? 16 : 13, fl = L.dress ? 1.5 : 0;
+    c.fillStyle = L.coat; c.beginPath(); c.moveTo(-6, -3); c.lineTo(5.5, -3); c.quadraticCurveTo(9, 4, 10 + fl, hem); c.quadraticCurveTo(0, hem + 2, -9.5 - fl, hem); c.quadraticCurveTo(-8, 4, -6, -3); c.fill();
+    c.fillStyle = L.coatDk; c.beginPath(); c.moveTo(-6, -3); c.lineTo(-2, -3); c.lineTo(-3, hem + 1); c.quadraticCurveTo(-7, hem + 0.8, -9.5 - fl, hem); c.quadraticCurveTo(-8, 4, -6, -3); c.fill();
+    if (!L.dress) { c.fillStyle = "#5c3a1a"; c.fillRect(-9.2, 4.6, 19.2, 5); c.fillStyle = "#d9a93a"; c.beginPath(); c.roundRect(5.6, 3.9, 5, 6.4, 1.2); c.fill(); c.fillStyle = "#5c3a1a"; c.fillRect(7, 5.6, 2.2, 3); }
+    else { c.fillStyle = L.apron; c.beginPath(); c.moveTo(2.5, 3); c.lineTo(8, 3); c.quadraticCurveTo(10.8, 9, 11.2, hem - 0.5); c.quadraticCurveTo(6, hem + 0.8, 2, hem); c.quadraticCurveTo(3, 9, 2.5, 3); c.fill();
+      c.fillRect(-8.6, 2.4, 17, 2.2); E(-8.6, 3.5, 1.6, 1.3, L.apron); E(-9.6, 6, 0.9, 2.3, L.apron, 0.4); }   // (the apron, its strings tied in a bow at the back)
     leg(aNear, true);
     // (the head from the side: the white hair at the back, the ear, the face, the nose, the eye and brow, the moustache, the beard)
-    E(-4.6, -9.5, 3.4, 5.4, "#e5e7eb");
+    if (L.braids) { c.fillStyle = L.hair2; c.beginPath(); c.moveTo(-3, -15); c.quadraticCurveTo(-8.5, -10, -7, -3); c.lineTo(-2, -4); c.closePath(); c.fill();
+      for (let i = 0; i < 6; i++) { const t = i / 5, rr = 2 * (1 - 0.3 * t); E(-6 - t * 1.5, -4 + t * 10, rr, rr * 0.8, i % 2 ? L.hair2 : L.hair); } E(-7.6, 7.2, 1.5, 1, L.capDk); }   // (her braid, down her back)
+    if (L.pigtails) { for (let i = 0; i < 4; i++) { const t = i / 3, rr = 2.2 * (1 - 0.3 * t); E(-7 - t * 4.5, -12 + t * 6, rr, rr * 0.8, i % 2 ? L.hair2 : L.hair); } E(-12.3, -5, 1.3, 2, L.hair, 0.5); E(-7.4, -11.4, 1.5, 1, L.cap); }   // (her pigtail, out behind)
+    E(-4.6, -9.5, 3.4, L.braids || L.pigtails ? 6.2 : 5.4, L.hair2);
     E(2, -10.5, 6.6, 6.4, "#f2c9a0");
+    if (!L.beard) E(4.6, -6.4, 4.1, 2.7, "#f2c9a0");   // (no beard: the jaw and chin)
     // (the sideburn, from the hair behind the temple down in front of the ear to the beard at the jaw; the ear over it)
-    c.fillStyle = "#f1f5f9"; c.beginPath(); c.moveTo(-4, -14); c.quadraticCurveTo(0.8, -13.6, 1.2, -9.5); c.quadraticCurveTo(1.6, -6.4, -0.2, -4.6); c.lineTo(-3.8, -6.2); c.quadraticCurveTo(-3.2, -10, -4, -14); c.fill();
-    E(-1.8, -10, 1.6, 2.2, "#e0b48a");
+    if (L.beard) { c.fillStyle = L.hair; c.beginPath(); c.moveTo(-4, -14); c.quadraticCurveTo(0.8, -13.6, 1.2, -9.5); c.quadraticCurveTo(1.6, -6.4, -0.2, -4.6); c.lineTo(-3.8, -6.2); c.quadraticCurveTo(-3.2, -10, -4, -14); c.fill(); }
+    else if (L.fringe) { c.fillStyle = L.hair; c.beginPath(); c.moveTo(-4, -14.5); c.quadraticCurveTo(0, -14, 0.6, -11); c.lineTo(-2, -11.5); c.closePath(); c.fill(); }   // (his short hair, in front of the ear)
+    if (!L.braids && !L.pigtails) E(-1.8, -10, 1.6, 2.2, "#e0b48a");
+    else { c.fillStyle = L.hair; c.beginPath(); c.moveTo(-4.5, -14.5); c.quadraticCurveTo(1.5, -14.2, 1, -10); c.quadraticCurveTo(0.2, -7, -3.5, -5.5); c.quadraticCurveTo(-5, -10, -4.5, -14.5); c.fill(); }   // (her hair, over her ear)
     E(4.5, -8, 2.2, 1.6, "rgba(244, 114, 114, 0.45)");
-    c.fillStyle = "#f8fafc"; c.beginPath(); c.moveTo(-2.5, -8); c.quadraticCurveTo(-4, 3, 3.5, 12); c.quadraticCurveTo(10.5, 3, 9.5, -6.5); c.quadraticCurveTo(3, -3, -2.5, -8); c.fill();
-    c.strokeStyle = "#cbd5e1"; c.lineWidth = 0.8; c.beginPath(); for (const bx of [0.5, 3, 5.5, 8]) { c.moveTo(bx, -4); c.quadraticCurveTo(bx * 0.75, 3, bx * 0.5 + 2, 9); } c.stroke();
-    E(7.6, -4.2, 1.6, 0.95, "#8b2a2a"); E(7.9, -3.7, 1.3, 0.5, "#e58a7f");   // (his mouth, under the moustache)
-    E(6.5, -6.3, 4.6, 2, "#f1f5f9", -0.25);
-    E(9.2, -8.8, 3.2, 2.8, "#f0997d"); E(8.6, -9.7, 0.9, 0.7, "rgba(255, 255, 255, 0.6)");
+    if (L.freckles) { c.fillStyle = "rgba(150, 85, 45, 0.55)"; for (const [fx3, fy3] of [[3.6, -8.6], [5, -7.8], [4, -7.2]]) { c.beginPath(); c.arc(fx3, fy3, 0.42, 0, 7); c.fill(); } }
+    if (L.beard) { c.fillStyle = "#f8fafc"; c.beginPath(); c.moveTo(-2.5, -8); c.quadraticCurveTo(-4, 3, 3.5, 12); c.quadraticCurveTo(10.5, 3, 9.5, -6.5); c.quadraticCurveTo(3, -3, -2.5, -8); c.fill();
+      c.strokeStyle = "#cbd5e1"; c.lineWidth = 0.8; c.beginPath(); for (const bx of [0.5, 3, 5.5, 8]) { c.moveTo(bx, -4); c.quadraticCurveTo(bx * 0.75, 3, bx * 0.5 + 2, 9); } c.stroke();
+      E(7.6, -4.2, 1.6, 0.95, "#8b2a2a"); E(7.9, -3.7, 1.3, 0.5, "#e58a7f");   // (his mouth, under the moustache)
+      E(6.5, -6.3, 4.6, 2, L.hair, -0.25); }
+    else { E(7.3, -5.2, 1.2, 0.55, "#d9776a"); c.strokeStyle = "#8b2a2a"; c.lineWidth = 0.7; c.lineCap = "round"; c.beginPath(); c.moveTo(6.2, -5.9); c.quadraticCurveTo(7.4, -5, 8.4, -5.9); c.stroke(); c.lineCap = "butt"; }   // (a smile)
+    const nz = L.nose / 2.9; E(9.2 - (1 - nz) * 1.2, -8.8, 3.2 * nz, 2.8 * nz, "#f0997d"); E(8.6 - (1 - nz) * 1.2, -9.7, 0.9 * nz, 0.7 * nz, "rgba(255, 255, 255, 0.6)");
     E(5.4, -11.4, 1.3, 1.6, "#1f2937"); E(5.8, -12, 0.45, 0.45, "#ffffff");
-    c.fillStyle = "#f8fafc"; c.beginPath(); c.ellipse(5.2, -13.5, 3, 1.3, -0.2, 0, 7); c.fill();
+    if (L.beard) { c.fillStyle = L.brow; c.beginPath(); c.ellipse(5.2, -13.5, 3, 1.3, -0.2, 0, 7); c.fill(); }
+    else { c.strokeStyle = L.brow; c.lineWidth = 0.75; c.lineCap = "round"; c.beginPath(); c.arc(5.4, -11.2, 2.4, Math.PI * 1.25, Math.PI * 1.8); c.stroke();
+      if (L.lashes) { c.strokeStyle = "#1f2937"; c.lineWidth = 0.45; c.beginPath(); c.moveTo(6.4, -12.6); c.lineTo(7.4, -13.4); c.moveTo(6.8, -12); c.lineTo(7.9, -12.5); c.stroke(); } c.lineCap = "butt"; }
     if (diving) { c.fillStyle = "#0284c7"; c.beginPath(); c.roundRect(2.5, -15, 7.5, 7, 2.6); c.fill(); c.fillStyle = "rgba(224, 242, 254, 0.62)"; c.beginPath(); c.roundRect(3.6, -14, 5.4, 5, 2); c.fill();
       c.strokeStyle = "#0f172a"; c.lineWidth = 1.3; c.beginPath(); c.moveTo(2.5, -11.5); c.lineTo(-6, -11); c.stroke(); }
     // (the cap: its brim over the brow, the cone leaning back, the tip bending down behind him)
-    c.fillStyle = "#dc2626"; c.beginPath(); c.moveTo(9.5, -13.6); c.quadraticCurveTo(6, -24, -1, -30); c.quadraticCurveTo(-6, -34.5, -11.5, -31.5); c.quadraticCurveTo(-8.5, -29.5, -8, -25); c.quadraticCurveTo(-8.5, -18, -8.5, -12); c.quadraticCurveTo(0, -15.4, 9.5, -13.6); c.fill();
-    c.fillStyle = "#b91c1c"; c.beginPath(); c.moveTo(-8.5, -12); c.quadraticCurveTo(-8.5, -18, -8, -25); c.quadraticCurveTo(-8.5, -29.5, -11.5, -31.5); c.quadraticCurveTo(-5, -26, -4.5, -13.2); c.fill();
+    c.fillStyle = L.cap; c.beginPath(); c.moveTo(9.5, -13.6); c.quadraticCurveTo(6, -24, -1, -30); c.quadraticCurveTo(-6, -34.5, -11.5, -31.5); c.quadraticCurveTo(-8.5, -29.5, -8, -25); c.quadraticCurveTo(-8.5, -18, -8.5, -12); c.quadraticCurveTo(0, -15.4, 9.5, -13.6); c.fill();
+    c.fillStyle = L.capDk; c.beginPath(); c.moveTo(-8.5, -12); c.quadraticCurveTo(-8.5, -18, -8, -25); c.quadraticCurveTo(-8.5, -29.5, -11.5, -31.5); c.quadraticCurveTo(-5, -26, -4.5, -13.2); c.fill();
     c.strokeStyle = "rgba(255, 255, 255, 0.25)"; c.lineWidth = 1; c.beginPath(); c.moveTo(6, -16.5); c.quadraticCurveTo(3, -24, -2, -28.5); c.stroke();
     // (the near arm, the lantern held out ahead, glowing)
     { const [hx, hy] = armAt(nearA), lx = hx + 1.5, ly = hy - 1 + (run ? Math.sin(p * 2) * 0.8 : 0);
-      c.strokeStyle = "#5ba3d6"; c.lineWidth = 4.5; c.lineCap = "round"; c.beginPath(); c.moveTo(1.5, -1); c.lineTo(hx, hy); c.stroke(); E(hx, hy, 2.4, 2.4, "#f2c9a0");
+      c.strokeStyle = L.coat; c.lineWidth = 4.5; c.lineCap = "round"; c.beginPath(); c.moveTo(1.5, -1); c.lineTo(hx, hy); c.stroke(); E(hx, hy, 2.4, 2.4, "#f2c9a0");
       const gl = c.createRadialGradient(lx + 1, ly + 7, 0, lx + 1, ly + 7, 12); gl.addColorStop(0, "rgba(254, 240, 138, 0.75)"); gl.addColorStop(1, "rgba(254, 240, 138, 0)"); c.fillStyle = gl; c.beginPath(); c.arc(lx + 1, ly + 7, 12, 0, 7); c.fill();
       c.strokeStyle = "#1f2937"; c.lineWidth = 1.2; c.beginPath(); c.arc(lx + 1, ly + 2.5, 2.2, Math.PI, 0); c.stroke();
       c.fillStyle = "#1f2937"; c.beginPath(); c.roundRect(lx - 2.5, ly + 2.5, 7, 9, 1.5); c.fill(); c.fillStyle = "#fef08a"; c.beginPath(); c.roundRect(lx - 1.3, ly + 4, 4.6, 6, 1); c.fill(); }
@@ -1051,12 +1172,52 @@
       poly(c, [[0, tip + 4], [-hw * 0.6, y - th * 0.15], [-hw * 0.18, y - th * 0.5]], "rgba(255, 255, 255, 0.1)");
     }
   }
-  const spriteCache = new Map();
+  // (Matthew: "use this material to create a early 1990s game manual, as a zine"; "May need to add line-only drawing function")
+  // Line art, for the manual's pictures and its coloring pages: the game's own drawing, through a canvas that draws each filled
+  // shape white with a black outline, each thick stroke as an outlined tube and each thin one as a black line, text in black,
+  // and leaves out what is only shading (a fill or a stroke fainter than half, a gradient all of whose colors are)
+  const faintCol = col => { if (typeof col !== "string") return !!(col && col.faint); const m = /rgba?\(([^)]+)\)/.exec(col); if (!m) return false; const p = m[1].split(",").map(Number); return p.length === 4 && p[3] < 0.5; };
+  const darkCol = col => { if (typeof col !== "string") return false; let r, g, b; const h = /^#([0-9a-f]{6})$/i.exec(col), m = /rgba?\(([^)]+)\)/.exec(col);
+    if (h) { const n = parseInt(h[1], 16); r = n >> 16; g = (n >> 8) & 255; b = n & 255; } else if (m) { [r, g, b] = m[1].split(",").map(Number); } else return false;
+    return 0.3 * r + 0.59 * g + 0.11 * b < 50; };
+  function lineCtx(real, lw = 1.3) {
+    let faintFill = false, faintStroke = false, width = 1, darkFill = false;
+    // (widths in the screen's pixels, whatever the drawing's own scale: the gnome is drawn at 40 to a tile, scaled)
+    const sc = () => { const m = real.getTransform(); return Math.hypot(m.a, m.b) || 1; };
+    const out = () => { real.strokeStyle = "#111"; real.lineWidth = lw / sc(); real.setLineDash([]); };
+    const P = new Proxy(real, {
+      get(t, k) {
+        if (k === "fill") return (...a) => { if (real.globalAlpha < 0.5 || faintFill) return; real.save(); real.fillStyle = darkFill ? "#111" : "#fff"; real.fill(...a); if (!P.plain) { out(); a[0] instanceof Path2D ? real.stroke(a[0]) : real.stroke(); } real.restore(); };
+        if (k === "stroke") return (...a) => { if (real.globalAlpha < 0.5 || faintStroke) return; real.save();
+          const k = sc(), dev = width * k;
+          if (dev > 3) { real.strokeStyle = "#111"; real.lineWidth = width + 2 * lw / k; a[0] instanceof Path2D ? real.stroke(a[0]) : real.stroke(); real.strokeStyle = "#fff"; real.lineWidth = width; }
+          else { real.strokeStyle = "#111"; real.lineWidth = Math.max(0.8, Math.min(dev, lw)) / k; }
+          a[0] instanceof Path2D ? real.stroke(a[0]) : real.stroke(); real.restore(); };
+        if (k === "fillRect") return (x, y, w, h) => { if (real.globalAlpha < 0.5 || faintFill) return; real.save(); real.fillStyle = "#fff"; real.fillRect(x, y, w, h); if (!P.plain) { out(); real.strokeRect(x, y, w, h); } real.restore(); };
+        if (k === "strokeRect") return (x, y, w, h) => { if (real.globalAlpha < 0.5 || faintStroke) return; real.save(); out(); real.strokeRect(x, y, w, h); real.restore(); };
+        if (k === "plain") return t.__plain;
+        if (k === "fillText") return (...a) => { real.save(); real.fillStyle = "#111"; real.fillText(...a); real.restore(); };
+        if (k === "createLinearGradient" || k === "createRadialGradient") return () => { let all = true; const g = { faint: true, addColorStop(o, c) { if (!faintCol(c)) all = false; const a = /rgba\(([^)]+)\)/.exec(c); g.faint = all || (o >= 0.99 && !!a && Number(a[1].split(",")[3]) < 0.15); } }; return g; };
+        if (k === "drawImage") return (...a) => real.drawImage(...a);
+        const v = real[k]; return typeof v === "function" ? v.bind(real) : v;
+      },
+      set(t, k, v) {
+        if (k === "fillStyle") { faintFill = faintCol(v); darkFill = darkCol(v); return true; }
+        if (k === "strokeStyle") { faintStroke = faintCol(v); return true; }
+        if (k === "lineWidth") { width = v; return true; }
+        if (k === "plain") { t.__plain = v; return true; }
+        real[k] = v; return true;
+      } });
+    return P;
+  }
+  const spriteCache = new Map(), SPRITES = { painted: 0 };
   function sprite(key, wT, hT, ox, oy, paint) {
+    if (LINE) key = "line:" + key;
     let sp = spriteCache.get(key);
     if (sp && sp.T === T) { spriteCache.delete(key); spriteCache.set(key, sp); return sp; }
-    const res = Math.min(T, 44), c = document.createElement("canvas"); c.width = Math.ceil(wT * res); c.height = Math.ceil(hT * res);
-    const g = c.getContext("2d"); g.translate(ox * res, oy * res); paint(g, res);
+    SPRITES.painted++;   // (counted, for the frame times: sprites painted afresh)
+    const res = Math.min(T, LINE ? 64 : TCAP), c = document.createElement("canvas"); c.width = Math.ceil(wT * res); c.height = Math.ceil(hT * res);
+    const g0 = c.getContext("2d"), g = LINE ? lineCtx(g0) : g0; g0.translate(ox * res, oy * res); paint(g, res);
     sp = { cv: c, ox, oy, res, T }; spriteCache.set(key, sp);
     if (spriteCache.size > 70) spriteCache.delete(spriteCache.keys().next().value);
     return sp;
@@ -1163,9 +1324,9 @@
   const propLRU = [];   // (the trees whose prop roots are painted: the forty last seen)
   function drawPropRoots(t, x, y, s) {
     if (!t.alive || t.grow < 0.6) return;
-    const key = s + ":" + y, P2 = t.props;
+    const key = s + ":" + y + (LINE ? ":line" : ""), P2 = t.props;
     if (!P2 || P2.key !== key) { const ox = 6 * s, oy = 2.5 * s, cv2 = document.createElement("canvas"); cv2.width = Math.ceil(12 * s); cv2.height = Math.ceil(8 * s);
-      const g = cv2.getContext("2d"); g.translate(ox - x, oy - y); paintPropRoots(g, t, x, y, s); t.props = { key, cv: cv2, ox, oy };
+      const g = cv2.getContext("2d"); g.translate(ox - x, oy - y); paintPropRoots(LINE ? lineCtx(g) : g, t, x, y, s); t.props = { key, cv: cv2, ox, oy };
       propLRU.push(t); if (propLRU.length > 40) { const o = propLRU.shift(); if (o !== t) o.props = null; } }
     ctx.drawImage(t.props.cv, x - t.props.ox, y - t.props.oy);
   }
@@ -1350,7 +1511,7 @@
           beard: V_BEARD[Math.floor(q(7) * V_BEARD.length)], beardLen: 0.22 + 0.3 * q(8), hair: V_HAIR[Math.floor(q(9) * V_HAIR.length)],
           coat: kind === 1 ? V_DRESS[Math.floor(q(10) * V_DRESS.length)] : V_TUNIC[Math.floor(q(10) * V_TUNIC.length)], pants: V_PANTS[Math.floor(q(11) * V_PANTS.length)],
           item: Math.floor(q(12) * 9), size: kind === 2 ? 0.7 + 0.08 * q(13) : kind === 1 ? 0.92 + 0.06 * q(13) : 0.96 + 0.1 * q(13), nose: 0.055 + 0.025 * q(14), cheeks: q(15) < 0.6 } }); };
-    for (const R of S.rooms) { const n = R.w >= 6 ? 2 : 1; for (let j = 0; j < n; j++) add(R.x + 1 + (R.w - 2) * (n === 1 ? 0.5 : j === 0 ? 0.2 : 0.8) + 0.5, R.y + 4, 0, -0.15); }
+    for (const R of S.rooms) { const n = R.w >= 6 ? 2 : 1; for (let j = 0; j < n; j++) { add(R.x + 1 + (R.w - 2) * (n === 1 ? 0.5 : j === 0 ? 0.2 : 0.8) + 0.5, R.y + 4, 0, -0.15); S.villagers[S.villagers.length - 1].room = R; } }
     for (let k = 0; k < 16; k++) { let c = Math.floor((k + 0.5) * WW / 16 + (r(500 + k) - 0.5) * 12); c = Math.max(4, Math.min(WW - 5, c));
       for (let t = 0; t < 12 && riverAt(c + 0.5); t++) c += 2;
       const nearWater = S.rivers.some(R => c > R.x - R.w / 2 - 8 && c < R.x + R.w * 1.5 + 8); add(c + 0.5, landY(c), nearWater ? 3 : 1); }
@@ -1359,8 +1520,8 @@
   // (a villager whose room has flooded has gone up to a dry one: not seen there, nor heard)
   const villagerAway = v => { const c = Math.floor(v.x), r = Math.floor(v.y - 0.5); return inside(c, r) && wat[at(c, r)] >= 0.5; };
   function villagersStep(h) {
-    if (!S.villagers || !S.g) return; const g = S.g, gx = g.x / 1000, gy = g.y / 1000;
-    for (const v of S.villagers) if (Math.abs(v.x - gx) < 4 && Math.abs(v.y - gy) < 2) v.face = gx > v.x ? 1 : -1;
+    if (!S.villagers || !S.g) return; const g = S.g, gx = g.x / 1000, gy = g.y / 1000, mid = S.cam.x + VW / 2;
+    for (const v of S.villagers) { if (Math.abs(v.x - mid) < VW) villagerMove(v); if (v.mode !== "walk" && Math.abs(v.x - gx) < 4 && Math.abs(v.y - gy) < 2) v.face = gx > v.x ? 1 : -1; }
     if (S.talk && S.frame > S.talk.until) S.talk = null;
     if (S.frame % 6) return;
     let best = null, bd = 1e9; for (const v of S.villagers) { if (villagerAway(v)) continue; const dx = Math.abs(v.x - gx), dy = Math.abs(v.y - gy); if (dx < 1.7 && dy < 1.3 && dx < bd) { bd = dx; best = v; } }
@@ -1369,8 +1530,8 @@
       if (t && t.line) { S.talk = { v: best, name: t.name, line: t.line, until: S.frame + 60 * 5 }; best.n++; best.nextAt = S.frame + 60 * 10; return; } }
     best.nextAt = S.frame + 60 * 4; S.talk = { v: best, name: "", line: "🙂", until: S.frame + 60 * 1.5 };
   }
-  function drawVillager(v, s, now) {
-    const c = ctx, L = v.look, u = s * L.size, x = v.x * s, y = v.y * s, f = v.face, br = Math.sin(now / 700 + v.id) * 0.012, blink = Math.floor(now / 140 + v.id * 7) % 37 === 0;
+  function drawVillager(v, s, now, c0 = ctx, busy = false) {
+    const c = c0, L = v.look, u = s * L.size, x = v.x * s, y = v.y * s, f = v.face, br = Math.sin(now / 700 + v.id) * 0.012, blink = Math.floor(now / 140 + v.id * 7) % 37 === 0;
     const ell = (col, ex, ey, rx, ry, a = 0) => { c.fillStyle = col; c.beginPath(); c.ellipse(x + ex * u, y + ey * u, rx * u, ry * u, a, 0, 7); c.fill(); };
     const poly2 = (col, pts) => { c.fillStyle = col; c.beginPath(); pts.forEach(([px, py], i) => i ? c.lineTo(x + px * u, y + py * u) : c.moveTo(x + px * u, y + py * u)); c.closePath(); c.fill(); };
     ell("rgba(0,0,0,0.18)", 0, 0, 0.3, 0.05);
@@ -1390,6 +1551,11 @@
     if (v.kind !== 1) for (const e of [-1, 1]) { ell("#eab993", e * 0.15, hy + 0.005, 0.034, 0.052, e * 0.15); ell("#d49474", e * 0.155, hy + 0.01, 0.016, 0.03, e * 0.15); }
     ell("#f1c9a5", 0, hy, 0.145, 0.135);
     if (v.kind === 1) for (const e of [-1, 1]) ell(L.hair, e * 0.135, hy + 0.01, 0.04, 0.085, e * 0.2);
+    // (Matthew: "NPC gnomes need hair on their head sides. They seem too bare") hair curling out under the cap at each side, down
+    // over the tops of the ears: a gnome's the color of his beard, a child's its own
+    else { const hc = v.kind === 0 ? L.beard : L.hair, hd = mixHex(hc, "#000000", 0.18);
+      for (const e of [-1, 1]) { ell(hc, e * 0.128, hy - 0.075, 0.05, 0.042); ell(hc, e * 0.148, hy - 0.035, 0.04, 0.038); ell(hc, e * 0.112, hy - 0.098, 0.045, 0.03);
+        c.strokeStyle = hd; c.lineWidth = Math.max(1, 0.008 * u); c.beginPath(); c.arc(x + e * 0.13 * u, y + (hy - 0.07) * u, 0.025 * u, 0.3, 2.6); c.stroke(); } }
     if (L.cheeks) for (const e of [-1, 1]) ell("rgba(230,120,110,0.45)", e * 0.075, hy + 0.035, 0.035, 0.025);
     if (v.kind === 0) { poly2(L.beard, [[-0.12, hy + 0.01], [0.12, hy + 0.01], [0.06, hy + 0.08 + L.beardLen], [0, hy + 0.12 + L.beardLen], [-0.06, hy + 0.08 + L.beardLen]]);
       for (const e of [-1, 1]) ell(L.beard, e * 0.05, hy + 0.045, 0.06, 0.028, e * 0.3);
@@ -1398,9 +1564,16 @@
     // open under the brows, whites and all, the cap well up on the head above them
     const ex = f * 0.012; for (const e of [-1, 1]) { if (blink) { c.strokeStyle = "#3a2a1a"; c.lineWidth = Math.max(1, u / 40); c.beginPath(); c.moveTo(x + (e * 0.052 - 0.02) * u, y + (hy - 0.015) * u); c.lineTo(x + (e * 0.052 + 0.02) * u, y + (hy - 0.015) * u); c.stroke(); }
       else { ell("#fffaf0", e * 0.052, hy - 0.015, 0.027, 0.023); ell("#2a1a10", e * 0.052 + ex, hy - 0.013, 0.015, 0.017); ell("#fff", e * 0.052 + ex + 0.006, hy - 0.02, 0.005, 0.005); }
-      ell(v.kind === 0 ? L.beard : L.hair, e * 0.055, hy - 0.052, 0.038, 0.013, e * -0.2); }
+      // (Matthew: "all of the line-only gnomes look angry"; "let's have them generally look content") soft brows arched up, a
+      // smiling crease under each eye
+      c.strokeStyle = mixHex(v.kind === 0 ? L.beard : L.hair, "#5a4030", v.kind === 0 ? 0.25 : 0); c.lineWidth = Math.max(1, 0.018 * u); c.lineCap = "round"; c.beginPath(); c.arc(x + e * 0.054 * u, y + (hy - 0.035) * u, 0.034 * u, Math.PI * 1.2, Math.PI * 1.8); c.stroke();
+      if (!blink) { c.strokeStyle = "rgba(150,90,70,0.6)"; c.lineWidth = Math.max(1, 0.01 * u); c.beginPath(); c.arc(x + e * 0.052 * u, y + (hy - 0.022) * u, 0.03 * u, Math.PI * 0.25, Math.PI * 0.75); c.stroke(); } c.lineCap = "butt"; }
     ell("#e8a08a", ex * 1.5, hy + 0.025, L.nose, L.nose * 0.9); ell("rgba(255,255,255,0.35)", ex * 1.5 - 0.015, hy + 0.01, L.nose * 0.3, L.nose * 0.25);
-    if (v.kind !== 0) { c.strokeStyle = "#a0524a"; c.lineWidth = Math.max(1, u / 45); c.beginPath(); c.arc(x + ex * u, y + (hy + 0.06) * u, 0.03 * u, 0.2, Math.PI - 0.2); c.stroke(); }
+    // (a smile: a gnome's under his moustache, over his beard)
+    // (Matthew: "mouths are on top of noses") below the nose, round and big as it is: a gnome's moustache under it, his smile under that
+    { const nb = hy + 0.025 + L.nose * 0.9, my = v.kind === 0 ? nb + 0.03 : nb + 0.012;
+      if (v.kind === 0) for (const e of [-1, 1]) ell(L.beard, ex * 1.5 + e * 0.036, nb + 0.004, 0.042, 0.018, e * 0.35);
+      c.strokeStyle = "#8a3a32"; c.lineWidth = Math.max(1, u / 40); c.lineCap = "round"; c.beginPath(); c.arc(x + ex * 1.5 * u, y + my * u, 0.03 * u, 0.3, Math.PI - 0.3); c.stroke(); c.lineCap = "butt"; }
     const capH = v.kind === 2 ? 0.34 : 0.48, tipX = (L.droop + f * 0.06) * 0.3, cb = hy - 0.095;
     poly2(L.cap, [[-0.155, cb], [0.155, cb], [tipX, cb - capH]]);
     if (L.stripe) { c.save(); c.beginPath(); c.moveTo(x - 0.155 * u, y + cb * u); c.lineTo(x + 0.155 * u, y + cb * u); c.lineTo(x + tipX * u, y + (cb - capH) * u); c.closePath(); c.clip(); c.fillStyle = "rgba(255,255,255,0.35)"; for (let k = 1; k < 4; k++) c.fillRect(x - 0.2 * u, y + (cb - k * capH / 4) * u, 0.4 * u, 0.035 * u); c.restore(); }
@@ -1408,7 +1581,7 @@
     poly2("rgba(255,255,255,0.15)", [[0.04, cb - 0.01], [0.12, cb - 0.01], [tipX, cb - capH]]);
     ell(mixHex(L.cap, "#000000", 0.25), 0, cb, 0.16, 0.026);
     // (what it holds, in the hand on the side it faces)
-    const hx = f * 0.26, hy2 = -0.25, I = v.kind === 2 ? (L.item % 3 === 0 ? 4 : 9) : v.kind === 1 ? [1, 1, 3, 5, 6, 9, 1, 6, 9][L.item] : [0, 2, 3, 5, 0, 2, 9, 6, 0][L.item];
+    const hx = f * 0.26, hy2 = -0.25, I = busy ? -1 : v.kind === 2 ? (L.item % 3 === 0 ? 4 : 9) : v.kind === 1 ? [1, 1, 3, 5, 6, 9, 1, 6, 9][L.item] : [0, 2, 3, 5, 0, 2, 9, 6, 0][L.item];
     if (I === 0) { c.strokeStyle = "#5a3a1e"; c.lineWidth = 0.025 * u; c.beginPath(); c.moveTo(x + f * 0.03 * u, y + (hy + 0.07) * u); c.quadraticCurveTo(x + f * 0.12 * u, y + (hy + 0.12) * u, x + f * 0.17 * u, y + (hy + 0.06) * u); c.stroke(); ell("#5a3a1e", f * 0.18, hy + 0.04, 0.03, 0.035);
       const sm = (now / 900 + v.id) % 1; ell(`rgba(220,220,220,${(0.5 * (1 - sm)).toFixed(2)})`, f * 0.2 + sm * 0.05, hy - 0.04 - sm * 0.25, 0.03 + sm * 0.04, 0.03 + sm * 0.04); }
     else if (I === 1) { ell("#a0703f", hx, hy2 + 0.08, 0.1, 0.07); c.strokeStyle = "#7a4f2a"; c.lineWidth = 0.02 * u; c.beginPath(); c.arc(x + hx * u, y + (hy2 + 0.06) * u, 0.09 * u, Math.PI, 0); c.stroke(); for (let k = 0; k < 4; k++) ell(["#b71c1c", "#6a1b9a", "#b71c1c", "#1a237e"][k], hx - 0.06 + k * 0.04, hy2 + 0.035, 0.022, 0.022); }
@@ -1417,6 +1590,86 @@
     else if (I === 4) { ell("#efe7d4", hx, hy2 + 0.05, 0.022, 0.05); ell("#c62828", hx, hy2, 0.07, 0.04); ell("#fff", hx - 0.02, hy2 - 0.01, 0.012, 0.01); }
     else if (I === 5) { c.fillStyle = "#7a1f1f"; c.fillRect(x + (hx - 0.06) * u, y + (hy2 - 0.02) * u, 0.12 * u, 0.09 * u); c.fillStyle = "#efe7d4"; c.fillRect(x + (hx - 0.055) * u, y + (hy2 - 0.015) * u, 0.11 * u, 0.012 * u); }
     else if (I === 6) { ell("#7b8a8f", hx, hy2 + 0.06, 0.08, 0.065); c.strokeStyle = "#7b8a8f"; c.lineWidth = 0.025 * u; c.beginPath(); c.moveTo(x + (hx + f * 0.07) * u, y + (hy2 + 0.05) * u); c.lineTo(x + (hx + f * 0.16) * u, y + (hy2 - 0.02) * u); c.stroke(); }
+  }
+  // (Matthew: "let's give the NPCs some more movement"; "maybe they stand still for a few seconds, then walk around back and forth
+  // -- we need profile views of each, and walking"; "and some "busy" animations, like they are cooking, or cleaning, or doing other
+  // things in the underground houses") Each villager stands a while (two to seven seconds), then walks a little way, to a place
+  // in its own reach: across its room, along its stretch of land (its ground's height, a tile up or down at most), along its
+  // platform; and stands again. In the village, at its place, it is busy at what its room is for. The gnome coming to talk, it
+  // stops and turns to it
+  const ACT = { 1: "stir", 3: "carry", 4: "hammer", 5: "read", 6: "stir", 7: "scrub", 8: "water", 9: "bucket", 10: "knit", 11: "knit", 12: "rock", 0: "sweep", 2: "sweep" };
+  function villagerReach(v) {
+    if (v.room) return [v.room.x + 0.6, v.room.x + v.room.w - 0.6];
+    const c0 = Math.floor(v.x); let lo = c0, hi = c0;
+    if (v.where === 2) { const r = Math.round(v.y), ok = c => inside(c, r) && (fix[at(c, r)] === F_PLAT || fix[at(c, r)] === F_BRIDGE);
+      while (lo > c0 - 3 && ok(lo - 1)) lo--; while (hi < c0 + 3 && ok(hi + 1)) hi++; }
+    else { const h0 = landY(c0), ok = c => inside(c, 1) && !riverAt(c + 0.5) && Math.abs(landY(c) - h0) <= 1.01 && mat[at(c, Math.floor(landY(c) - 0.5))] === AIR;
+      while (lo > c0 - 3 && ok(lo - 1)) lo--; while (hi < c0 + 3 && ok(hi + 1)) hi++; }
+    return [lo + 0.5, hi + 0.5];
+  }
+  function villagerMove(v) {
+    if (!v.reach) { v.reach = villagerReach(v); v.mode = "stand"; v.timer = 60 + Math.floor(rand() * 300); v.act = v.room ? ACT[v.room.kind] || "sweep" : null; }
+    if (S.talk && S.talk.v === v) { v.mode = "stand"; v.timer = Math.max(v.timer, 90); return; }
+    if (v.mode === "walk") { const dx = v.to - v.x, sp = 0.022; if (Math.abs(dx) <= sp) { v.x = v.to; v.mode = v.act ? "busy" : "stand"; v.timer = (v.act ? 300 : 120) + Math.floor(rand() * 300); } else { v.x += Math.sign(dx) * sp; v.face = Math.sign(dx); }
+      if (v.where === 1 || v.where === 3) v.y = landY(Math.floor(v.x)); v.step = (v.step || 0) + 1; return; }
+    if (--v.timer > 0) return;
+    const [a, b] = v.reach; if (b - a < 0.6) { v.timer = 400; return; }
+    v.to = a + (b - a) * rand(); if (Math.abs(v.to - v.x) < 0.5) v.to = v.x < (a + b) / 2 ? b : a; v.mode = "walk";
+  }
+  // a villager walking, from the side, the way it goes: its cap leaning back, its nose out in front, an eye, an ear, a gnome's beard
+  // down from his chin, a wife's braid behind; the near arm and the far swinging, the legs striding
+  function drawVillagerProfile(v, s, now, c0 = ctx) {
+    const c = c0, L = v.look, u = s * L.size, x = v.x * s, y = v.y * s, f = v.face || 1, ph = (v.step || 0) * 0.28, sw = Math.sin(ph), bob = Math.abs(Math.cos(ph)) * 0.015;
+    const ell = (col, ex, ey, rx, ry, a = 0) => { c.fillStyle = col; c.beginPath(); c.ellipse(x + f * ex * u, y + ey * u, rx * u, ry * u, f * a, 0, 7); c.fill(); };
+    const poly2 = (col, pts) => { c.fillStyle = col; c.beginPath(); pts.forEach(([px, py], i) => i ? c.lineTo(x + f * px * u, y + py * u) : c.moveTo(x + f * px * u, y + py * u)); c.closePath(); c.fill(); };
+    const limb = (col, x0, y0, x1, y1, w) => { c.strokeStyle = col; c.lineWidth = w * u; c.lineCap = "round"; c.beginPath(); c.moveTo(x + f * x0 * u, y + y0 * u); c.lineTo(x + f * x1 * u, y + y1 * u); c.stroke(); c.lineCap = "butt"; };
+    ell("rgba(0,0,0,0.18)", 0, 0, 0.22, 0.045);
+    // (the far arm and leg, darker, behind)
+    limb(mixHex(L.coat, "#000000", 0.25), 0, -0.42, -0.12 * sw, -0.26, 0.085); ell("#e2b48e", -0.12 * sw, -0.24, 0.042, 0.042);
+    if (v.kind !== 1) limb(mixHex(L.pants, "#000000", 0.2), 0, -0.2, -0.1 * sw, -0.05, 0.11); ell("#2e1f12", -0.1 * sw + 0.04, -0.03, 0.08, 0.04);
+    // (the body, the near leg, the belt or apron)
+    if (v.kind === 1) poly2(L.coat, [[-0.17, -0.05 - bob], [0.2, -0.05 - bob], [0.13, -0.46 - bob], [-0.12, -0.46 - bob]]);
+    else { limb(L.pants, 0, -0.2, 0.1 * sw, -0.05, 0.11); poly2(L.coat, [[-0.15, -0.17 - bob], [0.17, -0.17 - bob], [0.13, -0.47 - bob], [-0.12, -0.47 - bob]]); }
+    ell("#3e2a1a", 0.1 * sw + 0.04, -0.03, 0.085, 0.042);
+    if (v.kind === 1) poly2("#efe7d4", [[0.05, -0.07 - bob], [0.2, -0.07 - bob], [0.15, -0.38 - bob], [0.06, -0.38 - bob]]);
+    else { c.fillStyle = "#4a2e1a"; c.fillRect(x - 0.16 * u, y - (0.265 + bob) * u, 0.33 * u, 0.05 * u); }
+    // (the head: the braid or the hair behind, the ear, the face, the nose out in front, an eye, the beard, the cap leaning back)
+    const hy = -0.6 - bob;
+    if (v.kind === 1) { limb(L.hair, -0.1, hy, -0.15, hy + 0.24, 0.05); ell(L.hair, -0.15, hy + 0.26, 0.03, 0.025); ell(L.hair, -0.06, hy + 0.01, 0.09, 0.1); }
+    else ell(v.kind === 0 ? L.beard : L.hair, -0.07, hy + 0.0, 0.08, 0.09);
+    ell("#f1c9a5", 0.01, hy, 0.12, 0.125);
+    if (v.kind !== 1) { ell("#eab993", -0.04, hy + 0.01, 0.03, 0.05); ell("#d49474", -0.04, hy + 0.015, 0.014, 0.028); }
+    ell("#2a1a10", 0.07, hy - 0.015, 0.016, 0.019); ell("#fff", 0.075, hy - 0.022, 0.005, 0.005);
+    c.strokeStyle = v.kind === 0 ? L.beard : L.hair; c.lineWidth = Math.max(1, 0.016 * u); c.lineCap = "round"; c.beginPath(); c.arc(x + f * 0.07 * u, y + (hy - 0.035) * u, 0.03 * u, f > 0 ? Math.PI * 1.2 : Math.PI * 1.2, Math.PI * 1.8); c.stroke(); c.lineCap = "butt";
+    if (L.cheeks) ell("rgba(230,120,110,0.45)", 0.05, hy + 0.04, 0.03, 0.022);
+    if (v.kind === 0) { poly2(L.beard, [[0.01, hy + 0.03], [0.13, hy + 0.04], [0.12, hy + 0.12 + L.beardLen * 0.6], [0.05, hy + 0.1 + L.beardLen], [-0.03, hy + 0.08]]);
+      c.strokeStyle = "rgba(0,0,0,0.12)"; c.lineWidth = Math.max(1, u / 60); c.beginPath(); for (const k of [0.03, 0.07]) { c.moveTo(x + f * k * u, y + (hy + 0.06) * u); c.lineTo(x + f * (k + 0.01) * u, y + (hy + 0.05 + L.beardLen * 0.8) * u); } c.stroke(); }
+    else { c.strokeStyle = "#8a3a32"; c.lineWidth = Math.max(1, u / 45); c.beginPath(); c.arc(x + f * 0.09 * u, y + (hy + 0.05) * u, 0.02 * u, f > 0 ? 0.2 : Math.PI - 1.2, f > 0 ? 1.2 : Math.PI - 0.2); c.stroke(); }
+    ell("#e8a08a", 0.125, hy + 0.025, L.nose * 0.85, L.nose * 0.8);
+    const capH = v.kind === 2 ? 0.34 : 0.48, cb = hy - 0.09;
+    poly2(L.cap, [[-0.15, cb + 0.01], [0.14, cb - 0.01], [-0.09, cb - capH * 0.97]]);
+    ell(mixHex(L.cap, "#000000", 0.25), 0, cb, 0.15, 0.025, -0.08);
+    // (the near arm, swinging, its hand, what it holds)
+    limb(L.coat, 0.02, -0.42 - bob, 0.12 * sw, -0.26, 0.085); ell("#f1c9a5", 0.12 * sw, -0.24, 0.042, 0.042);
+  }
+  // (busy: what a villager's room is for, with its hands, a little prop, moving)
+  function drawBusy(v, s, now, c0 = ctx) {
+    const c = c0, u = s * v.look.size, x = v.x * s, y = v.y * s, f = v.face || 1, t = now / 1000 + v.id;
+    const ell = (col, ex, ey, rx, ry, a = 0) => { c.fillStyle = col; c.beginPath(); c.ellipse(x + f * ex * u, y + ey * u, rx * u, ry * u, f * a, 0, 7); c.fill(); };
+    const line = (col, x0, y0, x1, y1, w) => { c.strokeStyle = col; c.lineWidth = Math.max(1, w * u); c.lineCap = "round"; c.beginPath(); c.moveTo(x + f * x0 * u, y + y0 * u); c.lineTo(x + f * x1 * u, y + y1 * u); c.stroke(); c.lineCap = "butt"; };
+    const a = v.act;
+    if (a === "stir") { ell("#3a3a3a", 0.42, -0.12, 0.16, 0.12); ell("#5a5a5a", 0.42, -0.2, 0.17, 0.035); const k = t * 3, lx = 0.42 + Math.cos(k) * 0.07; line("#8b5a2b", 0.26, -0.3, lx, -0.2 + Math.sin(k) * 0.015, 0.025);
+      for (let j = 0; j < 3; j++) { const q = (t * 0.6 + j / 3) % 1; ell(`rgba(235,235,235,${(0.5 * (1 - q)).toFixed(2)})`, 0.42 + Math.sin(q * 6 + j) * 0.04, -0.25 - q * 0.35, 0.03 + q * 0.04, 0.03 + q * 0.04); } }
+    else if (a === "sweep") { const k = Math.sin(t * 4) * 0.12; line("#8b5a2b", 0.24, -0.34, 0.3 + k, 0.0, 0.025); c.fillStyle = "#c9a24a"; c.beginPath(); c.moveTo(x + f * (0.24 + k) * u, y - 0.03 * u); c.lineTo(x + f * (0.38 + k) * u, y - 0.03 * u); c.lineTo(x + f * (0.42 + k) * u, y + 0.01 * u); c.lineTo(x + f * (0.2 + k) * u, y + 0.01 * u); c.closePath(); c.fill();
+      if (Math.sin(t * 4) > 0.8) ell("rgba(160,140,110,0.4)", 0.45 + k, -0.03, 0.05, 0.02); }
+    else if (a === "hammer") { const k = Math.max(0, Math.sin(t * 5)); ell("#6b6b6b", 0.4, -0.18, 0.12, 0.05); line("#8b5a2b", 0.26, -0.28, 0.35, -0.28 - k * 0.2, 0.025); ell("#555", 0.37, -0.3 - k * 0.2, 0.05, 0.025); if (k < 0.08) ell("#ffd166", 0.42, -0.25, 0.02, 0.02); }
+    else if (a === "read") { const k = Math.sin(t * 0.7); c.fillStyle = "#7a1f1f"; c.fillRect(x - 0.1 * u, y - 0.36 * u, 0.2 * u, 0.12 * u); c.fillStyle = "#f5efe1"; c.fillRect(x - 0.09 * u, y - 0.355 * u, 0.085 * u, 0.1 * u); c.fillRect(x + 0.005 * u, y - 0.355 * u, 0.085 * u, 0.1 * u); if (k > 0.9) { c.fillStyle = "#fffaf0"; c.beginPath(); c.moveTo(x, y - 0.355 * u); c.lineTo(x + 0.05 * u, y - 0.4 * u); c.lineTo(x + 0.05 * u, y - 0.3 * u); c.lineTo(x, y - 0.255 * u); c.fill(); } }
+    else if (a === "knit") { const k = Math.sin(t * 6) * 0.03; ell("#b03a5b", 0.0, -0.3, 0.07, 0.05); line("#c8c8c8", -0.12, -0.32 + k, 0.06, -0.26, 0.012); line("#c8c8c8", 0.12, -0.32 - k, -0.06, -0.26, 0.012); ell("#b03a5b", 0.3, -0.03, 0.06, 0.05); }
+    else if (a === "scrub") { const k = Math.sin(t * 7) * 0.06; ell("#8b5a2b", 0.4, -0.1, 0.18, 0.1); ell("#cfe8f7", 0.4, -0.16, 0.16, 0.03); ell("#e9e1d0", 0.38 + k, -0.18, 0.05, 0.025); for (let j = 0; j < 3; j++) ell("rgba(255,255,255,0.8)", 0.32 + j * 0.07, -0.21 - ((t + j) % 1) * 0.08, 0.018, 0.018); }
+    else if (a === "water") { const k = Math.sin(t * 1.5) * 0.15; c.save(); c.translate(x + f * 0.3 * u, y - 0.28 * u); c.rotate(f * (0.3 + k)); c.fillStyle = "#7b8a8f"; c.fillRect(-0.06 * u, -0.05 * u, 0.12 * u, 0.1 * u); c.restore(); for (let j = 0; j < 3; j++) ell("rgba(140,190,240,0.8)", 0.42 + j * 0.02, -0.18 + ((t * 2 + j / 3) % 1) * 0.15, 0.01, 0.018); ell("#c8a46a", 0.45, -0.03, 0.06, 0.04); }
+    else if (a === "bucket") { const k = (Math.sin(t * 1.2) + 1) / 2; line("#d8c49a", 0.3, -0.5, 0.3, -0.2 + k * 0.15, 0.012); ell("#7a5a3a", 0.3, -0.15 + k * 0.15, 0.06, 0.05); }
+    else if (a === "carry") { ell("#c88a4a", 0.0, -0.3, 0.07, 0.08); ell("#efe7d4", 0.0, -0.38, 0.06, 0.015); }
+    else if (a === "rock") { const k = Math.sin(t * 2) * 0.1; c.save(); c.translate(x + f * 0.4 * u, y - 0.05 * u); c.rotate(k); c.fillStyle = "#8b5a2b"; c.beginPath(); c.ellipse(0, 0, 0.18 * u, 0.1 * u, 0, 0, Math.PI); c.fill(); c.fillStyle = "#f3d9e0"; c.fillRect(-0.1 * u, -0.08 * u, 0.2 * u, 0.08 * u); c.restore(); }
   }
   function drawTalk(s) {
     const T2 = S.talk; if (!T2) return; const v = T2.v, c = ctx, x = v.x * s, y = (v.y - 1.25 * v.look.size) * s, fs = Math.max(11, Math.round(0.3 * s)), pad = 0.18 * s, maxW = 5.2 * s;
@@ -1904,9 +2157,9 @@
   // frame: performance, Matthew: "it seems like there are performance challenges now")
   function drawLodgeCached(L, s) {
     const R = L.river, mid = L.x + L.w / 2, k = Math.floor(mid) - R.x, inCh = k >= 0 && k < R.w, base = inCh ? R.bed[k] : surf0[Math.max(0, Math.min(WW - 1, Math.floor(mid)))], lvl = R.level;
-    const W = (L.w / 2 + 1.1) * s, cx = mid * s, by = base * s, topY = (Math.min(lvl, base) - 3.3) * s, key = lvl + ":" + base + ":" + s;
+    const W = (L.w / 2 + 1.1) * s, cx = mid * s, by = base * s, topY = (Math.min(lvl, base) - 3.3) * s, key = lvl + ":" + base + ":" + s + (LINE ? ":line" : "");
     if (!L.cache || L.cache.key !== key) { const x0 = cx - W - s, y0 = topY - s, cv2 = document.createElement("canvas"); cv2.width = Math.ceil(2 * W + 2 * s); cv2.height = Math.ceil(by - topY + 2.5 * s);
-      const g = cv2.getContext("2d"); g.translate(-x0, -y0); drawLodge(L, s, g, "body"); L.cache = { key, cv: cv2, x0, y0 }; }
+      const g = cv2.getContext("2d"); g.translate(-x0, -y0); drawLodge(L, s, LINE ? lineCtx(g) : g, "body"); L.cache = { key, cv: cv2, x0, y0 }; }
     ctx.drawImage(L.cache.cv, L.cache.x0, L.cache.y0); drawLodge(L, s, ctx, "beavers");
   }
   function drawLodge(L, s, cc = ctx, part = "all") {
@@ -1967,9 +2220,9 @@
   }
   function cutPiece(fl) { const p = fl.F.pieces[fl.k++]; if (!p) return; if (p.i === 0) fl.F.trunk = p.to; else fl.F.gone[p.i] = 1; }
   function drawFallen(fl, s) {
-    const t = fl.t, hT = t.h * (t.kind === 4 ? 1.1 : 1) + 3, x = (t.x + 0.5) * s, gy = landY(t.x) * s, key = fl.k + ":" + s;
+    const t = fl.t, hT = t.h * (t.kind === 4 ? 1.1 : 1) + 3, x = (t.x + 0.5) * s, gy = landY(t.x) * s, key = fl.k + ":" + s + (LINE ? ":line" : "");
     if (!fl.pic || fl.pic.key !== key) { const ox = hT * s, oy = hT * 0.8 * s, cv2 = document.createElement("canvas"); cv2.width = Math.ceil(2 * hT * s); cv2.height = Math.ceil((hT * 0.8 + 2.5) * s);
-      const g = cv2.getContext("2d"); g.translate(ox - x, oy - gy); paintFallen(g, fl, s); fl.pic = { key, cv: cv2, ox, oy }; }
+      const g = cv2.getContext("2d"); g.translate(ox - x, oy - gy); paintFallen(LINE ? lineCtx(g) : g, fl, s); fl.pic = { key, cv: cv2, ox, oy }; }
     ctx.drawImage(fl.pic.cv, x - fl.pic.ox, gy - fl.pic.oy);
   }
   function paintFallen(ctx, fl, s) {
@@ -2071,6 +2324,7 @@
     }
     pmark("ground");
     // the ground, as Gnome dig paints it: each kind flat, darker deeper, a fleck or two, its own faint marks
+    ctx.plain = true;
     const dk = new Path2D(), lt = new Path2D(), ln = new Path2D(), sp = Math.max(1, s * 0.08);
     for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) { const m = mat[at(c, r)]; if (m < SOIL || m > GRANITE) continue;
       const x = c * s, y = r * s, hsh = (c * 73 + r * 151) % 97;
@@ -2082,7 +2336,7 @@
       else if (m === SHALE) { ln.rect(x, y + s * 0.35, s, Math.max(1, s * 0.035)); ln.rect(x, y + s * 0.72, s, Math.max(1, s * 0.035)); }
       else if (m === LIME) { lt.rect(x + s * 0.5, y + s * 0.2, sp, sp); lt.rect(x + s * 0.3, y + s * 0.62, sp * 1.5, sp * 0.6); }
       else if (m === GRANITE) { lt.rect(x + s * 0.3, y + s * 0.15, sp, sp); lt.rect(x + s * 0.75, y + s * 0.5, sp, sp); dk.rect(x + s * 0.45, y + s * 0.8, sp, sp); } }
-    ctx.fillStyle = "rgba(0,0,0,0.12)"; ctx.fill(dk); ctx.fillStyle = "rgba(255,232,200,0.1)"; ctx.fill(lt); ctx.fillStyle = "rgba(0,0,0,0.14)"; ctx.fill(ln);
+    ctx.fillStyle = "rgba(0,0,0,0.12)"; ctx.fill(dk); ctx.fillStyle = "rgba(255,232,200,0.1)"; ctx.fill(lt); ctx.fillStyle = "rgba(0,0,0,0.14)"; ctx.fill(ln); ctx.plain = false;
     // (Matthew: "the tree roots have regressed, a lot, from the original gnome dig prototype game"; "it had foreground and
     // background elements, and accommodations for dug out earth tiles"; "the artwork behind those roots was a key part of the
     // aesthetic that I wanted to adopt") Gnome dig's roots and mycelium, grown in Hazel (World.roots, World.threads), and drawn
@@ -2107,8 +2361,8 @@
       ctx.fillStyle = backCol(r - surf0[c]); ctx.fillRect(c * s, r * s, s + 0.5, s + 0.5); dugPath.rect(c * s, r * s, s + 0.5, s + 0.5); dugN++; }
     if (dugN) {
       drawRootChunks(c0, c1, r0, r1, s, "back");
-      const E = edges(), open = (cc, rr) => inside(cc, rr) && mat[at(cc, rr)] === AIR;
-      for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) { const i = at(c, r); if (mat[i] !== AIR || bg[i] !== B_DUG) continue;
+      const E = LINE ? null : edges(), open = (cc, rr) => inside(cc, rr) && mat[at(cc, rr)] === AIR;
+      if (E) for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) { const i = at(c, r); if (mat[i] !== AIR || bg[i] !== B_DUG) continue;
         if (!open(c, r - 1)) ctx.drawImage(E.top, c * s, r * s); if (!open(c - 1, r)) ctx.drawImage(E.left, c * s, r * s); if (!open(c + 1, r)) ctx.drawImage(E.right, c * s + s * 0.84, r * s);
         if (!open(c, r + 1)) { ctx.fillStyle = "rgba(255,228,196,0.07)"; ctx.fillRect(c * s, r * s + s * 0.9, s + 0.5, s * 0.1); } }
       drawWorks(c0, c1, r0, r1, s); }
@@ -2140,7 +2394,7 @@
       if (gem[i]) { const tw = 0.5 + 0.5 * Math.sin(now / 300 + c + r); ctx.fillStyle = GEMS[gem[i]]; ctx.beginPath(); ctx.moveTo(c * s + s * 0.5, r * s + s * 0.2); ctx.lineTo(c * s + s * 0.78, r * s + s * 0.45); ctx.lineTo(c * s + s * 0.5, r * s + s * 0.8); ctx.lineTo(c * s + s * 0.22, r * s + s * 0.45); ctx.fill();
         ctx.fillStyle = `rgba(255,255,255,${(0.4 + 0.5 * tw).toFixed(2)})`; ctx.fillRect(c * s + s * 0.42, r * s + s * 0.32, s * 0.1, s * 0.1); }
       if (stone[i]) ctx.drawImage(stoneTile(stone[i]), c * s, r * s);
-      if (c === dc && r === dr) { ctx.strokeStyle = "rgba(0,0,0,0.6)"; ctx.lineWidth = Math.max(1, s / 14); const f = Math.min(1, g.dt / Math.max(1, DIG[m])); ctx.beginPath();
+      if (c === dc && r === dr) { ctx.strokeStyle = "rgba(0,0,0,0.6)"; ctx.lineWidth = Math.max(1, s / 14); const f = Math.min(1, g.dt / Math.max(1, digSteps(m, r, g.tool))); ctx.beginPath();
         for (let j = 0; j < 1 + Math.floor(f * 4); j++) { const a = j * 1.7; ctx.moveTo(c * s + s / 2, r * s + s / 2); ctx.lineTo(c * s + s / 2 + Math.cos(a) * s * 0.45 * f, r * s + s / 2 + Math.sin(a) * s * 0.45 * f); } ctx.stroke(); } }
     pmark("rooms");
     // the rooms' things, the doorways' frames, a lamp in each room
@@ -2158,7 +2412,7 @@
     drawTreeLadders(c0, c1, s);
     for (const hs of S.houses) if (hs.x > c0 - 4 && hs.x < c1 + 4) drawHouse(hs, (hs.x + 0.5) * s, hs.row * s);
     drawSquirrels(c0, c1);
-    if (S.villagers) for (const v of S.villagers) if (v.x > c0 - 2 && v.x < c1 + 2 && v.y > r0 - 2 && v.y < r1 + 3 && !villagerAway(v)) drawVillager(v, s, now);
+    if (S.villagers) for (const v of S.villagers) if (v.x > c0 - 2 && v.x < c1 + 2 && v.y > r0 - 2 && v.y < r1 + 3 && !villagerAway(v)) { if (v.mode === "walk") drawVillagerProfile(v, s, now); else { drawVillager(v, s, now, ctx, v.mode === "busy"); if (v.mode === "busy") drawBusy(v, s, now); } }
     // the village's door on the hill: a porch over the hatch; chimneys with smoke, light shafts' glass domes, air shafts' caps
     for (const v of S.villages) { const x = (v.x0 + 1) * s, y = v.top * s; if (v.x0 < c0 - 4 || v.x0 > c1 + 4) continue;
       ctx.fillStyle = "#8e8a80"; ctx.fillRect(x - 1.3 * s, y - 1.6 * s, 0.25 * s, 1.6 * s); ctx.fillRect(x + 1.05 * s, y - 1.6 * s, 0.25 * s, 1.6 * s);
@@ -2195,10 +2449,11 @@
       ctx.save(); ctx.translate(x, y); ctx.scale(1.5, 1.5); ctx.strokeStyle = "rgba(40,25,10,0.8)"; ctx.lineWidth = Math.max(1, s / 22);
       if (it.kind === "climb") { ctx.fillStyle = "#7a4a28"; ctx.beginPath(); ctx.roundRect(-0.25 * s, -0.3 * s, 0.5 * s, 0.6 * s, 0.12 * s); ctx.fill(); ctx.stroke(); ctx.fillStyle = "#a0703f"; ctx.fillRect(-0.18 * s, -0.05 * s, 0.36 * s, 0.18 * s);
         ctx.strokeStyle = "#d8c49a"; ctx.lineWidth = Math.max(1, s / 16); ctx.beginPath(); ctx.arc(0.32 * s, 0, 0.16 * s, 0, 7); ctx.stroke(); ctx.strokeStyle = "#9ca3af"; ctx.beginPath(); ctx.moveTo(-0.25 * s, -0.2 * s); ctx.lineTo(-0.38 * s, 0.25 * s); ctx.stroke(); }
+      else if (it.kind === "good" || it.kind === "super") pick(ctx, s, it.kind === "super", now);
       else { ctx.fillStyle = "#facc15"; ctx.beginPath(); ctx.roundRect(-0.18 * s, -0.35 * s, 0.36 * s, 0.7 * s, 0.15 * s); ctx.fill(); ctx.stroke();
         ctx.fillStyle = "#0284c7"; ctx.beginPath(); ctx.roundRect(0.2 * s, -0.3 * s, 0.45 * s, 0.25 * s, 0.1 * s); ctx.fill(); ctx.stroke(); ctx.fillStyle = "rgba(224,242,254,0.7)"; ctx.fillRect(0.26 * s, -0.25 * s, 0.33 * s, 0.13 * s); }
       ctx.restore();
-      const label = it.kind === "climb" ? "🧗 tree-climbing pack" : "🤿 diving gear", ly = y - s * 1.25 + Math.sin(now / 300) * 0.05 * s;
+      const label = ITEM[it.kind].label, ly = y - s * 1.25 + Math.sin(now / 300) * 0.05 * s;
       ctx.font = `bold ${Math.round(0.36 * s)}px sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; const tw = ctx.measureText(label).width;
       ctx.fillStyle = "rgba(30,20,8,0.72)"; ctx.beginPath(); ctx.roundRect(x - tw / 2 - s * 0.18, ly - s * 0.26, tw + s * 0.36, s * 0.52, s * 0.18); ctx.fill(); ctx.strokeStyle = "#fde68a"; ctx.lineWidth = Math.max(1, s / 24); ctx.stroke();
       ctx.fillStyle = "#fff8d0"; ctx.fillText(label, x, ly); ctx.textAlign = "left"; ctx.textBaseline = "alphabetic"; }
@@ -2248,12 +2503,12 @@
       ctx.strokeStyle = Math.abs(ww) > 0.8 && Math.sin(c * 2.3 + ph * 0.5) > 0.6 ? "rgba(255,255,255,0.9)" : "rgba(220,240,255,0.6)"; ctx.lineWidth = Math.max(1, s / 16);
       ctx.beginPath(); for (let q = 0; q <= 4; q++) { const xx = (c + q / 4) * s; if (q) ctx.lineTo(xx, wy(q / 4)); else ctx.moveTo(xx, wy(0)); } ctx.stroke(); }
     // rain, in a shower
-    if (S.rain) { ctx.strokeStyle = "rgba(200,220,255,0.6)"; ctx.lineWidth = Math.max(1, s / 24); ctx.beginPath(); for (let k = 0; k < 120; k++) { const x = (c0 + ((k * 37.7 + S.frame * 0.3 * (k % 3 + 1)) % (c1 - c0 + 1))) * s, y = (r0 + ((k * 13.3 + S.frame * 0.5) % (r1 - r0 + 1))) * s; const col = Math.floor(x / s); if (col >= 0 && col < WW && y / s < top[col]) { ctx.moveTo(x, y); ctx.lineTo(x + (S.windNow || 0) * 0.45 * s - 0.05 * s, y + 0.5 * s); } } ctx.stroke(); }
+    if (S.rain && !LINE) { ctx.strokeStyle = "rgba(200,220,255,0.6)"; ctx.lineWidth = Math.max(1, s / 24); ctx.beginPath(); for (let k = 0; k < 120; k++) { const x = (c0 + ((k * 37.7 + S.frame * 0.3 * (k % 3 + 1)) % (c1 - c0 + 1))) * s, y = (r0 + ((k * 13.3 + S.frame * 0.5) % (r1 - r0 + 1))) * s; const col = Math.floor(x / s); if (col >= 0 && col < WW && y / s < top[col]) { ctx.moveTo(x, y); ctx.lineTo(x + (S.windNow || 0) * 0.45 * s - 0.05 * s, y + 0.5 * s); } } ctx.stroke(); }
     for (const l of S.leaves) { ctx.save(); ctx.translate(l.x * s, l.y * s); ctx.rotate(l.a); ctx.fillStyle = l.col; ctx.beginPath(); ctx.ellipse(0, 0, s * (l.petal ? 0.06 : 0.12), s * (l.petal ? 0.035 : 0.05), 0, 0, 7); ctx.fill(); ctx.restore(); }
     pmark("dark");
     // the dark under the ground: each tile darker the further it is under the sky, lit by the lantern, the lamps and the light
     // shafts; drawn as a tiny picture, a pixel a tile, stretched smooth over the view
-    {
+    if (!LINE) {
       const lw = c1 - c0 + 3, lh = r1 - r0 + 3, img = darkImg(lw, lh), d = img.data;
       const lights = [{ x: gx, y: gy, r: 6.5 }, ...S.lamps.filter(l => l.x > c0 - 8 && l.x < c1 + 8 && l.y > r0 - 8 && l.y < r1 + 8), ...S.items.filter(it => !it.taken).map(it => ({ x: it.x, y: it.y, r: 3.5 }))];
       for (let j = 0; j < lh; j++) for (let k = 0; k < lw; k++) { const c = c0 - 1 + k, r = r0 - 1 + j; let a = 0;
@@ -2268,15 +2523,15 @@
     for (let k = words.length - 1; k >= 0; k--) { const w = words[k], f = (now - w.at) / 1200; if (f > 1) { words.splice(k, 1); continue; } ctx.globalAlpha = 1 - f; ctx.fillStyle = "#fff"; ctx.strokeStyle = "rgba(0,0,0,0.6)"; ctx.lineWidth = 3; ctx.strokeText(w.t, w.x * s, (w.y - f) * s); ctx.fillText(w.t, w.x * s, (w.y - f) * s); ctx.globalAlpha = 1; }
     ctx.restore();
     // (each thing to be found that is off the screen: a pointer at the screen's edge, toward it, its sign and how far)
-    for (const it of S.items) { if (it.taken) continue; const dx = it.x - (camX + VW / 2), dy = it.y - (camY + VH / 2);
+    if (!LINE) for (const it of S.items) { if (it.taken) continue; const dx = it.x - (camX + VW / 2), dy = it.y - (camY + VH / 2);
       if (Math.abs(dx) < VW / 2 - 0.5 && Math.abs(dy) < VH / 2 - 0.5) continue;
       const k = Math.min((VW / 2 - 1.4) / Math.max(0.001, Math.abs(dx)), (VH / 2 - 1.4) / Math.max(0.001, Math.abs(dy))), px = (VW / 2 + dx * k) * s, py = (VH / 2 + dy * k) * s, a = Math.atan2(dy, dx), pulse = 1 + 0.08 * Math.sin(now / 200);
       ctx.save(); ctx.translate(px, py); ctx.fillStyle = "rgba(30,20,8,0.7)"; ctx.beginPath(); ctx.arc(0, 0, s * 0.62 * pulse, 0, 7); ctx.fill(); ctx.strokeStyle = "#fde68a"; ctx.lineWidth = Math.max(2, s / 14); ctx.stroke();
       ctx.save(); ctx.rotate(a); ctx.fillStyle = "#fde68a"; ctx.beginPath(); ctx.moveTo(s * 0.95 * pulse, 0); ctx.lineTo(s * 0.62, -s * 0.22); ctx.lineTo(s * 0.62, s * 0.22); ctx.closePath(); ctx.fill(); ctx.restore();
-      ctx.font = `${Math.round(0.6 * s)}px sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillStyle = "#fff"; ctx.fillText(it.kind === "climb" ? "🧗" : "🤿", 0, -s * 0.02);
+      ctx.font = `${Math.round(0.6 * s)}px sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillStyle = "#fff"; ctx.fillText(ITEM[it.kind].icon, 0, -s * 0.02);
       ctx.font = `bold ${Math.round(0.28 * s)}px sans-serif`; ctx.fillStyle = "#fff8d0"; ctx.fillText(`${Math.round(Math.hypot(it.x - S.g.x / 1000, it.y - S.g.y / 1000))} m`, 0, s * 0.85); ctx.restore(); }
     ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
-    hud(now);
+    if (!LINE) hud(now);
   }
   const darkCv = document.createElement("canvas"), darkCtx = darkCv.getContext("2d"); let darkData = null;
   function darkImg(w, h) { if (darkCv.width !== w || darkCv.height !== h || !darkData) { darkCv.width = w; darkCv.height = h; darkData = darkCtx.createImageData(w, h); } return darkData; }
@@ -2326,6 +2581,41 @@
       m.fillStyle = "#3a2414"; m.fillRect(x0 + 1.6, hs.row - 1.2, 0.6, 1.2); }
     m.restore();
   }
+  // (0.0.95) a digger, as found: a pick, its ash handle bound in leather; the good digger's head iron, the super digger's steel
+  // with a gold collar and a diamond point, glinting
+  function pick(c, s, sup, now) {
+    if (sup) { const gl = c.createRadialGradient(0, 0, s * 0.05, 0, 0, s * 0.7); gl.addColorStop(0, "rgba(186,230,253,0.55)"); gl.addColorStop(1, "rgba(186,230,253,0)"); c.fillStyle = gl; c.beginPath(); c.arc(0, 0, s * 0.7, 0, 7); c.fill(); }
+    c.lineCap = "round"; c.strokeStyle = "rgba(40,25,10,0.85)"; c.lineWidth = s * 0.13; c.beginPath(); c.moveTo(-0.3 * s, 0.42 * s); c.lineTo(0.12 * s, -0.26 * s); c.stroke();
+    c.strokeStyle = "#b07a45"; c.lineWidth = s * 0.08; c.beginPath(); c.moveTo(-0.3 * s, 0.42 * s); c.lineTo(0.12 * s, -0.26 * s); c.stroke();
+    c.strokeStyle = "#5b3a1e"; c.lineWidth = s * 0.03; for (let k = 0; k < 3; k++) { const t = 0.12 + k * 0.06, x = -0.3 * s + 0.42 * s * t, y = 0.42 * s - 0.68 * s * t; c.beginPath(); c.moveTo(x - 0.05 * s, y - 0.02 * s); c.lineTo(x + 0.05 * s, y + 0.03 * s); c.stroke(); }
+    const head = new Path2D(); head.moveTo(-0.42 * s, -0.02 * s); head.quadraticCurveTo(0.02 * s, -0.5 * s, 0.5 * s, -0.08 * s); head.quadraticCurveTo(0.06 * s, -0.36 * s, -0.42 * s, -0.02 * s);
+    c.fillStyle = sup ? "#cbd5e1" : "#6b7280"; c.fill(head); c.strokeStyle = "rgba(30,30,35,0.9)"; c.lineWidth = Math.max(1, s / 26); c.stroke(head);
+    c.strokeStyle = sup ? "rgba(255,255,255,0.8)" : "rgba(220,220,225,0.5)"; c.lineWidth = Math.max(1, s / 40); c.beginPath(); c.moveTo(-0.3 * s, -0.08 * s); c.quadraticCurveTo(0.02 * s, -0.4 * s, 0.38 * s, -0.12 * s); c.stroke();
+    c.fillStyle = sup ? "#eab308" : "#4b5563"; c.beginPath(); c.roundRect(0.03 * s, -0.33 * s, 0.14 * s, 0.13 * s, 0.03 * s); c.fill(); c.stroke();
+    if (sup) { c.fillStyle = "#a5f3fc"; c.beginPath(); c.moveTo(0.5 * s, -0.08 * s); c.lineTo(0.4 * s, -0.17 * s); c.lineTo(0.36 * s, -0.08 * s); c.closePath(); c.fill(); c.stroke();
+      const tw = 0.5 + 0.5 * Math.sin(now / 160); c.fillStyle = `rgba(255,255,255,${(0.4 + 0.6 * tw).toFixed(2)})`; c.beginPath();
+      for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4, rr = (i % 2 ? 0.03 : 0.11) * s * (0.6 + 0.4 * tw); const x = 0.44 * s + Math.cos(a) * rr, y = -0.2 * s + Math.sin(a) * rr; if (i) c.lineTo(x, y); else c.moveTo(x, y); } c.closePath(); c.fill(); }
+    c.lineCap = "butt";
+  }
+  // (Matthew: "show the current tile rock/soil description on the current top-left in-game HUD"; "and the moisture level of
+  // that cell") the cell the gnome digs, else the ground under its feet, else the air or water it is in: what it is, how it digs
+  // with the digger in hand, and how wet it is (its pores, how full of water)
+  const ABOUT = ["", "soil: soft and dark, full of roots", "clay: sticky and tight; water stands on it", "sand and gravel: loose; water runs through", "sandstone: gritty and firm",
+    "shale: hard, in thin sheets", "limestone: cracked; water seeps down through it", "granite: the hardest stone", "masonry: the gnomes' own walls", "timber: the gnomes' own beams"];
+  function cellWords(g) {
+    const gc = Math.floor(g.x / 1000), feet = Math.floor((g.y - 1) / 1000);
+    let c = gc, r = feet + 1, how = "👣 underfoot";
+    if (g.dc >= 0 && inside(g.dc, g.dr) && mat[at(g.dc, g.dr)] !== AIR) { c = g.dc; r = g.dr; how = "⛏️ digging"; }
+    else if (!inside(c, r) || mat[at(c, r)] === AIR || boulderAt(c, r)) { r = feet; how = "here"; }
+    if (!inside(c, r)) return "";
+    const i = at(c, r), m = mat[i], w = wat[i], pct = Math.round(w * 100);
+    if (m === AIR) return boulderAt(c, r) ? `${how}: a boulder` : w >= 0.5 ? `${how}: 🌊 water` : `${how}: open air${w > 0.05 ? ", 💧 a trickle of water" : ""}`;
+    const bed = m === GRANITE && r >= WH - 4, about = bed ? (r >= WH - 1 ? "bedrock: the floor of the world" : "bedrock: the granite under the world") : ABOUT[m] || NAME[m];
+    const d = digSteps(m, r, g.tool), need = d > 0 ? `⛏️ ${d <= 8 ? "easy" : d <= 20 ? "steady" : d <= 40 ? "hard" : "slow going"}, ${(d / 60).toFixed(1)} s`
+      : m === MASON || m === TIMBER || r >= WH - 1 ? "⛏️ never dug" : (bed ? !(g.tool >= 2) : !(g.tool >= 1)) ? `⛏️ needs the ${bed ? "super" : "good"} digger` : "⛏️ never dug";
+    const wet = PORES[m] === 0 ? "💧 none: water cannot soak in" : `💧 ${w < 0.05 ? "dry" : w < 0.25 ? "damp" : w < 0.5 ? "moist" : w < 0.85 ? "wet" : "soaked"}, ${pct}% full`;
+    return `${how}: ${about}  ·  ${need}  ·  ${wet}`;
+  }
   function hud(now) {
     const W = cv.width, Hh = cv.height, k = Math.max(1, Math.min(2.2, W / 900)), g = S.g;
     ctx.save(); ctx.textAlign = "left"; ctx.textBaseline = "top";
@@ -2333,14 +2623,21 @@
     ctx.font = `${Math.round(18 * k)}px sans-serif`;
     const hearts = "❤️".repeat(Math.max(0, S.hearts)) + "🤍".repeat(Math.max(0, 5 - S.hearts));
     const RV = g ? riverAt(g.x / 1000) : null, land = g ? (RV ? RV.natural - 4 : surf0[Math.floor(g.x / 1000)]) : 0, depth = g ? Math.round(g.y / 1000 - land) : 0;
-    const where = g && (g.swim || g.under) ? (g.under ? "🫧 under the water" : "🏊 swimming") : depth > 1 ? `⛏️ ${depth} m down` : depth < -2 ? `🌳 ${-depth} m up` : "🌿 on the land";
+    const where = g && (g.swim || g.under) ? (g.under ? "🫧 under the water" : "🏊 swimming") : depth > 1 ? `🕳️ ${depth} m down` : depth < -2 ? `🌳 ${-depth} m up` : "🌿 on the land";
     const gx = g ? g.x / 1000 : 0, place = (S.places.find(p => gx >= p.x0 && gx <= p.x1 && (!p.under || depth > 3)) || { name: "" }).name;
     const wv = S.windNow || 0, wa = Math.abs(wv), windWord = wa < 0.15 ? "calm" : wa < 0.45 ? "a breeze" : wa < 0.8 ? "windy" : "a gale", arrows = wa < 0.15 ? "" : (wv > 0 ? "→" : "←").repeat(wa < 0.45 ? 1 : wa < 0.8 ? 2 : 3);
     const runWord = BOT.on ? `🏃 ${Math.floor(BOT.frames / 3600)}:${String(Math.floor(BOT.frames / 60) % 60).padStart(2, "0")} · ${BOT.phase} · ${BOT.items + S.items.filter(i => i.taken).length - BOT.items}/${S.items.length} · 🌳 ${BOT.parts}/${BOT.partsAll || "?"} · 💎 ${BOT.gems}/${BOT.gemsAll || "?"}  ` : "";
-    const line = `${runWord}${hearts}  💎 ${S.gems}  🍃 ${windWord} ${arrows}  ${where}${g && g.gear ? "  🤿" : ""}${g && g.climbPack ? "  🧗" : ""}${place ? "  ·  " + place : ""}`;
+    const line = `${runWord}${hearts}  💎 ${S.gems}  🍃 ${windWord} ${arrows}  ${where}${g && g.gear ? "  🤿" : ""}${g && g.climbPack ? "  🧗" : ""}${g && g.tool ? (g.tool >= 2 ? "  ⚒️" : "  ⛏️") : ""}${place ? "  ·  " + place : ""}`;
     const tw = ctx.measureText(line).width;
     pill(10 * k, 10 * k, tw + 20 * k, 30 * k); ctx.fillStyle = "#fff"; ctx.fillText(line, 20 * k, 15 * k);
-    if (g && g.under && !g.gear) { const f = g.air / 600; pill(10 * k, 46 * k, 160 * k, 16 * k); ctx.fillStyle = f < 0.25 ? "#ef4444" : "#7dd3fc"; ctx.fillRect(14 * k, 50 * k, 152 * k * f, 8 * k); }
+    let below = 46 * k;
+    // (the cell's words, as many lines as they need to keep clear of the map in the top right corner)
+    { const cw = g ? cellWords(g) : ""; if (cw) { ctx.font = `${Math.round(14 * k)}px sans-serif`;
+        const room = (S.map ? W - Math.min(W * 0.3, 340 * k) - 10 * k : W) - 40 * k, lines = [];
+        for (const part of cw.split("  ·  ")) { const last = lines[lines.length - 1]; if (last && ctx.measureText(last + "  ·  " + part).width <= room) lines[lines.length - 1] = last + "  ·  " + part; else lines.push(part); }
+        const w2 = Math.max(...lines.map(l => ctx.measureText(l).width)); pill(10 * k, below, w2 + 20 * k, (6 + 18 * lines.length) * k); ctx.fillStyle = "#f5f5dc";
+        lines.forEach((l, j) => ctx.fillText(l, 20 * k, below + (4 + 18 * j) * k)); below += (12 + 18 * lines.length) * k; ctx.font = `${Math.round(18 * k)}px sans-serif`; } }
+    if (g && g.under && !g.gear) { const f = g.air / 600; pill(10 * k, below, 160 * k, 16 * k); ctx.fillStyle = f < 0.25 ? "#ef4444" : "#7dd3fc"; ctx.fillRect(14 * k, below + 4 * k, 152 * k * f, 8 * k); }
     if (S.banner && now - S.banner.t < 3500) { const f = Math.min(1, (3500 - (now - S.banner.t)) / 500); ctx.globalAlpha = f; ctx.font = `bold ${Math.round(24 * k)}px sans-serif`; ctx.textAlign = "center";
       const bw = ctx.measureText(S.banner.text).width; pill(W / 2 - bw / 2 - 16 * k, Hh * 0.18, bw + 32 * k, 40 * k); ctx.fillStyle = "#fff"; ctx.fillText(S.banner.text, W / 2, Hh * 0.18 + 8 * k); ctx.globalAlpha = 1; }
     if (S.map && g) {
@@ -2354,7 +2651,7 @@
       ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.font = `${Math.round(13 * k)}px sans-serif`;
       for (const it of S.items) { if (it.taken) continue; const ix = mx + it.x / WW * mw, iy = my + it.y / WH * mh;
         ctx.fillStyle = "rgba(0,0,0,0.55)"; ctx.beginPath(); ctx.arc(ix, iy, 8 * k, 0, 7); ctx.fill(); ctx.strokeStyle = "#fde68a"; ctx.lineWidth = 1.5; ctx.stroke();
-        ctx.fillText(it.kind === "climb" ? "🧗" : "🤿", ix, iy + 0.5 * k); }
+        ctx.fillText(ITEM[it.kind].icon, ix, iy + 0.5 * k); }
       ctx.textAlign = "left"; ctx.textBaseline = "top";
       ctx.fillStyle = "#ef4444"; ctx.beginPath(); ctx.arc(mx + gx / WW * mw, my + g.y / 1000 / WH * mh, 3 * k, 0, 7); ctx.fill(); ctx.strokeStyle = "rgba(255,255,255,0.6)"; ctx.lineWidth = 1; ctx.strokeRect(mx, my, mw, mh); }
     ctx.restore();
@@ -2365,7 +2662,8 @@
   // times: frames a second, the frame's time from one to the next, the world's steps in it and its drawing, the worst frame of the
   // last second; and the drawing in parts (pmark: each part's time, smoothed over a second), the three costliest shown. F hides it
   const PERF = { on: true, frames: [], ticks: [], draws: [], parts: {}, last: 0, name: null };
-  function pmark(name) { const t = performance.now(); if (PERF.name) PERF.parts[PERF.name] = (PERF.parts[PERF.name] || 0) * 0.95 + (t - PERF.last) * 0.05; PERF.name = name; PERF.last = t; }
+  function pmark(name) { if (PERF.flush) realCtx.getImageData(0, 0, 1, 1);   // (testing: the GPU's work finished before each section is timed)
+    const t = performance.now(); if (PERF.name) PERF.parts[PERF.name] = (PERF.parts[PERF.name] || 0) * 0.95 + (t - PERF.last) * 0.05; PERF.name = name; PERF.last = t; }
   function drawPerf() {
     if (!PERF.on || !PERF.frames.length) return; const c = ctx, avg = a => a.reduce((x, y) => x + y, 0) / Math.max(1, a.length);
     const fr = avg(PERF.frames), fps = 1000 / Math.max(1, fr), worst = Math.max(...PERF.frames), top = Object.entries(PERF.parts).sort((a, b) => b[1] - a[1]).slice(0, 3);
@@ -2388,6 +2686,9 @@
     PERF.ticks.push(performance.now() - tt); if (PERF.ticks.length > 60) PERF.ticks.shift();
     timedDraw();
   }
+  // (a scene in line art: the frame drawn through the line canvas, onto a canvas of its own)
+  function lineScene(x, y) { const keep = S.camFix; S.camFix = { x, y }; LINE = true; ctx = lineCtx(realCtx); realCtx.save(); realCtx.setTransform(1, 0, 0, 1, 0, 0); realCtx.fillStyle = "#fff"; realCtx.fillRect(0, 0, cv.width, cv.height); realCtx.restore();
+    try { draw(); } finally { LINE = false; ctx = realCtx; S.camFix = keep; } const out = document.createElement("canvas"); out.width = cv.width; out.height = cv.height; out.getContext("2d").drawImage(cv, 0, 0); return out; }
   function timedDraw() { const t0 = performance.now(); PERF.name = null; draw(); pmark(null); PERF.draws.push(performance.now() - t0); if (PERF.draws.length > 60) PERF.draws.shift(); drawPerf(); }
   requestAnimationFrame(frame);
 
@@ -2417,6 +2718,18 @@
   function toggleMap() { S.map = !S.map; keep("map", S.map); $("map").setAttribute("aria-pressed", String(S.map)); }
   $("map").setAttribute("aria-pressed", String(S.map));
   $("map").addEventListener("click", () => { toggleMap(); $("map").blur(); });
+  // (0.0.95, Matthew: "let's add a gnome picker") who you play: each button a little picture of its gnome, drawn as the game
+  // draws them; the choice kept for the next visit
+  function heroPicker() {
+    const box = document.getElementById("heroes"); if (!box) return;
+    for (const b of box.querySelectorAll("button[data-hero]")) { const who = b.dataset.hero, pc = b.querySelector("canvas");
+      if (pc) { const g2 = pc.getContext("2d"); g2.clearRect(0, 0, pc.width, pc.height); gnome(g2, pc.width / 2, pc.height * 0.64, pc.height * 0.46, 2, true, false, 0, false, false, true, false, null, who); }
+      b.setAttribute("aria-checked", String(who === S.hero));
+      b.onclick = () => { if (!HEROES[who]) return; S.hero = who; keep("hero", who); for (const o of box.querySelectorAll("button[data-hero]")) o.setAttribute("aria-checked", String(o === b));
+        S.banner = { text: `You are ${HEROES[who].name.toLowerCase()}`, t: performance.now() }; b.blur(); }; }
+  }
+  if (!HEROES[S.hero]) S.hero = "dad";
+  heroPicker();
   $("new").addEventListener("click", () => { const h = H(); if (!h) return; S.seed = 1 + Math.floor(Math.random() * 100000); keep("seed", S.seed); build(h, S.seed); $("new").blur(); });
   addEventListener("resize", () => draw());
   const P = window.HazelPause ? window.HazelPause.make({ into: $("new").parentElement, over: $("world").parentElement,
@@ -2495,7 +2808,7 @@
       return { data: { step: +ms.toFixed(4) }, text: [`a step of the gnome through Hazel: ${ms.toFixed(3)} ms`] };
     },
   });
-  if (Q.has("test")) window.WorldTest = { BOT, botPlan, dist, botEnter, botStand, botClimb, profile: gnomeProfile, front: gnome, map: () => { minimap(); return map2Cv; }, look: (x, y) => { S.camFix = x == null ? null : { x, y }; draw(); }, paintHouse, paintSmallHouse, squirrelBody, drawVillager, S, tick: n => { const h = H(); for (let i = 0; i < n; i++) tick(h); draw(); }, draw, near, code, at, mat, wat, fix, bg, stone, shape, surf0, treeMask, digOut, tile: () => T, drawPebbles, PERF, timedDraw: () => timedDraw() };
+  if (Q.has("test")) window.WorldTest = { spriteCache, SPRITES, cellWords, digSteps, ITEM, mat, wat, at, WH, WW, BOT, botPlan, dist, botEnter, botStand, botClimb, profile: gnomeProfile, front: gnome, map: () => { minimap(); return map2Cv; }, look: (x, y) => { S.camFix = x == null ? null : { x, y }; draw(); }, paintHouse, paintSmallHouse, squirrelBody, drawVillager, drawVillagerProfile, drawBusy, S, tick: n => { const h = H(); for (let i = 0; i < n; i++) tick(h); draw(); }, draw, near, code, at, mat, wat, fix, bg, stone, shape, surf0, treeMask, digOut, tile: () => T, drawPebbles, PERF, timedDraw: () => timedDraw(), lineCtx, lineScene, paintTall, leafyTree, drawLodge };
   document.body.classList.add("js");
   draw();
 })();

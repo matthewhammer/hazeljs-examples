@@ -1,6 +1,4 @@
 # Gnome world (Matthew, 2026-11-23: "a new variation of gnome dig ... called gnome world"): a world sixteen screens across and eight down, from the deep rock up to the tops of great trees, planned here by chance from a seed: the lie of the land, the layers of rock under it and where the water stands in them, the creeks, the stream and the river, the beavers and their lodges and dams, the gnomes' village deep under a hill and its rooms and what is in them, the great trees and the houses on their limbs, in sixteen styles; and each beaver's mind, and how high its dam holds the water. The page moves the gnome, the water and the falling boulders, and draws it all #
-let wide : Int = 448;
-let tall : Int = 128;
 let md : (Int, Int) -> Int = fun (a, b) -> a - (a / b) * b;
 let next : Int -> Int = fun s -> md(s * 48271 + 11, 2147483647);
 let absi : Int -> Int = fun v -> if v < 0 then 0 - v else v;
@@ -36,6 +34,12 @@ let ground : Int -> Ground = fun k ->
   else if k == 8 then (kind = 8, name = "masonry", dig = 0, pores = 0, flow = 0, cling = 0, color = 10260352)
   else if k == 9 then (kind = 9, name = "timber", dig = 0, pores = 0, flow = 0, cling = 0, color = 9133611)
   else (kind = 0, name = "air", dig = 0, pores = 100, flow = 900, cling = 0, color = 0);
+# (Matthew: "let's give more power ups in gnome world: * good digger * super digger. They speed up the digging through tough rock, and permit digging into bedrock") The steps it takes to dig a tile of ground w in row r, with the gnome's digger (0 none, 1 the good digger, 2 the super digger); 0, it cannot be dug. With none, the ground as its kind says: soil, clay, sand and gravel, sandstone, shale. The good digger digs the tough ones (clay, sandstone, shale) in two thirds the time, and the rock too: limestone, and granite, slowly. The super digger digs everything in a third the time (four steps at least), and the bedrock: the granite under the world, its last four rows, all but the very last. Never the gnomes' masonry nor timber #
+let dig_steps : (Int, Int, Int) -> Int = fun (w, r, tool) ->
+  if w < 1 || w > 7 || r >= 127 then 0
+  else if tool <= 0 then ground(w).dig
+  else if tool == 1 then (if w == 6 then 48 else if w == 7 then (if r >= 124 then 0 else 72) else (let d = ground(w).dig in if d >= 18 then d * 2 / 3 else d))
+  else if w == 6 then 16 else if w == 7 then (if r >= 124 then 36 else 24) else (let q = ground(w).dig / 3 in if q < 4 then 4 else q);
 # ---- The plan ---- #
 # The world from its seed: the rivers first (the creek, the river, the stream, a creek in the hills), each its water four rows under the land (room for a dam to raise it); the beavers' lodges and dams on the river and the stream, three beavers and two; the three great trees (ladders, a stair inside, ladders); the village under the hill and a hamlet past the river; the trees, thick in the forest and by the water (willows and aspens there, which the beavers fell), pines in the hills, none in the water, by a great tree or at a door; bushes; and under the ground, by chance, bowls of clay, beds of old river gravel, shelves of limestone with caves, bodies of granite, veins of gems and boulders #
 let plan : Int -> Plan = fun seed ->
@@ -195,7 +199,7 @@ let cosines : [Int] = [1000, 985, 940, 866, 766, 643, 500, 342, 174, 0, 0 - 174,
 let cosd : Int -> Int = fun a -> (let nth : ([Int], Int) -> Int = fun (xs, i) -> case xs | [] => 0 | x :: rest => if i <= 0 then x else nth(rest, i - 1) end in nth(cosines, md(md(a, 36) + 36, 36)));
 # (Matthew, 2026-11-23: "the tree roots have regressed, a lot, from the original gnome dig prototype game") From x, y heading a, segments len long and w wide (these two in hundredths of a hundredth of a tile, so that taking a little off each segment, in whole numbers, does not take off a whole unit), n more of them; the lines onto acc. A root (kind 0) wanders a little, is drawn downward a third of the time, grows thinner and shorter, and 30 segments in 100 put out a side root, 30 to 50 degrees off, thinner; a taproot (kind 2) the same, but drawn downward two times in three, so it goes deep, its side roots ordinary roots; a thread of mycelium (kind 1) wanders more, stays as fine all along, and 30 in 100 branch. Each stops at the world's edges, above the ground it starts from (top) and at the rock at the bottom #
 let grow : (Int, Int, Int, Int, Int, Int, Int, Int, Int, [Line]) -> [Line] = fun (x, y, a, len, w, n, seed, kind, top, acc) ->
-  if n <= 0 || w < 200 || y > (tall - 4) * 100 || y < top || x < 0 || x > wide * 100 then acc else
+  if n <= 0 || w < 200 || y > (128 - 4) * 100 || y < top || x < 0 || x > 448 * 100 then acc else
   let s1 = next(seed) in
   let wander = (if kind == 1 then md(s1 / 11, 5) - 2 else md(s1 / 11, 3) - 1) in
   let pull = (if (kind == 0 && md(s1 / 13, 3) == 0) || (kind == 2 && md(s1 / 13, 3) != 0) then (if a < 9 then 1 else if a > 9 then 0 - 1 else 0) else 0) in
@@ -249,7 +253,7 @@ let slide_vx : (Near, Gnome, Pad, Bool, Bool) -> Int = fun (n, g, p, climbing, m
   else if absi(g.vx) > 95 then g.vx * 15 / 16 else 0 - 100000;
 # (Matthew: "we should also introduce an action button for dig --- on slopes, we don't dig into them, we run across them"; "down can still mean dig"; "but across, on a slope, should mean -- go up/down the slope") The dig button (⛏️): the tile the gnome digs, standing, the way it faces or the way held: with up, the one over its head; with down, the one under it (the sloped tile it stands on, or the ground below); else the one ahead at its feet, else ahead at its head; -1, none #
 let dig_ahead : (Near, Gnome, Pad, Int, Int, Int) -> Int = fun (n, g, p, feet, head, up_tile) ->
-  let digs : (Int, Int) -> Int = fun (c, r) -> (let w = md(tile(n, c - n.cx, r - n.cy), 16) in if w >= 1 && w <= 7 then ground(w).dig else 0) in
+  let digs : (Int, Int) -> Int = fun (c, r) -> dig_steps(md(tile(n, c - n.cx, r - n.cy), 16), r, g.tool) in
   let cx = g.x / 1000 in let ahead = cx + (if p.dx != 0 then p.dx else g.face) in
   if !p.dig then 0 - 1 else if p.down then (let feet1 = feet + 1 in if md(tile(n, cx - n.cx, feet - n.cy) / 64, 4) > 0 && digs(cx, feet) > 0 then cx * 1000 + feet else if digs(cx, feet1) > 0 then cx * 1000 + feet1 else 0 - 1) else if p.up then (if digs(cx, up_tile) > 0 then cx * 1000 + up_tile else 0 - 1)
   else if digs(ahead, feet) > 0 then ahead * 1000 + feet else if digs(ahead, head) > 0 then ahead * 1000 + head else 0 - 1;
@@ -257,7 +261,7 @@ let dig_ahead : (Near, Gnome, Pad, Int, Int, Int) -> Int = fun (n, g, p, feet, h
 let finish : (Gnome, Near, Pad, Moved) -> Gnome = fun (g, n, p, m) ->
   let hh = 880 in let none = 0 - 1 in
   let at : (Int, Int) -> Int = fun (c, r) -> tile(n, c - n.cx, r - n.cy) in
-  let digs : (Int, Int) -> Int = fun (c, r) -> (let w = md(at(c, r), 16) in if w >= 1 && w <= 7 then ground(w).dig else 0) in
+  let digs : (Int, Int) -> Int = fun (c, r) -> dig_steps(md(at(c, r), 16), r, g.tool) in
   let wet : (Int, Int) -> Bool = fun (c, r) -> md(at(c, r) / 16, 2) == 1 in
   let cx = g.x / 1000 in let feet = (g.y - 1) / 1000 in let head = (g.y - hh) / 1000 in
   let midw = wet(cx, (g.y - 450) / 1000) in let headw = wet(cx, (g.y - 800) / 1000) in
@@ -281,9 +285,9 @@ let finish : (Gnome, Near, Pad, Moved) -> Gnome = fun (g, n, p, m) ->
   let air = (if headw && !g.gear then g.air - 1 else (let a = g.air + 5 in if a < 600 then a else 600)) in
   let ev = (if dug then 1 else if air <= 0 then 4 else if m.jumped then 2 else if midw && !g.swim && !g.under && g.vy > 30 then 3 else if p.down && g.swim && !g.gear then 5 else 0) in
   (x = m.x, y = m.y, vx = m.vx, vy = m.vy, face = (if p.dx != 0 then p.dx else g.face),
-   ground = m.ground, climb = climbing, swim = m.floating || (midw && !headw), under = headw, air = (if air <= 0 then 600 else air), gear = g.gear,
+   ground = m.ground, climb = climbing, swim = m.floating || (midw && !headw), under = headw, air = (if air <= 0 then 600 else air), gear = g.gear, tool = g.tool,
    dc = tc, dr = tr, dt = (if dug then 0 else dt), ev = ev);
-# The gnome's step (Matthew, 2026-11-23: "move the gnome in a sub-tile way, so it's not tied to one tile at a time"; "the feel of a platform NES/SNES game"): running (92 thousandths of a tile a step, eased), falling (11 more a step, 267 at most), a jump of two tiles (let go of up and it is cut short), climbing a ladder, the stair or any tunnel dug (70 a step, any way); a box 0.66 of a tile wide and 0.88 tall, stopped by solid tiles, and by a platform only from above (down held: through it). Pushing across into ground that can be dug, standing or climbing, digs it; so does down, standing, into the ground underfoot, and up into the ground just over its head; a tile takes as many steps as its ground says. (Matthew: "when the gnome doesn't have the diving suit, we should permit them to swim on the surface. pressing down forces them to start to go under the surface, and starts the air timer") In the water without the diving gear it floats, its head out, and swims across; down held, it dives, slowly; let go, it rises again; up pressed at the surface, a hop out onto the bank. Its head under the water, its breath runs down (600 steps, ten seconds), and comes back five times as fast out of it. With the gear it swims any way, as long as it likes #
+# The gnome's step (Matthew, 2026-11-23: "move the gnome in a sub-tile way, so it's not tied to one tile at a time"; "the feel of a platform NES/SNES game"): running (92 thousandths of a tile a step, eased), falling (11 more a step, 267 at most), a jump of two tiles (let go of up and it is cut short), climbing a ladder, the stair or any tunnel dug (70 a step, any way); a box 0.66 of a tile wide and 0.88 tall, stopped by solid tiles, and by a platform only from above (down held: through it). Pushing across into ground that can be dug, standing or climbing, digs it; so does down, standing, into the ground underfoot, and up into the ground just over its head; a tile takes as many steps as its ground and the gnome's digger say (dig_steps). (Matthew: "when the gnome doesn't have the diving suit, we should permit them to swim on the surface. pressing down forces them to start to go under the surface, and starts the air timer") In the water without the diving gear it floats, its head out, and swims across; down held, it dives, slowly; let go, it rises again; up pressed at the surface, a hop out onto the bank. Its head under the water, its breath runs down (600 steps, ten seconds), and comes back five times as fast out of it. With the gear it swims any way, as long as it likes #
 let step : (Gnome, Near, Pad) -> Gnome = fun (g, n, p) ->
   let hw = 330 in let hh = 880 in let none = 0 - 1 in
   let mini : (Int, Int) -> Int = fun (a, b) -> if a < b then a else b in
@@ -295,7 +299,7 @@ let step : (Gnome, Near, Pad) -> Gnome = fun (g, n, p) ->
   let solid : (Int, Int) -> Bool = fun (c, r) -> (let w = what(c, r) in w >= 1 && w <= 10 && shape(c, r) == 0) in
   let wet : (Int, Int) -> Bool = fun (c, r) -> md(at(c, r) / 16, 2) == 1 in
   let climbs : (Int, Int) -> Bool = fun (c, r) -> md(at(c, r) / 32, 2) == 1 in
-  let digs : (Int, Int) -> Int = fun (c, r) -> (let w = what(c, r) in if w >= 1 && w <= 7 then ground(w).dig else 0) in
+  let digs : (Int, Int) -> Int = fun (c, r) -> dig_steps(what(c, r), r, g.tool) in
   let cx = g.x / 1000 in
   let feet = (g.y - 1) / 1000 in
   let head = (g.y - hh) / 1000 in
@@ -332,7 +336,7 @@ let step : (Gnome, Near, Pad) -> Gnome = fun (g, n, p) ->
   let blocked : Int -> Bool = fun c -> solid(c, head) || (solid(c, feet) && !(sloping && g.y - feet * 1000 <= 450)) in
   let hc = (if vx > 0 && blocked((nx0 + hw) / 1000) then (nx0 + hw) / 1000 else if vx < 0 && nx0 - hw >= 0 && blocked((nx0 - hw) / 1000) then (nx0 - hw) / 1000 else none) in
   let nx1 = (if hc < 0 then nx0 else if vx > 0 then hc * 1000 - hw - 1 else (hc + 1) * 1000 + hw) in
-  let nx = maxi(hw, mini(nx1, wide * 1000 - hw)) in
+  let nx = maxi(hw, mini(nx1, 448 * 1000 - hw)) in
   # down: onto a solid tile, or a platform it was above (not with down held); up: its head against a solid tile #
   let l = (nx - hw) / 1000 in let rr = (nx + hw) / 1000 in
   let ny0 = g.y + vy in

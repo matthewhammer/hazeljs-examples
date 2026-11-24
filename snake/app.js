@@ -7,7 +7,7 @@
   "use strict";
   const LIB = "https://cdn.jsdelivr.net/npm/hazeljs@0.0.4/hazel-lib.js";
   const PROGRAM = "snake", MODULES = ["Snake"];
-  const TAIL = "(start = Snake.start, step = Snake.step, robot = Snake.robot)";
+  const TAIL = "(start = Snake.start, step = Snake.step, robot = Snake.robot, next_level = Snake.next_level)";
   const KEY = "hazeljs-examples/snake/";
   const Q = new URLSearchParams(location.search);
   const COMPILED = !(Q.has("interpreted") || Q.get("compiled") === "0");
@@ -21,7 +21,7 @@
   // for (up to two, so a quick double turn is kept), the speed (steps a second), the best score, words floating up
   const N = 20;
   const S = { built: null, libAt: 0, libFailed: false, compiledError: "", game: null, wrap: kept("wrap", false), speed: kept("speed", 6), best: kept("best", 0),
-              turns: [], pops: [], stepMs: [], restartAt: 0, lastStep: 0, swipe: null };
+              turns: [], pops: [], parts: [], cleared: null, stepMs: [], restartAt: 0, lastStep: 0, swipe: null };
   const H = () => S.built && S.built.ok ? S.built.value : null;
   $("wrap").checked = !!S.wrap; $("speed").value = String(S.speed);
 
@@ -39,11 +39,16 @@
     if (!g) return;
     const cx = cell => (cell % N + 0.5) * u, cy = cell => (Math.floor(cell / N) + 0.5) * u;
     // the apple
-    const fx = cx(g.food), fy = cy(g.food), pulse = 1 + 0.06 * Math.sin(now / 180);
-    c.fillStyle = "#dc2626"; c.beginPath(); c.arc(fx, fy + u * 0.04, u * 0.36 * pulse, 0, 7); c.fill();
+    // (Matthew: "the final apple for each level should be a special color, and animated in a glowing way") the level's last
+    // apple golden, a glow pulsing round it and sparkles turning about it
+    const gold = g.left === 1, fx = cx(Math.max(0, g.food)), fy = cy(Math.max(0, g.food)), pulse = 1 + (gold ? 0.12 : 0.06) * Math.sin(now / (gold ? 140 : 180));
+    if (g.food >= 0) {
+    if (gold) { const gr = c.createRadialGradient(fx, fy, u * 0.1, fx, fy, u * 1.3 * pulse); gr.addColorStop(0, "rgba(255,236,140,0.85)"); gr.addColorStop(1, "rgba(255,236,140,0)"); c.fillStyle = gr; c.beginPath(); c.arc(fx, fy, u * 1.3 * pulse, 0, 7); c.fill();
+      c.fillStyle = "#fff7c2"; for (let k = 0; k < 5; k++) { const a = now / 600 + k * 1.2566, r = u * 0.7, sx = fx + Math.cos(a) * r, sy = fy + Math.sin(a) * r, z = u * 0.09 * (0.6 + 0.4 * Math.sin(now / 90 + k)); c.beginPath(); for (let i = 0; i < 8; i++) { const b = i * Math.PI / 4, rr = i % 2 ? z * 0.35 : z; if (i) c.lineTo(sx + Math.cos(b) * rr, sy + Math.sin(b) * rr); else c.moveTo(sx + Math.cos(b) * rr, sy + Math.sin(b) * rr); } c.closePath(); c.fill(); } }
+    c.fillStyle = gold ? "#f5b400" : "#dc2626"; c.beginPath(); c.arc(fx, fy + u * 0.04, u * 0.36 * pulse, 0, 7); c.fill();
     c.fillStyle = "rgba(255, 255, 255, 0.45)"; c.beginPath(); c.arc(fx - u * 0.12, fy - u * 0.08, u * 0.09, 0, 7); c.fill();
     c.strokeStyle = "#78350f"; c.lineWidth = u * 0.07; c.beginPath(); c.moveTo(fx, fy - u * 0.28); c.lineTo(fx + u * 0.05, fy - u * 0.42); c.stroke();
-    c.fillStyle = "#4ade80"; c.beginPath(); c.ellipse(fx + u * 0.16, fy - u * 0.36, u * 0.13, u * 0.07, -0.5, 0, 7); c.fill();
+    c.fillStyle = "#4ade80"; c.beginPath(); c.ellipse(fx + u * 0.16, fy - u * 0.36, u * 0.13, u * 0.07, -0.5, 0, 7); c.fill(); }
     // the snake: each cell a rounded square, joined to the next where they touch (not across a wrap), darker toward the tail
     const body = g.body, L = body.length;
     for (let i = L - 1; i >= 0; i--) {
@@ -61,6 +66,10 @@
     S.pops = S.pops.filter(p => now - p.t < 900);
     for (const p of S.pops) { const q = (now - p.t) / 900; c.globalAlpha = 1 - q; c.fillStyle = "#fef08a"; c.font = `700 ${Math.round(u * 0.8)}px system-ui`; c.textAlign = "center"; c.fillText(p.text, p.x, p.y - q * u); }
     c.globalAlpha = 1;
+    party(c, u, now);
+    if (S.cleared) { c.fillStyle = "rgba(5, 30, 15, 0.55)"; c.fillRect(0, cv.height * 0.36, cv.width, cv.height * 0.26);
+      c.fillStyle = "#fef08a"; c.textAlign = "center"; c.font = `700 ${Math.round(u * 1.3)}px system-ui`; c.fillText(`🎉 Level ${g.level} cleared!`, cv.width / 2, cv.height * 0.47);
+      c.fillStyle = "#ffffff"; c.font = `${Math.round(u * 0.7)}px system-ui`; c.fillText(W && W.on ? "On to the next level…" : "A tap, a key or a button: level " + (g.level + 1), cv.width / 2, cv.height * 0.55); }
     if (g.over) {
       c.fillStyle = "rgba(5, 30, 15, 0.7)"; c.fillRect(0, cv.height * 0.38, cv.width, cv.height * 0.24);
       c.fillStyle = "#ffffff"; c.textAlign = "center"; c.font = `700 ${Math.round(u * 1.2)}px system-ui`; c.fillText(`Game over: ${g.score} points`, cv.width / 2, cv.height * 0.49);
@@ -69,9 +78,38 @@
       c.fillStyle = "#ffffff"; c.textAlign = "center"; c.font = `${Math.round(u * 0.7)}px system-ui`; c.fillText("An arrow key, a swipe or a button to start", cv.width / 2, cv.height * 0.8);
     }
   }
+  // (Matthew: "we should get a celebration like gnome dig") Gnome dig's party: a burst of confetti, stars and bubbles from the
+  // snake's head as the level is cleared, then fountains from the board's bottom corners and bubbles rising, until the next level
+  const PARTY = ["#f43f5e", "#fb923c", "#facc15", "#4ade80", "#22d3ee", "#818cf8", "#e879f9", "#ffffff"];
+  function spray(n, x, y, vx0, vy0, spread) {
+    for (let i = 0; i < n && S.parts.length < 420; i++) { const k = Math.random();
+      S.parts.push({ kind: k < 0.62 ? 0 : k < 0.86 ? 1 : 2, x, y, vx: vx0 + (Math.random() - 0.5) * spread, vy: vy0 - Math.random() * spread * 0.6, rot: Math.random() * 6.3, vr: (Math.random() - 0.5) * 14, col: PARTY[Math.floor(Math.random() * PARTY.length)], s: 0.15 + Math.random() * 0.15, ph: Math.random() * 6.3, t: 0 }); }
+  }
+  function party(c, u, now) {
+    const dt = Math.min(0.05, (now - (S.partAt || now)) / 1000); S.partAt = now;
+    if (S.cleared) { const age = now - S.cleared.t, rate = age < 2500 ? 1 : 0.45, hx = S.cleared.x, hy = S.cleared.y;
+      if (!S.cleared.burst) { S.cleared.burst = true; spray(110, hx, hy, 0, -9, 11); }
+      if (Math.random() < 0.6 * rate) spray(1, 0.5, N - 0.5, 5, -13, 3);
+      if (Math.random() < 0.6 * rate) spray(1, N - 0.5, N - 0.5, -5, -13, 3);
+      if (Math.random() < 0.2 * rate && S.parts.length < 420) S.parts.push({ kind: 2, x: Math.random() * N, y: N, vx: 0, vy: -1.6 - Math.random(), rot: 0, vr: 0, col: "#e0f2fe", s: 0.12 + Math.random() * 0.15, ph: Math.random() * 6.3, t: 0 }); }
+    if (!S.parts.length) return;
+    const keep = [];
+    for (const p of S.parts) { p.t += dt;
+      if (p.kind === 2) { p.vy = Math.max(p.vy - 0.6 * dt, -2.6); p.x += (p.vx + Math.sin(p.t * 3 + p.ph) * 0.5) * dt; p.y += p.vy * dt; }
+      else { p.vy = Math.min(p.vy + 11 * dt, p.kind === 0 ? 2.6 : 4.5); p.vx *= 1 - 1.2 * dt; p.x += (p.vx + (p.kind === 0 ? Math.sin(p.t * 5 + p.ph) * 0.6 : 0)) * dt; p.y += p.vy * dt; p.rot += p.vr * dt; }
+      if (p.y < -1 || p.y > N + 1 || p.x < -1 || p.x > N + 1 || p.t > 7) continue;
+      keep.push(p); const x = p.x * u, y = p.y * u, z = p.s * u;
+      if (p.kind === 0) { c.save(); c.translate(x, y); c.rotate(p.rot); c.scale(1, Math.cos(p.t * 9 + p.ph)); c.fillStyle = p.col; c.fillRect(-z, -z * 0.45, z * 2, z * 0.9); c.restore(); }
+      else if (p.kind === 1) { const tw = 0.75 + 0.25 * Math.sin(p.t * 14 + p.ph); c.fillStyle = p.col === "#ffffff" ? "#fef08a" : p.col; c.beginPath();
+        for (let i = 0; i < 10; i++) { const a = p.rot + i * Math.PI / 5, r = (i % 2 ? 0.45 : 1.15) * z * tw; if (i) c.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r); else c.moveTo(x + Math.cos(a) * r, y + Math.sin(a) * r); } c.closePath(); c.fill(); }
+      else { c.strokeStyle = "rgba(224, 242, 254, 0.85)"; c.lineWidth = Math.max(1, u * 0.03); c.beginPath(); c.arc(x, y, z * 1.6, 0, 7); c.stroke(); } }
+    S.parts = keep;
+  }
+  // the next level: its first apple (Snake.next_level), the party over
+  function nextLevel() { const h = H(); if (!h || !S.cleared || !S.game) return; S.game = h.next_level(S.game); S.cleared = null; S.lastStep = performance.now(); bar(); }
   function bar() {
     const g = S.game; if (!g) return;
-    $("points").textContent = `⭐ ${g.score}`; $("long").textContent = `🐍 ${g.body.length + g.grow} long`;
+    $("points").textContent = `⭐ ${g.score}`; $("long").textContent = `🐍 ${g.body.length + g.grow} long` + (g.level ? ` · level ${g.level}, ${g.left} 🍎 to go` : "");
     $("bestline").textContent = `best ${S.best}`;
     const ms = S.stepMs.length ? [...S.stepMs].sort((a, b) => a - b)[S.stepMs.length >> 1] : 0;
     $("info").textContent = `Your best on this device: ${S.best} points.` + (ms ? ` A step of Hazel's rules: ${ms < 1 ? ms.toFixed(2) : ms.toFixed(1)} ms.` : "");
@@ -81,7 +119,7 @@
   // ---- a game, and its steps at the speed chosen (it waits for the first turn, unless 🤖 plays)
   function newGame() {
     const h = H(); if (!h) return;
-    S.game = h.start(1 + Math.floor(Math.random() * 2000000000), !!S.wrap); S.turns = []; S.pops = []; S.restartAt = 0; S.lastStep = performance.now();
+    S.game = h.start(1 + Math.floor(Math.random() * 2000000000), !!S.wrap); S.turns = []; S.pops = []; S.parts = []; S.cleared = null; S.restartAt = 0; S.lastStep = performance.now();
     if (W && W.on) W.start(0);
     bar(); draw();
   }
@@ -92,7 +130,8 @@
     else want = S.turns.length ? S.turns.shift() : -1;
     const t0 = performance.now(), g2 = h.step(g, want);
     S.stepMs.push(performance.now() - t0); if (S.stepMs.length > 60) S.stepMs.shift();
-    if (g2.hit === 1) { const u = 1, k = g2.body[0]; S.pops.push({ x: (k % N + 0.5) * cv.width / N, y: (Math.floor(k / N) + 0.5) * cv.width / N, text: "+10", t: performance.now() }); }
+    if (g2.hit === 1 || g2.hit === 3) { const k = g2.body[0]; S.pops.push({ x: (k % N + 0.5) * cv.width / N, y: (Math.floor(k / N) + 0.5) * cv.width / N, text: g2.hit === 3 ? "+50" : "+10", t: performance.now() }); }
+    if (g2.hit === 3) { const k = g2.body[0]; S.cleared = { t: performance.now(), x: k % N + 0.5, y: Math.floor(k / N) + 0.5 }; S.turns = []; }
     S.game = g2;
     if (g2.over && !(W && W.on) && g2.score > S.best) { S.best = g2.score; keep("best", S.best); }
     if (g2.over && W && W.on) { W.end(`🤖 Hazel's game: ${g2.score} points, ${g2.body.length} long`); S.restartAt = performance.now() + 3000; }
@@ -104,6 +143,7 @@
     if (g && g.over && W && W.on && S.restartAt && t > S.restartAt) newGame();
     if (!h || !g || document.hidden) return;
     if (P && P.paused()) { S.lastStep = t; draw(); return; }
+    if (S.cleared) { if (W && W.on && t - S.cleared.t > 3000) nextLevel(); S.lastStep = t; draw(); return; }
     if (!g.over) {
       // (a step every 1/speed of a second; 🤖's pace: slowly half speed, at a walk the speed chosen, briskly twice, at full speed
       // four times; waiting for the first turn when you play)
@@ -133,10 +173,11 @@
   const typing = e => /^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName) && e.target.type !== "checkbox";
   addEventListener("keydown", e => {
     if (typing(e)) return;
+    if (S.cleared && !(W && W.on)) { if (e.key.startsWith("Arrow") || e.key === " ") e.preventDefault(); nextLevel(); return; }
     if (e.key in KEYS) { if (e.key.startsWith("Arrow")) e.preventDefault(); ask(KEYS[e.key]); }
     else if (e.key === "Enter" && S.game && S.game.over && !(W && W.on)) newGame();
   });
-  cv.addEventListener("pointerdown", e => { if (S.game && S.game.over && !(W && W.on)) { newGame(); return; } S.swipe = { x: e.clientX, y: e.clientY }; cv.setPointerCapture && cv.setPointerCapture(e.pointerId); });
+  cv.addEventListener("pointerdown", e => { if (S.cleared && !(W && W.on)) { nextLevel(); return; } if (S.game && S.game.over && !(W && W.on)) { newGame(); return; } S.swipe = { x: e.clientX, y: e.clientY }; cv.setPointerCapture && cv.setPointerCapture(e.pointerId); });
   cv.addEventListener("pointermove", e => {
     if (!S.swipe) return;
     const dx = e.clientX - S.swipe.x, dy = e.clientY - S.swipe.y;
@@ -144,7 +185,7 @@
     ask(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 1 : 3) : (dy > 0 ? 2 : 0)); S.swipe = { x: e.clientX, y: e.clientY };
   });
   for (const ev of ["pointerup", "pointercancel"]) cv.addEventListener(ev, () => { S.swipe = null; });
-  for (const b of document.querySelectorAll(".sn-pad button")) b.addEventListener("pointerdown", e => { e.preventDefault(); ask(+b.dataset.dir); b.classList.add("held"); setTimeout(() => b.classList.remove("held"), 140); });
+  for (const b of document.querySelectorAll(".sn-pad button")) b.addEventListener("pointerdown", e => { e.preventDefault(); if (S.cleared && !(W && W.on)) { nextLevel(); return; } ask(+b.dataset.dir); b.classList.add("held"); setTimeout(() => b.classList.remove("held"), 140); });
   $("new").addEventListener("click", newGame);
   $("wrap").addEventListener("change", () => { S.wrap = $("wrap").checked; keep("wrap", S.wrap); newGame(); });
   $("speed").addEventListener("change", () => { S.speed = +$("speed").value; keep("speed", S.speed); });
@@ -188,8 +229,9 @@
   }
   function loadCompiled() {
     const c = document.createElement("script");
-    c.src = "compiled.js?v=0.0.51"; c.async = true;
+    c.src = "compiled.js?v=0.0.95"; c.async = true;
     c.onload = () => { const v = window.SnakeCompiled;
+      if (v && !v.next_level) { S.compiledError = "it is from before the levels"; loadLib(); return; }
       if (v && !S.built) { S.built = { key: "compiled", ok: true, compiled: true, made: v.made, value: v, errors: [], threw: "", ms: 0, at: performance.now() }; drawStatus(); newGame(); }
       else if (!v) { S.compiledError = "it ran, but gave no Snake"; loadLib(); } };
     c.onerror = () => { S.compiledError = "it is not here yet"; loadLib(); };
@@ -231,7 +273,7 @@
     },
   });
   // (for checking the page where no frames are drawn, a browser pane hidden: ?test=1 lets a script run steps and draw)
-  if (Q.has("test")) window.SnakeTest = { S, newGame, steps: n => { const h = H(); for (let i = 0; i < n && S.game && !S.game.over; i++) oneStep(h); draw(); bar(); return S.game; }, auto: () => W };
+  if (Q.has("test")) window.SnakeTest = { S, newGame, steps: n => { const h = H(); for (let i = 0; i < n && S.game && !S.game.over && !S.cleared; i++) oneStep(h); draw(); bar(); return S.game; }, nextLevel, auto: () => W };
   document.body.classList.add("js");
   draw(); bar();
 })();

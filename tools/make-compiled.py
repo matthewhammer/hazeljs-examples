@@ -263,15 +263,17 @@ ADAPTERS = {
   const robot = g => { const c = P.robot(gameIn(g)); return { target: int(c.target), launch: c.launch }; };
   const api = { start, step, layout, robot, made };"""),
   "snake": ("SnakeCompiled", """
-  // (ticket 825) Game = (body = [Int], dir, grow, food, seed = Int, wrap = Bool, score = Int, over = Bool, hit, t = Int)
-  const GAME = ["body", "dir", "grow", "food", "seed", "wrap", "score", "over", "hit", "t"];
+  // (ticket 825) Game = (body = [Int], dir, grow, food, seed = Int, wrap = Bool, score = Int, over = Bool, hit, t, level, left = Int)
+  const GAME = ["body", "dir", "grow", "food", "seed", "wrap", "score", "over", "hit", "t", "level", "left"];
   const gameIn = g => $R.tup(GAME.map(k => k === "body" ? list(g.body) : g[k]), GAME);
   const gameOut = r => Object.fromEntries(GAME.map(k => [k, k === "body" ? array(r.body).map(int) : k === "wrap" || k === "over" ? r[k] : int(r[k])]));
   // start : (Int, Bool) -> Game (a seed, whether the walls wrap); step : (Game, Int) -> Game (a way to turn, or -1); robot : Game -> Int
   const start = (seed, wrap) => gameOut(P.start([seed, wrap]));
   const step = (g, want) => gameOut(P.step([gameIn(g), want]));
   const robot = g => int(P.robot(gameIn(g)));
-  const api = { start, step, robot, made };"""),
+  // next_level : Game -> Game (a level cleared, hit 3: the next one's first apple)
+  const next_level = g => gameOut(P.next_level(gameIn(g)));
+  const api = { start, step, robot, next_level, made };"""),
   "trails": ("TrailsCompiled", """
   // (ticket 826) Round = (ax, ay, ad, bx, by, bd = Int, lit = [Int], over = Bool, winner, t = Int)
   const ROUND = ["ax", "ay", "ad", "bx", "by", "bd", "lit", "over", "winner", "t"];
