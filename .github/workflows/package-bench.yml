@@ -31,7 +31,7 @@ jobs:
           grep -o 'build:"[0-9a-f]*"' pkg-c/hazel-lib.js | head -1
           grep -o 'build:"[0-9a-f]*"' pkg-a/hazel-lib.js | head -1
           grep -q 'build:"ec2a330996' pkg-c/hazel-lib.js
-          grep -q 'build:"TRIALSHA' pkg-a/hazel-lib.js
+          grep -q 'build:"dec7c74e3b' pkg-a/hazel-lib.js
       - uses: actions/setup-node@v4
         with:
           node-version: 22
