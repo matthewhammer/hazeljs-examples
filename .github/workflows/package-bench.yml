@@ -2,6 +2,9 @@
 # its jit, its compiler's JavaScript ahead of time, and plain JavaScript where a game has it. One runner per game, so a game's
 # four ways share a machine; the results (JSON, the printed lines, the machine) as one artifact per game. Runs on a push to
 # a bench/ branch, so main and the site are untouched.
+# (2026-11-24, branch bench/runs-a97b6f7) with --runs: each game's own run of states, every way from the same start, each
+# call given what that way's last call answered (the jit's memos meet only what a page would give them); the three games
+# whose calls stand alone (I Ching, tarot, astrology) have no run and are left out.
 name: package bench
 on:
   push:
@@ -14,7 +17,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        game: [i-ching, tarot, astrology, checkers, go, minesweeper, mahjong, solitaire, mahjong-solitaire, pinball, downhill, bricks, snake, trails, starwave, bugs, dig]
+        game: [checkers, go, minesweeper, mahjong, solitaire, mahjong-solitaire, pinball, downhill, bricks, snake, trails, starwave, bugs, dig]
     steps:
       - uses: actions/checkout@v4
       # hazeljs 0.0.11, not on npm: hazelgrove/hazeljs's editor-in-package at the commit that made it
@@ -40,9 +43,9 @@ jobs:
       - name: Four ways
         run: |
           ulimit -s unlimited || ulimit -s 65536
-          node --stack-size=30000 --max-old-space-size=6000 node/package-bench.mjs ${{ matrix.game }} hazeljs-pkg bench/${{ matrix.game }}.json | tee bench/${{ matrix.game }}.txt
+          node --stack-size=30000 --max-old-space-size=6000 node/package-bench.mjs ${{ matrix.game }} hazeljs-pkg bench/${{ matrix.game }}-runs.json --runs | tee bench/${{ matrix.game }}-runs.txt
       - uses: actions/upload-artifact@v4
         if: ${{ always() }}
         with:
-          name: bench-${{ matrix.game }}
+          name: runs-${{ matrix.game }}
           path: bench/
