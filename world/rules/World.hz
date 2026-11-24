@@ -1,4 +1,4 @@
-# Gnome world (Matthew, 2026-11-23: "a new variation of gnome dig ... called gnome world"): a world sixteen screens across and eight down, from the deep rock up to the tops of great trees, planned here by chance from a seed: the lie of the land, the layers of rock under it and where the water stands in them, the creeks, the stream and the river, the beavers and their lodges and dams, the gnomes' village deep under a hill and its rooms and what is in them, the great trees and the houses on their limbs, in sixteen styles; and each beaver's mind, and how high its dam holds the water. The page moves the gnome, the water and the falling boulders, and draws it all #
+# Gnome world (Matthew, 2026-11-23: "a new variation of gnome dig ... called gnome world"): a world thirty-two screens across and thirteen down, from the deep rock up to the tops of great trees, planned here by chance from a seed: the lie of the land, the layers of rock under it and where the water stands in them, the creeks, the stream and the river, the beavers and their lodges and dams, the gnomes' village deep under a hill and its rooms and what is in them, the great trees and the houses on their limbs, in sixteen styles; and each beaver's mind, and how high its dam holds the water. The page moves the gnome, the water and the falling boulders, and draws it all #
 let md : (Int, Int) -> Int = fun (a, b) -> a - (a / b) * b;
 let next : Int -> Int = fun s -> md(s * 48271 + 11, 2147483647);
 let absi : Int -> Int = fun v -> if v < 0 then 0 - v else v;
@@ -7,15 +7,15 @@ let hash : (Int, Int) -> Int = fun (s, k) -> md(next(next(md(s * 7919 + k * 1047
 let cat : ([Place], [Place]) -> [Place] = fun (a, b) -> case a | [] => b | x :: rest => x :: cat(rest, b) end;
 let has : ([Int], Int) -> Bool = fun (l, v) -> case l | [] => false | x :: rest => x == v || has(rest, v) end;
 # ---- The land ---- #
-# the surface's row at column x: 40, less the land's gentle waves, a hill over the village (round column 84), and the hills rising to the east #
+# the surface's row at column x: 120, less the land's gentle waves, a hill over the village (round column 146), and the hills rising to the east #
 let rise : (Int, Int) -> Int = fun (seed, x) ->
   let wave = (hash(seed, x / 32) - 500) * 5 / 1000 + (hash(seed + 1, x / 8) - 500) * 2 / 1000 in
-  let hill = (let d = absi(x - 84) in if d < 30 then (30 - d) / 4 else 0) in
-  let hills = (if x > 330 then (x - 330) / 14 + (hash(seed + 2, x / 16) - 500) * 4 / 1000 else 0) in
-  40 - wave - hill - hills;
-let samples : (Int, Int) -> [Int] = fun (seed, i) -> if i > 56 then [] else rise(seed, i * 8) :: samples(seed, i + 1);
+  let hill = (let d = absi(x - 146) in if d < 30 then (30 - d) / 4 else 0) in
+  let hills = (if x > 660 then (x - 660) / 20 + (hash(seed + 2, x / 16) - 500) * 4 / 1000 else 0) in
+  120 - wave - hill - hills;
+let samples : (Int, Int) -> [Int] = fun (seed, i) -> if i > 112 then [] else rise(seed, i * 8) :: samples(seed, i + 1);
 # a layer's thickness at every 16th column, from lo to hi tiles #
-let thick : (Int, Int, Int, Int, Int) -> [Int] = fun (seed, k, lo, hi, i) -> if i > 28 then [] else (lo + md(hash(seed + k * 13, i), hi - lo + 1)) :: thick(seed, k, lo, hi, i + 1);
+let thick : (Int, Int, Int, Int, Int) -> [Int] = fun (seed, k, lo, hi, i) -> if i > 56 then [] else (lo + md(hash(seed + k * 13, i), hi - lo + 1)) :: thick(seed, k, lo, hi, i + 1);
 # n places of a kind, by chance, as the spec says #
 let scatter : (Int, Spec, Int) -> [Place] = fun (seed, sp, i) ->
   if i >= sp.n then [] else
@@ -34,21 +34,21 @@ let ground : Int -> Ground = fun k ->
   else if k == 8 then (kind = 8, name = "masonry", dig = 0, pores = 0, flow = 0, cling = 0, color = 10260352)
   else if k == 9 then (kind = 9, name = "timber", dig = 0, pores = 0, flow = 0, cling = 0, color = 9133611)
   else (kind = 0, name = "air", dig = 0, pores = 100, flow = 900, cling = 0, color = 0);
-# (Matthew: "let's give more power ups in gnome world: * good digger * super digger. They speed up the digging through tough rock, and permit digging into bedrock") The steps it takes to dig a tile of ground w in row r, with the gnome's digger (0 none, 1 the good digger, 2 the super digger); 0, it cannot be dug. With none, the ground as its kind says: soil, clay, sand and gravel, sandstone, shale. The good digger digs the tough ones (clay, sandstone, shale) in two thirds the time, and the rock too: limestone, and granite, slowly. The super digger digs everything in a third the time (four steps at least), and the bedrock: the granite under the world, its last four rows, all but the very last. Never the gnomes' masonry nor timber #
+# (Matthew: "let's give more power ups in gnome world: * good digger * super digger. They speed up the digging through tough rock, and permit digging into bedrock") The steps it takes to dig a tile of ground w in row r, with the gnome's digger (0 none, 1 the good digger, 2 the super digger); 0, it cannot be dug. With none, the ground as its kind says: soil, clay, sand and gravel, sandstone, shale. The good digger digs the tough ones (clay, sandstone, shale) in two thirds the time, and the rock too: limestone, and granite, slowly. The super digger digs everything in a third the time (four steps at least), and the bedrock: the granite under the world, its last four rows, all but the very last. Never the gnomes' masonry nor timber (0.0.102, Matthew: "let's increase the speed of the digger power ups each by 3x": each digger a third of the steps it took) #
 let dig_steps : (Int, Int, Int) -> Int = fun (w, r, tool) ->
-  if w < 1 || w > 7 || r >= 127 then 0
+  if w < 1 || w > 7 || r >= 207 then 0
   else if tool <= 0 then ground(w).dig
-  else if tool == 1 then (if w == 6 then 48 else if w == 7 then (if r >= 124 then 0 else 72) else (let d = ground(w).dig in if d >= 18 then d * 2 / 3 else d))
-  else if w == 6 then 16 else if w == 7 then (if r >= 124 then 36 else 24) else (let q = ground(w).dig / 3 in if q < 4 then 4 else q);
+  else if tool == 1 then (if w == 6 then 16 else if w == 7 then (if r >= 204 then 0 else 24) else (let d = ground(w).dig in if d >= 18 then d * 2 / 9 else (if d < 6 then 2 else d / 3)))
+  else if w == 6 then 5 else if w == 7 then (if r >= 204 then 12 else 8) else (let q = ground(w).dig / 9 in if q < 1 then 1 else q);
 # ---- The plan ---- #
 # The world from its seed: the rivers first (the creek, the river, the stream, a creek in the hills), each its water four rows under the land (room for a dam to raise it); the beavers' lodges and dams on the river and the stream, three beavers and two; the three great trees (ladders, a stair inside, ladders); the village under the hill and a hamlet past the river; the trees, thick in the forest and by the water (willows and aspens there, which the beavers fell), pines in the hills, none in the water, by a great tree or at a door; bushes; and under the ground, by chance, bowls of clay, beds of old river gravel, shelves of limestone with caves, bodies of granite, veins of gems and boulders #
 let plan : Int -> Plan = fun seed ->
   let j : Int -> Int = fun k -> md(hash(seed, 200 + k), 9) - 4 in
   let river : (Int, Int, Int, Int) -> Place = fun (kind, x, w, h) -> (kind = kind, x = x, y = rise(seed, x + w / 2) + 4, w = w, h = h, v = 0) in
-  let creek = river(10, 120 + j(1), 3, 2) in
-  let big = river(12, 212 + j(2), 20, 7) in
-  let stream = river(11, 300 + j(3), 9, 4) in
-  let creek2 = river(10, 404 + j(4), 4, 2) in
+  let creek = river(10, 240 + j(1), 3, 2) in
+  let big = river(12, 424 + j(2), 20, 7) in
+  let stream = river(11, 600 + j(3), 9, 4) in
+  let creek2 = river(10, 808 + j(4), 4, 2) in
   let rivers = [creek, big, stream, creek2] in
   let lodge1 = big.x + big.w - 6 in
   let lodge2 = stream.x - 4 in
@@ -58,34 +58,34 @@ let plan : Int -> Plan = fun seed ->
                  (kind = 15, x = lodge1 + 2, y = 0, w = dam1, h = 0, v = 0), (kind = 15, x = lodge1 + 2, y = 0, w = dam1, h = 0, v = 1), (kind = 15, x = lodge1 + 2, y = 0, w = dam1, h = 0, v = 2),
                  (kind = 13, x = lodge2, y = stream.y, w = 4, h = 3, v = 1), (kind = 14, x = stream.x, y = stream.y, w = stream.w, h = stream.h, v = 1),
                  (kind = 15, x = lodge2 + 2, y = 0, w = dam2, h = 0, v = 3), (kind = 15, x = lodge2 + 2, y = 0, w = dam2, h = 0, v = 4)] in
-  let g1 = 34 + j(5) in let g2 = 166 + j(6) in let g3 = 364 + j(7) in
-  let greats = [(kind = 30, x = g1, y = rise(seed, g1), w = 3, h = 30, v = hash(seed, 301)),
-                (kind = 31, x = g2, y = rise(seed, g2), w = 5, h = 34, v = hash(seed, 302)),
-                (kind = 30, x = g3, y = rise(seed, g3), w = 3, h = 28, v = hash(seed, 303))] in
-  let hamlet = 254 + j(8) in
-  let villages = [(kind = 20, x = 62, y = 46, w = 40, h = 24, v = 4), (kind = 21, x = hamlet, y = 50, w = 26, h = 12, v = 2)] in
+  let g1 = 68 + j(5) in let g2 = 332 + j(6) in let g3 = 728 + j(7) in
+  let greats = [(kind = 30, x = g1, y = rise(seed, g1), w = 3, h = 90, v = hash(seed, 301)),
+                (kind = 31, x = g2, y = rise(seed, g2), w = 5, h = 102, v = hash(seed, 302)),
+                (kind = 30, x = g3, y = rise(seed, g3), w = 3, h = 84, v = hash(seed, 303))] in
+  let hamlet = 508 + j(8) in
+  let villages = [(kind = 20, x = 124, y = 126, w = 40, h = 24, v = 4), (kind = 21, x = hamlet, y = 130, w = 26, h = 12, v = 2)] in
   let blocked : Int -> Bool = fun x -> (let in_water : [Place] -> Bool = fun ps -> case ps | [] => false | p :: rest => (x >= p.x - 2 && x <= p.x + p.w + 1) || in_water(rest) end in
-    in_water(rivers) || absi(x - g1) < 6 || absi(x - g2) < 7 || absi(x - g3) < 6 || (x >= 58 && x <= 66) || (x >= hamlet - 4 && x <= hamlet + 3)) in
-  let wet : Int -> Bool = fun x -> (let close : [Place] -> Bool = fun ps -> case ps | [] => false | p :: rest => (x >= p.x - 14 && x <= p.x + p.w + 14) || close(rest) end in close(rivers)) in
-  let species : Int -> Int = fun x -> (let r = hash(seed, 700 + x) in if wet(x) then (if md(r, 2) == 0 then 4 else 3) else if x > 330 then (if md(r, 3) == 0 then 2 else 1) else md(r, 3)) in
-  let trees : Int -> [Place] = fun x -> if x >= 446 then [] else
+    in_water(rivers) || absi(x - g1) < 16 || absi(x - g2) < 18 || absi(x - g3) < 16 || (x >= 120 && x <= 128) || (x >= hamlet - 4 && x <= hamlet + 3)) in
+  let wet : Int -> Bool = fun x -> (let close : [Place] -> Bool = fun ps -> case ps | [] => false | p :: rest => (x >= p.x - 20 && x <= p.x + p.w + 20) || close(rest) end in close(rivers)) in
+  let species : Int -> Int = fun x -> (let r = hash(seed, 700 + x) in if wet(x) then (if md(r, 2) == 0 then 4 else 3) else if x > 660 then (if md(r, 3) == 0 then 2 else 1) else md(r, 3)) in
+  let trees : Int -> [Place] = fun x -> if x >= 894 then [] else
     (let r = hash(seed, 600 + x) in
-     let dense = (if wet(x) then 700 else if x >= 128 && x <= 205 then 650 else 300) in
-     if r < dense && !blocked(x) then (kind = 50, x = x, y = 0, w = 1, h = 6 + md(r, 5), v = species(x)) :: trees(x + 3 + md(r / 3, 3)) else trees(x + 2 + md(r / 3, 3))) in
-  let bushes : Int -> [Place] = fun x -> if x >= 446 then [] else
-    (let r = hash(seed, 800 + x) in if r < 260 && !blocked(x) then (kind = 51, x = x, y = 0, w = 1, h = 1, v = md(r, 3)) :: bushes(x + 5 + md(r, 4)) else bushes(x + 3)) in
-  let flowers : Int -> [Place] = fun x -> if x >= 446 then [] else
-    (let r = hash(seed, 1300 + x) in if r < (if wet(x) then 300 else 560) && !blocked(x) then (kind = 54, x = x, y = 0, w = 1, h = 1 + md(r, 3), v = md(r / 3, 5)) :: flowers(x + 1 + md(r, 2)) else flowers(x + 1)) in
-  let shrooms : Int -> [Place] = fun x -> if x >= 446 then [] else
-    (let r = hash(seed, 1100 + x) in if r < (if x >= 128 && x <= 205 then 300 else 120) && !blocked(x) then (kind = 53, x = x, y = 0, w = 1, h = 1, v = md(r, 2)) :: shrooms(x + 4 + md(r, 5)) else shrooms(x + 3)) in
-  let under = cat(scatter(seed, (kind = 40, n = 8, x0 = 8, xr = 430, y0 = 48, yr = 14, w0 = 8, wr = 7, h0 = 4, hr = 3, v0 = 0, vr = 1), 0),
-              cat(scatter(seed, (kind = 41, n = 6, x0 = 0, xr = 430, y0 = 56, yr = 16, w0 = 14, wr = 13, h0 = 2, hr = 2, v0 = 0, vr = 1), 0),
-              cat(scatter(seed, (kind = 42, n = 5, x0 = 10, xr = 410, y0 = 78, yr = 20, w0 = 18, wr = 17, h0 = 6, hr = 5, v0 = 0, vr = 1000), 0),
-              cat(scatter(seed, (kind = 43, n = 8, x0 = 0, xr = 440, y0 = 96, yr = 22, w0 = 6, wr = 10, h0 = 4, hr = 5, v0 = 0, vr = 1), 0),
-              cat(scatter(seed, (kind = 44, n = 12, x0 = 4, xr = 440, y0 = 44, yr = 18, w0 = 3, wr = 1, h0 = 3, hr = 1, v0 = 3, vr = 4), 0),
-              cat(scatter(seed + 5, (kind = 44, n = 22, x0 = 4, xr = 440, y0 = 60, yr = 60, w0 = 3, wr = 1, h0 = 3, hr = 1, v0 = 4, vr = 6), 0),
-                  scatter(seed, (kind = 45, n = 36, x0 = 4, xr = 440, y0 = 44, yr = 60, w0 = 1, wr = 1, h0 = 1, hr = 1, v0 = 0, vr = 1), 0))))))) in
-  let table : Int -> [Int] = fun i -> if i > 28 then [] else (74 + md(hash(seed, 900 + i), 9) - 4) :: table(i + 1) in
+     let dense = (if wet(x) then 700 else if x >= 256 && x <= 410 then 650 else 300) in
+     if r < dense && !blocked(x) then (kind = 50, x = x, y = 0, w = 1, h = 18 + md(r, 13), v = species(x)) :: trees(x + 10 + md(r / 3, 7)) else trees(x + 3 + md(r / 3, 3))) in
+  let bushes : Int -> [Place] = fun x -> if x >= 894 then [] else
+    (let r = hash(seed, 800 + x) in if r < 260 && !blocked(x) then (kind = 51, x = x, y = 0, w = 1, h = 1, v = md(r, 3)) :: bushes(x + 10 + md(r, 8)) else bushes(x + 4)) in
+  let flowers : Int -> [Place] = fun x -> if x >= 894 then [] else
+    (let r = hash(seed, 1300 + x) in if r < (if wet(x) then 300 else 560) && !blocked(x) then (kind = 54, x = x, y = 0, w = 1, h = 1 + md(r, 3), v = md(r / 3, 5)) :: flowers(x + 2 + md(r, 3)) else flowers(x + 1)) in
+  let shrooms : Int -> [Place] = fun x -> if x >= 894 then [] else
+    (let r = hash(seed, 1100 + x) in if r < (if x >= 256 && x <= 410 then 300 else 120) && !blocked(x) then (kind = 53, x = x, y = 0, w = 1, h = 1, v = md(r, 2)) :: shrooms(x + 4 + md(r, 5)) else shrooms(x + 3)) in
+  let under = cat(scatter(seed, (kind = 40, n = 16, x0 = 8, xr = 878, y0 = 128, yr = 14, w0 = 8, wr = 7, h0 = 4, hr = 3, v0 = 0, vr = 1), 0),
+              cat(scatter(seed, (kind = 41, n = 12, x0 = 0, xr = 878, y0 = 136, yr = 16, w0 = 14, wr = 13, h0 = 2, hr = 2, v0 = 0, vr = 1), 0),
+              cat(scatter(seed, (kind = 42, n = 10, x0 = 10, xr = 858, y0 = 158, yr = 20, w0 = 18, wr = 17, h0 = 6, hr = 5, v0 = 0, vr = 1000), 0),
+              cat(scatter(seed, (kind = 43, n = 16, x0 = 0, xr = 888, y0 = 176, yr = 22, w0 = 6, wr = 10, h0 = 4, hr = 5, v0 = 0, vr = 1), 0),
+              cat(scatter(seed, (kind = 44, n = 24, x0 = 4, xr = 888, y0 = 124, yr = 18, w0 = 3, wr = 1, h0 = 3, hr = 1, v0 = 3, vr = 4), 0),
+              cat(scatter(seed + 5, (kind = 44, n = 44, x0 = 4, xr = 888, y0 = 140, yr = 60, w0 = 3, wr = 1, h0 = 3, hr = 1, v0 = 4, vr = 6), 0),
+                  scatter(seed, (kind = 45, n = 72, x0 = 4, xr = 888, y0 = 124, yr = 60, w0 = 1, wr = 1, h0 = 1, hr = 1, v0 = 0, vr = 1), 0))))))) in
+  let table : Int -> [Int] = fun i -> if i > 56 then [] else (154 + md(hash(seed, 900 + i), 9) - 4) :: table(i + 1) in
   (seed = seed, surface = samples(seed, 0),
    layers = [(kind = 1, thick = thick(seed, 1, 3, 5, 0)), (kind = 2, thick = thick(seed, 2, 0, 3, 0)), (kind = 4, thick = thick(seed, 3, 5, 11, 0)),
              (kind = 5, thick = thick(seed, 4, 2, 6, 0)), (kind = 3, thick = thick(seed, 5, 0, 3, 0)), (kind = 4, thick = thick(seed, 6, 6, 12, 0)),
@@ -138,8 +138,8 @@ let limbs : (Int, Int, Int) -> [Limb] = fun (kind, h, seed) ->
     if y > h - 5 then [] else
     (let r = hash(seed, i) in
      let pick = md(r / 10, 10) in
-     (y = y, side = side, len = 4 + md(r, 5), house = (if pick < 7 then md(hash(seed, i + 50), 16) else if pick < 9 then 100 else 101), bridge = kind == 31 && md(r / 100, 3) != 0) :: go(y + 4 + md(r / 7, 2), 0 - side, i + 1)) in
-  go(9, (if md(seed, 2) == 0 then 1 else 0 - 1), 0);
+     (y = y, side = side, len = 6 + md(r, 7), house = (if pick < 7 then md(hash(seed, i + 50), 16) else if pick < 9 then 100 else 101), bridge = kind == 31 && md(r / 100, 3) != 0) :: go(y + 7 + md(r / 7, 4), 0 - side, i + 1)) in
+  go(22, (if md(seed, 2) == 0 then 1 else 0 - 1), 0);
 # The sixteen styles of tree house, gnome-made in the craftsman way: low or steep gables with rafter tails and braces, shingles, divided windows, tapered posts; each its own roof, colors, walls (shingled, boarded, of logs, half-timbered, of stone, of birch bark, plastered), windows and one thing more #
 let styles : [Style] = [
   (name = "Mushroom Lodge", latin = "Domus Fungorum", roof = 3, walls = 15391160, roofc = 12597547, trim = 7029286, clad = 3, win = 1, more = 4),
@@ -200,7 +200,7 @@ let cosines : [Int] = [1000, 985, 940, 866, 766, 643, 500, 342, 174, 0, 0 - 174,
 let cosd : Int -> Int = fun a -> (let nth : ([Int], Int) -> Int = fun (xs, i) -> case xs | [] => 0 | x :: rest => if i <= 0 then x else nth(rest, i - 1) end in nth(cosines, md(md(a, 36) + 36, 36)));
 # (Matthew, 2026-11-23: "the tree roots have regressed, a lot, from the original gnome dig prototype game") From x, y heading a, segments len long and w wide (these two in hundredths of a hundredth of a tile, so that taking a little off each segment, in whole numbers, does not take off a whole unit), n more of them; the lines onto acc. A root (kind 0) wanders a little, is drawn downward a third of the time, grows thinner and shorter, and 30 segments in 100 put out a side root, 30 to 50 degrees off, thinner; a taproot (kind 2) the same, but drawn downward two times in three, so it goes deep, its side roots ordinary roots; a thread of mycelium (kind 1) wanders more, stays as fine all along, and 30 in 100 branch. Each stops at the world's edges, above the ground it starts from (top) and at the rock at the bottom #
 let grow : (Int, Int, Int, Int, Int, Int, Int, Int, Int, [Line]) -> [Line] = fun (x, y, a, len, w, n, seed, kind, top, acc) ->
-  if n <= 0 || w < 200 || y > (128 - 4) * 100 || y < top || x < 0 || x > 448 * 100 then acc else
+  if n <= 0 || w < 200 || y > (208 - 4) * 100 || y < top || x < 0 || x > 896 * 100 then acc else
   let s1 = next(seed) in
   let wander = (if kind == 1 then md(s1 / 11, 5) - 2 else md(s1 / 11, 3) - 1) in
   let pull = (if (kind == 0 && md(s1 / 13, 3) == 0) || (kind == 2 && md(s1 / 13, 3) != 0) then (if a < 9 then 1 else if a > 9 then 0 - 1 else 0) else 0) in
@@ -337,7 +337,7 @@ let step : (Gnome, Near, Pad) -> Gnome = fun (g, n, p) ->
   let blocked : Int -> Bool = fun c -> solid(c, head) || (solid(c, feet) && !(sloping && g.y - feet * 1000 <= 450)) in
   let hc = (if vx > 0 && blocked((nx0 + hw) / 1000) then (nx0 + hw) / 1000 else if vx < 0 && nx0 - hw >= 0 && blocked((nx0 - hw) / 1000) then (nx0 - hw) / 1000 else none) in
   let nx1 = (if hc < 0 then nx0 else if vx > 0 then hc * 1000 - hw - 1 else (hc + 1) * 1000 + hw) in
-  let nx = maxi(hw, mini(nx1, 448 * 1000 - hw)) in
+  let nx = maxi(hw, mini(nx1, 896 * 1000 - hw)) in
   # down: onto a solid tile, or a platform it was above (not with down held); up: its head against a solid tile #
   let l = (nx - hw) / 1000 in let rr = (nx + hw) / 1000 in
   let ny0 = g.y + vy in

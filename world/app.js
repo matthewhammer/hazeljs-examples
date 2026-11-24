@@ -2,8 +2,8 @@
 // 'gnome world.', until I think of a better name"; "move the gnome in a sub-tile way"; "a world that's larger than one
 // screen"; "fill the entire available screen with game tiles in full screen mode"; "the feel of a platform NES/SNES game ---
 // we scroll the level smoothly to center the gnome we control"; "at least 8 or 16 screen fulls of width, and maybe 4 or 8
-// screen fulls of height, between deep underground and trees and tree houses"). The world, 448 tiles across and 128 down
-// (sixteen screens of 28 by eight of 16), planned by Hazel (World.plan: the land, the rock, the rivers, the beavers, the
+// screen fulls of height, between deep underground and trees and tree houses"). The world, 896 tiles across and 208 down
+// (32 screens of 28 by 13 of 16; 448 by 128 until 0.0.102), planned by Hazel (World.plan: the land, the rock, the rivers, the beavers, the
 // villages, the great trees, the places under the ground), and built here into its tiles. Every frame the gnome takes a step
 // in Hazel (World.step: running, jumping, climbing, digging, swimming), the beavers think in Hazel ten times a second
 // (World.beaver), and how high a dam holds its river is Hazel (World.water_row); here, the water seeping through the ground,
@@ -34,7 +34,9 @@
 
   // ---- the world's tiles: what is there (mat), its water (wat: for ground, the share of its pores full; for air, the share of
   // the tile full of water), what is behind an open tile (bg), what is on it (fix), a gem in it, roots in it, a digging's cracks
-  const WW = 448, WH = 128, NN = WW * WH;
+  // (0.0.102; Matthew, 2026-11-24: "To make the world all 'fit', let's extend the entire world to be larger, in terms of tiles")
+  // twice as wide, and 80 rows more sky over the land (SKY), for trees three times as tall
+  const WW = 896, WH = 208, NN = WW * WH, SKY = 80;
   const AIR = 0, SOIL = 1, CLAY = 2, SAND = 3, SSTONE = 4, SHALE = 5, LIME = 6, GRANITE = 7, MASON = 8, TIMBER = 9;
   const B_NONE = 0, B_DUG = 1, B_PLASTER = 2, B_WOOD = 3, B_STAIR = 4, B_CAVE = 5;
   const F_LADDER = 1, F_PLAT = 2, F_STAIR = 3, F_BRIDGE = 4, F_HATCH = 5, F_DOOR = 6;
@@ -129,11 +131,11 @@
     { const first = S.houses.filter(hs => !hs.small).sort((a, b) => b.row - a.row)[0]; if (first) S.items.push({ kind: "climb", x: first.x + 0.5 - first.side * 1.1, y: first.row - 0.55, taken: false }); }
     S.shrooms = byKind(53).map(q => ({ x: q.x, v: q.v }));
     S.flowers = byKind(54).map(q => ({ x: q.x, v: q.v, n: q.h }));
-    S.rootSets = []; S.threadSets = []; shapeSurface(); makeSquirrels(); buildTreeMask(); makeVillagers(); makeWild();
-    S.rootPlan = [...S.greats.map(G => ({ x: G.x, row: G.foot, k: 150, seed: G.v })), ...S.trees.map(t => ({ x: t.x, row: surf0[t.x], k: 70 + t.h * 4 + (t.tall ? 30 : 0), seed: t.seed })),
+    S.rootSets = []; S.threadSets = []; shapeSurface(); makeSquirrels(); buildTreeMask(); makeVillagers(); makeWild(); makeBunnies();
+    S.rootPlan = [...S.greats.map(G => ({ x: G.x, row: G.foot, k: 150, seed: G.v })), ...S.trees.map(t => ({ x: t.x, row: surf0[t.x], k: 70 + Math.round(t.h * 4 / 3) + (t.tall ? 30 : 0), seed: t.seed })),
       ...S.shrooms.map(m => ({ x: m.x, row: surf0[m.x], seed: m.x * 3 + m.v, kind: "shroom" }))];
     // roots: under each tree, spreading and thinning down; water goes down them faster
-    if (!(S.built && S.built.compiled)) for (const t of [...S.trees, ...S.greats.map(g => ({ x: g.x, h: g.h * 0.7 }))]) { const deep = Math.min(14, Math.round(t.h * 0.9)), s = surf0[t.x];
+    if (!(S.built && S.built.compiled)) for (const t of [...S.trees, ...S.greats.map(g => ({ x: g.x, h: g.h * 0.7 }))]) { const deep = Math.min(14, Math.round(t.h * 0.3)), s = surf0[t.x];
       for (let r = s; r < s + deep && r < WH - 4; r++) { const spread = 1 + Math.floor((r - s) / 3);
         for (let c = t.x - spread; c <= t.x + spread; c++) if (inside(c, r) && PORES[mat[at(c, r)]] > 0) root[at(c, r)] = Math.min(3, root[at(c, r)] + (Math.abs(c - t.x) <= 1 ? 2 : 1)); } }
     // gems in veins, and boulders, each in the ground (never in a room's walls)
@@ -258,9 +260,11 @@
   // grounds lets it, four times as fast where roots are, and never the share that clings; then across, where the tile below is
   // full or holds water back: toward the drier side, the ground giving water to a tunnel only when nearly full itself. The
   // rivers held at their level; now and then a shower over the land; a little drying at the surface
-  let sweep = 1;
+  let sweep = 1, wetFrom = 0;
   function waterStep() {
-    for (let r = WH - 2; r >= 0; r--) { const base = r * WW;
+    // (0.0.102: no water lies higher than a row over the land's highest tile, where the rain falls: the rows of sky above skipped)
+    if (S.frame % 60 === 0 || !wetFrom) { let m = WH; for (let c = 0; c < WW; c++) if (top[c] < m) m = top[c]; wetFrom = Math.max(0, m - 3); }
+    for (let r = WH - 2; r >= wetFrom; r--) { const base = r * WW;
       for (let c = 0; c < WW; c++) { const a = base + c, wa = wat[a]; if (wa <= 0.0005) continue;
         const ma = mat[a], pa = PORES[ma]; if (pa === 0) continue;
         const b = a + WW, mb = mat[b], pb = PORES[mb]; if (pb === 0) continue;
@@ -270,11 +274,11 @@
         const qv = Math.min(free * k, room);
         wat[a] -= qv / pa; wat[b] += qv / pb; } }
     sweep = -sweep;
-    for (let r = 0; r < WH - 1; r++) { const base = r * WW;
+    for (let r = wetFrom; r < WH - 1; r++) { const base = r * WW;
       for (let n = 0; n < WW; n++) { const c = sweep > 0 ? n : WW - 1 - n, a = base + c, wa = wat[a]; if (wa <= 0.002) continue;
         const ma = mat[a], pa = PORES[ma]; if (pa === 0) continue;
         const b = a + WW; if (PORES[mat[b]] > 0 && wat[b] < 0.98) continue;
-        for (const d of [sweep, -sweep]) { const c2 = c + d; if (c2 < 0 || c2 >= WW) continue;
+        for (let side = 0; side < 2; side++) { const d = side ? -sweep : sweep, c2 = c + d; if (c2 < 0 || c2 >= WW) continue;   // (0.0.102: no array made for each tile: 80,000 a step in the bigger world)
           const n2 = base + c2, mn = mat[n2], pn = PORES[mn]; if (pn === 0) continue;
           const sn = wat[n2]; if (sn >= wat[a] - 0.01) continue;
           if (mn === AIR && ma !== AIR && wat[a] < 0.9) continue;
@@ -465,6 +469,7 @@
     gear: { icon: "🤿", label: "🤿 diving gear", what: "🤿 the diving gear", banner: "🤿 The diving gear: breathe under the water as long as you like" },
     good: { icon: "⛏️", label: "⛏️ good digger", what: "⛏️ the good digger", banner: "⛏️ The good digger: tough ground goes faster, and limestone and granite give way" },
     super: { icon: "⚒️", label: "⚒️ super digger", what: "⚒️ the super digger", banner: "⚒️ The super digger: three times as fast, through anything, even the bedrock" },
+    carrot: { icon: "🥕", label: "🥕 carrot", what: "🥕 a carrot", banner: "🥕 A carrot! Clover the rabbit 🐇 would love it: go and see her, and press R" },
   };
   const BOT = { on: false, phase: "", queue: [], cur: null, path: [], k: 0, lastCell: -1, still: 0, tries: 0, skipped: [], frames: 0, t0: 0, items: 0, parts: 0, partsAll: 0, gems: 0, gemsAll: 0, report: null };
   const dist = new Float64Array(NN), prev = new Int32Array(NN), heapI = new Int32Array(NN * 8), heapD = new Float64Array(NN * 8);   // (64-bit: in 32, a cost a hair lower rounded back to the same, and two tiles went on "improving" each other until the search's limit)
@@ -537,6 +542,7 @@
   // (each step of the run: the keys toward the next tile on the way; arrived, the next target; no headway for four seconds,
   // the way again round where it stuck, four times, then on to the next)
   function botStep() {
+    if (S.ride && S.ride.on) { const M = S.mount; S.ride.on = false; M.x = S.g.x; M.y = S.g.y; }   // (0.0.102: the speed run is on foot)
     const g = S.g, gc = Math.floor(g.x / 1000), gr0 = Math.floor((g.y - 1) / 1000), gr = inside(gc, gr0) && shape[at(gc, gr0)] ? gr0 - 1 : gr0, here = at(gc, gr);
     for (const k in S.keys) S.keys[k] = false;
     if (!BOT.cur && !botNext()) return;
@@ -555,6 +561,7 @@
     if (wc > gc) S.keys.right = true; else if (wc < gc) S.keys.left = true;
   }
   function gnomeStep(h) {
+    if (S.ride && S.ride.on) { rideStep(h); return; }
     const k = S.keys, pad = { dx: (k.right ? 1 : 0) - (k.left ? 1 : 0), up: k.up, down: k.down, jump: S.jumpQueued, dig: !!k.dig };
     S.jumpQueued = false;
     const t0 = performance.now();
@@ -565,6 +572,10 @@
     else if (g.ev === 3 && SND) SND.splash();
     else if (g.ev === 4) hurt("😵 out of breath");
     else if (g.ev === 5 && SND) SND.low();
+    pickups();
+  }
+  function pickups() {
+    const g = S.g;
     // (a gem lying loose in an open tile, as some came to: picked up as the gnome goes through it)
     { const c = Math.floor(g.x / 1000), r = Math.floor((g.y - 500) / 1000), i = inside(c, r) ? at(c, r) : -1;
       if (i >= 0 && gem[i] && mat[i] === AIR) { gem[i] = 0; S.gems++; keep("gems", S.gems); gemFound(); popWord("💎", c + 0.5, r + 0.3); if (SND) SND.gem(); } }
@@ -572,6 +583,7 @@
     for (const it of S.items) if (!it.taken && Math.abs(it.x - g.x / 1000) < 0.8 && Math.abs(it.y - (g.y / 1000 - 0.5)) < 1) { it.taken = true; if (SND) SND.gem();
       if (it.kind === "climb") S.g = { ...S.g, climbPack: true };
       else if (it.kind === "gear") S.g = { ...S.g, gear: true };
+      else if (it.kind === "carrot") S.carrots = (S.carrots || 0) + 1;
       else S.g = { ...S.g, tool: Math.max(S.g.tool || 0, it.kind === "super" ? 2 : 1) };
       S.banner = { text: ITEM[it.kind].banner, t: performance.now() }; }
     // a heart, walked into, gives back one heart (not with all five: it stays for later)
@@ -672,19 +684,22 @@
   // (sprite: painted at the tile's size), a band is copied as it is, a tenth the cost. As many bands as keep each step to two and a half
   // pixels or so (80 at most), so that the bend still reads as a curve
   function drawSwaying(sp, x, y, k, lean, tassels = false, n = 6) {
-    const f = T / sp.res * k, w = sp.cv.width, h = sp.cv.height, hT = h / sp.res * k, one = Math.abs(f - 1) < 0.001;
+    const f = T / sp.res * k, w = sp.w, h = sp.h, hT = h / sp.res * k, one = Math.abs(f - 1) < 0.001;
     const push = v => (tassels ? Math.max(0, (v - 0.12) / 0.88) ** 1.3 * 1.6 + (1 - v) * 0.3 : (1 - v) * (1 - v)) * lean * hT * T;   // (v: 0 at the top, 1 at the foot)
     const X = x - sp.ox * T * k, Y = y - sp.oy * T * k, RX = Math.round(X), RY = Math.round(Y);
-    if (Math.abs(lean) < 0.0005) { if (one) ctx.drawImage(sp.cv, RX, RY); else ctx.drawImage(sp.cv, X, Y, w * f, h * f); return; }
-    const span = Math.abs(push(1) - push(0)) + Math.abs(push(0.5) - push(0)), m = Math.max(n, Math.min(80, Math.ceil(span / 2.5)));
-    for (let i = 0; i < m; i++) { const sy = Math.floor(i * h / m), sh = Math.floor((i + 1) * h / m) - sy; if (sh <= 0) continue;
+    const seen = (sy, sh) => Y + (sy + sh) * f >= VIEW.y0 - T && Y + sy * f <= VIEW.y1 + T;   // (a band in view, or near it)
+    if (Math.abs(lean) < 0.0005 && !sp.strips) { if (one) ctx.drawImage(sp.cv, RX, RY); else ctx.drawImage(sp.cv, X, Y, w * f, h * f); return; }
+    const span = Math.abs(push(1) - push(0)) + Math.abs(push(0.5) - push(0)), m = Math.max(n, Math.min(80, Math.ceil(span / 2.5)), sp.strips ? Math.ceil(h / sp.sh) : 0);
+    for (let i = 0; i < m; i++) { const sy = Math.floor(i * h / m), sh = Math.floor((i + 1) * h / m) - sy; if (sh <= 0 || !seen(sy, sh)) continue;
       const dx = Math.round(push((sy + sh / 2) / h));
-      if (one) ctx.drawImage(sp.cv, 0, sy, w, sh, RX + dx, RY + sy, w, sh);
-      else { const sh1 = Math.min(h - sy, sh + 1); ctx.drawImage(sp.cv, 0, sy, w, sh1, X + dx, Y + sy * f, w * f, sh1 * f); } }
+      if (one) blitRows(sp, sy, sh, RX + dx, RY + sy, 1);
+      else blitRows(sp, sy, Math.min(h - sy, sh + 1), X + dx, Y + sy * f, f); }
   }
+
   // ---- one frame: the gnome, the boulders, the water, the beavers, the smoke; the camera after the gnome
   function tick(h) {
     S.frame++;
+    if (S.faintAt && S.ride && S.ride.on) { const M = S.mount; S.ride.on = false; M.x = S.g.x; M.y = S.g.y; M.face = S.g.face; }
     if (S.faintAt) { if (performance.now() - S.faintAt > 1800) { S.faintAt = 0; S.hearts = 5; S.g = { ...S.g, x: S.start.x, y: top[Math.floor(S.start.x / 1000)] * 1000, vx: 0, vy: 0, air: 600 }; S.cam.set = false; } }
     else { if (BOT.on) { BOT.frames++; botStep(); } gnomeStep(h); }
     bouldersStep();
@@ -695,7 +710,7 @@
     if (S.frame % 30 === 0 && S.cam.set) for (const hh of S.heartItems || []) if (hh.taken && (hh.x < S.cam.x - 1 || hh.x > S.cam.x + VW + 1 || hh.y < S.cam.y - 1 || hh.y > S.cam.y + VH + 1)) hh.taken = false;
     for (const B of S.beavers) B.px += (B.b.x / 100 - B.px) * 0.18;
     if (S.frame % 9 === 0) for (const d of S.ducts) if (d.kind === 3) S.smoke.push({ x: d.x + 0.5 + (rand() - 0.5) * 0.2, y: d.y0 - 2.2, r: 0.18, life: 0, drift: 0.004 + rand() * 0.006 });
-    windStep(); houseSmoke(); squirrelsStep(); pebblesStep(); villagersStep(h); wildStep();
+    windStep(); houseSmoke(); squirrelsStep(); pebblesStep(); villagersStep(h); wildStep(); bunniesStep();
     for (const s of S.smoke) { s.y -= 0.012; s.x += s.drift + S.windNow * 0.02; s.r += 0.006; s.life++; }
     S.smoke = S.smoke.filter(s => s.life < 200);
     for (const p of S.parts) { p.x += p.vx; p.y += p.vy; p.vy += 0.01; p.life--; }
@@ -1035,7 +1050,7 @@
   // forward into the stroke, his arms windmilling, his feet kicking
   function gnomeProfile(c, x, y, u, face, moving, ground, vy, now, diving, pose, who = null) {
     const L = heroLook(who);
-    const swim = pose && pose.swim, stroke = swim && pose.stroke, p = now / 85;
+    const swim = pose && pose.swim, stroke = swim && pose.stroke, p = now / 85, ride = !!(pose && pose.ride);
     const run = moving && ground && !swim, bob = run ? -Math.abs(Math.sin(p)) * 1.6 : 0;
     const E = (cx, cy, rx, ry, col, rot = 0) => { c.fillStyle = col; c.beginPath(); c.ellipse(cx, cy, rx, ry, rot, 0, 7); c.fill(); };
     c.save(); c.translate(x, y); c.scale((face < 0 ? -1 : 1) * u / 40, u / 40); c.translate(0, bob);
@@ -1043,17 +1058,17 @@
     if (stroke) { c.translate(0, 6); c.rotate(1.05); c.translate(0, -6); }
     else if (!ground && !swim) c.rotate(vy < 0 ? -0.08 : 0.06);
     else if (run) { c.translate(0, 18); c.rotate(0.08); c.translate(0, -18); }   // (leaning into the run)
-    if (!swim && ground) E(0, 19 - bob, 12, 3.2, "rgba(0, 0, 0, 0.3)");
+    if (!swim && ground && !ride) E(0, 19 - bob, 12, 3.2, "rgba(0, 0, 0, 0.3)");
     // (the legs: a stride running; tucked in the air; kicking in the water; the far one darker, behind)
     const leg = (a, near) => { const hx = near ? 1.5 : -1.5, hy = 10, fx = hx + Math.sin(a) * 8, fy = hy + Math.cos(a) * 8;
       c.strokeStyle = near ? L.coatDk : L.legFar; c.lineWidth = 5; c.lineCap = "round"; c.beginPath(); c.moveTo(hx, hy); c.lineTo(fx, fy); c.stroke();
       c.fillStyle = near ? "#5a3a22" : "#47301c"; c.beginPath(); c.roundRect(fx - 3.2, fy - 1.5, 9, 5, 2.4); c.fill();
       c.fillStyle = near ? "#7a5636" : "#64462c"; c.beginPath(); c.roundRect(fx - 3, fy - 2.8, 6, 2.6, 1.2); c.fill(); };
     const kick = stroke ? Math.sin(p * 2.2) * 0.45 : 0;
-    const aNear = swim ? kick : !ground ? 0.75 : run ? Math.sin(p) * 1.0 : 0, aFar = swim ? -kick : !ground ? -0.55 : run ? -Math.sin(p) * 1.0 : 0;
+    const aNear = ride ? 0.6 : swim ? kick : !ground ? 0.75 : run ? Math.sin(p) * 1.0 : 0, aFar = ride ? 0.4 : swim ? -kick : !ground ? -0.55 : run ? -Math.sin(p) * 1.0 : 0;   // (riding: astride the saddle)
     // (the far arm, behind him: swinging opposite the near leg, or windmilling)
     const shoulder = [0, -1.5], armAt = a => [shoulder[0] + Math.sin(a) * 10, shoulder[1] + Math.cos(a) * 10];
-    const farA = stroke ? p * 1.2 + Math.PI : run ? -aNear * 0.9 : !ground ? -2.3 : 0.3, nearA = stroke ? p * 1.2 : run ? 0.9 + aNear * 0.25 : !ground ? 2.2 : 1.1;
+    const farA = ride ? 1.55 : stroke ? p * 1.2 + Math.PI : run ? -aNear * 0.9 : !ground ? -2.3 : 0.3, nearA = ride ? 1.8 : stroke ? p * 1.2 : run ? 0.9 + aNear * 0.25 : !ground ? 2.2 : 1.1;   // (riding: the reins held out)
     if (diving) { c.fillStyle = "#facc15"; c.beginPath(); c.roundRect(-13, -7, 7, 17, 3.5); c.fill(); c.fillStyle = "#a16207"; c.fillRect(-11, -9.5, 3, 3); }
     { const [hx, hy] = armAt(farA); c.strokeStyle = L.coatDk; c.lineWidth = 4.5; c.lineCap = "round"; c.beginPath(); c.moveTo(-1, -1); c.lineTo(hx - 1, hy); c.stroke(); E(hx - 1, hy, 2.3, 2.3, "#e0b48a"); }
     leg(aFar, false);
@@ -1228,17 +1243,35 @@
       pad(c, j, x, y, sx, sc, greens[Math.min(greens.length - 1, layer + Math.floor(r(100 + i) * 3))]); });
   }
   // a pine: a trunk, then tiers of drooping boughs, ragged at their tips, darker underneath
+  // (0.0.102; Matthew: "let's add more detail to the pine trees") A pine (200 high): its trunk tapering all the way up, furrowed,
+  // lit on the east side, a few dead stubs low on it; in each tier, boughs out from the trunk to each side, curving down at their
+  // ends, the back ones darker, the front lighter, each with a fringe of needle tufts hanging under it and needles catching the
+  // light along its top; cones hanging under the upper boughs
   function pineTree(c, seed, color, n = 5) {
-    const r = seededR(seed);
-    c.fillStyle = "#5e3d22"; c.fillRect(-6, -34, 12, 36);
+    const r = seededR(seed), dk = mixHex(color, "#000000", 0.35), lt = mixHex(color, "#8bc34a", 0.3), hi = mixHex(color, "#e6f5c8", 0.4);
+    c.fillStyle = "#5e3d22"; c.beginPath(); c.moveTo(-7, 2); c.lineTo(-1.2, -188); c.lineTo(1.2, -188); c.lineTo(7, 2); c.fill();
+    c.fillStyle = "rgba(255,228,196,0.16)"; c.beginPath(); c.moveTo(2, 2); c.lineTo(0.3, -186); c.lineTo(1.2, -186); c.lineTo(7, 2); c.fill();
+    c.strokeStyle = "rgba(30,15,5,0.4)"; c.lineWidth = 0.8; c.beginPath(); for (let k = 0; k < 4; k++) { const x0 = -4.5 + k * 3; c.moveTo(x0, 2); for (let y = 0; y > -70; y -= 7) c.lineTo(x0 * (1 + y / 260) + (r(k * 30 + y) - 0.5) * 1.2, y - 7); } c.stroke();
+    c.strokeStyle = "#4a3019"; c.lineCap = "round"; for (let k = 0; k < 3; k++) { const sd = k % 2 ? 1 : -1, y = -14 - k * 7; c.lineWidth = 1.6; c.beginPath(); c.moveTo(sd * 4, y); c.lineTo(sd * (12 + 6 * r(k + 60)), y - 3 - 3 * r(k + 61)); c.stroke(); }
+    const bough = (sd, y0, len, droop, col, j, b) => { const tx = sd * len, ty = y0 + droop, mx = sd * len * 0.55, n2 = Math.max(5, Math.round(len / 4.5));
+      const path = dy => { c.beginPath(); c.moveTo(0, y0 - 4 + dy); c.quadraticCurveTo(mx, y0 - 6 - droop * 0.15 + dy, tx, ty - 1.5 + dy);
+        let px = tx, py = ty + 2 + dy;   // (the underside: uneven tufts of needles hanging, each a rounded scallop)
+        for (let i = 1; i <= n2; i++) { const t = 1 - i / n2, x = tx * t, yb = y0 + droop * t * t + 3 + dy, hang = (3.5 + 4 * r(j * 97 + b * 13 + i)) * (0.55 + 0.45 * (1 - t));
+          c.quadraticCurveTo((px + x) / 2 + sd * 1.2, Math.max(py, yb) + hang, x, yb); px = x; py = yb; }
+        c.closePath(); };
+      c.fillStyle = "rgba(0,0,0,0.24)"; path(3.5); c.fill(); c.fillStyle = col; path(0); c.fill();
+      c.lineWidth = 0.8; c.globalAlpha = b > 1 ? 0.75 : 0.45; c.strokeStyle = hi; c.beginPath();   // (needles catching the light, inside the bough's top; darker ones along its middle)
+      for (let i = 1; i < n2; i++) { const t = i / n2, x = tx * t, y = y0 - 1.5 - droop * 0.12 * Math.sin(Math.PI * t) + droop * t * t * 0.85; c.moveTo(x, y); c.lineTo(x + sd * 3, y + 1.6); c.moveTo(x + sd * 1.5, y + 0.4); c.lineTo(x + sd * 3.6, y - 0.6); } c.stroke();
+      c.strokeStyle = dk; c.globalAlpha = 0.5; c.beginPath(); for (let i = 1; i < n2; i += 2) { const t = i / n2, x = tx * t, y = y0 + droop * t * t + 1; c.moveTo(x, y); c.lineTo(x + sd * 2.6, y + 2.2); } c.stroke(); c.globalAlpha = 1; };
     for (let j = 0; j < n; j++) {
-      const u = j / n, y = -22 - u * 158, hw = 60 * (1 - u * 0.84), th = 62 - 22 * u, tip = y - th, right = [];
-      for (let q = 1; q <= 3; q++) { const v = q / 3, x = hw * v; right.push([x - hw / 6, y - 4 - 6 * r(j * 10 + q)], [x, y + 6 + 6 * r(j * 10 + q + 5) - 4 * v]); }
-      const pts = [[0, tip], ...right, ...[...right].reverse().map(([x, yy]) => [-x * (0.94 + 0.1 * r(j + 40)), yy + 2 * (r(j + 41) - 0.5)])];
-      c.lineJoin = "round"; c.strokeStyle = color; c.lineWidth = 3; poly(c, pts, color); c.stroke();
-      poly(c, [[-hw * 0.85, y + 2], [hw * 0.85, y + 2], [hw * 0.5, y - th * 0.3], [-hw * 0.5, y - th * 0.3]], "rgba(0, 0, 0, 0.16)");
-      poly(c, [[0, tip + 4], [-hw * 0.6, y - th * 0.15], [-hw * 0.18, y - th * 0.5]], "rgba(255, 255, 255, 0.1)");
+      const u = j / n, y = -24 - u * 156, hw = 62 * (1 - u * 0.84), th = 60 - 22 * u, tip = y - th;
+      for (let b = 0; b < 3; b++) for (const sd of [-1, 1]) { const f = (b + 1) / 3, len = hw * (0.55 + 0.45 * f) * (0.9 + 0.2 * r(j * 20 + b * 3 + sd)), y0 = tip + th * (0.22 + 0.62 * f) * 0.95, droop = th * (0.22 + 0.2 * r(j * 20 + b + 9));
+        bough(sd, y0, len, droop, b === 0 ? dk : b === 1 ? color : lt, j, b * 2 + (sd > 0 ? 1 : 0)); }
+      c.fillStyle = color; c.beginPath(); c.moveTo(0, tip - 2); c.lineTo(hw * 0.12, tip + th * 0.3); c.lineTo(-hw * 0.12, tip + th * 0.3); c.closePath(); c.fill();   // (the leader at its top)
+      if (u > 0.35 && u < 0.9) for (const sd of [-1, 1]) if (r(j * 7 + sd + 300) < 0.35) { const cx = sd * hw * (0.55 + 0.25 * r(j + 310)), cy = tip + th * 0.8;
+        c.fillStyle = "#7a4a26"; c.beginPath(); c.ellipse(cx, cy + 4, 1.8, 3.2, sd * 0.2, 0, 7); c.fill(); c.strokeStyle = "#4a2c14"; c.lineWidth = 0.5; c.beginPath(); for (let q = 0; q < 3; q++) { c.moveTo(cx - 1.6, cy + 2.3 + q * 1.7); c.lineTo(cx + 1.6, cy + 3 + q * 1.7); } c.stroke(); }
     }
+    c.lineCap = "butt";
   }
   // (Matthew: "use this material to create a early 1990s game manual, as a zine"; "May need to add line-only drawing function")
   // Line art, for the manual's pictures and its coloring pages: the game's own drawing, through a canvas that draws each filled
@@ -1278,19 +1311,46 @@
       } });
     return P;
   }
-  const spriteCache = new Map(), SPRITES = { painted: 0 };
+  const spriteCache = new Map(), SPRITES = { painted: 0, strips: 0 };
+  // (0.0.102: the trees three times as tall) A very big picture (over 6 million pixels: a great tree, the tall trees by it) is
+  // kept in strips eight tiles tall, each painted the first time it is drawn, so only the strips in view are painted and held;
+  // at most 40 million pixels of strips are kept (the oldest let go): a great tree a hundred tiles tall would be 15 million
+  // pixels in one. The other pictures, whole, at most 48 million pixels of them (and 70 pictures)
+  const STRIP_T = 8, BIG_PX = 6e6, STRIP_BUDGET = 40e6, WHOLE_BUDGET = 48e6, strips = new Map(); let stripPx = 0, wholePx = 0;
+  const VIEW = { y0: -1e9, y1: 1e9 };   // (the rows in view, in the world's pixels, for skipping strips out of it: draw sets it)
+  function forget(sp) { if (sp && sp.cv) { wholePx -= sp.w * sp.h; sp.cv = null; } if (!sp || !sp.strips) return; sp.strips.forEach((cv, i) => { const k = sp.key + "#" + i, e = strips.get(k); if (e) { stripPx -= e.px; strips.delete(k); } }); sp.strips = []; }
   function sprite(key, wT, hT, ox, oy, paint) {
     if (LINE) key = "line:" + key;
     let sp = spriteCache.get(key);
     if (sp && sp.T === T) { spriteCache.delete(key); spriteCache.set(key, sp); return sp; }
-    SPRITES.painted++;   // (counted, for the frame times: sprites painted afresh)
-    const res = Math.min(T, LINE ? 64 : TCAP), c = document.createElement("canvas"); c.width = Math.ceil(wT * res); c.height = Math.ceil(hT * res);
-    const g0 = c.getContext("2d"), g = LINE ? lineCtx(g0) : g0; g0.translate(ox * res, oy * res); paint(g, res);
-    sp = { cv: c, ox, oy, res, T }; spriteCache.set(key, sp);
-    if (spriteCache.size > 70) spriteCache.delete(spriteCache.keys().next().value);
+    forget(sp);
+    const res = Math.min(T, LINE ? 64 : TCAP), W = Math.ceil(wT * res), Hp = Math.ceil(hT * res);
+    if (W * Hp > BIG_PX) sp = { strips: [], sh: STRIP_T * res, w: W, h: Hp, ox, oy, res, T, key, paint, line: LINE };
+    else { SPRITES.painted++;   // (counted, for the frame times: sprites painted afresh)
+      const c = document.createElement("canvas"); c.width = W; c.height = Hp;
+      const g0 = c.getContext("2d"), g = LINE ? lineCtx(g0) : g0; g0.translate(ox * res, oy * res); paint(g, res);
+      sp = { cv: c, ox, oy, res, T, w: W, h: Hp }; wholePx += W * Hp; }
+    spriteCache.set(key, sp);
+    while ((spriteCache.size > 70 || wholePx > WHOLE_BUDGET) && spriteCache.size > 1) { const k0 = spriteCache.keys().next().value; forget(spriteCache.get(k0)); spriteCache.delete(k0); }
     return sp;
   }
-  const drawSprite = (sp, x, y, k = 1) => { const f = T / sp.res * k; ctx.drawImage(sp.cv, x - sp.ox * T * k, y - sp.oy * T * k, sp.cv.width * f, sp.cv.height * f); };
+  function stripOf(sp, i) {
+    const k = sp.key + "#" + i; let cv = sp.strips[i];
+    if (cv) { const e = strips.get(k); strips.delete(k); strips.set(k, e); return cv; }
+    SPRITES.painted++; SPRITES.strips++;
+    const h = Math.min(sp.sh, sp.h - i * sp.sh); cv = document.createElement("canvas"); cv.width = sp.w; cv.height = h;
+    const g0 = cv.getContext("2d"), g = sp.line ? lineCtx(g0) : g0; g0.translate(sp.ox * sp.res, sp.oy * sp.res - i * sp.sh); sp.paint(g, sp.res);
+    sp.strips[i] = cv; strips.set(k, { sp, i, px: sp.w * h }); stripPx += sp.w * h;
+    while (stripPx > STRIP_BUDGET && strips.size > 1) { const [k0, e] = strips.entries().next().value; strips.delete(k0); e.sp.strips[e.i] = null; stripPx -= e.px; }
+    return cv;
+  }
+  // (a picture's rows sy to sy + sh drawn at dx, dy, scaled by f: from its canvas, or from the strips they fall in)
+  function blitRows(sp, sy, sh, dx, dy, f) {
+    if (!sp.strips) { if (f === 1) ctx.drawImage(sp.cv, 0, sy, sp.w, sh, dx, dy, sp.w, sh); else ctx.drawImage(sp.cv, 0, sy, sp.w, sh, dx, dy, sp.w * f, sh * f); return; }
+    for (let i = Math.floor(sy / sp.sh), e = sy + sh; i * sp.sh < e; i++) { const a = Math.max(sy, i * sp.sh), b = Math.min(e, (i + 1) * sp.sh, sp.h); if (b <= a) continue;
+      const cv = stripOf(sp, i); if (f === 1) ctx.drawImage(cv, 0, a - i * sp.sh, sp.w, b - a, dx, dy + (a - sy), sp.w, b - a); else ctx.drawImage(cv, 0, a - i * sp.sh, sp.w, b - a, dx, dy + (a - sy) * f, sp.w * f, (b - a) * f); }
+  }
+  const drawSprite = (sp, x, y, k = 1) => { const f = T / sp.res * k; blitRows(sp, 0, sp.h, x - sp.ox * T * k, y - sp.oy * T * k, f); };
   const TREE_LOOK = { 0: { wide: 1.05 }, 2: { wide: 0.8, bark: "#e9e4dc", marks: true, greens: ["#4d7c0f", "#5a8f2a", "#6aa832", "#7cbf3a", "#93d04a"] },
     3: { wide: 0.75, bark: "#c9c7b3", greens: ["#5a7a1f", "#6f9228", "#86a83a", "#a3c24e", "#c2d86a"] }, 4: { wide: 1.25, bark: "#5e4630", greens: ["#3f5e2c", "#4f6f33", "#5f803b", "#74934a", "#8aa85a"] } };
   // (Matthew: "the willow trees should look much better"; "look at real examples", and three photographs of weeping willows)
@@ -1375,12 +1435,13 @@
   function treeSprite(t, part = "front") {
     const hT = t.h * (t.tall ? 1.45 : 1) * (t.kind === 4 ? 1.1 : 1), wT = (t.tall ? 0.75 : t.kind === 1 ? 0.5 : t.kind === 4 ? 1.05 : 0.95 * (TREE_LOOK[t.kind] || TREE_LOOK[0]).wide) * hT + 2;
     if (t.tall) { const B = tallBox(t); return sprite(`tree:${t.kind}:${t.h}:${t.seed}:1:${part}`, B.w, B.h, B.ox, B.oy, (g, u) => paintTall(g, t, hT, u, part)); }
-    return sprite(`tree:${t.kind}:${t.h}:${t.seed}:0:${part}`, wT * 2, hT * 1.45 + 2, wT, hT * 1.45 + 1, (g, u) => {
+    const half = (t.kind === 1 ? 0.36 : t.kind === 4 ? 0.68 : 0.58 * (TREE_LOOK[t.kind] || TREE_LOOK[0]).wide) * hT + 1.5, up = (t.kind === 1 ? 1.2 : 1.08) * hT + 1.5;
+    return sprite(`tree:${t.kind}:${t.h}:${t.seed}:0:${part}`, half * 2, up + 1, half, up, (g, u) => {
       if (t.kind === 4) { weepingWillow(g, t, hT, u, part); return; }
       if (t.kind === 1) { const sc = hT * 1.1 * u / 200; g.scale(sc, sc);
         if (part === "back") { g.fillStyle = "#5e3d22"; g.beginPath(); g.moveTo(-6, 2); g.lineTo(-2, -190); g.lineTo(2, -190); g.lineTo(6, 2); g.fill();
           g.strokeStyle = "#5e3d22"; g.lineWidth = 3; g.beginPath(); for (let j = 0; j < 7; j++) { const y = -30 - j * 22, w = 50 * (1 - j / 8); g.moveTo(0, y); g.lineTo(-w, y + 10); g.moveTo(0, y - 6); g.lineTo(w, y + 4); } g.stroke(); return; }
-        pineTree(g, t.seed + 1, ["#1f5f3a", "#245f34", "#2a6b3c"][t.seed % 3], 5 + Math.floor(t.h / 3)); return; }
+        pineTree(g, t.seed + 1, ["#1f5f3a", "#245f34", "#2a6b3c"][t.seed % 3], 6 + Math.floor(t.h / 5)); return; }
       const sc = hT * u / 330; g.scale(sc, sc); leafyTree(g, t.seed + 1, { ...(TREE_LOOK[t.kind] || TREE_LOOK[0]), bare: part === "back", tile: 330 / hT, px: sc });
     });
   }
@@ -1419,10 +1480,27 @@
     const hT = t.h * (t.kind === 4 ? 1.1 : 1), half = (t.kind === 1 ? 0.35 : t.kind === 4 ? 0.75 : 0.55) * hT, gx = g.x / 1000, gy = g.y / 1000, foot = surf0[t.x];
     return Math.abs(gx - (t.x + 0.5)) < half && gy <= foot + 2.5 && gy >= foot - hT * 0.8;
   }
-  const bushSprite = b => sprite(`bush:${b.x}:${b.v}`, 3, 2, 1.5, 1.7, (g, u) => { const r = seededR(b.x * 7 + b.v), sc = u / 120; g.scale(sc, sc);
-    const greens = ["#285e2a", "#2f7d32", "#3a8a3c", "#47a047", "#58b050"];
-    for (let i = 0; i < 5; i++) pad(g, Math.floor(r(i) * 8), (r(i + 10) - 0.5) * 110, -20 - 45 * r(i + 20) - (i > 2 ? 25 : 0), 0.4 + 0.18 * r(i + 30), 0.55 + 0.25 * r(i + 40), greens[Math.min(4, i)]);
-    if (b.v === 2) { g.fillStyle = "#b91c1c"; for (let i = 0; i < 8; i++) { g.beginPath(); g.arc((r(i + 50) - 0.5) * 120, -20 - 50 * r(i + 60), 5, 0, 7); g.fill(); } } });
+  // (0.0.102; Matthew: "bushes scale up by 3x as well, and add detail where appropriate") A bush three times as big, about seven
+  // tiles across and four and a half tall: woody stems fanning up out of the ground, a twig off each; leaf pads in a dome, the
+  // back ones darker, the front lighter; small leaves catching the light on the front; and by its kind (World.plan's v), red
+  // berries in clusters (2), white blossoms (1), or only leaves (0)
+  const BUSH_GREENS = [["#1f4f24", "#285e2a", "#2f7d32", "#3a8a3c", "#47a047", "#58b050"], ["#2b4a1c", "#375f24", "#46742c", "#558a35", "#68a040", "#7fb54e"], ["#1d4630", "#265a3a", "#2f6e44", "#3b8250", "#48965c", "#5aaa6a"]];
+  const bushSprite = b => sprite(`bush:${b.x}:${b.v}`, 9, 6, 4.5, 5.6, (g, u) => { const r = seededR(b.x * 7 + b.v), G = BUSH_GREENS[b.v % 3]; g.scale(u / 40, u / 40);   // (40 to a tile)
+    g.fillStyle = "rgba(0,0,0,0.16)"; g.beginPath(); g.ellipse(0, 3, 140, 9, 0, 0, 7); g.fill();
+    g.lineCap = "round"; g.strokeStyle = "#5a4128";
+    for (let i = 0; i < 7; i++) { const x0 = (r(i + 70) - 0.5) * 36, a = (i / 6 - 0.5) * 2.1 + (r(i + 71) - 0.5) * 0.3, L = 100 + 50 * r(i + 72), x1 = x0 + Math.sin(a) * L, y1 = -Math.cos(a) * L * 0.85 - 18;
+      g.lineWidth = 7 - (i % 3) * 1.5; g.beginPath(); g.moveTo(x0, 3); g.quadraticCurveTo(x0 + Math.sin(a) * L * 0.25, -L * 0.45, x1, y1); g.stroke();
+      const tx = x0 + Math.sin(a) * L * 0.55, ty = -L * 0.5; g.lineWidth = 2.5; g.beginPath(); g.moveTo(tx, ty); g.lineTo(tx + (a >= 0 ? 1 : -1) * (18 + 10 * r(i + 73)), ty - 20); g.stroke(); }
+    for (let i = 0, n = 22; i < n; i++) { const k = i / n, ang = Math.PI * (0.06 + 0.88 * r(i)), rad = (0.35 + 0.65 * Math.sqrt(r(i + 10))) * (1 - k * 0.3);
+      pad(g, Math.floor(r(i + 30) * 8), Math.cos(ang) * 118 * rad, 12 - Math.sin(ang) * 150 * rad * (0.8 + 0.2 * (1 - k)), 0.3 + 0.14 * r(i + 40), 0.9 + 0.5 * r(i + 50), G[Math.min(5, Math.floor(k * 6))]); }
+    g.globalAlpha = 0.75; for (let i = 0; i < 46; i++) { const ang = Math.PI * (0.05 + 0.9 * r(i + 100)), rad = Math.sqrt(r(i + 110));
+      g.fillStyle = r(i + 120) < 0.55 ? G[5] : "#9ccc65"; g.beginPath(); g.ellipse(Math.cos(ang) * 112 * rad, -Math.sin(ang) * 140 * rad - 8, 7, 3.2, (r(i + 130) - 0.5) * 2.4, 0, 7); g.fill(); }
+    g.globalAlpha = 1;
+    if (b.v === 2) for (let i = 0; i < 13; i++) { const ang = Math.PI * (0.1 + 0.8 * r(i + 150)), rad = 0.3 + 0.65 * r(i + 160), cx = Math.cos(ang) * 110 * rad, cy = -Math.sin(ang) * 135 * rad - 10;
+      for (let k = 0; k < 3; k++) { const bx = cx + (k - 1) * 6, by = cy + (k === 1 ? -5 : 0); g.fillStyle = "#b91c1c"; g.beginPath(); g.arc(bx, by, 5, 0, 7); g.fill(); g.fillStyle = "rgba(255,255,255,0.55)"; g.beginPath(); g.arc(bx - 1.5, by - 1.8, 1.4, 0, 7); g.fill(); } }
+    if (b.v === 1) for (let i = 0; i < 16; i++) { const ang = Math.PI * (0.08 + 0.84 * r(i + 170)), rad = 0.3 + 0.68 * r(i + 180), cx = Math.cos(ang) * 112 * rad, cy = -Math.sin(ang) * 138 * rad - 10;
+      g.fillStyle = r(i + 190) < 0.3 ? "#f9d7e3" : "#fbfbf5"; for (let k = 0; k < 5; k++) { const a = k * 1.2566 + r(i + 200); g.beginPath(); g.ellipse(cx + Math.cos(a) * 4.5, cy + Math.sin(a) * 4.5, 4, 2.6, a, 0, 7); g.fill(); }
+      g.fillStyle = "#f2c12e"; g.beginPath(); g.arc(cx, cy, 2.2, 0, 7); g.fill(); } });
   // (a felled tree: falling for a second, then a stump; a sapling grows, its picture drawn small)
   function drawTree(t, x, y) {
     const c = ctx;
@@ -1447,14 +1525,18 @@
   const PETAL = ["#fbfbf7", "#d7261e", "#5b6fd6", "#f6c915", "#9b5bd1"];
   function drawFlowers(f, x0, y0, now) {
     const c = ctx, s = T, w = S.windNow || 0, aw = Math.min(1.4, Math.abs(w));
-    const n = f.n * 2;
+    // (0.0.102; Matthew: "flowers get bigger, since gnomes are not people; they are the size of about 6 to 12 inches, like the
+    // height of a small flower") each about as tall as a gnome, or taller (a lupine): twice as tall as before, their heads and leaves
+    // twice the size, fewer to a tile
+    const n = f.n;
     for (let k = 0; k < n; k++) {
-      const seed = f.x * 7 + k * 13, x = x0 + (k - (n - 1) / 2) * (0.9 / n) * s + ((seed % 5) - 2) * 0.03 * s, h = s * (0.42 + 0.11 * (seed % 4)) * (f.v === 4 ? 1.3 : 1);
+      const seed = f.x * 7 + k * 13, x = x0 + (k - (n - 1) / 2) * (1.1 / n) * s + ((seed % 5) - 2) * 0.05 * s, h = s * (0.85 + 0.22 * (seed % 4)) * (f.v === 4 ? 1.3 : 1);
       const flutter = Math.sin(now / (330 - 140 * Math.min(1, aw)) + seed * 0.7), bend = Math.max(-1.35, Math.min(1.35, w * 1.05 + (0.1 + 0.42 * aw) * flutter * 0.6));
       const tx = x + Math.sin(bend) * h, ty = y0 - Math.cos(bend) * h;
-      c.strokeStyle = "#4d7c0f"; c.lineWidth = Math.max(1, s * 0.035); c.beginPath(); c.moveTo(x, y0); c.quadraticCurveTo(x + Math.sin(bend) * h * 0.25, y0 - h * 0.62, tx, ty); c.stroke();
-      c.fillStyle = "#5a8f2a"; c.beginPath(); c.ellipse(x + Math.sin(bend) * h * 0.18 + s * 0.05, y0 - h * 0.35, s * 0.07, s * 0.025, -0.6 + bend, 0, 7); c.fill();
-      c.save(); c.translate(tx, ty); c.rotate(bend); c.scale(1.35, 1.35);
+      c.strokeStyle = "#4d7c0f"; c.lineWidth = Math.max(1, s * 0.06); c.beginPath(); c.moveTo(x, y0); c.quadraticCurveTo(x + Math.sin(bend) * h * 0.25, y0 - h * 0.62, tx, ty); c.stroke();
+      c.fillStyle = "#5a8f2a"; c.beginPath(); c.ellipse(x + Math.sin(bend) * h * 0.18 + s * 0.1, y0 - h * 0.35, s * 0.14, s * 0.045, -0.6 + bend, 0, 7); c.fill();
+      c.fillStyle = "#4d7c0f"; c.beginPath(); c.ellipse(x + Math.sin(bend) * h * 0.1 - s * 0.09, y0 - h * 0.2, s * 0.12, s * 0.04, 0.6 + bend, 0, 7); c.fill();
+      c.save(); c.translate(tx, ty); c.rotate(bend); c.scale(2.6, 2.6);
       const stream = Math.max(0, aw - 0.55) * 1.6 * Math.sign(w);   // (in a strong wind, the petals drawn out downwind)
       const petal = (a, len, wid, col) => { c.save(); c.rotate(a); c.translate(0, -len / 2); c.scale(1 + Math.abs(stream) * 0.8, 1); c.fillStyle = col; c.beginPath(); c.ellipse(stream * s * 0.03, 0, wid, len / 2, 0, 0, 7); c.fill(); c.restore(); };
       if (f.v === 0 || f.v === 3) { const n = f.v === 0 ? 8 : 5; for (let j = 0; j < n; j++) petal(j * 6.283 / n + (stream > 0 ? 0.3 : stream < 0 ? -0.3 : 0), s * (f.v === 0 ? 0.13 : 0.09), s * (f.v === 0 ? 0.03 : 0.045), PETAL[f.v]);
@@ -1905,7 +1987,7 @@
       const moving = q.to !== q.at && q.wait <= 0, ang = moving ? Math.atan2(b[1] - a[1], b[0] - a[0]) : (q.ang ?? 0); if (moving) q.ang = ang;
       if (Math.abs(Math.cos(ang)) > 0.2) q.face = Math.cos(ang) > 0 ? 1 : -1;
       const level = Math.abs(Math.sin(ang)) < 0.6; let rot = q.face > 0 ? ang : Math.PI - ang; rot = Math.atan2(Math.sin(rot), Math.cos(rot)); if (!moving && level) rot = 0;
-      c.save(); c.translate(x * s, y * s); c.scale(q.face, 1); c.rotate(rot); c.translate(0, -0.05 * s); squirrelBody(c, s, q, moving, q.sat && level); c.restore(); }
+      c.save(); c.translate(x * s, y * s); c.scale(q.face, 1); c.rotate(rot); c.translate(0, -0.1 * s); squirrelBody(c, s * 2, q, moving, q.sat && level); c.restore(); }   // (0.0.102: twice the size)
   }
   function squirrelBody(c, s, q, run, sit) {
     const fur = q.kind ? "#8d8b88" : "#b5531d", dark = q.kind ? "#66635f" : "#7f3410", belly = q.kind ? "#efece6" : "#f3dcb8", t = S.frame * (q.scared ? 0.7 : 0.38), ph = run ? Math.sin(t) : 0;
@@ -1953,8 +2035,11 @@
     for (const f of S.flowers) if (q() < 0.3) { const fly = q() < 0.65; S.bugs.push({ kind: fly ? "fly" : "bee", hx: f.x + 0.5, hw: 3, hy: landY(f.x), x: f.x + 0.5, y: landY(f.x) - 1, tx: f.x + 0.5, ty: landY(f.x) - 1, vx: 0, vy: 0, wait: 0, rest: 0,
       col: fly ? ["monarch", "brimstone", "white", "blue"][Math.floor(q() * 4)] : "bee", id: j++ }); }
     // (where a bird perches: along the limbs of the great and tall trees, away from the trunk's foot; and atop each small tree)
-    S.perches = []; for (const H of S.treeHomes || []) H.graph.pts.forEach((p, i) => { if (p[1] < H.oy - 2.5 && H.graph.nb[i].length <= 2 && Math.abs(p[0] - H.cx) > H.half + 0.6) S.perches.push({ H, i }); });   // (out on a limb, not on the trunk)
-    for (const t of S.trees) if (!t.tall && t.kind !== 4) S.perches.push({ tree: t });
+    S.perches = []; for (const H of S.treeHomes || []) H.graph.pts.forEach((p, i) => { if (p[1] < H.oy - 2.5 && H.graph.nb[i].length <= 2 && Math.abs(p[0] - H.cx) > H.half + 0.6) S.perches.push({ H, i, px: p[0] }); });   // (out on a limb, not on the trunk)
+    // (0.0.102: the big trees' limbs have thousands of points; every so many kept, about 600 perches, each with its column, px)
+    { const k = Math.max(1, Math.ceil(S.perches.length / 600)); S.perches = S.perches.filter((pr, i) => i % k === 0); }
+    // (and in each tree's crown, now three times as tall, three perches: low out to one side, higher to the other, near the top)
+    for (const t of S.trees) if (!t.tall && t.kind !== 4) for (const [fx, fy] of [[-0.28, 0.5], [0.24, 0.66], [0.05, 0.84]]) S.perches.push({ tree: t, fx: fx * (t.kind === 1 ? 0.5 : 1), fy, px: t.x + 0.5 });
     const P = S.perches, perch = () => P[Math.floor(q() * P.length)];
     if (P.length) for (let k = 0; k < Math.min(12, Math.floor(P.length / 10)); k++) { const pr = perch(); S.birds.push({ kind: "jay", mode: "perch", perch: pr, x: 0, y: 0, face: q() < 0.5 ? -1 : 1, wait: 60 + Math.floor(q() * 400), id: j++ }); }
     const ground = (kind, x) => { const c = Math.max(1, Math.min(WW - 2, Math.floor(x))); return { kind, mode: "ground", home: c + 0.5, x: c + 0.5, y: landY(c), face: q() < 0.5 ? -1 : 1, wait: Math.floor(q() * 120), hop: null, peck: 0, id: j++ }; };
@@ -1968,7 +2053,8 @@
   // (a perch's place now, in tiles, swaying with its tree as the squirrels do)
   function perchAt(pr) {
     if (pr.H) { const H = pr.H, p = H.graph.pts[pr.i], v = (H.spOy - (H.oy - p[1])) / H.spH; return [p[0] + (1 - v) * (1 - v) * H.lean() * H.spH, p[1] - 0.06]; }
-    const t = pr.tree; if (!t.alive) return null; const hT = t.h * (t.kind === 1 ? 1.05 : 0.93) * t.grow; return [t.x + 0.5 + sway(t.seed, t.kind === 1 ? 0.6 : 1) * hT * 1.2, surf0[t.x] - hT];
+    const t = pr.tree; if (!t.alive) return null; const hT = t.h * (t.kind === 1 ? 1.05 : 0.93) * t.grow, fy = pr.fy || 1;
+    return [t.x + 0.5 + (pr.fx || 0) * hT + sway(t.seed, t.kind === 1 ? 0.6 : 1) * hT * 1.2 * fy * fy, surf0[t.x] - hT * fy];
   }
   const flyTo = (b, x1, y1, then) => { b.fly = { x0: b.x, y0: b.y, x1, y1, t: 0, dur: Math.max(30, Math.hypot(x1 - b.x, y1 - b.y) * (b.kind === "hawk" ? 9 : 6)), then }; b.mode = "fly"; b.face = x1 >= b.x ? 1 : -1; };
   function wildStep() {
@@ -2025,12 +2111,12 @@
       if (b.mode === "perch") { const at = perchAt(b.perch); if (!at) { b.mode = "ground"; b.home = b.x; continue; } b.x = at[0]; b.y = at[1];
         if (scare || --b.wait <= 0) { b.wait = 200 + Math.floor(rand() * 500);
           if (b.home != null && !scare && Math.hypot(b.home - gx, landY(Math.floor(b.home)) - gy) > 6) { flyTo(b, b.home, landY(Math.floor(b.home)), "ground"); continue; }
-          const opts = S.perches.filter(pr => pr !== b.perch && (() => { const a = perchAt(pr); return a && Math.abs(a[0] - b.x) < (scare ? 12 : 7) && Math.hypot(a[0] - gx, a[1] - gy) > 4; })());
+          const opts = S.perches.filter(pr => pr !== b.perch && Math.abs(pr.px - b.x) < 16 && (() => { const a = perchAt(pr); return a && Math.abs(a[0] - b.x) < (scare ? 12 : 7) && Math.hypot(a[0] - gx, a[1] - gy) > 4; })());
           if (opts.length) { const pr = opts[Math.floor(rand() * opts.length)], a = perchAt(pr); b.perch = pr; flyTo(b, a[0], a[1], "perch"); if (rand() < 0.4) wildCall(b.kind === "jay" ? "jay" : b.kind === "robin" ? "robin" : "chirp", b.x, b.y); } }
         continue; }
       // (on the ground: hops and pecks; the gnome near, up into the nearest tree away from it)
       b.y = landY(Math.max(0, Math.min(WW - 1, Math.floor(b.x))));
-      if (scare) { const opts = S.perches.map(pr => [pr, perchAt(pr)]).filter(([, a]) => a && Math.abs(a[0] - b.x) < 12 && Math.hypot(a[0] - gx, a[1] - gy) > 4).sort((p1, p2) => Math.abs(p1[1][0] - b.x) - Math.abs(p2[1][0] - b.x));
+      if (scare) { const opts = S.perches.filter(pr => Math.abs(pr.px - b.x) < 16).map(pr => [pr, perchAt(pr)]).filter(([, a]) => a && Math.abs(a[0] - b.x) < 12 && Math.hypot(a[0] - gx, a[1] - gy) > 4).sort((p1, p2) => Math.abs(p1[1][0] - b.x) - Math.abs(p2[1][0] - b.x));
         if (opts.length) { const [pr, a] = opts[Math.floor(rand() * Math.min(3, opts.length))]; b.perch = pr; b.wait = 300 + Math.floor(rand() * 300); flyTo(b, a[0], a[1], "perch"); wildCall(b.kind === "robin" ? "robin" : "chirp", b.x, b.y); continue; } }
       if (b.hop) { b.hop.t += 1 / 10; b.x = b.hop.x0 + (b.hop.x1 - b.hop.x0) * Math.min(1, b.hop.t); if (b.hop.t >= 1) b.hop = null; continue; }
       if (b.peck > 0) { b.peck--; continue; }
@@ -2042,6 +2128,100 @@
     const F = b.fly; F.t += 1 / F.dur; const t = Math.min(1, F.t), e = t * t * (3 - 2 * t), arc = Math.sin(Math.PI * t) * Math.min(2, Math.hypot(F.x1 - F.x0, F.y1 - F.y0) * 0.25);
     b.x = F.x0 + (F.x1 - F.x0) * e; b.y = F.y0 + (F.y1 - F.y0) * e - arc;
     if (F.t >= 1) { b.mode = F.then; b.x = F.x1; b.y = F.y1; if (b.mode === "rest") b.wait = 600 + Math.floor(rand() * 900); }
+  }
+  // ---- (0.0.102; Matthew, 2026-11-24: "introduce bunny rabbits. one of the bunnys has a special saddle, like a horse, and
+  // reins. if we have a carrot piece and give that rabbit the carrot piece, it will let us rid it around the world. We can get
+  // on and off, and when on, we hop around and avoid water (jumping over it is an option, but not swimming)"; "the rabbit
+  // should hop"; "jumping is very high, so we can jump over each stream/creek"; "the rabbit can dig very fast --- faster than
+  // the gnome"; "when the gnome has swim gear, the rabbit can swim underground to dig"; "the gnome has a kit that supplies stuff
+  // to the rabbit"; "climbing is enabled with the climbing gear, like the swimming gear") The bunnies: wild ones in the meadows,
+  // nibbling and hopping about their homes, and away from a gnome on foot; and Clover, saddled and bridled, in the meadow past
+  // the carrot garden by the start. Give her a carrot (R, or 🐇) and she lets the gnome ride. The gnome's own step in Hazel
+  // (World.step) moves the two of them, as the page asks it: twice as fast across; a hop at every landing while a way is held;
+  // a leap (↑) nearly six tiles high, long enough to clear the creeks and the stream; digging three times as fast; the ladders,
+  // the stair and the trees only with the climbing pack (without it, the window World.step sees has nothing to climb); the
+  // water only with the diving gear (without it, water at her feet ahead is a wall to her, but not in a leap, and a landing in
+  // the water puts her back where she last stood dry). With the pack or the gear, she wears her own (the gnome's kit has one
+  // for her). Off again (R) anywhere on the ground; she waits there
+  const RABBIT_FUR = [["#9c8466", "#6e5a44", "#efe6d6"], ["#a8a39a", "#77726a", "#f2efe8"], ["#8a6a4a", "#5e4630", "#eadcc4"], ["#c9b89a", "#9a8668", "#f6efe2"]];
+  function makeBunnies() {
+    const rr = seededR(S.seed * 11 + 91); let j = 0; const q = () => rr(j++);
+    S.bunnies = []; S.carrots = 0; S.ride = { on: false, leap: false, hop: false, safe: null };
+    const open = c => c > 4 && c < WW - 5 && !riverAt(c) && !riverAt(c - 3) && !riverAt(c + 3) && Math.abs(surf0[c - 1] - surf0[c + 1]) <= 1 && !S.greats.some(G => Math.abs(G.x - c) < 4);
+    for (let x = 20; x < WW - 20; x += 28 + Math.floor(q() * 30)) if (open(x)) { const n = q() < 0.4 ? 2 : 1;
+      for (let i = 0; i < n; i++) S.bunnies.push({ x: x + 0.5 + i * 1.4, home: x + 0.5, face: q() < 0.5 ? -1 : 1, hop: null, wait: Math.floor(q() * 200), nib: 0, ear: 0, id: j, fur: RABBIT_FUR[1 + Math.floor(q() * 3)] }); }
+    let c = 44; while (c < 90 && !open(c)) c++;
+    S.mount = { x: (c + 0.5) * 1000, y: surf0[c] * 1000, face: -1, tame: false, nib: 0, ear: 0, wait: 60 };
+    for (const gc of [26, 29, 32]) { let cc = gc; while (cc < gc + 8 && !open(cc)) cc++; S.items.push({ kind: "carrot", x: cc + 0.5, y: surf0[cc] - 0.5, taken: false }); }
+    const pantry = S.rooms.find(R => R.kind === 3); if (pantry) S.items.push({ kind: "carrot", x: pantry.x + pantry.w * 0.7, y: pantry.y + 3.3, taken: false });
+  }
+  function bunniesStep() {
+    const g = S.g; if (!g || !S.bunnies) return; const gx = g.x / 1000, gy = g.y / 1000, riding = S.ride.on, M = S.mount;
+    if (M && !riding) { const c = Math.floor(M.x / 1000); let r = Math.ceil(M.y / 1000 - 0.001); while (r < WH && !floorAt(c, r)) r++;   // (if the ground under her went, she drops onto what is under it)
+      if (r * 1000 > M.y) M.y = Math.min(r * 1000, M.y + 200);
+      if (M.nib > 0) M.nib--; else if (--M.wait <= 0) { M.wait = 90 + Math.floor(rand() * 240); if (rand() < 0.55) M.nib = 50 + Math.floor(rand() * 70); else M.face = g.x > M.x ? 1 : -1; }
+      M.ear = Math.max(0, M.ear - 0.03); if (rand() < 0.008) M.ear = 0.45; }
+    for (const b of S.bunnies) { if (!viewNear(b.x, 12)) continue;
+      if (b.hop) { const H = b.hop; H.t += 1 / H.dur; b.x = H.x0 + (H.x1 - H.x0) * Math.min(1, H.t); if (H.t >= 1) { b.hop = null; b.wait = b.flee ? 1 : 25 + Math.floor(rand() * 120); } continue; }
+      const by = landY(Math.max(0, Math.min(WW - 1, Math.floor(b.x)))), d = Math.hypot(b.x - gx, by - gy);
+      b.flee = d < 3.5 && !riding; b.ear = Math.max(0, b.ear - 0.03); if (rand() < 0.006) b.ear = 0.45;
+      if (b.nib > 0 && !b.flee) { b.nib--; continue; }
+      if (!b.flee && --b.wait > 0) continue;
+      if (!b.flee && rand() < 0.45) { b.nib = 60 + Math.floor(rand() * 100); b.wait = 40; continue; }
+      const away = b.flee ? (b.x >= gx ? 1 : -1) : Math.abs(b.x - b.home) > 5 ? Math.sign(b.home - b.x) : rand() < 0.5 ? -1 : 1;
+      const to = b.x + away * (b.flee ? 1.5 + rand() * 0.8 : 0.5 + rand() * 0.7), c = Math.floor(to);
+      if (c > 1 && c < WW - 2 && !riverAt(to) && Math.abs(landY(c) - by) < 1.3) { b.face = away; b.hop = { x0: b.x, x1: to, y0: by, y1: landY(c), t: 0, dur: b.flee ? 16 : 22, h: b.flee ? 0.9 : 0.45 }; }
+      else { b.face = -away; b.wait = 40; } }
+  }
+  // (what World.step sees round Clover and the gnome: nothing to climb without the pack; without the gear, outside a leap, a
+  // column beside her with water at her feet or below them, before any ground, a wall)
+  function rideNear(g) {
+    const cx = Math.floor(g.x / 1000), cy = Math.floor((g.y - 1) / 1000), R = S.ride, wall = [false, false, false];
+    if (!g.gear && !R.leap && !g.swim && !g.under) for (const d of [-1, 1]) for (let r = cy - 1; r <= cy + 12; r++) { const v = code(cx + d, r); if (v & 16 && v < 64) { wall[d + 1] = true; break; } if (r > cy && (v & 15) >= 1 && (v & 15) <= 10) break; }
+    const t = (c, r) => { if (wall[c - cx + 1] && r <= cy) return 10; const v = code(c, r); return !g.climbPack && v < 64 && (v & 32) ? v - 32 : v; };
+    const row = r => t(cx - 1, r) + 512 * t(cx, r) + 262144 * t(cx + 1, r);
+    return { cx, cy, r0: row(cy - 3), r1: row(cy - 2), r2: row(cy - 1), r3: row(cy), r4: row(cy + 1) };
+  }
+  function rideStep(h) {
+    const k = S.keys, R = S.ride, g0 = S.g, dx = (k.right ? 1 : 0) - (k.left ? 1 : 0), wet = g0.swim || g0.under;
+    // (↑ pressed while she is in the air, between hops, is kept a moment, for when she lands; a leap goes its whole height, up held or not)
+    if (S.jumpQueued) R.want = 40; else if (R.want > 0) R.want--;
+    const leap = (R.want > 0 || (k.up && R.leapt)) && g0.ground && !g0.climb && !wet, hop = !leap && g0.ground && dx !== 0 && !k.dig && !k.down && !g0.climb && !wet;
+    // (rising in a hop or a leap, World.step is told up is held, so that it does not cut the jump short)
+    const pad = { dx: k.dig ? dx : dx * 2, up: k.up || ((R.hop || R.leap) && !g0.ground && g0.vy < 0), down: k.down, jump: leap || hop || (S.jumpQueued && (g0.climb || wet)), dig: !!k.dig };
+    if (leap) R.want = 0;
+    S.jumpQueued = false;
+    const t0 = performance.now();
+    let g = { ...h.step(g0, rideNear(g0), pad) };   // (a plain copy: a record World.step gives back keeps its fields inside, and a change made to it here would not reach the next step)
+    S.stepMs.push(performance.now() - t0); if (S.stepMs.length > 120) S.stepMs.shift();
+    if (g0.climbPack) g.climbPack = true; g.face = g.face < 0 ? -1 : 1;
+    if (g.ev === 2) { if (leap) { g.vy = -360; R.leap = true; R.leapt = true; R.hop = false; } else { g.vy = -165; R.hop = true; } }
+    if (!k.up) R.leapt = false;   // (up held: leap again at each landing)
+    if (g.ground || g.climb || g.swim || g.under) R.hop = R.leap = false;
+    if (g.dc >= 0 && g.dt > 0) g.dt += 2;   // (she digs three times as fast)
+    if (!g.gear && (g.swim || g.under) && R.safe) {   // (no swimming without the diving gear: back onto the bank)
+      g = { ...g, x: R.safe.x, y: R.safe.y, vx: 0, vy: 0, swim: false, under: false, ground: true, climb: false, air: 600, ev: 0, dc: -1, dr: -1, dt: 0 }; R.hop = R.leap = false;
+      if (SND) SND.splash(); S.banner = { text: "🐇 Clover won't swim without her diving kit 🤿", t: performance.now() }; }
+    if (g.ground && !g.swim && !g.under) R.safe = { x: g.x, y: g.y };
+    S.g = g;
+    if (g.ev === 1 && g.dc >= 0) digOut(g.dc, g.dr);
+    else if (g.ev === 3 && SND) SND.splash();
+    else if (g.ev === 4) hurt("😵 out of breath");
+    pickups();
+  }
+  const nearClover = () => { const g = S.g, M = S.mount; return !!(g && M && !S.ride.on && Math.abs(M.x - g.x) < 1700 && Math.abs(M.y - g.y) < 1500); };
+  function rideToggle() {
+    const g = S.g, R = S.ride, M = S.mount; if (!g || !M || S.faintAt || BOT.on) return;
+    const say = text => { S.banner = { text, t: performance.now() }; };
+    if (R.on) { if (!g.ground || g.swim || g.under || g.climb) { say("🐇 Get off on solid ground"); return; }
+      R.on = false; M.x = g.x; M.y = g.y; M.face = g.face; M.wait = 120; M.nib = 0;
+      const c = Math.floor((g.x - g.face * 700) / 1000), r = Math.floor((g.y - 1) / 1000), free = inside(c, r) && mat[at(c, r)] === AIR && inside(c, r - 1) && mat[at(c, r - 1)] === AIR && floorAt(c, r + 1);
+      S.g = { ...g, x: free ? g.x - g.face * 700 : g.x, vx: 0, vy: 0, dc: -1, dr: -1, dt: 0 }; say("🐇 Off you hop: Clover waits here"); return; }
+    if (!nearClover()) return;
+    if (!M.tame) { if (!(S.carrots > 0)) { say("🐇 Clover would like a carrot 🥕"); return; }
+      S.carrots--; M.tame = true; if (SND) SND.gem(); say("🥕 Clover munches the carrot, and lets you ride! (R to get off)"); }
+    R.on = true; R.hop = R.leap = false; R.safe = { x: M.x, y: M.y };
+    S.g = { ...g, x: M.x, y: M.y, vx: 0, vy: 0, ground: true, climb: false, swim: false, under: false, face: M.face, dc: -1, dr: -1, dt: 0 };
   }
   // ---- drawing the wildlife
   // (a frog from the side, facing right: sitting, its long hind leg folded under it, eye up on its head, throat puffed when it
@@ -2098,30 +2278,70 @@
   const BIRD = {
     sparrow: { L: 0.24, body: "#9a6a3a", back: "#7a4e28", belly: "#ddd0b8", head: "#8a5a32", cap: "#6e6a62", face: "#c8c2b4", bill: "#4a4038", tail: "#6a4424", mark: "#2a2018" },
     robin: { L: 0.3, body: "#6e6256", back: "#5e5248", belly: "#e0662a", head: "#3a3430", cap: "#3a3430", face: "#3a3430", bill: "#e0b030", tail: "#3a3430", mark: "#fff" },
-    jay: { L: 0.34, body: "#4a86d8", back: "#3a72c4", belly: "#eef0f4", head: "#4a86d8", cap: "#3a72c4", face: "#f4f6f8", bill: "#1a1a1a", tail: "#2f62b8", mark: "#1a1a1a", crest: true },
+    jay: { L: 0.34, body: "#4a86d8", back: "#3a72c4", belly: "#eef0f4", head: "#4a86d8", cap: "#3a72c4", face: "#f4f6f8", bill: "#1a1a1a", tail: "#2f62b8", mark: "#1a1a1a", crest: true, bars: true },
     hawk: { L: 0.62, body: "#7a4e2a", back: "#5e3a1e", belly: "#f0e3cc", head: "#6a4426", cap: "#5e3a1e", face: "#efe2c8", bill: "#2a2a2a", tail: "#b5552a", mark: "#4a2e18", hook: true },
   };
+  // (0.0.102; Matthew: "birds will generally look better if scaled up by 2x compared to current size. more detail on larger birds
+  // so they aren't just ovals with line-wings sticking out") A bird twice the size, drawn as a bird is built: one smooth body,
+  // the breast full and the back flat, narrowing into a tail of four feathers fanned a little, each with a pale edge; a round
+  // head, its cap and cheek, an eye with a pale ring and a glint, the bill in two halves; perched, its wing folded along its side
+  // (the coverts, then the long flight feathers stacked to their tips, each edged) and its legs gripping, three toes forward
+  // and one back; flying, each wing spread, its leading edge bent at the wrist, five primaries fingered at the tip and the
+  // secondaries scalloped back to the body, the far wing darker. Its kind's marks: a sparrow's streaked back and wing bars, a
+  // robin's eye ring, a jay's crest, necklace and barred wings, a hawk's streaked breast, barred tail and hooked yellow-based bill
   function birdBody(c, u, K, flap, perched, now, id) {
     const E = (col, ex, ey, rx, ry, a = 0) => { c.fillStyle = col; c.beginPath(); c.ellipse(ex * u, ey * u, rx * u, ry * u, a, 0, 7); c.fill(); };
-    if (!perched) { const up = Math.sin(flap); c.fillStyle = K.back; c.beginPath(); c.moveTo(-0.05 * u, -0.05 * u); c.quadraticCurveTo(-0.1 * u, -0.5 * up * u, -0.45 * u, -0.8 * up * u); c.lineTo(-0.3 * u, -0.6 * up * u + 0.05 * u); c.quadraticCurveTo(-0.2 * u, -0.1 * up * u, 0.15 * u, 0); c.fill(); }   // (the far wing)
-    c.fillStyle = K.tail; c.beginPath(); c.moveTo(-0.3 * u, -0.06 * u); c.lineTo(-0.62 * u, perched ? 0.12 * u : -0.02 * u); c.lineTo(-0.6 * u, perched ? 0.2 * u : 0.06 * u); c.lineTo(-0.28 * u, 0.06 * u); c.fill();
-    E(K.body, 0, 0, 0.36, 0.2, perched ? -0.15 : 0); E(K.belly, 0.06, 0.08, 0.26, 0.11, perched ? -0.15 : 0);
-    E(K.head, 0.32, perched ? -0.16 : -0.06, 0.15, 0.13); E(K.cap, 0.31, perched ? -0.23 : -0.13, 0.12, 0.06);
-    E(K.face, 0.38, perched ? -0.13 : -0.03, 0.07, 0.05);
-    if (K.crest) { c.fillStyle = K.cap; c.beginPath(); c.moveTo(0.24 * u, (perched ? -0.25 : -0.15) * u); c.lineTo(0.18 * u, (perched ? -0.42 : -0.3) * u); c.lineTo(0.34 * u, (perched ? -0.27 : -0.17) * u); c.fill();
-      c.strokeStyle = K.mark; c.lineWidth = Math.max(1, 0.03 * u); c.beginPath(); c.arc(0.3 * u, (perched ? -0.1 : 0) * u, 0.12 * u, 0.2, 2.2); c.stroke(); }
-    const by = perched ? -0.16 : -0.06; c.fillStyle = K.bill; c.beginPath(); c.moveTo(0.45 * u, (by - 0.03) * u); c.lineTo((K.hook ? 0.56 : 0.58) * u, (by + (K.hook ? 0.03 : 0)) * u); c.lineTo(0.45 * u, (by + 0.03) * u); c.fill();
-    if (K.hook) { c.strokeStyle = K.bill; c.lineWidth = Math.max(1, 0.03 * u); c.beginPath(); c.moveTo(0.55 * u, (by + 0.01) * u); c.quadraticCurveTo(0.58 * u, (by + 0.04) * u, 0.54 * u, (by + 0.07) * u); c.stroke(); E("#f2c43a", 0.44, by, 0.03, 0.03); }
-    E("#111", 0.37, by - 0.02, 0.028, 0.028); E("#fff", 0.38, by - 0.03, 0.009, 0.009);
-    if (K === BIRD.sparrow) { E(K.mark, 0.4, by + 0.08, 0.05, 0.04); for (const [sx, sy] of [[-0.1, -0.08], [0.02, -0.12], [-0.2, -0.02]]) E(K.mark, sx, sy, 0.05, 0.02, -0.2); }
-    if (K === BIRD.hawk) { c.fillStyle = K.mark; for (let i = 0; i < 5; i++) { c.beginPath(); c.arc((-0.05 + i * 0.07) * u, 0.12 * u, 0.018 * u, 0, 7); c.fill(); } }
-    if (perched) { E(K.back, -0.06, -0.06, 0.26, 0.12, -0.25); c.strokeStyle = "rgba(0,0,0,0.25)"; c.lineWidth = Math.max(1, 0.02 * u); c.beginPath(); c.moveTo(-0.25 * u, 0); c.quadraticCurveTo(-0.05 * u, -0.03 * u, 0.12 * u, -0.1 * u); c.stroke();
-      c.strokeStyle = "#5a4a3a"; c.lineWidth = Math.max(1, 0.03 * u); c.beginPath(); for (const lx of [-0.02, 0.06]) { c.moveTo(lx * u, 0.15 * u); c.lineTo(lx * u, 0.3 * u); c.lineTo((lx + 0.07) * u, 0.31 * u); } c.stroke(); }
-    else { const up = Math.sin(flap); c.fillStyle = K.back; c.beginPath(); c.moveTo(0.05 * u, -0.05 * u); c.quadraticCurveTo(0, -0.5 * up * u, -0.35 * u, -0.85 * up * u); c.lineTo(-0.2 * u, -0.65 * up * u + 0.06 * u); c.quadraticCurveTo(-0.1 * u, -0.1 * up * u, 0.22 * u, 0.02 * u); c.fill(); }   // (the near wing)
+    const lw = Math.max(1, 0.02 * u), dk = mixHex(K.back, "#000000", 0.3), pale = mixHex(K.back, "#ffffff", 0.35), up = perched ? 0 : Math.sin(flap), hy = perched ? -0.17 : -0.07;
+    const wing = near => { const ox = near ? 0.06 : -0.03, k = near ? 1 : 0.86, col = near ? K.back : dk;
+      const wx = ox - 0.1, wy = -0.46 * up * k - 0.03, tx = ox - 0.44, ty = -0.9 * up * k - 0.02, rx = ox - 0.34, ry = -0.42 * up * k + 0.05;
+      c.fillStyle = col; c.beginPath(); c.moveTo((ox + 0.1) * u, -0.04 * u); c.quadraticCurveTo((ox + 0.02) * u, (wy * 0.55 - 0.05) * u, wx * u, wy * u); c.lineTo(tx * u, ty * u);
+      for (let f = 1; f <= 5; f++) { const t = f / 5, bx = tx + (rx - tx) * t, by = ty + (ry - ty) * t, nx = bx + 0.05, ny = by - 0.03 * Math.sign(up || 1); c.lineTo(nx * u, ny * u); c.lineTo(bx * u, by * u); }
+      for (let f = 1; f <= 4; f++) { const t = f / 4, x = rx + (ox - 0.14 - rx) * t, y = ry + (0.02 - ry) * t; c.quadraticCurveTo((x - 0.04) * u, (y + 0.05) * u, x * u, y * u); }
+      c.closePath(); c.fill();
+      c.fillStyle = near ? pale : K.back; c.beginPath(); c.moveTo((ox + 0.1) * u, -0.04 * u); c.quadraticCurveTo((ox + 0.02) * u, (wy * 0.55 - 0.05) * u, wx * u, wy * u);
+      c.lineTo((wx - 0.12) * u, (wy + (ty - wy) * 0.3) * u); c.quadraticCurveTo((ox - 0.08) * u, (wy * 0.4) * u, (ox - 0.02) * u, 0.02 * u); c.closePath(); c.globalAlpha = 0.55; c.fill(); c.globalAlpha = 1;
+      c.strokeStyle = "rgba(0,0,0,0.28)"; c.lineWidth = lw; c.beginPath(); for (let f = 1; f <= 4; f++) { const t = f / 5; c.moveTo((wx - 0.04) * u, (wy + 0.03) * u); c.lineTo((tx + (rx - tx) * t + 0.03) * u, (ty + (ry - ty) * t) * u); } c.stroke();
+      if (K.bars && near) { c.strokeStyle = K.mark; c.lineWidth = lw * 1.5; c.beginPath(); for (let f = 0; f < 3; f++) { const t = 0.35 + f * 0.2; c.moveTo((wx + (rx - wx) * t) * u, (wy + (ry - wy) * t) * u); c.lineTo((wx + (tx - wx) * t) * u, (wy + (ty - wy) * t) * u); } c.stroke(); } };
+    if (!perched) wing(false);
+    c.save(); c.translate(-0.28 * u, perched ? 0.02 * u : -0.01 * u); c.rotate(perched ? 0.42 : 0.03);   // (the tail)
+    for (let i = 0; i < 4; i++) { c.save(); c.rotate((i - 1.5) * (perched ? 0.06 : 0.11)); c.fillStyle = i % 2 ? K.tail : mixHex(K.tail, "#000000", 0.15);
+      c.beginPath(); c.moveTo(0, -0.045 * u); c.lineTo(-0.3 * u, -0.042 * u); c.quadraticCurveTo(-0.36 * u, 0, -0.3 * u, 0.042 * u); c.lineTo(0, 0.045 * u); c.fill();
+      c.strokeStyle = "rgba(255,255,255,0.22)"; c.lineWidth = lw; c.beginPath(); c.moveTo(-0.05 * u, 0.04 * u); c.lineTo(-0.3 * u, 0.04 * u); c.stroke(); c.restore(); }
+    if (K.hook) { c.strokeStyle = K.mark; c.lineWidth = lw * 1.6; c.beginPath(); for (const bx of [-0.12, -0.2, -0.27]) { c.moveTo(bx * u, -0.06 * u); c.lineTo(bx * u, 0.06 * u); } c.stroke(); }
+    c.restore();
+    c.save(); c.rotate(perched ? -0.15 : 0);   // (the body)
+    const body = () => { c.beginPath(); c.moveTo(0.3 * u, -0.12 * u); c.bezierCurveTo(0.43 * u, 0.02 * u, 0.3 * u, 0.2 * u, 0.04 * u, 0.2 * u); c.bezierCurveTo(-0.16 * u, 0.2 * u, -0.28 * u, 0.1 * u, -0.36 * u, 0.04 * u);
+      c.lineTo(-0.36 * u, -0.04 * u); c.bezierCurveTo(-0.2 * u, -0.16 * u, 0.08 * u, -0.21 * u, 0.3 * u, -0.12 * u); c.closePath(); };
+    c.fillStyle = K.body; body(); c.fill(); c.save(); body(); c.clip();
+    E(K.belly, 0.1, 0.14, 0.32, 0.13); E(K.back, -0.08, -0.17, 0.34, 0.08);
+    if (K === BIRD.sparrow) { for (let i = 0; i < 6; i++) E(K.mark, -0.22 + i * 0.07, -0.11 + (i % 2) * 0.02, 0.04, 0.012, -0.2); for (let i = 0; i < 5; i++) E("rgba(120,90,60,0.5)", 0.02 + i * 0.05, 0.1 + (i % 2) * 0.03, 0.02, 0.008, 0.3); }
+    if (K.hook) for (let i = 0; i < 9; i++) E(K.mark, -0.05 + (i % 3) * 0.09 + Math.floor(i / 3) * 0.03, 0.06 + Math.floor(i / 3) * 0.04, 0.016, 0.024);
+    if (K === BIRD.jay) { c.strokeStyle = K.mark; c.lineWidth = lw * 1.8; c.beginPath(); c.arc(0.3 * u, -0.04 * u, 0.14 * u, 0.3, 2.3); c.stroke(); }
+    c.restore(); c.restore();
+    E(K.body, 0.3, hy + 0.06, 0.13, 0.11);   // (the neck)
+    E(K.head, 0.33, hy, 0.15, 0.13); E(K.cap, 0.31, hy - 0.07, 0.12, 0.065); E(K.face, 0.38, hy + 0.03, 0.08, 0.055);
+    if (K.crest) { c.fillStyle = K.cap; c.beginPath(); c.moveTo(0.26 * u, (hy - 0.08) * u); c.quadraticCurveTo(0.14 * u, (hy - 0.2) * u, 0.12 * u, (hy - 0.3) * u); c.quadraticCurveTo(0.25 * u, (hy - 0.22) * u, 0.37 * u, (hy - 0.11) * u); c.fill(); }
+    c.fillStyle = K.bill; c.beginPath(); c.moveTo(0.45 * u, (hy - 0.035) * u); c.quadraticCurveTo((K.hook ? 0.56 : 0.54) * u, (hy - 0.02) * u, (K.hook ? 0.55 : 0.6) * u, (hy + (K.hook ? 0.05 : 0.005)) * u); c.lineTo(0.45 * u, (hy + 0.005) * u); c.fill();
+    c.fillStyle = mixHex(K.bill, "#000000", 0.3); c.beginPath(); c.moveTo(0.45 * u, (hy + 0.008) * u); c.lineTo((K.hook ? 0.52 : 0.57) * u, (hy + 0.012) * u); c.lineTo(0.45 * u, (hy + 0.035) * u); c.fill();
+    if (K.hook) E("#f2c43a", 0.445, hy - 0.01, 0.03, 0.026);
+    E(K === BIRD.robin ? "#f4f0e6" : "rgba(255,255,255,0.55)", 0.37, hy - 0.025, 0.04, 0.036); E("#111", 0.37, hy - 0.025, 0.027, 0.027); E("#fff", 0.38, hy - 0.035, 0.009, 0.009);
+    if (K === BIRD.sparrow) E(K.mark, 0.41, hy + 0.08, 0.05, 0.035);
+    if (perched) { c.save(); c.rotate(-0.15);   // (the folded wing: the coverts, then the flight feathers stacked to their tips)
+      c.fillStyle = K.back; c.beginPath(); c.moveTo(0.16 * u, -0.1 * u); c.quadraticCurveTo(0.05 * u, 0.1 * u, -0.2 * u, 0.08 * u); c.lineTo(-0.44 * u, 0.04 * u); c.quadraticCurveTo(-0.2 * u, -0.08 * u, 0.16 * u, -0.1 * u); c.fill();
+      for (let f = 0; f < 4; f++) { const x0 = -0.12 - f * 0.08, y0 = 0.07 - f * 0.012; c.fillStyle = f % 2 ? K.back : dk; c.beginPath(); c.moveTo((x0 + 0.08) * u, (y0 - 0.06) * u); c.quadraticCurveTo((x0 - 0.12) * u, (y0 - 0.04) * u, (x0 - 0.14) * u, y0 * u); c.lineTo((x0 + 0.06) * u, (y0 + 0.01) * u); c.fill();
+        c.strokeStyle = "rgba(255,255,255,0.25)"; c.lineWidth = lw; c.beginPath(); c.moveTo((x0 + 0.05) * u, (y0 + 0.005) * u); c.lineTo((x0 - 0.12) * u, y0 * u); c.stroke(); }
+      c.fillStyle = pale; c.globalAlpha = 0.6; c.beginPath(); c.ellipse(0.04 * u, -0.06 * u, 0.13 * u, 0.045 * u, -0.1, 0, 7); c.fill(); c.globalAlpha = 1;
+      if (K === BIRD.sparrow) { c.strokeStyle = "#f2ece0"; c.lineWidth = lw * 1.4; c.beginPath(); c.moveTo(0.1 * u, -0.03 * u); c.lineTo(-0.08 * u, 0.0); c.moveTo(0.06 * u, 0.02 * u); c.lineTo(-0.12 * u, 0.05 * u); c.stroke(); }
+      if (K.bars) { c.strokeStyle = K.mark; c.lineWidth = lw * 1.4; c.beginPath(); for (let f = 0; f < 4; f++) { const x = -0.06 - f * 0.08; c.moveTo(x * u, -0.04 * u); c.lineTo((x - 0.03) * u, 0.07 * u); } c.stroke(); c.strokeStyle = "#fff"; c.beginPath(); c.moveTo(0.02 * u, -0.05 * u); c.lineTo(-0.02 * u, 0.06 * u); c.stroke(); }
+      c.restore();
+      const leg = K.hook ? "#e8b830" : "#5a4a3a"; c.strokeStyle = leg; c.lineWidth = Math.max(1, 0.028 * u); c.lineCap = "round"; c.beginPath();
+      for (const lx of [-0.03, 0.06]) { c.moveTo(lx * u, 0.15 * u); c.lineTo((lx - 0.01) * u, 0.29 * u); c.lineTo((lx + 0.08) * u, 0.3 * u); c.moveTo((lx - 0.01) * u, 0.29 * u); c.lineTo((lx + 0.05) * u, 0.32 * u); c.moveTo((lx - 0.01) * u, 0.29 * u); c.lineTo((lx - 0.07) * u, 0.3 * u); }
+      c.stroke(); c.lineCap = "butt"; }
+    else wing(true);
   }
   function drawBird(b, s, now) {
     const c = ctx;
-    if (b.kind === "duck" || b.kind === "swan") { const R = b.R, wy = waterY(R, b.x, now), x = b.x * s, y = wy * s, u = s * (b.kind === "swan" ? 1.6 : 0.95), sw = b.kind === "swan";
+    if (b.kind === "duck" || b.kind === "swan") { const R = b.R, wy = waterY(R, b.x, now), x = b.x * s, y = wy * s, u = s * (b.kind === "swan" ? 2.8 : 1.9), sw = b.kind === "swan";   // (0.0.102: twice the size)
       const E = (col, ex, ey, rx, ry, a = 0) => { c.fillStyle = col; c.beginPath(); c.ellipse(ex * u, ey * u, rx * u, ry * u, a, 0, 7); c.fill(); };
       c.save(); c.translate(x, y); c.scale(b.face, 1); c.beginPath(); c.rect(-u, -2 * u, 2 * u, 2 * u + 0.04 * u); c.clip();   // (only what is over the water)
       const dab = b.dab > 0; if (dab) c.rotate(0.9);
@@ -2134,11 +2354,96 @@
         else { E(b.hen ? "#8a6a45" : "#1f6e3a", 0.33, -0.3, 0.11, 0.09); if (!b.hen) { E("rgba(120,220,160,0.35)", 0.3, -0.33, 0.06, 0.03); c.strokeStyle = "#fff"; c.lineWidth = Math.max(1, 0.025 * u); c.beginPath(); c.arc(0.3 * u, -0.2 * u, 0.06 * u, 0.6, 2.8); c.stroke(); }
           c.fillStyle = b.hen ? "#c87a2a" : "#e8c43a"; c.beginPath(); c.moveTo(0.42 * u, -0.31 * u); c.quadraticCurveTo(0.56 * u, -0.29 * u, 0.55 * u, -0.25 * u); c.lineTo(0.41 * u, -0.26 * u); c.fill(); E("#111", 0.37, -0.33, 0.018, 0.018); } }
       c.restore(); c.strokeStyle = "rgba(230,245,255,0.55)"; c.lineWidth = Math.max(1, s / 30); c.beginPath(); c.ellipse(x, y + 0.02 * s, u * 0.5, u * 0.05, 0, 0, Math.PI); c.stroke(); return; }
-    const K = BIRD[b.kind]; if (!K) return; const u = s * K.L * 3, flying = b.mode === "fly" || b.mode === "soar";
+    const K = BIRD[b.kind]; if (!K) return; const u = s * K.L * 6, flying = b.mode === "fly" || b.mode === "soar";
     const flap = b.mode === "soar" ? (Math.sin(now / 900 + b.id) > 0.85 ? now / 70 : 0.35) : flying ? now / (b.kind === "hawk" ? 90 : 45) + b.id : 0;
     const hopY = b.hop ? -Math.sin(Math.PI * b.hop.t) * 0.12 : 0, pk = b.peck > 0 ? 0.5 : 0;
     c.save(); c.translate(b.x * s, (b.y + hopY) * s - (flying ? 0 : 0.3 * u)); c.scale(b.face, 1); if (pk) c.rotate(pk); else if (b.mode === "fly") c.rotate(Math.max(-0.4, Math.min(0.4, (b.fly.y1 - b.fly.y0) * 0.1)));
     birdBody(c, u, K, flap, !flying, now, b.id); c.restore();
+  }
+  // (a rabbit from the side, facing right, 40 to a tile at k = 1, its feet at x, y: the haunch, the back and the chest, the head
+  // with its muzzle, nose, eye and whiskers, two long ears (the far one darker), the white tail, the paws; sitting, nibbling
+  // (the head down), hopping (t from the take-off to the landing: the hind legs out behind, the ears laid back), swimming or
+  // climbing. Clover's tack: a red blanket under a leather saddle, the girth, a stirrup, the bridle; her diving kit (goggles, a
+  // snorkel, a little tank) and her climbing pack. Its mouth, where the reins go, given back)
+  function drawRabbit(c, x, y, s, o) {
+    const k = o.k || 1, [fur, dark, belly] = o.fur || RABBIT_FUR[0], pose = o.pose || "sit", t = o.t || 0, f = o.face < 0 ? -1 : 1;
+    const E = (cx, cy, rx, ry, col, rot = 0) => { c.fillStyle = col; c.beginPath(); c.ellipse(cx, cy, rx, ry, rot, 0, 7); c.fill(); };
+    const st = pose === "hop" ? Math.sin(Math.PI * t) : 0, lean = pose === "hop" ? -0.32 * Math.cos(Math.PI * t) : pose === "swim" ? 0.08 : 0;
+    const headX = pose === "nibble" ? 21 : 18 + 4 * st, headY = pose === "nibble" ? -11 : -25 + 3 * st, hx = -9 - 4 * st;
+    const earA = pose === "hop" ? -1.05 + 0.25 * (1 - st) : pose === "swim" ? -1.25 : pose === "nibble" ? -0.6 : -0.3 + (o.ear || 0) * 0.6;
+    // (Matthew: "why does the shadow not stay on the ground?") the shadow on the ground under her (o.gy), smaller and fainter the higher she is
+    if (pose !== "swim" && pose !== "climb") { const gy = o.gy ?? y, up = Math.max(0, (gy - y) / s), q = Math.max(0.25, 1 - up / 4);
+      c.fillStyle = `rgba(0,0,0,${(0.2 * q).toFixed(3)})`; c.beginPath(); c.ellipse(x, gy + 0.5 * s / 40 * k, (20 + 4 * st) * q * s / 40 * k, 3 * q * s / 40 * k, 0, 0, 7); c.fill(); }
+    c.save(); c.translate(x, y); c.scale(f * s / 40 * k, s / 40 * k);
+    if (pose === "climb") { c.translate(0, -16); c.rotate(-1.2); c.translate(0, 16); }
+    c.rotate(lean);
+    const ear = (dx, col, a, inner) => { const bx = headX - 3 + dx, by = headY - 5, cx = bx + Math.sin(a) * 10, cy = by - Math.cos(a) * 10; E(cx, cy, 3.4, 11, col, a); if (inner) E(cx + Math.sin(a) * 0.6, cy + 0.6, 1.5, 8, "#e6a49c", a); };
+    // (Matthew: "the rabbit hopping animation should show the hind feet, in at least one frame, right?") In a hop, each hind leg
+    // from the haunch to the hock, and the long hind foot from it: pushing off behind her, back and down; trailing out behind in
+    // the air; swinging forward under her belly to land (a rabbit's hind feet come down ahead of its front paws)
+    const foot = (dx, col, ph = 0) => { if (pose === "hop") { const tt = Math.max(0, Math.min(1, t + ph)), th = (tt < 0.6 ? 150 + 30 * tt / 0.6 : 180 - (tt - 0.6) / 0.4 * 165) * Math.PI / 180;
+        const kx = hx - 4 + dx + (tt > 0.6 ? 14 * (tt - 0.6) / 0.4 : 0), ky = -5 + (tt > 0.6 ? -2 * (tt - 0.6) / 0.4 : 0);
+        c.strokeStyle = col; c.lineWidth = 6.5; c.lineCap = "round"; c.beginPath(); c.moveTo(hx + 1 + dx, -11); c.lineTo(kx, ky); c.stroke(); c.lineCap = "butt";
+        E(kx + Math.cos(th) * 6.5, ky + Math.sin(th) * 6.5, 7.5, 2.9, col, th); E(kx + Math.cos(th) * 12.5, ky + Math.sin(th) * 12.5, 2.4, 2.2, col); }
+      else if (pose === "swim") { c.save(); c.translate(hx + dx, -6); c.rotate(0.6 + 0.4 * Math.sin(o.now / 120)); E(-9, 0, 10, 3, col); c.restore(); } else E(hx + 3 + dx, -2.6, 10, 3, col); };
+    const paw = (dx, col) => { if (pose === "hop") { const px = t < 0.35 ? 12 : t < 0.7 ? 24 : 22, py = t < 0.35 ? -7 : t < 0.7 ? -10 : -2.5; E(px + dx, py, 5, 2.4, col, t < 0.35 ? 0.5 : t < 0.7 ? -0.4 : 0.1); } else if (pose === "climb") E(22 + dx, -20 - dx, 2.6, 5, col); else if (pose === "swim") E(17 + dx, -5 + 2 * Math.sin(o.now / 120 + dx), 4.5, 2.2, col, 0.4); else E(14 + dx, -2, 4, 2.4, col); };
+    ear(-2.5, dark, earA - 0.2, false);
+    foot(3, dark, 0.06); paw(-2, dark);
+    E(hx - 13.5 + 2 * st, -15, 5.6, 5.2, "#fbfaf6"); E(hx - 12.5 + 2 * st, -13.5, 3.2, 2.6, "#e9e6de");   // (the tail)
+    E(hx, -12, 15, 12, fur); E(2, -15, 18, 11, fur, -0.12 - 0.1 * st); E(12 + 3 * st, -17, 9, 10, fur);
+    E(hx + 2, -16, 9, 6, "rgba(255,255,255,0.08)", -0.3); E(4, -7.5, 13, 4.6, belly, -0.05);
+    c.strokeStyle = "rgba(60,40,25,0.25)"; c.lineWidth = 0.8; c.beginPath(); c.arc(hx + 2, -11, 9, -2.2, -0.6); c.stroke();   // (the haunch's line)
+    foot(0, fur); paw(2, belly);
+    E(headX - 4, headY + 4, 7, 7, fur);   // (the neck)
+    E(headX, headY, 9.5, 8, fur, pose === "nibble" ? 0.5 : -0.15); E(headX + 6, headY + 3, 4.5, 3.6, belly); E(headX + 9.4, headY + 1.6, 1.4, 1.1, "#d77a86");
+    E(headX + 2, headY - 2, 2.3, 2.5, "#1b120c"); E(headX + 2.7, headY - 2.8, 0.8, 0.8, "#fff");
+    c.strokeStyle = "rgba(70,50,35,0.55)"; c.lineWidth = 0.45; c.beginPath(); for (const a of [-0.25, 0, 0.25]) { c.moveTo(headX + 8, headY + 3); c.lineTo(headX + 8 + Math.cos(a) * 9, headY + 3 + Math.sin(a) * 6); } c.stroke();
+    ear(0.5, fur, earA, true);
+    if (o.saddle) {
+      c.fillStyle = "#b91c1c"; c.beginPath(); c.moveTo(-12, -24); c.quadraticCurveTo(0, -30, 11, -25); c.lineTo(10, -17); c.quadraticCurveTo(0, -19, -11, -16); c.closePath(); c.fill();   // (the blanket)
+      c.fillStyle = "#facc15"; for (let i = 0; i < 6; i++) c.fillRect(-10 + i * 3.8, -17.5 + Math.abs(i - 2.5) * 0.3, 1.6, 2.4);
+      c.strokeStyle = "#4a2e18"; c.lineWidth = 2.2; c.beginPath(); c.moveTo(1, -22); c.lineTo(2, -4); c.stroke();   // (the girth)
+      c.fillStyle = "#7a4a26"; c.beginPath(); c.moveTo(-9, -27); c.quadraticCurveTo(-10, -32, -6.5, -32); c.quadraticCurveTo(0, -27.5, 6, -29.5); c.quadraticCurveTo(9.5, -33, 10, -28); c.quadraticCurveTo(1, -22.5, -9, -27); c.fill();   // (the saddle, its cantle and pommel)
+      c.fillStyle = "rgba(255,230,190,0.25)"; c.beginPath(); c.ellipse(-1, -28.5, 5, 1.2, -0.05, 0, 7); c.fill();
+      c.strokeStyle = "#3a2414"; c.lineWidth = 1; c.beginPath(); c.moveTo(-2, -25); c.lineTo(-2.5, -13); c.stroke(); c.lineWidth = 1.4; c.beginPath(); c.moveTo(-5.5, -12.5); c.lineTo(0.5, -12.5); c.stroke();   // (the stirrup)
+      c.strokeStyle = "#4a2e18"; c.lineWidth = 1.1; c.beginPath(); c.moveTo(headX + 7.5, headY + 3.5); c.lineTo(headX - 2, headY - 5); c.moveTo(headX + 7.5, headY + 3.5); c.lineTo(headX - 4, headY + 5); c.stroke();   // (the bridle)
+      E(headX + 7.5, headY + 3.5, 1.3, 1.3, "#d1d5db");
+      if (!o.rider) { c.strokeStyle = "#4a2e18"; c.lineWidth = 1; c.beginPath(); c.moveTo(headX + 7.5, headY + 3.5); c.quadraticCurveTo(headX - 2, headY + 12, 8, -28); c.stroke(); } }
+    if (o.pack) { c.fillStyle = "#3f6212"; c.beginPath(); c.roundRect(hx - 6, -27, 10, 9, 2.5); c.fill(); c.fillStyle = "#65a30d"; c.fillRect(hx - 5, -24, 8, 2.4);
+      c.strokeStyle = "#d8c49a"; c.lineWidth = 1.4; c.beginPath(); c.arc(hx - 1, -30, 3, 0, 7); c.stroke(); }
+    if (o.kit) { c.fillStyle = "#facc15"; c.beginPath(); c.roundRect(hx - 7, -29, 6, 11, 3); c.fill(); c.fillStyle = "#a16207"; c.fillRect(hx - 5.5, -31, 3, 2.4);   // (her little tank)
+      c.strokeStyle = "#0f172a"; c.lineWidth = 1.2; c.beginPath(); c.moveTo(headX - 6, headY - 3); c.lineTo(headX + 1, headY - 3); c.stroke();
+      E(headX + 2.2, headY - 2.2, 3.6, 3.6, "rgba(186,230,253,0.55)"); c.strokeStyle = "#0284c7"; c.lineWidth = 1.3; c.beginPath(); c.arc(headX + 2.2, headY - 2.2, 3.6, 0, 7); c.stroke();
+      c.strokeStyle = "#f59e0b"; c.lineWidth = 2; c.lineCap = "round"; c.beginPath(); c.moveTo(headX + 7, headY + 4); c.quadraticCurveTo(headX + 3, headY + 6, headX - 1, headY - 9); c.lineTo(headX - 1, headY - 15); c.stroke(); c.lineCap = "butt"; }
+    c.restore();
+    return [x + f * (headX + 7.5) * s / 40 * k, y + (headY + 3.5) * s / 40 * k];
+  }
+  function drawBunnies(c0, c1, now) {
+    const s = T, M = S.mount;
+    for (const b of S.bunnies || []) { if (b.x < c0 - 2 || b.x > c1 + 2) continue; const H = b.hop;
+      const y = H ? H.y0 + (H.y1 - H.y0) * Math.min(1, H.t) - Math.sin(Math.PI * Math.min(1, H.t)) * H.h : landY(Math.max(0, Math.min(WW - 1, Math.floor(b.x))));
+      const gy = H ? H.y0 + (H.y1 - H.y0) * Math.min(1, H.t) : y;
+      drawRabbit(ctx, b.x * s, y * s, s, { face: b.face, k: 0.78, pose: H ? "hop" : b.nib > 0 ? "nibble" : "sit", t: H ? Math.min(1, H.t) : 0, fur: b.fur, ear: b.ear, gy: gy * s, now }); }
+    if (M && !S.ride.on && M.x / 1000 > c0 - 2 && M.x / 1000 < c1 + 2) { const x = M.x / 1000 * s, y = M.y / 1000 * s;
+      drawRabbit(ctx, x, y, s, { face: M.face, k: 1.15, pose: M.nib > 0 ? "nibble" : "sit", saddle: true, fur: RABBIT_FUR[0], ear: M.ear, now });
+      if (nearClover() && !LINE) { const word = M.tame ? "🐇 R: ride Clover" : S.carrots > 0 ? "🥕 R: give Clover a carrot" : "🐇 Clover would like a carrot 🥕";
+        ctx.font = `bold ${Math.round(0.34 * s)}px sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; const tw = ctx.measureText(word).width, ly = y - 1.75 * s;
+        ctx.fillStyle = "rgba(30,20,8,0.72)"; ctx.beginPath(); ctx.roundRect(x - tw / 2 - s * 0.16, ly - s * 0.24, tw + s * 0.32, s * 0.48, s * 0.16); ctx.fill();
+        ctx.fillStyle = "#fff8d0"; ctx.fillText(word, x, ly); ctx.textAlign = "left"; ctx.textBaseline = "alphabetic"; } }
+  }
+  // (the gnome riding: Clover under it, in her pose, the gnome sitting the saddle, the reins from its hands to her mouth; ducking
+  // under a low roof)
+  function drawRider(g, now) {
+    const s = T, gx = g.x / 1000, lp = ladderPush(gx, g.y / 1000, g.climb), x = (gx + lp) * s, y = g.y / 1000 * s, wet = g.swim || g.under, moving = Math.abs(g.vx) > 10;
+    const pose = g.climb ? "climb" : wet ? "swim" : !g.ground || moving ? "hop" : "sit";
+    const t = !g.ground && !g.climb && !wet ? Math.max(0, Math.min(1, 0.5 + g.vy / 400)) : moving ? 0.95 : 0;
+    const low = (() => { const c = Math.floor(gx), r = Math.floor((g.y - 1) / 1000) - 1; return inside(c, r) && mat[at(c, r)] !== AIR; })();
+    const fc = Math.floor(gx); let fr = Math.ceil(g.y / 1000 - 0.001); while (fr < g.y / 1000 + 14 && !floorAt(fc, fr) && !(inside(fc, fr) && wat[at(fc, fr)] >= 0.5)) fr++;   // (the ground, or the water, under her)
+    const mouth = drawRabbit(ctx, x, y, s, { face: g.face, k: 1.15, pose, t, saddle: true, rider: true, kit: g.gear, pack: g.climbPack, fur: RABBIT_FUR[0], gy: fr * s, now });
+    const lean = (low ? 0.9 : 0) + (pose === "hop" ? (t - 0.5) * 0.3 : pose === "climb" ? -0.5 : 0), ox = x - g.face * (pose === "climb" ? 0.45 : 0.05) * s, oy = y - (low ? 0.78 : pose === "climb" ? 0.88 : 1.08) * s;
+    ctx.save(); ctx.translate(ox, oy); ctx.rotate(g.face * lean); gnomeProfile(ctx, 0, 0, s * 0.98, g.face, false, true, 0, now, g.gear, { ride: true }); ctx.restore();
+    const ha = g.face * lean, hx0 = 0.24 * s * g.face, hy0 = -0.08 * s, hx = ox + hx0 * Math.cos(ha) - hy0 * Math.sin(ha), hy = oy + hx0 * Math.sin(ha) + hy0 * Math.cos(ha);
+    ctx.strokeStyle = "#4a2e18"; ctx.lineWidth = Math.max(1, s / 30); ctx.beginPath(); ctx.moveTo(hx, hy); ctx.quadraticCurveTo((hx + mouth[0]) / 2, Math.max(hy, mouth[1]) + 0.12 * s, mouth[0], mouth[1]); ctx.stroke();
   }
   function drawWild(s, now, c0, c1, r0, r1) {
     if (!S.birds) return; const vis = (x, y) => x > c0 - 1 && x < c1 + 2 && y > r0 - 2 && y < r1 + 2;
@@ -2668,22 +2973,27 @@
     if (S.camFix) { S.cam.x = S.camFix.x; S.cam.y = S.camFix.y; }   // (the tests' fixed view)
     const camX = Math.round(S.cam.x * s) / s, camY = Math.round(S.cam.y * s) / s;
     const c0 = Math.max(0, Math.floor(camX) - 1), c1 = Math.min(WW - 1, Math.ceil(camX + VW) + 1), r0 = Math.max(0, Math.floor(camY) - 1), r1 = Math.min(WH - 1, Math.ceil(camY + VH) + 1);
+    VIEW.y0 = camY * s; VIEW.y1 = (camY + VH) * s;
     pmark("sky");
     // the sky, the sun, far hills (slower, behind), clouds
     const sk = ctx.createLinearGradient(0, 0, 0, Hh); sk.addColorStop(0, "#5fa8e0"); sk.addColorStop(1, "#cfe9f7"); ctx.fillStyle = sk; ctx.fillRect(0, 0, W, Hh);
     const skyY = y => (y - camY) * s;
-    ctx.fillStyle = "#fff6c2"; ctx.beginPath(); ctx.arc(W * 0.82, skyY(6) * 0.4 + s * 2, s * 1.4, 0, 7); ctx.fill();
-    for (const [par, col, amp, base] of [[0.25, "#a8c8a0", 4, 33], [0.5, "#86b07a", 3, 36]]) { ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(0, Hh);
+    ctx.fillStyle = "#fff6c2"; ctx.beginPath(); ctx.arc(W * 0.82, skyY(6 + SKY) * 0.4 + s * 2, s * 1.4, 0, 7); ctx.fill();
+    for (const [par, col, amp, base] of [[0.25, "#a8c8a0", 4, 33 + SKY], [0.5, "#86b07a", 3, 36 + SKY]]) { ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(0, Hh);
       for (let px = 0; px <= W + 8; px += 8) { const wx = (px / s + camX * par); ctx.lineTo(px, (base - amp * (Math.sin(wx / 9) * 0.6 + Math.sin(wx / 23 + 1) * 0.8) - camY * (1 - par) - camY * par) * s); }
       ctx.lineTo(W, Hh); ctx.fill(); }
-    for (let k = 0; k < 9; k++) { const cx = ((k * 61 + now / 900) % (WW * 0.6)) * 1.6 - camX * 0.35 * s / s; const x = (cx - camX * 0.0) * s * 0.5 + ((k * 137) % W), y = skyY(4 + (k * 7) % 12) * 0.6 + s;
+    for (let k = 0; k < 9; k++) { const cx = ((k * 61 + now / 900) % (WW * 0.6)) * 1.6 - camX * 0.35 * s / s; const x = (cx - camX * 0.0) * s * 0.5 + ((k * 137) % W), y = skyY(4 + SKY + (k * 7) % 12) * 0.6 + s;
       ctx.fillStyle = "rgba(255,255,255,0.75)"; ctx.beginPath(); ctx.ellipse(((x % (W + 400)) + W + 400) % (W + 400) - 200, y, s * 1.6, s * 0.45, 0, 0, 7); ctx.fill(); }
     ctx.save(); ctx.translate(-camX * s, -camY * s);
     pmark("trees");
     // above the land: the trees, bushes and mushrooms (painted once, sprites), then the great trees over them
-    for (const t of S.trees) if (t.x >= c0 - 9 && t.x <= c1 + 9) { drawTree(t, (t.x + 0.5) * s, landY(t.x) * s); drawPropRoots(t, (t.x + 0.5) * s, landY(t.x) * s, s); };
+    const painted0 = SPRITES.painted, reach = t => t.tall ? tallBox(t).ox + 1 : t.h * (t.kind === 1 ? 0.4 : 0.75) + 2;
+    for (const t of S.trees) { const m = reach(t); if (t.x >= c0 - m && t.x <= c1 + m) { drawTree(t, (t.x + 0.5) * s, landY(t.x) * s); drawPropRoots(t, (t.x + 0.5) * s, landY(t.x) * s, s); } }
+    // (0.0.102) a tree just out of view, its picture painted now, one a frame, so that walking up to it does not wait on it
+    if (SPRITES.painted === painted0 && !LINE) for (const t of S.trees) { const m = reach(t) + 24; if (!t.alive || t.tall || t.x < c0 - m || t.x > c1 + m) continue;
+      const k = `tree:${t.kind}:${t.h}:${t.seed}:0:front`, sp = spriteCache.get(k); if (!sp || sp.T !== T) { treeSprite(t); if (t.kind === 4) treeSprite(t, "back"); break; } }
     pmark("bushes");
-    for (const b of S.bushes) if (b.x >= c0 - 2 && b.x <= c1 + 2) drawSwaying(bushSprite(b), (b.x + 0.5) * s, landY(b.x) * s, 1, sway(b.x * 3, 1.4));
+    for (const b of S.bushes) if (b.x >= c0 - 6 && b.x <= c1 + 6) drawSwaying(bushSprite(b), (b.x + 0.5) * s, landY(b.x) * s, 1, sway(b.x * 3, 0.9));
     pmark("shrooms");
     for (const m of S.shrooms) if (m.x >= c0 - 1 && m.x <= c1 + 1) drawShroom(m, (m.x + 0.5) * s, landY(m.x) * s);
     pmark("fallen");
@@ -2691,9 +3001,11 @@
     pmark("piles");
     for (const p of S.piles) if (p.x >= c0 - 2 && p.x <= c1 + 2) drawPile(p, (p.x + 0.5) * s, landY(p.x) * s);
     pmark("flowers");
-    for (const f of S.flowers) if (f.x >= c0 - 1 && f.x <= c1 + 1 && top[f.x] >= surf0[f.x]) drawFlowers(f, (f.x + 0.5) * s, landY(f.x) * s, now);
+    for (const f of S.flowers) if (f.x >= c0 - 2 && f.x <= c1 + 2 && top[f.x] >= surf0[f.x]) drawFlowers(f, (f.x + 0.5) * s, landY(f.x) * s, now);
+    pmark("bunnies");
+    drawBunnies(c0, c1, now);
     pmark("greats");
-    for (const G of S.greats) { if (G.x + 22 < c0 || G.x - 22 > c1) continue; const x = (G.x + 0.5) * s, y = G.foot * s;
+    for (const G of S.greats) { const gm = greatBox(G).ox + 1; if (G.x + gm < c0 || G.x - gm > c1) continue; const x = (G.x + 0.5) * s, y = G.foot * s;
       drawSwaying(greatSprite(G), x, y, 1, sway(G.v, 0.18));
       if (G.kind === 31) {   // (the stair inside: the trunk cut away, a winding stair round a post, a door to each limb)
         const top0 = y - (Math.max(...G.limbs.map(l => l.y)) + 1.2) * s, iw = (G.half + 0.2) * 2 * s * 0.75;
@@ -2847,6 +3159,9 @@
       if (it.kind === "climb") { ctx.fillStyle = "#7a4a28"; ctx.beginPath(); ctx.roundRect(-0.25 * s, -0.3 * s, 0.5 * s, 0.6 * s, 0.12 * s); ctx.fill(); ctx.stroke(); ctx.fillStyle = "#a0703f"; ctx.fillRect(-0.18 * s, -0.05 * s, 0.36 * s, 0.18 * s);
         ctx.strokeStyle = "#d8c49a"; ctx.lineWidth = Math.max(1, s / 16); ctx.beginPath(); ctx.arc(0.32 * s, 0, 0.16 * s, 0, 7); ctx.stroke(); ctx.strokeStyle = "#9ca3af"; ctx.beginPath(); ctx.moveTo(-0.25 * s, -0.2 * s); ctx.lineTo(-0.38 * s, 0.25 * s); ctx.stroke(); }
       else if (it.kind === "good" || it.kind === "super") pick(ctx, s, it.kind === "super", now);
+      else if (it.kind === "carrot") { ctx.rotate(0.35); ctx.fillStyle = "#4d7c0f"; for (const a of [-0.5, -0.15, 0.2, 0.5]) { ctx.save(); ctx.translate(0, -0.18 * s); ctx.rotate(a); ctx.beginPath(); ctx.ellipse(0, -0.2 * s, 0.05 * s, 0.2 * s, 0, 0, 7); ctx.fill(); ctx.restore(); }
+        ctx.fillStyle = "#f97316"; ctx.beginPath(); ctx.moveTo(-0.13 * s, -0.2 * s); ctx.quadraticCurveTo(0, -0.26 * s, 0.13 * s, -0.2 * s); ctx.quadraticCurveTo(0.08 * s, 0.1 * s, 0, 0.38 * s); ctx.quadraticCurveTo(-0.08 * s, 0.1 * s, -0.13 * s, -0.2 * s); ctx.fill(); ctx.stroke();
+        ctx.strokeStyle = "rgba(124,45,18,0.6)"; ctx.beginPath(); for (const yy of [-0.08, 0.04, 0.16]) { ctx.moveTo(-0.07 * s, yy * s); ctx.lineTo(0.02 * s, (yy + 0.02) * s); } ctx.stroke(); }
       else { ctx.fillStyle = "#facc15"; ctx.beginPath(); ctx.roundRect(-0.18 * s, -0.35 * s, 0.36 * s, 0.7 * s, 0.15 * s); ctx.fill(); ctx.stroke();
         ctx.fillStyle = "#0284c7"; ctx.beginPath(); ctx.roundRect(0.2 * s, -0.3 * s, 0.45 * s, 0.25 * s, 0.1 * s); ctx.fill(); ctx.stroke(); ctx.fillStyle = "rgba(224,242,254,0.7)"; ctx.fillRect(0.26 * s, -0.25 * s, 0.33 * s, 0.13 * s); }
       ctx.restore();
@@ -2855,7 +3170,8 @@
       ctx.fillStyle = "rgba(30,20,8,0.72)"; ctx.beginPath(); ctx.roundRect(x - tw / 2 - s * 0.18, ly - s * 0.26, tw + s * 0.36, s * 0.52, s * 0.18); ctx.fill(); ctx.strokeStyle = "#fde68a"; ctx.lineWidth = Math.max(1, s / 24); ctx.stroke();
       ctx.fillStyle = "#fff8d0"; ctx.fillText(label, x, ly); ctx.textAlign = "left"; ctx.textBaseline = "alphabetic"; }
     const blink = performance.now() - S.hurtAt < 1500 && Math.floor(now / 100) % 2 === 0;
-    if (!S.faintAt && !blink) {
+    if (!S.faintAt && !blink && S.ride && S.ride.on) drawRider(g, now);
+    else if (!S.faintAt && !blink) {
       const moving = Math.abs(g.vx) > 10 || (g.climb && (S.keys.up || S.keys.down)), d = g.climb && !g.ground ? 0 : g.face > 0 ? 1 : 3;
       const swimPose = g.swim && !g.gear ? { swim: true, stroke: Math.abs(g.vx) > 10, t: now } : g.under ? { swim: true, stroke: true, under: true, t: now } : null;
       // (Matthew: "when the gnome is moving laterally, let's draw them in profile, like mario 3 as inspiration") running,
@@ -3028,7 +3344,8 @@
     const gx = g ? g.x / 1000 : 0, place = (S.places.find(p => gx >= p.x0 && gx <= p.x1 && (!p.under || depth > 3)) || { name: "" }).name;
     const wv = S.windNow || 0, wa = Math.abs(wv), windWord = wa < 0.15 ? "calm" : wa < 0.45 ? "a breeze" : wa < 0.8 ? "windy" : "a gale", arrows = wa < 0.15 ? "" : (wv > 0 ? "→" : "←").repeat(wa < 0.45 ? 1 : wa < 0.8 ? 2 : 3);
     const runWord = BOT.on ? `🏃 ${Math.floor(BOT.frames / 3600)}:${String(Math.floor(BOT.frames / 60) % 60).padStart(2, "0")} · ${BOT.phase} · ${BOT.items + S.items.filter(i => i.taken).length - BOT.items}/${S.items.length} · 🌳 ${BOT.parts}/${BOT.partsAll || "?"} · 💎 ${BOT.gems}/${BOT.gemsAll || "?"}  ` : "";
-    const line = `${runWord}${hearts}  💎 ${S.found || 0} / ${S.gemTotal || 0}  🍃 ${windWord} ${arrows}  ${where}${g && g.gear ? "  🤿" : ""}${g && g.climbPack ? "  🧗" : ""}${g && g.tool ? (g.tool >= 2 ? "  ⚒️" : "  ⛏️") : ""}${place ? "  ·  " + place : ""}`;
+    const rideBtn = $("ride"), showRide = !!(S.ride && (S.ride.on || nearClover())); if (rideBtn && rideBtn.hidden === showRide) rideBtn.hidden = !showRide;
+    const line = `${runWord}${hearts}  💎 ${S.found || 0} / ${S.gemTotal || 0}${S.carrots ? "  🥕 " + S.carrots : ""}${S.ride && S.ride.on ? "  🐇" : ""}  🍃 ${windWord} ${arrows}  ${where}${g && g.gear ? "  🤿" : ""}${g && g.climbPack ? "  🧗" : ""}${g && g.tool ? (g.tool >= 2 ? "  ⚒️" : "  ⛏️") : ""}${place ? "  ·  " + place : ""}`;
     const tw = ctx.measureText(line).width;
     pill(10 * k, 10 * k, tw + 20 * k, 30 * k); ctx.fillStyle = "#fff"; ctx.fillText(line, 20 * k, 15 * k);
     let below = 46 * k;
@@ -3103,6 +3420,7 @@
     else if (e.key === "m" || e.key === "M") toggleMap();
     else if (e.key === "f" || e.key === "F") PERF.on = !PERF.on;
     else if (e.key === "b" || e.key === "B") { e.preventDefault(); buildHere(); }
+    else if (e.key === "r" || e.key === "R" || e.key === "e" || e.key === "E") { e.preventDefault(); rideToggle(); }
   });
   addEventListener("keyup", e => { const k = KEYS[e.key]; if (k) S.keys[k] = false; });
   addEventListener("blur", () => { for (const k in S.keys) S.keys[k] = false; });
@@ -3113,6 +3431,7 @@
     b.addEventListener("contextmenu", e => e.preventDefault());
   }
   { const b = $("build"); if (b) b.addEventListener("pointerdown", e => { e.preventDefault(); buildHere(); }); }
+  { const b = $("ride"); if (b) b.addEventListener("pointerdown", e => { e.preventDefault(); rideToggle(); }); }
   { const b = $("run"); if (b) b.addEventListener("click", () => { BOT.on = !BOT.on; b.setAttribute("aria-pressed", String(BOT.on));
       if (BOT.on) { Object.assign(BOT, { phase: "", queue: [], cur: null, path: [], k: 0, skipped: [], frames: 0, t0: performance.now(), items: 0, parts: 0, partsAll: 0, gems: 0, gemsAll: 0, report: null }); S.banner = { text: "🏃 Speed run: every thing, every part of every big tree, every gem", t: performance.now() }; }
       else for (const k in S.keys) S.keys[k] = false; b.blur(); }); }
@@ -3142,7 +3461,7 @@
   // its gusts, the rain and when it comes next). 📂 Load makes the world from its seed again, then puts all that back. The birds,
   // frogs, insects and squirrels, the villagers' strolls and the dust and smoke start afresh. The tiles go packed (gzip, then
   // base64) where the browser can pack them: a world's tiles are 0.7 MB as they are.
-  const SAVE_KIND = "hazeljs-examples/gnome-world", SAVE_V = 1;
+  const SAVE_KIND = "hazeljs-examples/gnome-world", SAVE_V = 2;   // (2, 0.0.102: the bigger world, Clover, the carrots)
   const TILES = [mat, bg, fix, gem, stone, shape, root, top, wat];
   const bytesOf = A => new Uint8Array(A.buffer, A.byteOffset, A.byteLength);
   const TILE_BYTES = TILES.reduce((n, A) => n + A.byteLength, 0);
@@ -3163,11 +3482,12 @@
       fallen: S.fallen.map(f => ({ tree: S.trees.indexOf(f.t), k: f.k })), piles: plain(S.piles), dams: S.dams.map(d => d.logs),
       beavers: S.beavers.map(B => plain({ b: B.b, px: B.px, py: B.py })), boulders: plain(S.boulders), pebbles: plain(S.pebbles),
       villagers: S.villagers.map(v => ({ n: v.n, nextAt: v.nextAt })), roots: S.rootPlan.flatMap((t, k) => t.done ? [k] : []),
+      ride: plain(S.ride), mount: plain(S.mount), carrots: S.carrots || 0,
       tiles: tileBytes() };
   }
   async function saveText(snap) {
     const gz = typeof CompressionStream === "function", packed = gz ? await squeeze(snap.tiles, new CompressionStream("gzip")) : snap.tiles;
-    return JSON.stringify({ ...snap, page: "0.0.101", saved: new Date().toISOString(), tiles: { gzip: gz, bytes: snap.tiles.length, data: b64(packed) } });
+    return JSON.stringify({ ...snap, page: "0.0.102", saved: new Date().toISOString(), tiles: { gzip: gz, bytes: snap.tiles.length, data: b64(packed) } });
   }
   async function readSave(text) {
     let d; try { d = JSON.parse(text); } catch (e) { d = null; }
@@ -3199,6 +3519,7 @@
     d.beavers.forEach((B, k) => Object.assign(S.beavers[k], { b: { ...B.b }, px: B.px, py: B.py }));
     S.boulders = d.boulders.map(b => ({ ...b })); S.pebbles = d.pebbles.map(p => ({ ...p }));
     d.villagers.forEach((v, k) => { S.villagers[k].n = v.n; S.villagers[k].nextAt = v.nextAt; });
+    if (d.ride) S.ride = { ...d.ride, safe: d.ride.safe ? { ...d.ride.safe } : null }; if (d.mount) S.mount = { ...d.mount }; S.carrots = d.carrots || 0;
     if (HEROES[d.hero]) { S.hero = d.hero; keep("hero", S.hero); heroPicker(); }
     keep("seed", S.seed);
     rootChunks.clear(); S.minimapAt = -1e9; S.cam.set = false; S.party = null; S.confetti = []; S.talk = null; S.parts = []; S.smoke = [];
@@ -3247,7 +3568,7 @@
       rivers: js(S.rivers.map(R => R.level)), dams: js(S.dams.map(d => d.logs)), works: js([...S.works]), things: js(S.items.map(it => [it.kind, it.x, it.y, !!it.taken])), heartItems: js((S.heartItems || []).map(hh => [hh.x, hh.y, !!hh.taken])),
       trees: js(S.trees.map(t => [t.x, t.alive, t.grow, t.fallAt, t.fallDir ?? null, t.regrow])), fallen: js(S.fallen.map(f => [f.x, S.trees.indexOf(f.t), f.k, f.F.trunk, [...f.F.gone]])),
       piles: js(S.piles), beavers: js(S.beavers.map(B => [B.b, B.px, B.py])), boulders: js(S.boulders), pebbles: js(S.pebbles),
-      villagers: js(S.villagers.map(v => [v.id, v.n, v.nextAt])), rootsDone: js(S.rootPlan.map(t => t.done ? 1 : 0)), rootSets: S.rootSets.length + S.threadSets.length };
+      villagers: js(S.villagers.map(v => [v.id, v.n, v.nextAt])), ride: js({ ride: S.ride, mount: S.mount, carrots: S.carrots || 0 }), rootsDone: js(S.rootPlan.map(t => t.done ? 1 : 0)), rootSets: S.rootSets.length + S.threadSets.length };
   }
   addEventListener("resize", () => draw());
   const P = window.HazelPause ? window.HazelPause.make({ into: $("new").parentElement, over: $("world").parentElement,
@@ -3326,7 +3647,7 @@
       return { data: { step: +ms.toFixed(4) }, text: [`a step of the gnome through Hazel: ${ms.toFixed(3)} ms`] };
     },
   });
-  if (Q.has("test")) window.WorldTest = { gemFound, gem, spriteCache, SPRITES, cellWords, digSteps, ITEM, mat, wat, at, WH, WW, BOT, botPlan, dist, botEnter, botStand, botClimb, profile: gnomeProfile, front: gnome, map: () => { minimap(); return map2Cv; }, look: (x, y) => { S.camFix = x == null ? null : { x, y }; draw(); }, paintHouse, paintSmallHouse, squirrelBody, drawVillager, drawVillagerProfile, drawBusy, S, tick: n => { const h = H(); for (let i = 0; i < n; i++) tick(h); draw(); }, draw, near, code, at, mat, wat, fix, bg, stone, shape, surf0, treeMask, digOut, tile: () => T, drawPebbles, PERF, timedDraw: () => timedDraw(), lineCtx, lineScene, paintTall, leafyTree, drawLodge };
+  if (Q.has("test")) window.WorldTest = { gemFound, gem, spriteCache, SPRITES, birdBody, BIRD, bushSprite, drawSprite, strips, drawRabbit, gnomeProfile, RABBIT_FUR, cellWords, digSteps, ITEM, mat, wat, at, WH, WW, BOT, botPlan, dist, botEnter, botStand, botClimb, profile: gnomeProfile, front: gnome, map: () => { minimap(); return map2Cv; }, look: (x, y) => { S.camFix = x == null ? null : { x, y }; draw(); }, paintHouse, paintSmallHouse, squirrelBody, drawVillager, drawVillagerProfile, drawBusy, S, tick: n => { const h = H(); for (let i = 0; i < n; i++) tick(h); draw(); }, draw, near, code, at, mat, wat, fix, bg, stone, shape, surf0, treeMask, digOut, tile: () => T, drawPebbles, PERF, timedDraw: () => timedDraw(), lineCtx, lineScene, paintTall, leafyTree, drawLodge };
   if (Q.has("test")) Object.assign(window.WorldTest, { snapshot, saveText, readSave, loadText, restartNow: () => restartNow(H()), askRestart, stopBot, digest, bot: on => { if (on !== BOT.on) $("run").click(); return BOT.on; } });
   document.body.classList.add("js");
   draw();

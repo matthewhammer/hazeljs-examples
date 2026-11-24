@@ -20,24 +20,24 @@ const G = r.value;
 let fail = 0; const bad = m => { fail++; if (fail < 20) console.log("FAIL:", m); };
 const time = (what, f) => { const t = performance.now(); const v = f(); console.log(`${what}: ${(performance.now() - t).toFixed(1)} ms`); return v; };
 const p = time("plan", () => G.plan(7));
-if (p.surface.length !== 57) bad(`surface samples ${p.surface.length}`);
-for (const s of p.surface) if (s < 20 || s > 44) bad(`surface row ${s}`);
+if (p.surface.length !== 113) bad(`surface samples ${p.surface.length}`);
+for (const s of p.surface) if (s < 100 || s > 124) bad(`surface row ${s}`);
 if (p.layers.length < 5) bad(`layers ${p.layers.length}`);
-for (const l of p.layers) if (l.thick.length !== 29) bad(`layer ${l.kind}: ${l.thick.length} samples`);
-if (p.table.length !== 29) bad(`table ${p.table.length}`);
+for (const l of p.layers) if (l.thick.length !== 57) bad(`layer ${l.kind}: ${l.thick.length} samples`);
+if (p.table.length !== 57) bad(`table ${p.table.length}`);
 const by = {}; for (const q of p.places) (by[q.kind] = by[q.kind] || []).push(q);
 console.log("places:", Object.entries(by).map(([k, v]) => `${k}:${v.length}`).join(" "));
 for (const k of [10, 11, 12, 13, 14, 15, 20, 21, 30, 31, 40, 41, 42, 43, 44, 45, 50, 51]) if (!by[k]) bad(`no place of kind ${k}`);
-for (const q of p.places) if (q.x < 0 || q.x >= 448 || q.y < 0 || q.y >= 128) bad(`place ${JSON.stringify(q)} outside`);
+for (const q of p.places) if (q.x < 0 || q.x >= 896 || q.y < 0 || q.y >= 208) bad(`place ${JSON.stringify(q)} outside`);
 for (const k of [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]) { const g = G.ground(k); if (g.kind !== k) bad(`ground ${k}`); }
 console.log("grounds:", [1, 2, 3, 4, 5, 6, 7].map(k => { const g = G.ground(k); return `${g.name} dig ${g.dig} pores ${g.pores} flow ${g.flow}`; }).join("; "));
-const v = time("village", () => G.village(62, 46, 0, 7)), hm = G.village(254, 50, 1, 7);
+const v = time("village", () => G.village(124, 126, 0, 7)), hm = G.village(508, 130, 1, 7);
 console.log(`village: ${v.length} rooms, x ${Math.min(...v.map(q => q.x))}..${Math.max(...v.map(q => q.x + q.w))}; hamlet ${hm.length}`);
 if (v.length < 12) bad(`village rooms ${v.length}`);
 const f = time("furnish (each kind)", () => [...Array(13)].map((_, k) => G.furnish(k, 8)));
 f.forEach((things, k) => { if (!things.length) bad(`room ${k}: nothing in it`); for (const t of things) if (t.at < 0 || t.at + t.w > 80) bad(`room ${k}: ${JSON.stringify(t)} outside`); });
 console.log("furnished:", f.map(t => t.map(x => x.kind).join(",")).join(" | "));
-for (const [kind, h, seed] of [[30, 30, 301], [31, 34, 302], [30, 28, 303]]) {
+for (const [kind, h, seed] of [[30, 90, 301], [31, 102, 302], [30, 84, 303]]) {
   const L = G.limbs(kind, h, seed);
   console.log(`limbs ${kind}: ${L.map(l => `${l.y}${l.side > 0 ? "R" : "L"}${l.len}h${l.house}${l.bridge ? "b" : ""}`).join(" ")}`);
   if (L.length < 3) bad(`great tree ${kind}: ${L.length} limbs`);
