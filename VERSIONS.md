@@ -2,6 +2,10 @@
 
 Each version lists what the apps do as of that version. The newest version is first.
 
+## 0.0.98 (2026-11-23)
+
+- **Gnome world: the boy's ponytail** (Matthew: "boy has long hair too, but not in braides; as a pony tail"). His sandy-blond hair is long, drawn back from the fringe and tied at the nape: from the front it shows past his shoulder; from behind, it hangs down his back from its band; from the side it swings as he runs. The booklet's drawing follows.
+
 ## 0.0.97 (2026-11-23)
 
 - **Gnome world: the girl and the boy, new looks** (Matthew: "let's make the girl brunette and the boy sandy-blond"; "the girl's clothing is black and magenta -- with stylized hat with those two themes"). The girl's pigtails are brunette, tied with magenta ribbons; her dress is black, her apron and cuffs magenta, and her cap magenta, striped in black round the cone, its brim black, from the front, behind and the side. The boy's fringe is sandy-blond. The picker's pictures and the booklet's drawing of the four follow.

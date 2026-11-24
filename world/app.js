@@ -854,12 +854,13 @@
   // those two themes": her dress black, her apron and cuffs magenta, her cap magenta striped in black round the cone, its brim
   // black); dad's white beard and moustache; mom's auburn braids over her shoulders, her
   // dress and apron; the girl's brunette pigtails and freckles, her dress and apron; the boy's sandy-blond fringe and freckles (Matthew: "let's make
-  // the girl brunette and the boy sandy-blond")
+  // the girl brunette and the boy sandy-blond"; "boy has long hair too, but not in braides; as a pony tail": his hair drawn
+  // back from the fringe and tied at the nape, the tail down his back, swinging as he runs)
   const HEROES = {
     dad: { name: "Gnome dad", size: 1, cap: "#dc2626", capDk: "#b91c1c", brim: "#a51c1c", coat: "#5ba3d6", coatDk: "#4386b8", cuff: "#3f7fae", legFar: "#3a6f99", hair: "#f1f5f9", hair2: "#e5e7eb", hairDk: "#cbd5e1", brow: "#f8fafc", nose: 2.9, beard: true },
     mom: { name: "Gnome mom", size: 0.95, cap: "#4f7d2e", capDk: "#3f6824", brim: "#33561c", coat: "#a3557a", coatDk: "#874262", cuff: "#733654", legFar: "#5b3a4c", hair: "#b0703c", hair2: "#9a5e30", hairDk: "#7a4520", brow: "#7a4520", nose: 2.3, dress: true, apron: "#f4ecd8", braids: true, lashes: true },
     girl: { name: "Gnome girl", size: 0.8, cap: "#e0287f", capDk: "#b81d66", brim: "#1c181e", stripe: "#1c181e", coat: "#2a2430", coatDk: "#1a161e", cuff: "#d6247a", legFar: "#141016", hair: "#6e4326", hair2: "#5c351c", hairDk: "#3f2412", brow: "#4a2c16", nose: 2.0, dress: true, apron: "#e0287f", pigtails: true, lashes: true, freckles: true },
-    boy: { name: "Gnome boy", size: 0.8, cap: "#2f6db5", capDk: "#245a96", brim: "#1e4c80", coat: "#4f9a3a", coatDk: "#3f7f2e", cuff: "#356b27", legFar: "#2f5f25", hair: "#d9b46c", hair2: "#c49d58", hairDk: "#94743a", brow: "#a08048", nose: 2.0, fringe: true, freckles: true },
+    boy: { name: "Gnome boy", size: 0.8, cap: "#2f6db5", capDk: "#245a96", brim: "#1e4c80", coat: "#4f9a3a", coatDk: "#3f7f2e", cuff: "#356b27", legFar: "#2f5f25", hair: "#d9b46c", hair2: "#c49d58", hairDk: "#94743a", brow: "#a08048", nose: 2.0, fringe: true, ponytail: true, freckles: true },
   };
   const heroLook = who => HEROES[who || S.hero] || HEROES.dad;
   // (the gnome, Gnome dig's own, copied from dig/app.js: its cap, beard and lantern; and, for the water, a swimmer's arms and a tilt)
@@ -875,6 +876,9 @@
     if (pose && pose.swim && pose.stroke) { c.translate(0, 6); c.rotate(1.0); c.translate(0, -6); }
     const E = (cx, cy, rx, ry, col, rot = 0) => { c.fillStyle = col; c.beginPath(); c.ellipse(cx, cy, rx, ry, rot, 0, 7); c.fill(); };
     if (!pose) E(0, 19 - bob, 13, 3.4, "rgba(0, 0, 0, 0.32)");   // (his shadow)
+    const tail = (x0, y0, x1, y1, w, sw) => { const mx = (x0 + x1) / 2 + sw, my = (y0 + y1) / 2; c.fillStyle = L.hair2; c.beginPath(); c.moveTo(x0 - w, y0); c.quadraticCurveTo(mx - w * 1.1, my, x1, y1); c.quadraticCurveTo(mx + w * 1.1, my, x0 + w, y0); c.closePath(); c.fill();
+      c.strokeStyle = L.hairDk; c.lineWidth = 0.5; c.beginPath(); for (const k of [-0.5, 0, 0.5]) { c.moveTo(x0 + k * w, y0 + 0.5); c.quadraticCurveTo(mx + k * w * 0.8, my, x1 + k * 0.4, y1 - 1); } c.stroke(); };
+    if (L.ponytail && !back) tail(side ? 6.5 : 7, -10, side ? 10.5 : 9.5, 3.5, 2.6, 1.5);   // (the boy's ponytail, behind him, showing past his shoulder)
     for (const s2 of [-1, 1]) {   // (boots, a step at a time, with fur at the top)
       const lift = s2 * step > 0 ? -2 * Math.abs(step) : 0;
       c.fillStyle = "#5a3a22"; c.beginPath(); c.roundRect(s2 * 6 - 4 + (s2 > 0 ? 1 : -1), 13 + lift, 9, 6, 2.5); c.fill();
@@ -939,6 +943,7 @@
       c.fillStyle = L.hair2; c.beginPath(); c.ellipse(0, -9.5, 8, 6.5, 0, 0, 7); c.fill();   // (the hair under the cap)
       c.strokeStyle = L.hairDk; c.lineWidth = 0.8; c.beginPath(); for (const hx of [-5, -2, 1, 4]) { c.moveTo(hx, -14); c.quadraticCurveTo(hx + 1, -9, hx, L.braids ? 0 : -4); } c.stroke();
       if (L.pigtails) pigtails();
+      if (L.ponytail) { tail(0, -6.5, 0.8, 7, 3.2, Math.sin(now / 300) * 0.6); E(0, -6.5, 2.6, 1.3, L.capDk); }   // (his ponytail down his back, tied at the nape)
     } else {
       // (the face, rosy cheeks, the beard down over the tunic, its strands)
       // (mom's and the girl's hair, long, behind the face and down past it at the sides; it covers their ears)
@@ -1046,6 +1051,8 @@
     // (the head from the side: the white hair at the back, the ear, the face, the nose, the eye and brow, the moustache, the beard)
     if (L.braids) { c.fillStyle = L.hair2; c.beginPath(); c.moveTo(-3, -15); c.quadraticCurveTo(-8.5, -10, -7, -3); c.lineTo(-2, -4); c.closePath(); c.fill();
       for (let i = 0; i < 6; i++) { const t = i / 5, rr = 2 * (1 - 0.3 * t); E(-6 - t * 1.5, -4 + t * 10, rr, rr * 0.8, i % 2 ? L.hair2 : L.hair); } E(-7.6, 7.2, 1.5, 1, L.capDk); }   // (her braid, down her back)
+    if (L.ponytail) { const sw = run ? Math.sin(p * 2) * 1.6 : stroke ? 1.5 : Math.sin(now / 400) * 0.4; c.fillStyle = L.hair2; c.beginPath(); c.moveTo(-6.6, -10); c.quadraticCurveTo(-11 - sw, -4, -9.5 - sw * 1.4, 3); c.quadraticCurveTo(-7.5 - sw, -3, -3.6, -8); c.closePath(); c.fill();
+      c.strokeStyle = L.hairDk; c.lineWidth = 0.5; c.beginPath(); c.moveTo(-5.5, -9.4); c.quadraticCurveTo(-9.6 - sw, -3.5, -9.2 - sw * 1.4, 2); c.stroke(); E(-5.6, -9.4, 1.4, 1.7, L.capDk, 0.4); }   // (the boy's ponytail)
     if (L.pigtails) { for (let i = 0; i < 4; i++) { const t = i / 3, rr = 2.2 * (1 - 0.3 * t); E(-7 - t * 4.5, -12 + t * 6, rr, rr * 0.8, i % 2 ? L.hair2 : L.hair); } E(-12.3, -5, 1.3, 2, L.hair, 0.5); E(-7.4, -11.4, 1.5, 1, L.cap); }   // (her pigtail, out behind)
     E(-4.6, -9.5, 3.4, L.braids || L.pigtails ? 6.2 : 5.4, L.hair2);
     E(2, -10.5, 6.6, 6.4, "#f2c9a0");
