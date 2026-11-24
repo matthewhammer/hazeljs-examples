@@ -55,6 +55,9 @@ try {
   log(`the tour: ${steps} steps in ${((Date.now() - t0) / 1000).toFixed(0)} s: dug ${P.dug} tiles, ${P.things} things, ${P.gems} of ${P.gemTotal} gems, ${P.felled} trees felled (${P.fallen} lying), ❤️ ${P.hearts} (${P.heartsTaken} of ${P.heartsAll} hearts taken), rain ${P.rain}, wind ${P.wind}; the girl at (${(P.gnome.x / 1000).toFixed(2)}, ${(P.gnome.y / 1000).toFixed(2)})`);
   if (P.dug < 20) fail.push(`the tour dug only ${P.dug} tiles`);
   if (P.gems < 1) fail.push("the tour found no gem");
+  // (a tour that passed no heart with fewer than five took none: one marked taken, as one just picked up, so the save holds one)
+  if (!P.heartsTaken && await A.eval("(() => { const H = WorldTest.S.heartItems; if (!H.length) return false; H[0].taken = true; return true; })()"))
+    log("❤️ the tour took no heart: one marked taken, as if just picked up, so that the save holds a taken one");
   await A.shot(path.join(OUT, "1-before-save.png"));
   // ---- 2. read, then save
   const before = await A.eval(`(async () => { const T = WorldTest; T.stopBot(); T.S.asking = true; const d = T.digest(); window.__save = await T.saveText(T.snapshot()); return d; })()`);
