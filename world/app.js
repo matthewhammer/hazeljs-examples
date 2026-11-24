@@ -177,6 +177,14 @@
     S.g = { x: g0.x, y: g0.y, vx: 0, vy: 0, face: 1, ground: true, climb: false, swim: false, under: false, air: 600, gear: false, tool: 0, dc: -1, dr: -1, dt: 0, ev: 0 };
     // (Matthew: "let's have the upper left HUD show the total gems X / Y") this world's gems: how many there are, and found so far
     S.gemTotal = 0; for (let i = 0; i < NN; i++) if (gem[i]) S.gemTotal++; S.found = 0; S.party = null; S.confetti = [];
+    // (0.0.101; Matthew: "let's put hearts in the world that re-generate --- maybe in one room per gnome house"; "each heart
+    // re-charges the heart meter by one heart") a heart in each gnomes' home: in the kitchen of the village and of the hamlet, and
+    // in each tree house, toward the limb's end (the climbing pack lies toward the trunk); one taken comes back once its place is
+    // out of sight
+    S.heartItems = [];
+    for (const v of S.villages) { const mine = S.rooms.filter(R => R.x >= v.x0 && R.x < v.x1), R = mine.find(R => R.kind === 1) || mine[0];
+      if (R) S.heartItems.push({ x: R.x + R.w * 0.5, y: R.y + 3.3, taken: false }); }
+    for (const hs of S.houses) if (!hs.small) S.heartItems.push({ x: hs.x + 0.5 + hs.side * 0.6, y: hs.row - 0.55, taken: false });
     S.works = new Map(); S.hearts = 5; S.cam.set = false; S.smoke = []; S.parts = []; S.pebbles = []; S.piles = []; S.fallen = []; S.talk = null; rootChunks.clear(); S.minimapAt = -1e9; S.rain = 0; S.rainAt = S.frame + 60 * 60; S.banner = { text: "🌍 Gnome world", t: performance.now() };
   }
   const riverAt = x => S.rivers.find(R => x >= R.x - 0.5 && x < R.x + R.w + 0.5) || null;
@@ -566,6 +574,9 @@
       else if (it.kind === "gear") S.g = { ...S.g, gear: true };
       else S.g = { ...S.g, tool: Math.max(S.g.tool || 0, it.kind === "super" ? 2 : 1) };
       S.banner = { text: ITEM[it.kind].banner, t: performance.now() }; }
+    // a heart, walked into, gives back one heart (not with all five: it stays for later)
+    if (S.hearts < 5) for (const hh of S.heartItems || []) if (!hh.taken && Math.abs(hh.x - g.x / 1000) < 0.8 && Math.abs(hh.y - (g.y / 1000 - 0.5)) < 1) {
+      hh.taken = true; S.hearts++; popWord("❤️", hh.x, hh.y - 0.7); if (SND) SND.gem(); if (S.hearts >= 5) break; }
   }
   // (Matthew: "is there a celebration when we get them all? what happens?") There was none. The last gem of the world found: a
   // banner, Gnome dig's fanfare and its party tune, the gnome cheering, and its party: a burst of confetti, stars and bubbles
@@ -680,6 +691,8 @@
     waterStep();
     if (S.frame % 6 === 0) beaversStep(h);
     for (const t of S.trees) if (t.alive && t.grow < 1) t.grow = Math.min(1, t.grow + 1 / (60 * 60));
+    // (a heart taken comes back once its place has gone out of the view, so that none appears while you look)
+    if (S.frame % 30 === 0 && S.cam.set) for (const hh of S.heartItems || []) if (hh.taken && (hh.x < S.cam.x - 1 || hh.x > S.cam.x + VW + 1 || hh.y < S.cam.y - 1 || hh.y > S.cam.y + VH + 1)) hh.taken = false;
     for (const B of S.beavers) B.px += (B.b.x / 100 - B.px) * 0.18;
     if (S.frame % 9 === 0) for (const d of S.ducts) if (d.kind === 3) S.smoke.push({ x: d.x + 0.5 + (rand() - 0.5) * 0.2, y: d.y0 - 2.2, r: 0.18, life: 0, drift: 0.004 + rand() * 0.006 });
     windStep(); houseSmoke(); squirrelsStep(); pebblesStep(); villagersStep(h); wildStep();
@@ -2815,6 +2828,13 @@
     for (const B of S.beavers) { const c = Math.floor(B.px), R = riverAt(c + 0.5), y = R ? R.level + 0.35 : landY(Math.max(0, Math.min(WW - 1, c))); B.py = B.py ? B.py + (y - B.py) * 0.25 : y; if (c < c0 - 3 || c > c1 + 3) continue; drawBeaver(B, (B.px + 0.5) * s, B.py * s, !!R); }
     for (const b of S.boulders) { if (b.c < c0 - 1 || b.c > c1 + 1 || b.r < r0 - 1 || b.r > r1 + 1) continue; const sh = b.wob > 0 ? Math.sin(now / 30) * 0.05 * s : 0, x = (b.c + 0.5) * s + sh, y = (b.r + b.oy + 0.5) * s;
       ctx.fillStyle = "#7d7b78"; ctx.beginPath(); ctx.ellipse(x, y + 0.04 * s, 0.47 * s, 0.44 * s, 0, 0, 7); ctx.fill(); ctx.fillStyle = "#a8a5a0"; ctx.beginPath(); ctx.ellipse(x - 0.12 * s, y - 0.12 * s, 0.22 * s, 0.16 * s, -0.4, 0, 7); ctx.fill(); }
+    // (0.0.101) the hearts in the gnomes' homes: red, bobbing and beating a little, on a soft pink glow
+    for (const hh of S.heartItems || []) { if (hh.taken || hh.x < c0 - 1 || hh.x > c1 + 1 || hh.y < r0 - 1 || hh.y > r1 + 1) continue;
+      const x = hh.x * s, y = hh.y * s + Math.sin(now / 350 + hh.x) * 0.07 * s, beat = Math.max(0, Math.sin(now / 160 + hh.x)) ** 6, z = s * (0.3 + 0.04 * beat);
+      if (!LINE) { const glow = ctx.createRadialGradient(x, y, 0, x, y, s * 0.9); glow.addColorStop(0, "rgba(255,140,165,0.6)"); glow.addColorStop(1, "rgba(255,140,165,0)"); ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(x, y, s * 0.9, 0, 7); ctx.fill(); }
+      ctx.beginPath(); ctx.moveTo(x, y + z * 0.95); ctx.bezierCurveTo(x - z * 1.3, y + z * 0.1, x - z * 1.05, y - z * 1.1, x, y - z * 0.45); ctx.bezierCurveTo(x + z * 1.05, y - z * 1.1, x + z * 1.3, y + z * 0.1, x, y + z * 0.95); ctx.closePath();
+      ctx.fillStyle = "#e11d48"; ctx.fill(); ctx.lineWidth = Math.max(1, s / 24); ctx.strokeStyle = "rgba(90,10,30,0.85)"; ctx.stroke();
+      if (!LINE) { ctx.fillStyle = "rgba(255,255,255,0.75)"; ctx.beginPath(); ctx.ellipse(x - z * 0.45, y - z * 0.38, z * 0.2, z * 0.12, -0.6, 0, 7); ctx.fill(); } }
     // (Matthew: "the items themselves need more emph in the game") each thing to be found: on a golden halo, pulsing, sparkles
     // going round it, drawn half again as large, bobbing, a sign over it with its name (and in the dark it glows: the lights,
     // below; off the screen, a pointer at the edge, in hud)
@@ -3118,7 +3138,7 @@
   // 💾 Save writes the world as it is to a file: its seed (from which Hazel's plan makes it all again), and all that play has
   // changed since: every tile (dug, built on, a gem taken, a slope cut) with its water, the roots grown, the rivers as high as
   // their dams hold them, the boulders and stones fallen, the trees the beavers felled and the logs cut from them, the beavers,
-  // the things found, what each villager has said, the gnome (who it is, where, its hearts, its gear) and the weather (the wind,
+  // the things found, the hearts taken, what each villager has said, the gnome (who it is, where, its hearts, its gear) and the weather (the wind,
   // its gusts, the rain and when it comes next). 📂 Load makes the world from its seed again, then puts all that back. The birds,
   // frogs, insects and squirrels, the villagers' strolls and the dust and smoke start afresh. The tiles go packed (gzip, then
   // base64) where the browser can pack them: a world's tiles are 0.7 MB as they are.
@@ -3133,12 +3153,12 @@
   const squeeze = async (u8, how) => new Uint8Array(await new Response(new Blob([u8]).stream().pipeThrough(how)).arrayBuffer());
   const plain = v => v === undefined ? null : JSON.parse(JSON.stringify(v, (k, x) => typeof x === "bigint" ? Number(x) : x));
   // (how many of each thing the plan made: a save fits only a world planned the same)
-  const shapeOf = () => ({ rivers: S.rivers.length, trees: S.trees.length, items: S.items.length, dams: S.dams.length, beavers: S.beavers.length, villagers: S.villagers.length, roots: S.rootPlan.length });
+  const shapeOf = () => ({ rivers: S.rivers.length, trees: S.trees.length, items: S.items.length, hearts: (S.heartItems || []).length, dams: S.dams.length, beavers: S.beavers.length, villagers: S.villagers.length, roots: S.rootPlan.length });
   function snapshot() {
     return { kind: SAVE_KIND, v: SAVE_V, seed: S.seed, hero: S.hero, shape: shapeOf(), frame: S.frame, rand: seedRand, damAt: S.damAt,
       gnome: plain(S.g), hearts: S.hearts, found: S.found || 0, gemTotal: S.gemTotal || 0,
       weather: plain({ wind: S.wind || null, windNow: S.windNow, rain: S.rain, rainAt: S.rainAt, leaves: S.leaves }),
-      works: [...S.works], items: S.items.map(it => it.taken ? 1 : 0),
+      works: [...S.works], items: S.items.map(it => it.taken ? 1 : 0), heartItems: (S.heartItems || []).map(hh => hh.taken ? 1 : 0),
       trees: S.trees.map(t => plain({ alive: t.alive, grow: t.grow, fallAt: t.fallAt, fallDir: t.fallDir ?? null, regrow: t.regrow })),
       fallen: S.fallen.map(f => ({ tree: S.trees.indexOf(f.t), k: f.k })), piles: plain(S.piles), dams: S.dams.map(d => d.logs),
       beavers: S.beavers.map(B => plain({ b: B.b, px: B.px, py: B.py })), boulders: plain(S.boulders), pebbles: plain(S.pebbles),
@@ -3163,7 +3183,7 @@
   // as it was is put back instead)
   function restore(h, d) {
     S.frame = d.frame; S.seed = d.seed; build(h, S.seed);
-    const have = shapeOf(); for (const k in have) if (d.shape[k] !== have[k]) throw new Error("its world was planned by other rules (were they edited?)");
+    const have = shapeOf(); for (const k in d.shape) if (d.shape[k] !== have[k]) throw new Error("its world was planned by other rules (were they edited?)");
     for (const k of d.roots) { const t = S.rootPlan[k]; if (t && !t.done) { t.done = true; if (h.roots && S.built.compiled) rootSet(h, t, false); } }
     setTileBytes(d.tiles);
     seedRand = d.rand; S.damAt = d.damAt;
@@ -3171,6 +3191,7 @@
     S.g = { ...d.gnome }; S.hearts = d.hearts > 0 ? d.hearts : 5; S.faintAt = 0; S.found = d.found; S.gemTotal = d.gemTotal;
     S.works = new Map(d.works);
     d.items.forEach((t, k) => { S.items[k].taken = !!t; });
+    (d.heartItems || []).forEach((t, k) => { S.heartItems[k].taken = !!t; });
     d.trees.forEach(({ fallDir, ...t }, k) => { Object.assign(S.trees[k], t); if (fallDir != null) S.trees[k].fallDir = fallDir; });
     S.fallen = d.fallen.filter(f => S.trees[f.tree]).map(f => { const t = S.trees[f.tree], fl = { x: t.x, t, F: fallenOf(t), k: 0 }; while (fl.k < f.k) cutPiece(fl); return fl; });
     S.piles = d.piles.map(p => ({ ...p }));
@@ -3223,7 +3244,7 @@
     return { seed: S.seed, hero: S.hero, frame: S.frame, rand: seedRand, damAt: S.damAt, hearts: S.hearts, found: S.found || 0, gemTotal: S.gemTotal,
       ground: arr(mat), back: arr(bg), built: arr(fix), gems: arr(gem), stones: arr(stone), slopes: arr(shape), roots: arr(root), tops: arr(top), water: arr(wat),
       surface: arr(surf0), treeMask: arr(treeMask), gnome: js(S.g), weather: js({ wind: S.wind || null, windNow: S.windNow, rain: S.rain, rainAt: S.rainAt, leaves: S.leaves }),
-      rivers: js(S.rivers.map(R => R.level)), dams: js(S.dams.map(d => d.logs)), works: js([...S.works]), things: js(S.items.map(it => [it.kind, it.x, it.y, !!it.taken])),
+      rivers: js(S.rivers.map(R => R.level)), dams: js(S.dams.map(d => d.logs)), works: js([...S.works]), things: js(S.items.map(it => [it.kind, it.x, it.y, !!it.taken])), heartItems: js((S.heartItems || []).map(hh => [hh.x, hh.y, !!hh.taken])),
       trees: js(S.trees.map(t => [t.x, t.alive, t.grow, t.fallAt, t.fallDir ?? null, t.regrow])), fallen: js(S.fallen.map(f => [f.x, S.trees.indexOf(f.t), f.k, f.F.trunk, [...f.F.gone]])),
       piles: js(S.piles), beavers: js(S.beavers.map(B => [B.b, B.px, B.py])), boulders: js(S.boulders), pebbles: js(S.pebbles),
       villagers: js(S.villagers.map(v => [v.id, v.n, v.nextAt])), rootsDone: js(S.rootPlan.map(t => t.done ? 1 : 0)), rootSets: S.rootSets.length + S.threadSets.length };

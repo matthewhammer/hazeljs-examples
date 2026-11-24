@@ -2,12 +2,13 @@
 # and then loading all preserves the state exactly") Gnome world in headless Chrome on a GitHub runner (never on the laptop):
 # the 🏃 speed run tours the world, digging; then 💾 save, 🔄 restart, 📂 load, in the same page and in a second one; every part
 # of the world's state must be the same as before the save (node/world-save-check.mjs). The artifact world-save has the log,
-# result.json (each part's hash), the save file and three pictures.
+# result.json (each part's hash), the save file and three pictures. Then the instruction booklet printed to PDF (node/zine-check.mjs):
+# each of its sections on one half-letter page; the PDF in the artifact zine.
 name: world save check
 on:
   workflow_dispatch:
   push:
-    paths: ["world/**", "shared/**", "dig/sound.js", "node/world-save-check.mjs", ".github/workflows/world-save.yml"]
+    paths: ["world/**", "shared/**", "dig/sound.js", "node/world-save-check.mjs", "node/zine-check.mjs", "node/cdp.mjs", ".github/workflows/world-save.yml"]
 jobs:
   save-load:
     runs-on: ubuntu-latest
@@ -23,8 +24,16 @@ jobs:
           sleep 1
       - name: Tour, save, restart, load, compare
         run: node node/world-save-check.mjs http://127.0.0.1:8000/ world-save
+      - name: The booklet, printed
+        if: ${{ always() }}
+        run: node node/zine-check.mjs http://127.0.0.1:8000/ zine world/manual/
       - uses: actions/upload-artifact@v4
         if: ${{ always() }}
         with:
           name: world-save
           path: world-save/
+      - uses: actions/upload-artifact@v4
+        if: ${{ always() }}
+        with:
+          name: zine
+          path: zine/

@@ -29,7 +29,8 @@
     "bugs": "node node/bugs.mjs",
     "dig": "node node/dig.mjs",
     "world": "node node/world.mjs",
-    "world-save-check": "node node/world-save-check.mjs"
+    "world-save-check": "node node/world-save-check.mjs",
+    "zine-check": "node node/zine-check.mjs"
   },
   "dependencies": {
     "hazeljs": "0.0.4"
