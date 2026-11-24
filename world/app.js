@@ -796,12 +796,16 @@
   function ensureRoots(x0, x1) {
     const h = H(); if (!h || !h.roots || !(S.built && S.built.compiled)) return;
     let n = 0;
-    for (const t of S.rootPlan) { if (t.done || t.x < x0 || t.x > x1) continue; if (n++ >= 3) break; t.done = true;
-      const lines = t.kind === "shroom" ? h.threads(t.x * 100 + 50, t.row, t.seed) : h.roots(t.x * 100 + 50, t.row, t.k, t.seed);
+    for (const t of S.rootPlan) { if (t.done || t.x < x0 || t.x > x1) continue; if (n++ >= 3) break; t.done = true; rootSet(h, t, true); }
+  }
+  // (one tree's roots, or a mushroom's threads, from Hazel: their lines to draw, and, growing, the water's quicker way down them in
+  // the tiles they cross; a saved world loaded has those tiles already (0.0.101), so its roots are only drawn again)
+  function rootSet(h, t, grow) {
+    { const lines = t.kind === "shroom" ? h.threads(t.x * 100 + 50, t.row, t.seed) : h.roots(t.x * 100 + 50, t.row, t.k, t.seed);
       lines.sort((a, b) => a.w - b.w);
       const L = new Float32Array(lines.length * 5); let lo = t.x, hi = t.x;
       lines.forEach((l, i) => { L[i * 5] = l.x0; L[i * 5 + 1] = l.y0; L[i * 5 + 2] = l.x1; L[i * 5 + 3] = l.y1; L[i * 5 + 4] = l.w; lo = Math.min(lo, l.x0 / 100, l.x1 / 100); hi = Math.max(hi, l.x0 / 100, l.x1 / 100);
-        if (t.kind !== "shroom") for (let q = 0; q <= 2; q++) { const c = Math.floor((l.x0 + (l.x1 - l.x0) * q / 2) / 100), r = Math.floor((l.y0 + (l.y1 - l.y0) * q / 2) / 100);
+        if (grow && t.kind !== "shroom") for (let q = 0; q <= 2; q++) { const c = Math.floor((l.x0 + (l.x1 - l.x0) * q / 2) / 100), r = Math.floor((l.y0 + (l.y1 - l.y0) * q / 2) / 100);
           if (inside(c, r) && PORES[mat[at(c, r)]] > 0) root[at(c, r)] = Math.min(3, root[at(c, r)] + (l.w >= 10 ? 2 : 1)); } });
       (t.kind === "shroom" ? S.threadSets : S.rootSets).push({ tx: t.x * 100 + 50, x0: Math.floor(lo) - 1, x1: Math.ceil(hi) + 1, lines: L }); dirtyRootsX(Math.floor(lo) - 1, Math.ceil(hi) + 1); }
   }
@@ -3055,7 +3059,7 @@
     requestAnimationFrame(frame);
     if (PERF.prevT) { PERF.frames.push(t - PERF.prevT); if (PERF.frames.length > 60) PERF.frames.shift(); } PERF.prevT = t;
     const h = H();
-    if (!h || !S.g || document.hidden || (P && P.paused())) { lastT = t; timedDraw(); return; }
+    if (!h || !S.g || document.hidden || S.asking || (P && P.paused())) { lastT = t; timedDraw(); return; }
     acc += Math.min(100, t - (lastT || t)) * 60 / 1000; lastT = t;
     let n = 0; const tt = performance.now();
     try { if (BOT.on) { const tq = performance.now(); while (performance.now() - tq < 12 && BOT.on) { tick(h); n++; } acc = 0; } else while (acc >= 1 && n < 4) { tick(h); acc -= 1; n++; } } catch (e) { S.built = { ...S.built, ok: false, threw: String(e && e.message || e) }; drawStatus(); console.error(e); return; }
@@ -3108,6 +3112,122 @@
   if (!HEROES[S.hero]) S.hero = "dad";
   heroPicker();
   $("new").addEventListener("click", () => { const h = H(); if (!h) return; S.seed = 1 + Math.floor(Math.random() * 100000); keep("seed", S.seed); build(h, S.seed); $("new").blur(); });
+
+  // ---- (0.0.101; Matthew, 2026-11-24: "M wants a save/load feature, so that the game world state is preserved in a file"; "and
+  // water state"; "choice of gnome family member as main char"; "position in the game world, and game world state for weather")
+  // 💾 Save writes the world as it is to a file: its seed (from which Hazel's plan makes it all again), and all that play has
+  // changed since: every tile (dug, built on, a gem taken, a slope cut) with its water, the roots grown, the rivers as high as
+  // their dams hold them, the boulders and stones fallen, the trees the beavers felled and the logs cut from them, the beavers,
+  // the things found, what each villager has said, the gnome (who it is, where, its hearts, its gear) and the weather (the wind,
+  // its gusts, the rain and when it comes next). 📂 Load makes the world from its seed again, then puts all that back. The birds,
+  // frogs, insects and squirrels, the villagers' strolls and the dust and smoke start afresh. The tiles go packed (gzip, then
+  // base64) where the browser can pack them: a world's tiles are 0.7 MB as they are.
+  const SAVE_KIND = "hazeljs-examples/gnome-world", SAVE_V = 1;
+  const TILES = [mat, bg, fix, gem, stone, shape, root, top, wat];
+  const bytesOf = A => new Uint8Array(A.buffer, A.byteOffset, A.byteLength);
+  const TILE_BYTES = TILES.reduce((n, A) => n + A.byteLength, 0);
+  function tileBytes() { const out = new Uint8Array(TILE_BYTES); let o = 0; for (const A of TILES) { out.set(bytesOf(A), o); o += A.byteLength; } return out; }
+  function setTileBytes(u8) { let o = 0; for (const A of TILES) { bytesOf(A).set(u8.subarray(o, o + A.byteLength)); o += A.byteLength; } }
+  const b64 = u8 => { let s = ""; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s); };
+  const unb64 = s => { const t = atob(s), u8 = new Uint8Array(t.length); for (let i = 0; i < t.length; i++) u8[i] = t.charCodeAt(i); return u8; };
+  const squeeze = async (u8, how) => new Uint8Array(await new Response(new Blob([u8]).stream().pipeThrough(how)).arrayBuffer());
+  const plain = v => v === undefined ? null : JSON.parse(JSON.stringify(v, (k, x) => typeof x === "bigint" ? Number(x) : x));
+  // (how many of each thing the plan made: a save fits only a world planned the same)
+  const shapeOf = () => ({ rivers: S.rivers.length, trees: S.trees.length, items: S.items.length, dams: S.dams.length, beavers: S.beavers.length, villagers: S.villagers.length, roots: S.rootPlan.length });
+  function snapshot() {
+    return { kind: SAVE_KIND, v: SAVE_V, seed: S.seed, hero: S.hero, shape: shapeOf(), frame: S.frame, rand: seedRand, damAt: S.damAt,
+      gnome: plain(S.g), hearts: S.hearts, found: S.found || 0, gemTotal: S.gemTotal || 0,
+      weather: plain({ wind: S.wind || null, windNow: S.windNow, rain: S.rain, rainAt: S.rainAt, leaves: S.leaves }),
+      works: [...S.works], items: S.items.map(it => it.taken ? 1 : 0),
+      trees: S.trees.map(t => plain({ alive: t.alive, grow: t.grow, fallAt: t.fallAt, fallDir: t.fallDir ?? null, regrow: t.regrow })),
+      fallen: S.fallen.map(f => ({ tree: S.trees.indexOf(f.t), k: f.k })), piles: plain(S.piles), dams: S.dams.map(d => d.logs),
+      beavers: S.beavers.map(B => plain({ b: B.b, px: B.px, py: B.py })), boulders: plain(S.boulders), pebbles: plain(S.pebbles),
+      villagers: S.villagers.map(v => ({ n: v.n, nextAt: v.nextAt })), roots: S.rootPlan.flatMap((t, k) => t.done ? [k] : []),
+      tiles: tileBytes() };
+  }
+  async function saveText(snap) {
+    const gz = typeof CompressionStream === "function", packed = gz ? await squeeze(snap.tiles, new CompressionStream("gzip")) : snap.tiles;
+    return JSON.stringify({ ...snap, page: "0.0.101", saved: new Date().toISOString(), tiles: { gzip: gz, bytes: snap.tiles.length, data: b64(packed) } });
+  }
+  async function readSave(text) {
+    let d; try { d = JSON.parse(text); } catch (e) { d = null; }
+    if (!d || d.kind !== SAVE_KIND || !d.tiles) throw new Error("it is not a Gnome world save");
+    if (!(d.v <= SAVE_V)) throw new Error("a newer Gnome world saved it: reload this page for the newest");
+    const packed = unb64(d.tiles.data);
+    if (d.tiles.gzip && typeof DecompressionStream !== "function") throw new Error("this browser cannot unpack it");
+    const raw = d.tiles.gzip ? await squeeze(packed, new DecompressionStream("gzip")) : packed;
+    if (raw.length !== d.tiles.bytes || raw.length !== TILE_BYTES) throw new Error("its world is not the size of this one");
+    return { ...d, tiles: raw };
+  }
+  // (the world made again from the save's seed, then all that play changed put back; a save that does not fit, and the world
+  // as it was is put back instead)
+  function restore(h, d) {
+    S.frame = d.frame; S.seed = d.seed; build(h, S.seed);
+    const have = shapeOf(); for (const k in have) if (d.shape[k] !== have[k]) throw new Error("its world was planned by other rules (were they edited?)");
+    for (const k of d.roots) { const t = S.rootPlan[k]; if (t && !t.done) { t.done = true; if (h.roots && S.built.compiled) rootSet(h, t, false); } }
+    setTileBytes(d.tiles);
+    seedRand = d.rand; S.damAt = d.damAt;
+    const w = d.weather; S.wind = w.wind ? { ...w.wind } : undefined; S.windNow = w.windNow; S.rain = w.rain; S.rainAt = w.rainAt; S.leaves = (w.leaves || []).map(l => ({ ...l }));
+    S.g = { ...d.gnome }; S.hearts = d.hearts > 0 ? d.hearts : 5; S.faintAt = 0; S.found = d.found; S.gemTotal = d.gemTotal;
+    S.works = new Map(d.works);
+    d.items.forEach((t, k) => { S.items[k].taken = !!t; });
+    d.trees.forEach(({ fallDir, ...t }, k) => { Object.assign(S.trees[k], t); if (fallDir != null) S.trees[k].fallDir = fallDir; });
+    S.fallen = d.fallen.filter(f => S.trees[f.tree]).map(f => { const t = S.trees[f.tree], fl = { x: t.x, t, F: fallenOf(t), k: 0 }; while (fl.k < f.k) cutPiece(fl); return fl; });
+    S.piles = d.piles.map(p => ({ ...p }));
+    d.dams.forEach((logs, k) => { const dm = S.dams[k]; dm.logs = logs; if (dm.river) setLevel(h, dm.river); });
+    d.beavers.forEach((B, k) => Object.assign(S.beavers[k], { b: { ...B.b }, px: B.px, py: B.py }));
+    S.boulders = d.boulders.map(b => ({ ...b })); S.pebbles = d.pebbles.map(p => ({ ...p }));
+    d.villagers.forEach((v, k) => { S.villagers[k].n = v.n; S.villagers[k].nextAt = v.nextAt; });
+    if (HEROES[d.hero]) { S.hero = d.hero; keep("hero", S.hero); heroPicker(); }
+    keep("seed", S.seed);
+    rootChunks.clear(); S.minimapAt = -1e9; S.cam.set = false; S.party = null; S.confetti = []; S.talk = null; S.parts = []; S.smoke = [];
+  }
+  function stopBot() { BOT.on = false; $("run").setAttribute("aria-pressed", "false"); for (const k in S.keys) S.keys[k] = false; }
+  const stamp = () => { const d = new Date(), p = n => String(n).padStart(2, "0"); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}`; };
+  async function saveFile() {
+    if (!H() || !S.g) return;
+    const snap = snapshot(), name = `gnome-world-${S.seed}-${stamp()}.json`;
+    try { const url = URL.createObjectURL(new Blob([await saveText(snap)], { type: "application/json" }));
+      const a = document.createElement("a"); a.href = url; a.download = name; document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 30000);
+      S.banner = { text: `💾 Saved: ${name}`, t: performance.now() }; }
+    catch (e) { S.banner = { text: "💾 Could not save: " + (e && e.message || e), t: performance.now() }; console.error(e); }
+  }
+  async function loadText(text, name) {
+    const h = H(); if (!h || !S.g) throw new Error("the world is not made yet");
+    const d = await readSave(text), back = snapshot();
+    try { restore(h, d); } catch (e) { restore(h, back); throw e; }
+    stopBot(); S.banner = { text: `📂 Loaded ${name || "the saved world"}`, t: performance.now() };
+  }
+  $("save").addEventListener("click", () => { saveFile(); $("save").blur(); });
+  $("load").addEventListener("click", () => { $("load-file").click(); $("load").blur(); });
+  $("load-file").addEventListener("change", async e => { const inp = e.target, f = inp.files && inp.files[0]; if (!f) return;
+    try { const text = await f.text(); inp.value = ""; await loadText(text, f.name); }
+    catch (err) { inp.value = ""; S.banner = { text: "📂 Could not load it: " + (err && err.message || err), t: performance.now() }; console.error(err); } });
+  // 🔄 Restart: this world again as it began, from its plan, after asking (Matthew: "let's also have a restart feature, with a
+  // popup confirmation"); the world stands still while it asks
+  function restartNow(h) { stopBot(); build(h, S.seed); S.banner = { text: "🔄 This world, as it began", t: performance.now() }; }
+  function askRestart() {
+    const h = H(); if (!h || !S.g || S.asking) return;
+    const dlg = $("restart-ask"); for (const k in S.keys) S.keys[k] = false;
+    if (!dlg || typeof dlg.showModal !== "function") { if (confirm("Restart this world? Everything dug, built and found in it goes back to how it began.")) restartNow(h); return; }
+    S.asking = true; dlg.returnValue = "";
+    dlg.addEventListener("close", () => { S.asking = false; if (dlg.returnValue === "yes") restartNow(h); }, { once: true });
+    dlg.showModal();
+  }
+  { const dlg = $("restart-ask"); if (dlg) dlg.addEventListener("keydown", e => e.stopPropagation()); }   // (its keys are its own: not the gnome's, nor the pause's)
+  $("restart").addEventListener("click", () => { $("restart").blur(); askRestart(); });
+  // (for the test of a save and a load: the state read from the world itself, each part hashed, so that a part a save forgot shows)
+  function digest() {
+    const fnv = u8 => { let x = 0x811c9dc5; for (let i = 0; i < u8.length; i++) { x ^= u8[i]; x = Math.imul(x, 0x01000193); } return (x >>> 0).toString(16); };
+    const arr = A => fnv(bytesOf(A)), js = v => fnv(new TextEncoder().encode(JSON.stringify(plain(v))));
+    return { seed: S.seed, hero: S.hero, frame: S.frame, rand: seedRand, damAt: S.damAt, hearts: S.hearts, found: S.found || 0, gemTotal: S.gemTotal,
+      ground: arr(mat), back: arr(bg), built: arr(fix), gems: arr(gem), stones: arr(stone), slopes: arr(shape), roots: arr(root), tops: arr(top), water: arr(wat),
+      surface: arr(surf0), treeMask: arr(treeMask), gnome: js(S.g), weather: js({ wind: S.wind || null, windNow: S.windNow, rain: S.rain, rainAt: S.rainAt, leaves: S.leaves }),
+      rivers: js(S.rivers.map(R => R.level)), dams: js(S.dams.map(d => d.logs)), works: js([...S.works]), things: js(S.items.map(it => [it.kind, it.x, it.y, !!it.taken])),
+      trees: js(S.trees.map(t => [t.x, t.alive, t.grow, t.fallAt, t.fallDir ?? null, t.regrow])), fallen: js(S.fallen.map(f => [f.x, S.trees.indexOf(f.t), f.k, f.F.trunk, [...f.F.gone]])),
+      piles: js(S.piles), beavers: js(S.beavers.map(B => [B.b, B.px, B.py])), boulders: js(S.boulders), pebbles: js(S.pebbles),
+      villagers: js(S.villagers.map(v => [v.id, v.n, v.nextAt])), rootsDone: js(S.rootPlan.map(t => t.done ? 1 : 0)), rootSets: S.rootSets.length + S.threadSets.length };
+  }
   addEventListener("resize", () => draw());
   const P = window.HazelPause ? window.HazelPause.make({ into: $("new").parentElement, over: $("world").parentElement,
     onChange: paused => { if (!SND) return; if (paused) SND.stop(); else SND.tune(0); } }) : null;
@@ -3186,6 +3306,7 @@
     },
   });
   if (Q.has("test")) window.WorldTest = { gemFound, gem, spriteCache, SPRITES, cellWords, digSteps, ITEM, mat, wat, at, WH, WW, BOT, botPlan, dist, botEnter, botStand, botClimb, profile: gnomeProfile, front: gnome, map: () => { minimap(); return map2Cv; }, look: (x, y) => { S.camFix = x == null ? null : { x, y }; draw(); }, paintHouse, paintSmallHouse, squirrelBody, drawVillager, drawVillagerProfile, drawBusy, S, tick: n => { const h = H(); for (let i = 0; i < n; i++) tick(h); draw(); }, draw, near, code, at, mat, wat, fix, bg, stone, shape, surf0, treeMask, digOut, tile: () => T, drawPebbles, PERF, timedDraw: () => timedDraw(), lineCtx, lineScene, paintTall, leafyTree, drawLodge };
+  if (Q.has("test")) Object.assign(window.WorldTest, { snapshot, saveText, readSave, loadText, restartNow: () => restartNow(H()), askRestart, stopBot, digest, bot: on => { if (on !== BOT.on) $("run").click(); return BOT.on; } });
   document.body.classList.add("js");
   draw();
 })();

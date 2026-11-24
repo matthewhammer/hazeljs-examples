@@ -7,7 +7,7 @@
 <meta name="description" content="Gnome world: a gnome running, jumping, climbing and digging through a world sixteen screens across and eight down, from the deep rock to the tops of great trees: rivers and the beavers' dams, the gnomes' village deep under a hill, tree houses in sixteen styles, and ground water seeping through soil, sand and stone. The world's plan, its villages and tree houses and the beavers' minds are Hazel.">
 <link rel="stylesheet" href="../shared/style.css?v=0.0.14">
 <link rel="stylesheet" href="../shared/oracles.css?v=0.0.70">
-<link rel="stylesheet" href="world.css?v=0.0.95">
+<link rel="stylesheet" href="world.css?v=0.0.101">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
 <link rel="icon" href="icons/icon-32.png" sizes="32x32" type="image/png">
@@ -23,12 +23,16 @@
 <span class="app-links"><a href="../">Hazel activities</a> › <a href="../#games">One-player games</a> · <a href="https://github.com/matthewhammer/hazeljs-examples">source on GitHub</a> · <a href="https://www.npmjs.com/package/hazeljs">hazeljs on npm</a></span>
 </div>
 <p class="sub">A gnome in a world sixteen screens wide, from deep rock to the tops of great trees: Dad, Mom, the girl or the boy. <b>← →</b> run · <b>↑</b> jump, climb · <b>↓</b> dig down, or slide down a slope · <b>⛏️ X</b> dig the way you face · <b>🪵 B</b> plank, bridge, ladder · <b>space</b> pause · <b>F</b> frame times.</p>
-<p class="sub">Find the diving gear 🤿, the climbing pack 🧗 and the diggers ⛏️ ⚒️; dig for gems 💎; say hello to the villagers. <a href="manual/">📖 The instruction booklet</a>, to print as a zine. The world, its water, its beavers and every step of the gnome are Hazel. Pictures after Rien Poortvliet's <i>Gnomes</i> (1976), our own drawings.</p>
+<p class="sub">Find the diving gear 🤿, the climbing pack 🧗 and the diggers ⛏️ ⚒️; dig for gems 💎; say hello to the villagers. <b>💾 Save</b> keeps the world as it is in a file, and <b>📂 Load</b> brings it back; <b>🔄 Restart</b> begins this world again. <a href="manual/">📖 The instruction booklet</a>, to print as a zine. The world, its water, its beavers and every step of the gnome are Hazel. Pictures after Rien Poortvliet's <i>Gnomes</i> (1976), our own drawings.</p>
 
 <div class="oracle-grid">
 <section class="oracle-ui gw-ui" aria-label="The world">
   <div class="controls">
     <button type="button" id="new" class="primary">New world</button>
+    <button type="button" id="restart" title="Begin this world again, as it was made (it asks first)">🔄 Restart</button>
+    <button type="button" id="save" title="Save this world to a file: the digging, the water, the weather, who you play and where">💾 Save</button>
+    <button type="button" id="load" title="Load a world saved to a file">📂 Load</button>
+    <input type="file" id="load-file" accept=".json,application/json" hidden>
     <button type="button" id="music" class="gw-toggle" aria-pressed="true" title="Music: happy tunes of our own on a little chip">🎵</button>
     <button type="button" id="sfx" class="gw-toggle" aria-pressed="true" title="Sounds: digging, gems, splashes, boulders">🔊</button>
     <button type="button" id="map" class="gw-toggle" aria-pressed="true" title="The map of the whole world, in a corner (M)">🗺️</button>
@@ -64,6 +68,13 @@
 </section>
 </div>
 
+<dialog id="restart-ask" class="gw-ask" aria-labelledby="restart-q">
+  <form method="dialog">
+    <p id="restart-q" class="gw-ask-q">🔄 Restart this world?</p>
+    <p>Everything dug, built and found in it goes back to how it began. To keep it, 💾 Save it first.</p>
+    <div class="gw-ask-buttons"><button value="no" autofocus>Keep playing</button><button value="yes" class="gw-ask-yes">🔄 Restart</button></div>
+  </form>
+</dialog>
 <div id="advanced" class="advanced-holder"></div>
 <p class="app-foot" id="app-foot">hazeljs-examples · <a href="../VERSIONS.md">versions</a> · Apache 2.0 (code), CC BY 4.0 (words, the icon) · by Matthew Hammer · an example for <a href="https://github.com/hazelgrove/hazeljs">hazeljs</a></p>
 </main>
@@ -75,6 +86,6 @@
 <script src="../shared/chip.js?v=0.0.74"></script>
 <script src="../dig/sound.js?v=0.0.96"></script>
 <script src="../shared/volume.js?v=0.0.56"></script>
-<script src="app.js?v=0.0.99"></script>
+<script src="app.js?v=0.0.101"></script>
 </body>
 </html>
