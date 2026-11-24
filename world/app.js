@@ -745,7 +745,7 @@
     let w = Math.max(320, Math.round(r.width * d)), hgt = Math.max(180, Math.round(r.height * d));
     const t0 = tileFor(w, hgt); if (t0 > TCAP) { const q = TCAP / t0; w = Math.round(w * q); hgt = Math.round(hgt * q); }
     if (cv.width !== w || cv.height !== hgt) { cv.width = w; cv.height = hgt; texCache.clear(); }
-    T = Math.min(TCAP, tileFor(w, hgt));
+    T = S.tileFix || Math.min(TCAP, tileFor(w, hgt));   // (tileFix: the booklet's pictures, ?test=1, a wider view of the world at fewer pixels a tile)
     VW = cv.width / T; VH = cv.height / T;
   }
   // (each kind of ground a few tiles' worth of texture, made once for the tile's size: specks, layers, cracks, bricks, planks)
@@ -1293,7 +1293,7 @@
   const faintCol = col => { if (typeof col !== "string") return !!(col && col.faint); const m = /rgba?\(([^)]+)\)/.exec(col); if (!m) return false; const p = m[1].split(",").map(Number); return p.length === 4 && p[3] < 0.5; };
   const darkCol = col => { if (typeof col !== "string") return false; let r, g, b; const h = /^#([0-9a-f]{6})$/i.exec(col), m = /rgba?\(([^)]+)\)/.exec(col);
     if (h) { const n = parseInt(h[1], 16); r = n >> 16; g = (n >> 8) & 255; b = n & 255; } else if (m) { [r, g, b] = m[1].split(",").map(Number); } else return false;
-    return 0.3 * r + 0.59 * g + 0.11 * b < 50; };
+    return 0.3 * r + 0.59 * g + 0.11 * b < 22; };   // (0.0.102: eyes and pupils black; the girl's black coat, 39, left open to color in)
   function lineCtx(real, lw = 1.3) {
     let faintFill = false, faintStroke = false, width = 1, darkFill = false;
     // (widths in the screen's pixels, whatever the drawing's own scale: the gnome is drawn at 40 to a tile, scaled)
@@ -1310,6 +1310,7 @@
         if (k === "fillRect") return (x, y, w, h) => { if (real.globalAlpha < 0.5 || faintFill) return; real.save(); real.fillStyle = "#fff"; real.fillRect(x, y, w, h); if (!P.plain) { out(); real.strokeRect(x, y, w, h); } real.restore(); };
         if (k === "strokeRect") return (x, y, w, h) => { if (real.globalAlpha < 0.5 || faintStroke) return; real.save(); out(); real.strokeRect(x, y, w, h); real.restore(); };
         if (k === "plain") return t.__plain;
+        if (k === "real") return real; if (k === "lw") return lw;   // (0.0.102: for a drawing that outlines several shapes as one, the rabbit's body)
         if (k === "fillText") return (...a) => { real.save(); real.fillStyle = "#111"; real.fillText(...a); real.restore(); };
         if (k === "createLinearGradient" || k === "createRadialGradient") return () => { let all = true; const g = { faint: true, addColorStop(o, c) { if (!faintCol(c)) all = false; const a = /rgba\(([^)]+)\)/.exec(c); g.faint = all || (o >= 0.99 && !!a && Number(a[1].split(",")[3]) < 0.15); } }; return g; };
         if (k === "drawImage") return (...a) => real.drawImage(...a);
@@ -2423,13 +2424,17 @@
     const paw = (dx, col) => { if (pose === "hop") { const px = t < 0.35 ? 12 : t < 0.7 ? 24 : 22, py = t < 0.35 ? -7 : t < 0.7 ? -10 : -2.5; E(px + dx, py, 5, 2.4, col, t < 0.35 ? 0.5 : t < 0.7 ? -0.4 : 0.1); } else if (pose === "climb") E(22 + dx, -20 - dx, 2.6, 5, col); else if (pose === "swim") E(17 + dx, -5 + 2 * Math.sin(o.now / 120 + dx), 4.5, 2.2, col, 0.4); else E(14 + dx, -2, 4, 2.4, col); };
     ear(-2.5, dark, earA - 0.2, false);
     foot(3, dark, 0.06); paw(-2, dark);
-    E(hx - 13.5 + 2 * st, -15, 5.6, 5.2, "#fbfaf6"); E(hx - 12.5 + 2 * st, -13.5, 3.2, 2.6, "#e9e6de");   // (the tail)
-    E(hx, -12, 15, 12, fur); E(2, -15, 18, 11, fur, -0.12 - 0.1 * st); E(12 + 3 * st, -17, 9, 10, fur);
-    E(hx + 2, -16, 9, 6, "rgba(255,255,255,0.08)", -0.3); E(4, -7.5, 13, 4.6, belly, -0.05);
+    // (the tail, the haunch, the back, the chest, the neck and the head: in the booklet's line drawing, outlined as one shape, all
+    // their outlines first and then all their insides over them, so that only the rabbit's own edge shows, not each part's)
+    const body = [[hx - 13.5 + 2 * st, -15, 5.6, 5.2, "#fbfaf6", 0], [hx, -12, 15, 12, fur, 0], [2, -15, 18, 11, fur, -0.12 - 0.1 * st], [12 + 3 * st, -17, 9, 10, fur, 0],
+      [headX - 4, headY + 4, 7, 7, fur, 0], [headX, headY, 9.5, 8, fur, pose === "nibble" ? 0.5 : -0.15]], R = c.real;
+    if (R) { const m = R.getTransform(), w = 2 * c.lw / (Math.hypot(m.a, m.b) || 1); R.save(); R.strokeStyle = "#111"; R.lineWidth = w; for (const b of body) { R.beginPath(); R.ellipse(b[0], b[1], b[2], b[3], b[5], 0, 7); R.stroke(); }
+      R.fillStyle = "#fff"; for (const b of body) { R.beginPath(); R.ellipse(b[0], b[1], b[2], b[3], b[5], 0, 7); R.fill(); } R.restore(); }
+    else { for (const b of body.slice(0, 4)) E(...b); E(hx + 2, -16, 9, 6, "rgba(255,255,255,0.08)", -0.3); E(4, -7.5, 13, 4.6, belly, -0.05); }
     c.strokeStyle = "rgba(60,40,25,0.25)"; c.lineWidth = 0.8; c.beginPath(); c.arc(hx + 2, -11, 9, -2.2, -0.6); c.stroke();   // (the haunch's line)
     foot(0, fur); paw(2, belly);
-    E(headX - 4, headY + 4, 7, 7, fur);   // (the neck)
-    E(headX, headY, 9.5, 8, fur, pose === "nibble" ? 0.5 : -0.15); E(headX + 6, headY + 3, 4.5, 3.6, belly); E(headX + 9.4, headY + 1.6, 1.4, 1.1, "#d77a86");
+    if (!R) { E(...body[4]); E(...body[5]); }
+    E(headX + 6, headY + 3, 4.5, 3.6, belly); E(headX + 9.4, headY + 1.6, 1.4, 1.1, "#d77a86");
     E(headX + 2, headY - 2, 2.3, 2.5, "#1b120c"); E(headX + 2.7, headY - 2.8, 0.8, 0.8, "#fff");
     c.strokeStyle = "rgba(70,50,35,0.55)"; c.lineWidth = 0.45; c.beginPath(); for (const a of [-0.25, 0, 0.25]) { c.moveTo(headX + 8, headY + 3); c.lineTo(headX + 8 + Math.cos(a) * 9, headY + 3 + Math.sin(a) * 6); } c.stroke();
     ear(0.5, fur, earA, true);
@@ -3199,6 +3204,7 @@
       else { ctx.fillStyle = "#facc15"; ctx.beginPath(); ctx.roundRect(-0.18 * s, -0.35 * s, 0.36 * s, 0.7 * s, 0.15 * s); ctx.fill(); ctx.stroke();
         ctx.fillStyle = "#0284c7"; ctx.beginPath(); ctx.roundRect(0.2 * s, -0.3 * s, 0.45 * s, 0.25 * s, 0.1 * s); ctx.fill(); ctx.stroke(); ctx.fillStyle = "rgba(224,242,254,0.7)"; ctx.fillRect(0.26 * s, -0.25 * s, 0.33 * s, 0.13 * s); }
       ctx.restore();
+      if (LINE) continue;   // (the booklet's line drawings: the thing, without its label)
       const label = ITEM[it.kind].label, ly = y - s * 1.25 + Math.sin(now / 300) * 0.05 * s;
       ctx.font = `bold ${Math.round(0.36 * s)}px sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; const tw = ctx.measureText(label).width;
       ctx.fillStyle = "rgba(30,20,8,0.72)"; ctx.beginPath(); ctx.roundRect(x - tw / 2 - s * 0.18, ly - s * 0.26, tw + s * 0.36, s * 0.52, s * 0.18); ctx.fill(); ctx.strokeStyle = "#fde68a"; ctx.lineWidth = Math.max(1, s / 24); ctx.stroke();

@@ -4,14 +4,17 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Gnome World: Instruction Booklet</title>
-<meta name="description" content="The instruction booklet for Gnome world, an early-1990s game manual as a zine: the controls, the gnome's moves, the things to find, the world, the great trees and their houses, the villagers, squirrels and beavers, hints, and coloring pages drawn by the game itself.">
+<meta name="description" content="The instruction booklet for Gnome world, an early-1990s game manual as a zine: the controls, the gnome's moves, the things to find, the world (where a daisy is as tall as a gnome), the great trees and their houses, Clover the rabbit, the villagers and the wild ones, hints, and coloring pages drawn by the game itself.">
 <link rel="icon" href="../icons/icon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,600;1,7..72,400&family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
 <!-- (Matthew: "use this material to create a early 1990s game manual, as a zine. See messed up dress up. May need to add line-only
      drawing function"; "way too much text here, make it short") The booklet, as Messed Up Dress Up's zines are: a cover, short chapters
      in boxes, hints, and coloring pages; every picture the game's own drawing, through its line-only canvas (app.js, lineCtx). On a
-     screen, the pages one under another; printed, twelve half-letter pages, to be laid out two to a side as a folded zine. -->
+     screen, the pages one under another; printed, twelve half-letter pages, to be laid out two to a side as a folded zine. (0.0.103;
+     Matthew: "please update the zine --- (revise the entire thing, holistically --- all images need updates)") Revised whole for
+     0.0.102: the bigger world, the trees three times as tall, Clover the rabbit and the carrots, the music; every picture drawn again,
+     the rabbit outlined as one shape. -->
 <style>
   :root { --bg: #f4ecd8; --paper: #fffaf0; --ink: #231f1a; --muted: #6b6052; --line: #c9b99a; --accent: #b4361d; --tip: #fff3c4; --link: #1d5fb4; }
   @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #16140f; --paper: #1f1c16; --ink: #ece4d2; --muted: #a89c86; --line: #4a4234; --accent: #ff7a4d; --tip: #3a3218; --link: #9cc3ff; } }
@@ -45,6 +48,7 @@
   .styles { columns: 2; font-size: 0.9em; } .styles i { color: var(--muted); }
   .color h2 { text-align: center; }
   .color figure img { border: none; }
+  figure.small img { max-width: 80%; }
   .back { text-align: center; font-size: 0.92em; }
   .print-note { font: 15px/1.4 system-ui, sans-serif; }
   @page { size: 5.5in 8.5in; margin: 0.35in 0.32in 0.4in; }
@@ -60,6 +64,7 @@
     figure { break-inside: avoid; } figure img { border-width: 0.8pt; max-height: 3.2in; object-fit: contain; }
     .color figure img { max-height: 6.7in; width: auto; max-width: 100%; }
     .color figure + figure img { max-height: 3.5in; }   /* (a second picture on a coloring page: at full width the two ran onto a page of their own) */
+    figure.small img { max-height: 2.05in; }   /* (0.0.103: a second picture on a chapter's page) */
     table.keys { font-size: 9pt; }
   }
 </style>
@@ -71,110 +76,120 @@
   <div class="pub">HAZEL ACTIVITIES PRESENTS</div>
   <h1>GNOME<br>WORLD</h1>
   <div class="booklet">INSTRUCTION BOOKLET</div>
-  <figure><img src="pictures/gnome.png" alt="The gnome, his lantern held out, ready to go."></figure>
-  <div class="edition">a platform world, planned in Hazel · version 0.0.99</div>
+  <figure><img src="pictures/cover.png?v=0.0.103" alt="A gnome riding Clover the rabbit in her saddle, the reins in hand, two wild bunnies watching."></figure>
+  <div class="edition">a platform world, planned in Hazel · version 0.0.103</div>
 </section>
 
 <section class="page">
   <h2><span class="ch">1</span>THANK YOU</h2>
-  <p>Thank you for playing <b>Gnome World</b>. Please read this booklet before you set out, and keep it nearby: there is a lot of world down there.</p>
+  <p>Thank you for playing <b>Gnome World</b>. Please read this booklet before you set out, and keep it nearby: the world is very big, and you are very small.</p>
   <h3>THE STORY</h3>
-  <p>Deep under a hill lives a village of gnomes. Above them grow great trees with little houses in their branches; beside them run a creek, a stream and a river, where the beavers are always busy.</p>
-  <p>You are a gnome of the village, with a lantern and a pick. Somewhere in the world are a <b>diving gear</b>, a <b>tree-climbing pack</b> and two <b>diggers</b>, and in the rock, hundreds of <b>gems</b>. Find them all!</p>
-  <figure><img src="pictures/heroes.png?v=0.0.98" alt="The four gnomes you can be: Dad with his long beard, Mom with her braids and apron, the girl with brunette pigtails in black and magenta, her cap striped, the boy with a sandy-blond fringe and ponytail, each with a lantern."><figcaption>Who will you be? Dad, Mom, the girl or the boy: pick one over the world before you set out.</figcaption></figure>
+  <p>Under a hill lives a village of gnomes, no taller than a daisy. Around them tower trees thirty gnomes high, the greatest with little houses in their branches; beside them run a creek, a stream and a river, where the beavers are always busy.</p>
+  <p>You are a gnome of the village. Somewhere are a <b>diving gear</b>, a <b>climbing pack</b>, two <b>diggers</b> and some <b>carrots</b>; in the rock, hundreds of <b>gems</b>. And in the meadow waits <b>Clover</b>, a rabbit with a saddle. Find them all!</p>
+  <figure><img src="pictures/heroes.png?v=0.0.103" alt="The four gnomes you can be: Dad with his long beard, Mom with her braids and apron, the girl with pigtails and a striped cap, the boy with a fringe and ponytail, each with a lantern, from the front, the back and the side."><figcaption>Who will you be? Dad, Mom, the girl or the boy: pick one before you set out.</figcaption></figure>
   <h3>CONTENTS</h3>
-  <p>2 · Controls &nbsp; 3 · Moving about &nbsp; 4 · Things to find &nbsp; 5 · The world &nbsp; 6 · The great trees &nbsp; 7 · Friends and neighbours &nbsp; 8 · The village &nbsp; 9 · Hints &nbsp; 10–11 · Coloring pages</p>
+  <p>2 · Controls &nbsp; 3 · Moving about &nbsp; 4 · Things to find &nbsp; 5 · The world &nbsp; 6 · The great trees &nbsp; 7 · Clover the rabbit &nbsp; 8 · Friends and neighbours &nbsp; 9 · Hints &nbsp; 10–11 · Coloring pages</p>
 </section>
 
 <section class="page">
   <h2><span class="ch">2</span>CONTROLS</h2>
   <table class="keys">
     <tr><td><span class="key">←</span><span class="key">→</span> or <span class="key">A</span><span class="key">D</span></td><td>Run.</td></tr>
-    <tr><td><span class="key">↑</span> or <span class="key">W</span></td><td>Jump. On a ladder or in a tunnel, climb.</td></tr>
+    <tr><td><span class="key">↑</span> or <span class="key">W</span></td><td>Jump. On a ladder or in a tunnel, climb. On Clover, leap!</td></tr>
     <tr><td><span class="key">↓</span> or <span class="key">S</span></td><td>Dig down. On a slope, slide!</td></tr>
     <tr><td><span class="key">X</span> ⛏️</td><td>Dig the way you face (hold a direction to choose).</td></tr>
     <tr><td><span class="key">B</span> 🪵</td><td>Build: a plank ahead, a bridge across, or a ladder up out of a pit.</td></tr>
+    <tr><td><span class="key">R</span> 🐇</td><td>Beside Clover: give her a carrot, and hop on. Riding: hop off.</td></tr>
     <tr><td><span class="key">M</span> 🗺️</td><td>The map of the whole world.</td></tr>
     <tr><td><span class="key">space</span> ⏸</td><td>Pause.</td></tr>
-    <tr><td><span class="key">F</span></td><td>Frame times, for the curious.</td></tr>
+    <tr><td>🎵 🔊</td><td>Music and sounds, on or off, each with a slider.</td></tr>
     <tr><td>💾 📂</td><td>Save your world to a file, just as it is; load it back any day.</td></tr>
     <tr><td>🔄</td><td>Restart this world from the beginning (it asks first).</td></tr>
   </table>
-  <div class="box tip"><div class="h">ON A TABLET?</div>The same buttons are on the screen, under the world. ⛶ fills the screen.</div>
+  <div class="box tip"><div class="h">ON A TABLET?</div>The same buttons are on the screen, under the world; 🐇 shows up by Clover. ⛶ fills the screen.</div>
 </section>
 
 <section class="page">
   <h2><span class="ch">3</span>MOVING ABOUT</h2>
   <ul>
-    <li><b>Digging.</b> Push into the ground to dig it. Soil and sand go quickly, clay and sandstone slowly, shale slowest. Limestone and granite will not budge without a digger.</li>
+    <li><b>Digging.</b> Push into the ground to dig it. Soil and sand go quickly, clay and sandstone slowly, shale slowest. Limestone and granite need a digger.</li>
     <li><b>Climbing.</b> In any tunnel you dig, you can climb any way. Digging along puts in a timber frame; digging up or down, a ladder.</li>
     <li><b>Sliding.</b> Hold ↓ on a slope and down you go, faster and faster!</li>
     <li><b>Swimming.</b> In water you float and swim. Hold ↓ to dive, but watch your bubbles: they are your breath.</li>
     <li><b>Building.</b> 🪵 at the edge of a pit lays a plank; again and again, a bridge.</li>
+    <li><b>Riding.</b> On Clover you go twice as fast. See page 7.</li>
   </ul>
-  <div class="box"><div class="h">THE HEARTS ❤️</div>You have five hearts, at the top of the screen. You lose one if you run out of breath under water (the blue bar is your breath: about ten seconds, without the diving gear), or if a falling boulder lands on you. Lose all five and you faint, and wake up at home with five hearts again, keeping your gems and everything you found. A ❤️ waits in every tree house and village kitchen: walk into it for a heart back. Go away and come back, and it is there again.</div>
+  <div class="box"><div class="h">THE HEARTS ❤️</div>You have five hearts. You lose one if you run out of breath under water (the blue bar: about ten seconds without the diving gear), or if a falling boulder lands on you. Lose all five and you faint, and wake up at home with five again, keeping all you found. A ❤️ waits in every tree house and village kitchen: walk into it for a heart back. Go away and come back, and it is there again.</div>
 </section>
 
 <section class="page">
   <h2><span class="ch">4</span>THINGS TO FIND</h2>
-  <h3>🤿 THE DIVING GEAR</h3><p>Breathe under water as long as you like. It waits down in the village.</p>
-  <h3>🧗 THE TREE-CLIMBING PACK</h3><p>Climb any big tree like a squirrel, ladder or no ladder. It waits in one of the tree houses.</p>
-  <h3>⛏️ THE GOOD DIGGER</h3><p>Tough ground goes faster, and limestone and granite give way. It leans in a workshop, past the river.</p>
-  <h3>⚒️ THE SUPER DIGGER</h3><p>Three times as fast, through anything, even the bedrock at the bottom of the world. It lies deep in a cave in the limestone: take the good digger.</p>
-  <h3>💎 GEMS</h3><p>They glitter in the rock, five colors of them. Dig them out. Some lie loose in caves and flooded tunnels. The 💎 at the top counts the ones you have found and all the world holds. Find the very last one, and there is a party!</p>
-  <div class="box tip"><div class="h">HINT</div>A pointer at the edge of the screen shows the way to anything you have not found yet. The map 🗺️ shows where it lies.</div>
+  <h3>🤿 THE DIVING GEAR</h3><p>Breathe under water as long as you like. It waits down in the village. There is a little set for Clover in it, too.</p>
+  <h3>🧗 THE CLIMBING PACK</h3><p>Climb any big tree like a squirrel, ladder or no ladder. It waits in a tree house. Clover gets a pack of her own.</p>
+  <h3>⛏️ THE GOOD DIGGER</h3><p>Tough ground goes fast, and limestone and granite give way. It leans in a workshop, past the river.</p>
+  <h3>⚒️ THE SUPER DIGGER</h3><p>Faster still, through anything, even the bedrock at the bottom of the world. It lies deep in a cave in the limestone: take the good digger.</p>
+  <h3>🥕 CARROTS</h3><p>Three grow in the garden by your home, and one waits in the village pantry. Clover loves them.</p>
+  <h3>💎 GEMS</h3><p>They glitter in the rock, five colors of them. Some lie loose in caves and flooded tunnels. The 💎 at the top counts them. Find the very last one, and there is a party!</p>
+  <div class="box tip"><div class="h">HINT</div>A pointer at the edge of the screen shows the way to anything you have not found. The map 🗺️ shows where it lies.</div>
 </section>
 
 <section class="page">
   <h2><span class="ch">5</span>THE WORLD</h2>
-  <p>The world is thirty-two screens wide and thirteen deep, from the deep rock up to the treetops.</p>
-  <h3>WATER IN THE GROUND</h3><p>The line under your hearts says what is under your feet, how hard it digs, and how wet it is. Rain soaks down into the soil and stone; the blue shows how full the ground is. It sinks slowly, faster where roots go, until it stands on clay or shale. A bowl of clay holds a pond under the ground.</p>
-  <h3>RIVERS</h3><p>A creek, a stream and a river, each with sloping banks. The beavers' dams raise the water, and the water in the ground beside it. Water plants grow on the beds, reeds and bulrushes in the shallows, and lily pads float on top, some with a pink lotus flower.</p>
-  <figure><img src="pictures/squirrels.png" alt="Two squirrels, one sitting up with an acorn, one running."><figcaption>Squirrels live in the big trees. They are shy!</figcaption></figure>
+  <p>The world is thirty-two screens wide and thirteen deep, from the deep rock up to the treetops. And you are small: a daisy is as tall as you, a bush is a hill, an oak is thirty gnomes high.</p>
+  <figure><img src="pictures/scene-meadow.webp?v=0.0.103" alt="The meadow by the gnome's home: a tall pine, a huge oak trunk, two big bushes with berries and blossoms, flowers as tall as the gnome, who is riding Clover mid-hop, a robin, carrots in the garden."><figcaption>The meadow by your home. Can you find the gnome on Clover?</figcaption></figure>
+  <h3>WATER IN THE GROUND</h3><p>The line under your hearts says what is under your feet, how hard it digs, and how wet it is. Rain soaks down into the ground, faster where roots go, until it stands on clay or shale.</p>
+  <h3>RIVERS AND THE VILLAGE</h3><p>A creek, a stream and a river, with water plants, lily pads and beavers' dams. A door on the hill leads down to the gnomes' village: kitchens, bedrooms, a library, a workshop, chimneys and light shafts.</p>
+  <h3>MUSIC</h3><p>Each place has its own tune: the meadow, the deep ground, the village, the treetops, the ride. Dive under water, and the music turns slow and dubby.</p>
 </section>
 
 <section class="page">
   <h2><span class="ch">6</span>THE GREAT TREES</h2>
-  <p>Climb a great tree's ladders, or the stair inside the stair tree's trunk, out along its limbs and across the rope bridges. Walk in at a tree house door to look inside.</p>
-  <figure><img src="pictures/house-moss.png" alt="A tree house in the Moss Gable style: shingles, shutters with hearts, a flower box, a rain barrel."><figcaption>The Moss Gable, <i>Tectum Muscosum</i></figcaption></figure>
+  <p>Three great trees, a hundred gnomes high. Climb their ladders, or the stair inside the stair tree's trunk, out along the limbs and across the rope bridges. Walk in at a tree house door to look inside.</p>
+  <figure><img src="pictures/house-moss.png?v=0.0.103" alt="A tree house in the Moss Gable style: shingles, shutters with hearts, a flower box, a rain barrel."><figcaption>The Moss Gable, <i>Tectum Muscosum</i></figcaption></figure>
   <h3>THE SIXTEEN STYLES</h3>
   <div class="styles">Mushroom Lodge <i>Domus Fungorum</i><br>Oak Bungalow <i>Casa Quercina</i><br>Acorn Cottage <i>Casula Glandis</i><br>Owl's Watch <i>Specula Noctuae</i><br>Moss Gable <i>Tectum Muscosum</i><br>Pinecone Villa <i>Villa Pinea</i><br>Thatch Nook <i>Tugurium Stramineum</i><br>Star Gazer <i>Speculum Stellarum</i><br>Bell Loft <i>Turris Campanae</i><br>Honey Hut <i>Casa Mellifera</i><br>Weathervane Workshop <i>Officina Ventorum</i><br>Ivy Porch House <i>Domus Hederacea</i><br>Lantern Library <i>Bibliotheca Silvestris</i><br>Fern Cabin <i>Casula Filicum</i><br>Birch Bower <i>Umbraculum Betulae</i><br>Toadstool Tower <i>Turricula Boleti</i></div>
 </section>
 
 <section class="page">
-  <h2><span class="ch">7</span>FRIENDS AND NEIGHBOURS</h2>
-  <figure><img src="pictures/villagers.png" alt="Five villagers: a gnome with a pipe, a gnome wife with a basket, an old gnome with a lantern, and two children."></figure>
-  <h3>THE VILLAGERS</h3><p>Gnomes, gnome wives and children live all over the world. Stop beside one and they will tell you something: about their home, the animals, the things to find. No two say the same thing!</p>
-  <h3>THE BEAVERS</h3><p>A beaver gnaws a tree until it falls, cuts it up a log at a time, each branch's twigs before the branch, and carries the logs to its dam, one by one.</p>
-  <h3>THE WILD ONES</h3><p>Frogs sit on the lily pads and croak; come too close and, plop, into the water. Dragonflies dart over the rivers, butterflies and bumblebees visit the flowers. Sparrows and robins hop on the grass, blue jays sit in the branches, hawks circle high above. Ducks and swans swim on the water. They are all shy!</p>
+  <h2><span class="ch">7</span>CLOVER THE RABBIT</h2>
+  <p>Clover waits in the meadow, saddled and bridled. Stand beside her with a carrot and press <span class="key">R</span> 🐇: she eats it, and lets you ride. <span class="key">R</span> again and you hop off; she waits for you.</p>
+  <figure><img src="pictures/clover.png?v=0.0.103" alt="Four gnomes riding Clover through one hop: pushing off, flying, coming down, landing; below, Clover swimming in goggles and a snorkel, and Clover with her climbing pack."><figcaption>A hop, from push to landing; in her diving set; with her pack.</figcaption></figure>
+  <ul>
+    <li><b>Hop.</b> She hops as she goes, twice as fast as you run.</li>
+    <li><b>Leap.</b> ↑, very high: right over a creek or the stream. Not the river!</li>
+    <li><b>Dig.</b> Three times as fast as a gnome.</li>
+    <li><b>Swim and climb.</b> Only with the diving gear, or the climbing pack. Without them she stops at the water, and keeps off the ladders.</li>
+  </ul>
+  <p>Wild bunnies live in the meadows too. They hop away from a gnome on foot.</p>
 </section>
 
 <section class="page">
-  <h2><span class="ch">8</span>THE VILLAGE</h2>
-  <p>A door on the hill and a ladder down lead to the gnomes' village: kitchens, bedrooms, a library, a workshop, each with its things. Chimneys carry the smoke up, light shafts bring the sun down, air shafts keep it fresh.</p>
-  <p>Some rooms are deep enough to flood. The gnomes keep fish in those.</p>
-  <figure><img src="pictures/house-mushroom.png" alt="The Mushroom Lodge: a spotted cap for a roof, half-timbered walls."><figcaption>Up in the trees: the Mushroom Lodge, <i>Domus Fungorum</i></figcaption></figure>
+  <h2><span class="ch">8</span>FRIENDS AND NEIGHBOURS</h2>
+  <figure><img src="pictures/villagers.png?v=0.0.103" alt="Five villagers: gnomes with a pipe, a basket, a lantern, and children."></figure>
+  <h3>THE VILLAGERS</h3><p>Gnomes live all over the world. Stop beside one and they will tell you something. No two say the same thing!</p>
+  <h3>THE BEAVERS</h3><p>A beaver gnaws a tree until it falls, cuts it up a log at a time, and carries the logs to its dam.</p>
+  <h3>THE WILD ONES</h3><p>Sparrows and robins hop on the grass, blue jays sit in the branches, hawks circle high above; to a gnome they are big! Squirrels run along the limbs, frogs croak on the lily pads, ducks and swans swim. They are all shy.</p>
+  <figure class="small"><img src="pictures/wild.png?v=0.0.103" alt="A sparrow, a robin, a blue jay and a hawk, perched and flying; two squirrels; two bunnies."></figure>
 </section>
 
 <section class="page">
   <h2><span class="ch">9</span>HINTS</h2>
   <div class="box tip"><div class="h">HINT 1</div>Stuck in a pit? 🪵 builds a ladder up out of it.</div>
-  <div class="box tip"><div class="h">HINT 2</div>Dig sideways under water: the gear lets you tunnel for gems in flooded rock.</div>
-  <div class="box tip"><div class="h">HINT 3</div>Slide down the creek's banks for speed, and jump at the bottom.</div>
+  <div class="box tip"><div class="h">HINT 2</div>Can't get over the stream? Ride Clover to the bank, and leap.</div>
+  <div class="box tip"><div class="h">HINT 3</div>Dig sideways under water: the gear lets you tunnel for gems in flooded rock. On Clover, it goes three times as fast.</div>
   <div class="box tip"><div class="h">HINT 4</div>Press 🏃 and watch the gnome play by itself, fast: every thing, every tree, every gem it can reach.</div>
   <div class="box tip"><div class="h">HINT 5</div>Going somewhere risky? 💾 Save first. 📂 Load puts you back just where you were.</div>
-  <div class="box"><div class="h">FOR GROWN-UPS</div>The world's plan, the beavers' minds, the villagers' words and every step of the gnome are written in <b>Hazel</b>. Open the rules under the game and press <b>Edit in Hazel</b> to change them.</div>
+  <div class="box"><div class="h">FOR GROWN-UPS</div>The world's plan, the beavers' minds, the villagers' words and every step of the gnome (and of Clover) are written in <b>Hazel</b>. Open the rules under the game and press <b>Edit in Hazel</b> to change them.</div>
 </section>
 
 <section class="page color">
   <h2>COLOR ME IN!</h2>
-  <figure><img src="pictures/scene-crown.webp" alt="A great tree's crown: two tree houses, a rope bridge, villagers and squirrels."><figcaption>High up in a great tree</figcaption></figure>
-  <figure><img src="pictures/house-acorn.png" alt="The Acorn Cottage, its walls of logs."><figcaption>The Acorn Cottage, <i>Casula Glandis</i></figcaption></figure>
+  <figure><img src="pictures/ride.png?v=0.0.103" alt="The girl riding Clover in a big leap, the boy waving, two bunnies watching."><figcaption>Off for a ride!</figcaption></figure>
 </section>
 
 <section class="page color">
   <h2>COLOR ME IN!</h2>
-  <figure><img src="pictures/scene-creek.webp" alt="The creek between sloping banks, willows over it, the gnome on the bank."><figcaption>Down by the creek</figcaption></figure>
+  <figure><img src="pictures/scene-crown.webp?v=0.0.103" alt="High in the stair tree: tree houses on its limbs, a rope bridge to a tall tree, a bird house, villagers."><figcaption>High up in the stair tree</figcaption></figure>
   <div class="back">
     <p><b>GNOME WORLD</b> · hazeljs-examples · by Matthew Hammer</p>
     <p>The pictures are inspired by Rien Poortvliet's paintings for <i>Gnomes</i> (Wil Huygen and Rien Poortvliet, 1976); they are our own drawings, and these are the game's own, with the colors taken out.</p>
@@ -184,7 +199,9 @@
 
 <section class="page print-note">
   <h2>MORE TO COLOR</h2>
-  <figure><img src="pictures/scene-river.webp" alt="The river, a beaver lodge in cutaway, the dam."><figcaption>The beavers' river</figcaption></figure>
+  <figure><img src="pictures/scene-river.webp?v=0.0.103" alt="The river: swans on the water, a beaver lodge in cutaway, the dam, willows on the banks."><figcaption>The beavers' river</figcaption></figure>
+  <figure><img src="pictures/house-acorn.png?v=0.0.103" alt="The Acorn Cottage, its walls of logs."><figcaption>The Acorn Cottage, <i>Casula Glandis</i></figcaption></figure>
+  <figure><img src="pictures/house-mushroom.png?v=0.0.103" alt="The Mushroom Lodge: a spotted cap for a roof, half-timbered walls."><figcaption>The Mushroom Lodge, <i>Domus Fungorum</i></figcaption></figure>
 </section>
 </main></body>
 </html>
