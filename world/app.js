@@ -112,6 +112,7 @@
     S.lodges = byKind(13).map(q => ({ x: q.x, w: q.w, river: riverAt(q.x + q.w / 2) || riverAt(q.x + q.w + 3) || riverAt(q.x - 3) }));
     S.dams = byKind(14).map(q => { const R = riverAt(q.x + q.w / 2); const d = { x: q.x, w: q.w, logs: q.v, river: R, at: q.x + Math.floor(q.w / 2) }; if (R) R.dam = d; return d; });
     for (const d of S.dams) if (d.river) setLevel(h, d.river);
+    for (const R of S.rivers) plantRiver(R);
     S.beavers = byKind(15).map(q => ({ b: { x: q.x * 100, face: 1, job: 0, t: 40 + q.v * 35, tree: -1, lodge: q.x, dam: q.w, felled: -1, laid: false, cut: false }, px: q.x, py: 0, swing: q.v }));
     // the villages, deep under the ground
     S.rooms = []; S.ducts = []; S.lamps = []; S.items = []; S.villages = [];
@@ -128,7 +129,7 @@
     { const first = S.houses.filter(hs => !hs.small).sort((a, b) => b.row - a.row)[0]; if (first) S.items.push({ kind: "climb", x: first.x + 0.5 - first.side * 1.1, y: first.row - 0.55, taken: false }); }
     S.shrooms = byKind(53).map(q => ({ x: q.x, v: q.v }));
     S.flowers = byKind(54).map(q => ({ x: q.x, v: q.v, n: q.h }));
-    S.rootSets = []; S.threadSets = []; shapeSurface(); makeSquirrels(); buildTreeMask(); makeVillagers();
+    S.rootSets = []; S.threadSets = []; shapeSurface(); makeSquirrels(); buildTreeMask(); makeVillagers(); makeWild();
     S.rootPlan = [...S.greats.map(G => ({ x: G.x, row: G.foot, k: 150, seed: G.v })), ...S.trees.map(t => ({ x: t.x, row: surf0[t.x], k: 70 + t.h * 4 + (t.tall ? 30 : 0), seed: t.seed })),
       ...S.shrooms.map(m => ({ x: m.x, row: surf0[m.x], seed: m.x * 3 + m.v, kind: "shroom" }))];
     // roots: under each tree, spreading and thinning down; water goes down them faster
@@ -174,6 +175,8 @@
     const g0 = { x: 12500, y: top[12] * 1000 };
     S.start = g0;
     S.g = { x: g0.x, y: g0.y, vx: 0, vy: 0, face: 1, ground: true, climb: false, swim: false, under: false, air: 600, gear: false, tool: 0, dc: -1, dr: -1, dt: 0, ev: 0 };
+    // (Matthew: "let's have the upper left HUD show the total gems X / Y") this world's gems: how many there are, and found so far
+    S.gemTotal = 0; for (let i = 0; i < NN; i++) if (gem[i]) S.gemTotal++; S.found = 0; S.party = null; S.confetti = [];
     S.works = new Map(); S.hearts = 5; S.cam.set = false; S.smoke = []; S.parts = []; S.pebbles = []; S.piles = []; S.fallen = []; S.talk = null; rootChunks.clear(); S.minimapAt = -1e9; S.rain = 0; S.rainAt = S.frame + 60 * 60; S.banner = { text: "🌍 Gnome world", t: performance.now() };
   }
   const riverAt = x => S.rivers.find(R => x >= R.x - 0.5 && x < R.x + R.w + 0.5) || null;
@@ -333,7 +336,7 @@
     const water = wat[i] * PORES[m];
     mat[i] = AIR; bg[i] = B_DUG; wat[i] = water; shape[i] = 0; dirtyRootsAt(c, r);
     if (stone[i]) { dropStones(c, r, stone[i]); stone[i] = 0; }
-    if (gem[i]) { S.gems++; keep("gems", S.gems); popWord("💎", c + 0.5, r + 0.3); if (SND) SND.gem(); gem[i] = 0; }
+    if (gem[i]) { S.gems++; keep("gems", S.gems); gemFound(); popWord("💎", c + 0.5, r + 0.3); if (SND) SND.gem(); gem[i] = 0; }
     else if (SND && S.frame - (S.digSndAt || 0) > 8) { SND.dig(); S.digSndAt = S.frame; }
     for (let k = 0; k < 7; k++) S.parts.push({ x: c + 0.5, y: r + 0.5, vx: (rand() - 0.5) * 0.12, vy: -rand() * 0.12, life: 30 + rand() * 20, col: COLOR[m] });
     if (r <= top[c]) top[c] = topOf(c);
@@ -556,13 +559,46 @@
     else if (g.ev === 5 && SND) SND.low();
     // (a gem lying loose in an open tile, as some came to: picked up as the gnome goes through it)
     { const c = Math.floor(g.x / 1000), r = Math.floor((g.y - 500) / 1000), i = inside(c, r) ? at(c, r) : -1;
-      if (i >= 0 && gem[i] && mat[i] === AIR) { gem[i] = 0; S.gems++; keep("gems", S.gems); popWord("💎", c + 0.5, r + 0.3); if (SND) SND.gem(); } }
+      if (i >= 0 && gem[i] && mat[i] === AIR) { gem[i] = 0; S.gems++; keep("gems", S.gems); gemFound(); popWord("💎", c + 0.5, r + 0.3); if (SND) SND.gem(); } }
     // the diving gear, walked into
     for (const it of S.items) if (!it.taken && Math.abs(it.x - g.x / 1000) < 0.8 && Math.abs(it.y - (g.y / 1000 - 0.5)) < 1) { it.taken = true; if (SND) SND.gem();
       if (it.kind === "climb") S.g = { ...S.g, climbPack: true };
       else if (it.kind === "gear") S.g = { ...S.g, gear: true };
       else S.g = { ...S.g, tool: Math.max(S.g.tool || 0, it.kind === "super" ? 2 : 1) };
       S.banner = { text: ITEM[it.kind].banner, t: performance.now() }; }
+  }
+  // (Matthew: "is there a celebration when we get them all? what happens?") There was none. The last gem of the world found: a
+  // banner, Gnome dig's fanfare and its party tune, the gnome cheering, and its party: a burst of confetti, stars and bubbles
+  // round the gnome, fountains of them from the corners of the view for half a minute, then the music as it was
+  function gemFound() {
+    S.found = (S.found || 0) + 1;
+    if (S.gemTotal && S.found === S.gemTotal) { S.party = { t: performance.now(), burst: false };
+      S.banner = { text: `🎉 Every gem in the world: ${S.found} of ${S.gemTotal}! 💎`, t: performance.now() + 2500 };
+      if (SND) { SND.cleared(); if (SND.musicOn) SND.celebrate(); } }
+  }
+  const PARTY = ["#f43f5e", "#fb923c", "#facc15", "#4ade80", "#22d3ee", "#818cf8", "#e879f9", "#ffffff"];
+  function spray(n, x, y, vx0, vy0, spread) {
+    for (let i = 0; i < n && S.confetti.length < 500; i++) { const k = Math.random();
+      S.confetti.push({ kind: k < 0.62 ? 0 : k < 0.86 ? 1 : 2, x, y, vx: vx0 + (Math.random() - 0.5) * spread, vy: vy0 - Math.random() * spread * 0.6, rot: Math.random() * 6.3, vr: (Math.random() - 0.5) * 14, col: PARTY[Math.floor(Math.random() * PARTY.length)], z: 0.12 + Math.random() * 0.12, ph: Math.random() * 6.3, t: 0 }); }
+  }
+  function drawParty(s, now) {
+    const P = S.party; if (!P && !(S.confetti && S.confetti.length)) return; const c = ctx, dt = Math.min(0.05, (now - (S.partyAt || now)) / 1000); S.partyAt = now;
+    if (P) { const age = now - P.t, g = S.g, L = S.cam.x, B = S.cam.y + VH;
+      if (!P.burst) { P.burst = true; spray(140, g.x / 1000, g.y / 1000 - 1, 0, -9, 11); }
+      if (age < 30000) { const rate = age < 4000 ? 1 : 0.4; if (Math.random() < 0.7 * rate) spray(1, L + 0.6, B - 0.3, 6, -14, 3); if (Math.random() < 0.7 * rate) spray(1, L + VW - 0.6, B - 0.3, -6, -14, 3);
+        if (Math.random() < 0.25 * rate && S.confetti.length < 500) S.confetti.push({ kind: 2, x: L + Math.random() * VW, y: B, vx: 0, vy: -1.8 - Math.random(), rot: 0, vr: 0, col: "#e0f2fe", z: 0.1 + Math.random() * 0.12, ph: Math.random() * 6.3, t: 0 }); }
+      else { S.party = null; if (SND && SND.musicOn) SND.tune(0); } }
+    const keep = [];
+    for (const p of S.confetti) { p.t += dt;
+      if (p.kind === 2) { p.vy = Math.max(p.vy - 0.6 * dt, -2.8); p.x += (p.vx + Math.sin(p.t * 3 + p.ph) * 0.5) * dt; p.y += p.vy * dt; }
+      else { p.vy = Math.min(p.vy + 11 * dt, p.kind === 0 ? 2.6 : 4.5); p.vx *= 1 - 1.2 * dt; p.x += (p.vx + (p.kind === 0 ? Math.sin(p.t * 5 + p.ph) * 0.6 : 0)) * dt; p.y += p.vy * dt; p.rot += p.vr * dt; }
+      if (p.t > 8 || p.y > S.cam.y + VH + 2 || p.y < S.cam.y - 3) continue;
+      keep.push(p); const x = p.x * s, y = p.y * s, z = p.z * s;
+      if (p.kind === 0) { c.save(); c.translate(x, y); c.rotate(p.rot); c.scale(1, Math.cos(p.t * 9 + p.ph)); c.fillStyle = p.col; c.fillRect(-z, -z * 0.45, z * 2, z * 0.9); c.restore(); }
+      else if (p.kind === 1) { const tw = 0.75 + 0.25 * Math.sin(p.t * 14 + p.ph); c.fillStyle = p.col === "#ffffff" ? "#fef08a" : p.col; c.beginPath();
+        for (let i = 0; i < 10; i++) { const a = p.rot + i * Math.PI / 5, r = (i % 2 ? 0.45 : 1.15) * z * tw; if (i) c.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r); else c.moveTo(x + Math.cos(a) * r, y + Math.sin(a) * r); } c.closePath(); c.fill(); }
+      else { c.strokeStyle = "rgba(224,242,254,0.85)"; c.lineWidth = Math.max(1, s * 0.03); c.beginPath(); c.arc(x, y, z * 1.6, 0, 7); c.stroke(); } }
+    S.confetti = keep;
   }
   // ---- the boulders: one with open air under it wobbles, then falls (slower in the water), landing where it can fall no further;
   // falling on the gnome, a heart
@@ -646,7 +682,7 @@
     for (const t of S.trees) if (t.alive && t.grow < 1) t.grow = Math.min(1, t.grow + 1 / (60 * 60));
     for (const B of S.beavers) B.px += (B.b.x / 100 - B.px) * 0.18;
     if (S.frame % 9 === 0) for (const d of S.ducts) if (d.kind === 3) S.smoke.push({ x: d.x + 0.5 + (rand() - 0.5) * 0.2, y: d.y0 - 2.2, r: 0.18, life: 0, drift: 0.004 + rand() * 0.006 });
-    windStep(); houseSmoke(); squirrelsStep(); pebblesStep(); villagersStep(h);
+    windStep(); houseSmoke(); squirrelsStep(); pebblesStep(); villagersStep(h); wildStep();
     for (const s of S.smoke) { s.y -= 0.012; s.x += s.drift + S.windNow * 0.02; s.r += 0.006; s.life++; }
     S.smoke = S.smoke.filter(s => s.life < 200);
     for (const p of S.parts) { p.x += p.vx; p.y += p.vy; p.vy += 0.01; p.life--; }
@@ -1399,6 +1435,103 @@
       if (aw > 0.85 && Math.random() < 0.004 * aw && S.leaves.length < 160) S.leaves.push({ x: tx / s, y: ty / s, vy: 0.002, a: Math.random() * 6, life: 0, col: PETAL[f.v], petal: true });
     }
   }
+  // (Matthew: "rivers creeks and so on -- -should have aquatic plants anchored on the bottom, sometimes"; "let's also have lily
+  // pads that float on top with roots that extend down into the pond bed (or very edge of river)"; "lily pads have locus flowers
+  // --- realistic ones") Each river's plants, placed once from the river itself: here and there on its bed tape grass (long
+  // ribbons, where it is deep), pondweed (a stem of oval leaves) and milfoil (a stem in feathery whorls); in the shallows at its
+  // edges reeds and bulrushes standing up out of the water; and where the water is five rows deep or less, toward the banks,
+  // clumps of lily pads, each pad floating on the waves on its stem from a rhizome rooted in the bed; over some a lotus, its
+  // bloom held up out of the water on its own stalk, or a bud. None where a lodge stands.
+  function plantRiver(R) {
+    const r = seededR(R.x * 31 + R.w * 7 + R.kind), P = []; let j = 0; const q = () => r(j++);
+    for (let k = 0; k < R.w; k++) { const c = R.x + k, depth = R.bed[k] - R.level, edge = Math.min(k, R.w - 1 - k);
+      if (S.lodges.some(L => L.river === R && c >= L.x - 1 && c <= L.x + L.w)) continue;   // (a dam spans the channel, behind the water: plants grow before it)
+      if (edge <= 1 && depth <= 3 && q() < 0.7) P.push({ kind: "reed", k, x: c + 0.2 + q() * 0.6, n: 3 + Math.floor(q() * 4), cat: q() < 0.65, seed: q() * 100 });
+      else if (depth >= 1 && q() < 0.42) { const v = q(); P.push({ kind: depth >= 4 && v < 0.5 ? "tape" : v < 0.78 ? "pondweed" : "milfoil", k, x: c + 0.15 + q() * 0.7, n: 4 + Math.floor(q() * 5), hgt: 0.45 + q() * 0.4, seed: q() * 100 }); }
+      if (depth >= 1 && depth <= 5 && edge <= 4 && q() < 0.3) { const n = 2 + Math.floor(q() * 3), pads = [];
+        for (let i = 0; i < n; i++) pads.push({ x: Math.max(R.x + 0.4, Math.min(R.x + R.w - 0.4, c + 0.5 + (i - (n - 1) / 2) * (0.7 + q() * 0.35))), rx: 0.34 + q() * 0.2, notch: q() * 6.28, seed: q() * 100 });
+        P.push({ kind: "lily", k, x: c + 0.5, pads, lotus: q() < 0.5 ? (q() < 0.72 ? "bloom" : "bud") : null, lx: c + 0.3 + q() * 0.4, seed: q() * 100 }); } }
+    R.plants = P;
+  }
+  // (the water's surface over x, in tiles, as the water is drawn: the same waves)
+  const waterY = (R, x, now) => { const ww = S.windNow || 0, amp = 0.02 + 0.09 * Math.min(1.2, Math.abs(ww)), ph = now / 380 * (ww >= 0 ? -1 : 1); return R.level + amp * Math.sin(x * 1.9 + ph) + amp * 0.4 * Math.sin(x * 4.3 + ph * 1.7); };
+  // (the ground under x, in tiles: the first solid tile down from the water's surface, on a slope its diagonal under x; -1, none
+  // within the bed's depth and two more, as where the bed was dug away)
+  const bedOf = (R, x) => { const c = Math.floor(x), fx = x - c; if (c < 0 || c >= WW) return -1; const k = Math.max(0, Math.min(R.w - 1, c - R.x)), lim = (R.bed[k] ?? R.level) + 3;
+    for (let r = Math.max(0, R.level); r <= lim && r < WH; r++) { const i = at(c, r); if (mat[i] === AIR) continue; const sh = shape[i]; return sh === 1 ? r + 1 - fx : sh === 2 ? r + fx : r; } return -1; };
+  // under the water's surface, before the water is laid over them: the plants on the bed, the reeds, the lilies' stems and roots,
+  // the lotus's stalk
+  function drawRiverUnder(R, s, now) {
+    const c = ctx, cur = Math.sin(now / 1700 + R.x) * 0.5 + 0.5;   // (the current, now stronger, now weaker)
+    for (const P of R.plants) { const bed = bedOf(R, P.x); if (bed < 0) continue; const x0 = P.x * s, y0 = bed * s + s * 0.08, depth = bed - R.level;
+      if (P.kind === "tape") { for (let i = 0; i < P.n; i++) { const h = P.hgt * depth * (0.65 + 0.35 * Math.sin(P.seed + i * 2.1) ** 2) * s, sw = (0.12 + 0.18 * cur) * Math.sin(now / 900 + P.seed + i * 0.8) + 0.12, bx = x0 + (i - P.n / 2) * 0.05 * s;
+          taper(c, [bx, y0], [bx + sw * h * 0.35, y0 - h * 0.55], [bx + sw * h * 0.9, y0 - h], s * 0.06, s * 0.015, i % 3 === 0 ? "#5fb34a" : i % 3 === 1 ? "#86c95a" : "#4a9d3e"); } }
+      else if (P.kind === "pondweed" || P.kind === "milfoil") { const h = P.hgt * depth * s, sw = (0.08 + 0.1 * cur) * Math.sin(now / 1100 + P.seed) + 0.06;
+        const at2 = t => [x0 + sw * h * t * t, y0 - h * t];
+        c.strokeStyle = P.kind === "pondweed" ? "#8a9c38" : "#6aa84a"; c.lineWidth = Math.max(1, s * 0.03); c.beginPath(); c.moveTo(x0, y0); c.quadraticCurveTo(x0, y0 - h * 0.5, ...at2(1)); c.stroke();
+        const m = P.n + 3;
+        if (P.kind === "pondweed") for (let i = 1; i < m; i++) { const t = i / m, [lx, ly] = at2(t), side = i % 2 ? 1 : -1, a = side * (0.9 - 0.4 * t) - sw;
+          c.fillStyle = i % 3 === 0 ? "#b2c447" : "#93b83a"; c.beginPath(); c.ellipse(lx + side * s * 0.09, ly, s * 0.12 * (1 - 0.3 * t), s * 0.045, a, 0, 7); c.fill(); }
+        else { c.strokeStyle = "#9bd86e"; c.lineWidth = Math.max(1, s * 0.018); c.beginPath(); for (let i = 1; i < m; i++) { const t = i / m, [lx, ly] = at2(t), z = s * 0.14 * (1 - 0.4 * t);
+            for (let a = 0; a < 6; a++) { const an = a * Math.PI / 3 + i; c.moveTo(lx, ly); c.lineTo(lx + Math.cos(an) * z, ly + Math.sin(an) * z * 0.45 - z * 0.15); } } c.stroke(); } }
+      else if (P.kind === "reed") { const top = R.level - (0.7 + 0.5 * Math.sin(P.seed) ** 2), lean = sway(P.seed, 0.6);
+        for (let i = 0; i < P.n; i++) { const h = (bed - top) * s * (0.75 + 0.25 * Math.sin(P.seed + i * 1.7) ** 2), bx = x0 + (i - P.n / 2) * 0.06 * s, tx = bx + lean * h * 0.9 + (i - P.n / 2) * 0.05 * s;
+          taper(c, [bx, y0], [bx + (tx - bx) * 0.3, y0 - h * 0.6], [tx, y0 - h], s * 0.07, s * 0.01, i % 2 ? "#5d8a32" : "#7aa23e"); }
+        if (P.cat) { const h = (bed - top + 0.35) * s, tx = x0 + lean * h * 0.9;
+          c.strokeStyle = "#6a7d34"; c.lineWidth = Math.max(1, s * 0.035); c.beginPath(); c.moveTo(x0, y0); c.quadraticCurveTo(x0, y0 - h * 0.6, tx, y0 - h); c.stroke();
+          c.save(); c.translate(tx, y0 - h); c.rotate(lean * 0.9); c.fillStyle = "#6b4226"; c.beginPath(); c.roundRect(-s * 0.06, s * 0.02, s * 0.12, s * 0.34, s * 0.06); c.fill();
+          c.fillStyle = "rgba(255,255,255,0.12)"; c.fillRect(-s * 0.035, s * 0.05, s * 0.025, s * 0.28); c.strokeStyle = "#8a7a50"; c.lineWidth = Math.max(1, s * 0.015); c.beginPath(); c.moveTo(0, s * 0.02); c.lineTo(0, -s * 0.16); c.stroke(); c.restore(); } }
+      else if (P.kind === "lily") {
+        // (the rhizome along the bed, its roots down into it; a stem up to each pad, and to the lotus)
+        c.strokeStyle = "#5a4630"; c.lineWidth = Math.max(1, s * 0.07); c.lineCap = "round"; c.beginPath(); c.moveTo(x0 - s * 0.3, y0); c.quadraticCurveTo(x0, y0 - s * 0.05, x0 + s * 0.3, y0 + s * 0.02); c.stroke();
+        c.strokeStyle = "rgba(90,70,48,0.8)"; c.lineWidth = Math.max(1, s * 0.015); c.beginPath(); for (let i = 0; i < 6; i++) { const rx = x0 + (i - 2.5) * s * 0.1; c.moveTo(rx, y0 + s * 0.02); c.quadraticCurveTo(rx + Math.sin(P.seed + i) * s * 0.08, y0 + s * 0.2, rx + Math.sin(P.seed + i * 2) * s * 0.12, y0 + s * (0.3 + 0.15 * Math.sin(i + P.seed) ** 2)); } c.stroke();
+        c.strokeStyle = "#7d8f3a"; c.lineWidth = Math.max(1, s * 0.025);
+        for (const pd of P.pads) { const py = waterY(R, pd.x, now) * s; c.beginPath(); c.moveTo(x0 + (pd.x - P.x) * s * 0.25, y0); c.bezierCurveTo(x0 + (pd.x - P.x) * s * 0.4, y0 - (y0 - py) * 0.4, pd.x * s + Math.sin(now / 1300 + pd.seed) * s * 0.15, py + (y0 - py) * 0.3, pd.x * s, py + s * 0.03); c.stroke(); }
+        if (P.lotus) { const fy = (waterY(R, P.lx, now) - (P.lotus === "bloom" ? 0.85 : 0.65)) * s, lean = sway(P.seed, 0.5), fx = P.lx * s + lean * s * 0.6;
+          c.strokeStyle = "#6f8a3a"; c.lineWidth = Math.max(1, s * 0.035); c.beginPath(); c.moveTo(x0, y0); c.bezierCurveTo(x0, y0 - (y0 - fy) * 0.5, fx - lean * s * 0.4, fy + (y0 - fy) * 0.3, fx, fy); c.stroke();
+          P.at = [fx, fy, lean]; } else P.at = null;
+        c.lineCap = "butt"; } }
+  }
+  // over the water: the lily pads floating, rising and falling on the waves, each a flattened disc with its notch, its veins and
+  // its sheen; and the lotus over them
+  function drawRiverOver(R, s, now) {
+    const c = ctx;
+    for (const P of R.plants) { if (P.kind !== "lily" || bedOf(R, P.x) < 0) continue;
+      for (const pd of P.pads) { const x = pd.x * s, y = waterY(R, pd.x, now) * s, rx = pd.rx * s, ry = rx * 0.24, tilt = (waterY(R, pd.x + 0.2, now) - waterY(R, pd.x - 0.2, now)) * 1.2;
+        c.save(); c.translate(x, y); c.rotate(tilt);
+        c.fillStyle = "#2f5a22"; c.beginPath(); c.ellipse(0, ry * 0.45, rx, ry, 0, 0, 7); c.fill();   // (its rim, under)
+        const n0 = pd.notch, gap = 0.32; c.fillStyle = "#4f8f35"; c.beginPath(); c.moveTo(0, 0); c.ellipse(0, 0, rx, ry, 0, n0 + gap / 2, n0 + Math.PI * 2 - gap / 2); c.closePath(); c.fill();
+        c.strokeStyle = "rgba(170,210,120,0.55)"; c.lineWidth = Math.max(1, s * 0.012); c.beginPath(); for (let v = 0; v < 7; v++) { const a = n0 + gap + v * (Math.PI * 2 - 2 * gap) / 6; c.moveTo(0, 0); c.lineTo(Math.cos(a) * rx * 0.85, Math.sin(a) * ry * 0.85); } c.stroke();
+        c.strokeStyle = "rgba(220,240,200,0.5)"; c.beginPath(); c.ellipse(0, 0, rx * 0.92, ry * 0.8, 0, Math.PI * 1.1, Math.PI * 1.75); c.stroke();
+        c.restore(); }
+      if (P.at) lotus(c, P.at[0], P.at[1], s * (P.lotus === "bud" ? 0.32 : 0.44), P.at[2], P.lotus === "bud", P.seed, now); }
+  }
+  // (Matthew: "lily pads have locus flowers --- realistic ones") A sacred lotus from the side: its petals broad and pointed,
+  // white at the base flushing to rose at the tips, each veined; the back petals splayed, the outer ones opened out level,
+  // the inner ones upright round the flat-topped seed pod, yellow-green and pitted, a ring of golden stamens round it; two
+  // front petals over it all; green sepals under. A bud: a tight rose teardrop on its green cup.
+  function lotus(c, x, y, z, lean, bud, seed, now) {
+    c.save(); c.translate(x, y); c.rotate(lean * 0.6 + Math.sin(now / 1500 + seed) * 0.03);
+    const petal = (a, len, wid, deep, front) => { c.save(); c.rotate(a); const g = c.createLinearGradient(0, 0, 0, -len); g.addColorStop(0, "#fff7fa"); g.addColorStop(0.55, deep ? "#f6b9cf" : "#fbd3e1"); g.addColorStop(1, deep ? "#d9467f" : "#e8709c");
+      c.fillStyle = g; c.beginPath(); c.moveTo(0, 0); c.bezierCurveTo(-wid, -len * 0.25, -wid * 0.9, -len * 0.8, 0, -len); c.bezierCurveTo(wid * 0.9, -len * 0.8, wid, -len * 0.25, 0, 0); c.fill();
+      c.strokeStyle = deep ? "rgba(170,40,90,0.35)" : "rgba(190,60,110,0.28)"; c.lineWidth = Math.max(0.6, z * 0.025); c.beginPath(); for (const v of [-0.45, 0, 0.45]) { c.moveTo(0, -len * 0.06); c.quadraticCurveTo(v * wid * 0.8, -len * 0.5, v * wid * 0.3, -len * 0.93); } c.stroke();
+      if (front) { c.strokeStyle = "rgba(255,255,255,0.5)"; c.lineWidth = Math.max(0.6, z * 0.03); c.beginPath(); c.moveTo(-wid * 0.3, -len * 0.2); c.quadraticCurveTo(-wid * 0.55, -len * 0.55, -wid * 0.15, -len * 0.85); c.stroke(); }
+      c.restore(); };
+    // (the sepals, green, under the flower)
+    c.fillStyle = "#5f8a34"; for (const a of [-0.9, 0.9]) { c.save(); c.rotate(a); c.beginPath(); c.ellipse(0, -z * 0.15, z * 0.12, z * 0.3, 0, 0, 7); c.fill(); c.restore(); }
+    if (bud) { const g = c.createLinearGradient(0, 0, 0, -z * 1.3); g.addColorStop(0, "#f7d6e2"); g.addColorStop(1, "#d9467f"); c.fillStyle = g; c.beginPath(); c.moveTo(0, 0); c.bezierCurveTo(-z * 0.5, -z * 0.35, -z * 0.35, -z * 1.0, 0, -z * 1.3); c.bezierCurveTo(z * 0.35, -z * 1.0, z * 0.5, -z * 0.35, 0, 0); c.fill();
+      c.strokeStyle = "rgba(170,40,90,0.4)"; c.lineWidth = Math.max(0.6, z * 0.03); c.beginPath(); c.moveTo(0, -z * 0.1); c.quadraticCurveTo(z * 0.12, -z * 0.7, 0, -z * 1.25); c.moveTo(-z * 0.2, -z * 0.15); c.quadraticCurveTo(-z * 0.25, -z * 0.7, -z * 0.04, -z * 1.2); c.stroke(); c.restore(); return; }
+    for (const a of [-1.05, -0.55, 0.55, 1.05]) petal(a, z * 1.05, z * 0.36, true, false);   // (the back petals, splayed)
+    for (const a of [-1.45, 1.45]) petal(a, z * 0.95, z * 0.34, true, false);   // (the outer ones, opened out level)
+    for (const a of [-0.28, 0.28]) petal(a, z * 0.95, z * 0.3, false, false);   // (the inner ones, upright)
+    // (the seed pod: flat-topped, yellow-green, pitted; the stamens round it)
+    c.strokeStyle = "#f2c230"; c.lineWidth = Math.max(0.6, z * 0.035); c.beginPath(); for (let i = 0; i < 11; i++) { const a = -Math.PI / 2 + (i - 5) * 0.2; c.moveTo(0, -z * 0.32); c.lineTo(Math.cos(a) * z * 0.36, -z * 0.32 + Math.sin(a) * z * 0.28); } c.stroke();
+    c.fillStyle = "#c9c94a"; c.beginPath(); c.moveTo(-z * 0.2, -z * 0.5); c.lineTo(z * 0.2, -z * 0.5); c.lineTo(z * 0.12, -z * 0.3); c.lineTo(-z * 0.12, -z * 0.3); c.closePath(); c.fill();
+    c.fillStyle = "#e5e07a"; c.beginPath(); c.ellipse(0, -z * 0.5, z * 0.2, z * 0.05, 0, 0, 7); c.fill(); c.fillStyle = "#8a8a2a"; for (const dx of [-0.1, 0, 0.1]) { c.beginPath(); c.arc(dx * z, -z * 0.5, z * 0.018, 0, 7); c.fill(); }
+    for (const a of [-0.62, 0.62]) petal(a, z * 0.82, z * 0.32, false, true);   // (the front petals, over it all)
+    petal(0, z * 0.7, z * 0.28, false, true);
+    c.restore();
+  }
   // a mushroom on the land: a fly agaric (red, flecked white) or a bolete (brown, stout)
   function drawShroom(m, x, y) {
     const c = ctx, s0 = T * (0.7 + (m.x % 3) * 0.12);
@@ -1706,9 +1839,10 @@
     S.squirrels = []; const rr = seededR(S.seed * 3 + 11); let id = 0;
     const homes = [...S.greats.map(G => { const C = greatCrown(G, 1), topY = -G.h * 0.74;
         C.segs.push({ P: [[0, -0.1], [0.15, topY * 0.33], [-0.1, topY * 0.66], [0, topY + 0.4]], w0: 3, w1: 1 }, { P: [[-4.5, 0], [-1.5, 0], [1.5, 0], [4.5, 0]], w0: 2.5, w1: 2.5 });
-        const B = greatBox(G); return { n: 3, graph: treeGraph(C.segs, G.x + 0.5, G.foot), oy: G.foot, spH: B.h, spOy: B.oy, lean: () => sway(G.v, 0.18) }; }),
+        const B = greatBox(G); return { n: 3, graph: treeGraph(C.segs, G.x + 0.5, G.foot), cx: G.x + 0.5, half: G.half + 0.4, oy: G.foot, spH: B.h, spOy: B.oy, lean: () => sway(G.v, 0.18) }; }),
       ...S.trees.filter(t => t.tall).map(t => { const hT = t.h * 1.45, C = tallCrown(t, hT, 1); C.segs.push({ P: [[-3, 0], [-1, 0], [1, 0], [3, 0]], w0: 0.5, w1: 0.5 });
-        const B = tallBox(t); return { n: 1, tree: t, graph: treeGraph(C.segs, t.x + 0.5, surf0[t.x]), oy: surf0[t.x], spH: B.h, spOy: B.oy, lean: () => sway(t.seed, 1) }; })];
+        const B = tallBox(t); return { n: 1, tree: t, graph: treeGraph(C.segs, t.x + 0.5, surf0[t.x]), cx: t.x + 0.5, half: 0.5, oy: surf0[t.x], spH: B.h, spOy: B.oy, lean: () => sway(t.seed, 1) }; })];
+    S.treeHomes = homes;   // (the birds perch along these limbs too)
     for (const H of homes) for (let k = 0; k < H.n; k++) { const at = Math.floor(rr(id * 5 + 1) * H.graph.pts.length);
       S.squirrels.push({ H, id: id++, at, to: at, prev: -1, f: 0, wait: Math.floor(rr(id * 5 + 2) * 120), face: 1, kind: rr(id * 5 + 3) < 0.3 ? 1 : 0 }); }
   }
@@ -1758,6 +1892,225 @@
       ell(dark, -0.1 - 0.05 * ph, -0.035, 0.065, 0.032); ell(fur, 0, -0.12 - lift, 0.19 * st, 0.095); ell(belly, 0.03, -0.075 - lift, 0.12, 0.035);
       ell(dark, 0.13 + 0.05 * ph, -0.03, 0.045, 0.024); head(0.2 + 0.03 * ph, -0.18 - lift); }
     if (q.scold && S.frame - q.scold < 40) { c.strokeStyle = "#222"; c.lineWidth = Math.max(1, s / 30); c.beginPath(); for (const k of [0, 1]) { c.moveTo((0.28 + k * 0.08) * s, (-0.32 - k * 0.04) * s); c.lineTo((0.33 + k * 0.08) * s, (-0.42 - k * 0.04) * s); } c.stroke(); }
+  }
+  // ---- (Matthew: "and let's add insects, and frogs"; "and birds"; "birds fly; they land in tree branches, and they swim on the
+  // water. hawks. sparrows blue jays robins ducks swans") The wildlife, as the squirrels are: placed once from the world, each
+  // stepped only while near the view, shy of the gnome.
+  //  - frogs on the lily pads (one to a clump, three to a river at most) or, on a river with none, its bank: sitting, a croak now
+  //    and then, the throat puffed out; a hop to another pad now and then; the gnome near, a leap into the water, a swim under it
+  //    and up onto the pad furthest from it; a flick of the tongue at an insect that comes close, and the insect gone
+  //  - insects: dragonflies over each river, darting and hovering; butterflies (monarch, brimstone, cabbage white, common blue)
+  //    and bumblebees about the flowers, settling on them now and then
+  //  - birds: sparrows in little flocks by the bushes and robins on the open grass, hopping and pecking, up into the trees when
+  //    the gnome comes and down again once it has gone; blue jays in the branches, hopping limb to limb, now and then off to
+  //    another tree; two hawks soaring in wide circles high over the gnome's part of the world, now and then resting at the top
+  //    of a great tree; mallards on every river, drakes and hens, paddling, dabbling tail up, away from the gnome; two swans on
+  //    the river, gliding
+  const WILD = { callAt: -1e9 };
+  const wildCall = (name, x, y) => { const g = S.g; if (!SND || !SND[name] || S.frame - WILD.callAt < 90 || !g || Math.hypot(x - g.x / 1000, y - g.y / 1000) > 12) return; WILD.callAt = S.frame; SND[name](); };
+  const viewNear = (x, m = 8) => x > S.cam.x - m && x < S.cam.x + VW + m;
+  function makeWild() {
+    const rr = seededR(S.seed * 5 + 77); let j = 0; const q = () => rr(j++);
+    S.frogs = []; S.bugs = []; S.birds = [];
+    for (const R of S.rivers) { const lilies = (R.plants || []).filter(P => P.kind === "lily");
+      for (const P of lilies.slice(0, 3)) { const pd = P.pads[Math.floor(q() * P.pads.length)]; S.frogs.push({ R, pad: pd, x: pd.x, y: R.level, mode: "sit", face: q() < 0.5 ? -1 : 1, wait: 60 + Math.floor(q() * 300), croak: -1e9, tongue: -1e9, id: j }); }
+      if (!lilies.length && q() < 0.7) { const side = q() < 0.5 ? -1 : 1, c = side < 0 ? R.x - 1 : R.x + R.w; S.frogs.push({ R, pad: null, bank: c + 0.5, x: c + 0.5, y: landY(c), mode: "sit", face: -side, wait: 100, croak: -1e9, tongue: -1e9, id: j }); }
+      for (let k = 0; k < Math.min(3, 1 + Math.floor(R.w / 6)); k++) S.bugs.push({ kind: "dragon", hx: R.x + R.w * (0.2 + 0.6 * q()), hw: Math.max(1.5, R.w / 2), hy: R.level, x: R.x + R.w / 2, y: R.level - 1, tx: R.x + R.w / 2, ty: R.level - 1, wait: 0, col: ["#2e7bd6", "#c8322a", "#1f9e8a"][Math.floor(q() * 3)], id: j++ }); }
+    for (const f of S.flowers) if (q() < 0.3) { const fly = q() < 0.65; S.bugs.push({ kind: fly ? "fly" : "bee", hx: f.x + 0.5, hw: 3, hy: landY(f.x), x: f.x + 0.5, y: landY(f.x) - 1, tx: f.x + 0.5, ty: landY(f.x) - 1, vx: 0, vy: 0, wait: 0, rest: 0,
+      col: fly ? ["monarch", "brimstone", "white", "blue"][Math.floor(q() * 4)] : "bee", id: j++ }); }
+    // (where a bird perches: along the limbs of the great and tall trees, away from the trunk's foot; and atop each small tree)
+    S.perches = []; for (const H of S.treeHomes || []) H.graph.pts.forEach((p, i) => { if (p[1] < H.oy - 2.5 && H.graph.nb[i].length <= 2 && Math.abs(p[0] - H.cx) > H.half + 0.6) S.perches.push({ H, i }); });   // (out on a limb, not on the trunk)
+    for (const t of S.trees) if (!t.tall && t.kind !== 4) S.perches.push({ tree: t });
+    const P = S.perches, perch = () => P[Math.floor(q() * P.length)];
+    if (P.length) for (let k = 0; k < Math.min(12, Math.floor(P.length / 10)); k++) { const pr = perch(); S.birds.push({ kind: "jay", mode: "perch", perch: pr, x: 0, y: 0, face: q() < 0.5 ? -1 : 1, wait: 60 + Math.floor(q() * 400), id: j++ }); }
+    const ground = (kind, x) => { const c = Math.max(1, Math.min(WW - 2, Math.floor(x))); return { kind, mode: "ground", home: c + 0.5, x: c + 0.5, y: landY(c), face: q() < 0.5 ? -1 : 1, wait: Math.floor(q() * 120), hop: null, peck: 0, id: j++ }; };
+    for (const b of S.bushes) if (q() < 0.35 && !riverAt(b.x)) { const n = 3 + Math.floor(q() * 3); for (let i = 0; i < n; i++) S.birds.push(ground("sparrow", b.x + (q() - 0.5) * 3)); }
+    for (let x = 6; x < WW - 6; x += 9) if (q() < 0.35 && !riverAt(x) && !riverAt(x + 3)) S.birds.push(ground("robin", x + q() * 3));
+    for (let k = 0; k < 2; k++) S.birds.push({ kind: "hawk", mode: "soar", cx: 12 + k * 30, r: 6 + q() * 4, a: q() * 6.28, x: 12, y: 10, face: 1, wait: 1200 + Math.floor(q() * 1800), id: j++ });
+    for (const R of S.rivers) { const n = R.w >= 8 ? 2 + Math.floor(q() * 3) : q() < 0.5 ? 1 : 0;
+      for (let i = 0; i < n; i++) S.birds.push({ kind: "duck", R, mode: "swim", x: R.x + 0.8 + q() * (R.w - 1.6), tx: 0, face: q() < 0.5 ? -1 : 1, hen: i % 2 === 1, dab: 0, wait: Math.floor(q() * 200), id: j++ });
+      if (R.name === "the river") for (let i = 0; i < 2; i++) S.birds.push({ kind: "swan", R, mode: "swim", x: R.x + 2 + i * 1.6 + q() * 2, tx: 0, face: 1, dab: 0, wait: Math.floor(q() * 300), id: j++ }); }
+  }
+  // (a perch's place now, in tiles, swaying with its tree as the squirrels do)
+  function perchAt(pr) {
+    if (pr.H) { const H = pr.H, p = H.graph.pts[pr.i], v = (H.spOy - (H.oy - p[1])) / H.spH; return [p[0] + (1 - v) * (1 - v) * H.lean() * H.spH, p[1] - 0.06]; }
+    const t = pr.tree; if (!t.alive) return null; const hT = t.h * (t.kind === 1 ? 1.05 : 0.93) * t.grow; return [t.x + 0.5 + sway(t.seed, t.kind === 1 ? 0.6 : 1) * hT * 1.2, surf0[t.x] - hT];
+  }
+  const flyTo = (b, x1, y1, then) => { b.fly = { x0: b.x, y0: b.y, x1, y1, t: 0, dur: Math.max(30, Math.hypot(x1 - b.x, y1 - b.y) * (b.kind === "hawk" ? 9 : 6)), then }; b.mode = "fly"; b.face = x1 >= b.x ? 1 : -1; };
+  function wildStep() {
+    const g = S.g; if (!g || !S.birds) return; const gx = g.x / 1000, gy = g.y / 1000 - 0.5, wet = g.swim || g.under;
+    // frogs
+    for (const f of S.frogs) { if (!viewNear(f.x)) continue; const R = f.R, d = Math.hypot(f.x - gx, f.y - gy);
+      if (f.mode === "jump") { const J = f.jump; J.t += 1 / J.dur; f.x = J.x0 + (J.x1 - J.x0) * J.t; f.y = J.y0 + (J.y1 - J.y0) * J.t - Math.sin(Math.PI * Math.min(1, J.t)) * J.h;
+        if (J.t >= 1) { f.x = J.x1; f.y = J.y1; f.mode = J.into; if (J.into === "swim" && SND && d < 10 && S.frame - (WILD.plopAt || 0) > 30) { WILD.plopAt = S.frame; SND.splash(); } f.wait = 40 + Math.floor(rand() * 200); } continue; }
+      if (f.mode === "swim") { const pads = R.plants.flatMap(P => P.kind === "lily" ? P.pads : []), aim = pads.length ? pads.reduce((a, b) => Math.abs(b.x - gx) > Math.abs(a.x - gx) ? b : a) : null;
+        const tx = aim ? aim.x : f.bank ?? f.x, ty = R.level + 0.55; f.face = tx >= f.x ? 1 : -1; f.x += Math.sign(tx - f.x) * Math.min(0.035, Math.abs(tx - f.x)); f.y += (ty - f.y) * 0.08;
+        if (Math.abs(tx - f.x) < 0.05 && d > 4 && --f.wait <= 0) { f.pad = aim; f.jump = { x0: f.x, y0: f.y, x1: tx, y1: waterY(R, tx, performance.now()) - 0.04, t: 0, dur: 24, h: 0.6, into: "sit" }; f.mode = "jump"; } continue; }
+      // (sitting: riding its pad on the waves, or on the bank)
+      if (f.pad) { f.x = f.pad.x; f.y = waterY(R, f.pad.x, performance.now()) - 0.04; } else f.y = landY(Math.floor(f.x));
+      if (d < (wet ? 3.5 : 2.5)) { const away = f.x >= gx ? 1 : -1, tx = Math.max(R.x + 0.4, Math.min(R.x + R.w - 0.4, f.x + away * (0.8 + rand() * 0.8)));
+        f.face = away; f.jump = { x0: f.x, y0: f.y, x1: tx, y1: R.level + 0.4, t: 0, dur: 26, h: 0.7, into: "swim" }; f.mode = "jump"; f.pad = null; f.wait = 90; continue; }
+      if (rand() < 0.0035) { f.croak = S.frame; wildCall("croak", f.x, f.y); }
+      const bug = S.bugs.find(b => !b.gone && Math.abs(b.x - (f.x + f.face * 0.5)) < 0.7 && f.y - b.y > -0.2 && f.y - b.y < 1.2);
+      if (bug && S.frame - f.tongue > 60) { f.tongue = S.frame; f.tx = bug.x; f.ty = bug.y; bug.gone = S.frame; }
+      if (--f.wait <= 0 && f.pad) { f.wait = 300 + Math.floor(rand() * 600); const pads = R.plants.flatMap(P => P.kind === "lily" ? P.pads : []).filter(p => p !== f.pad && Math.abs(p.x - f.x) < 2.6);
+        if (pads.length) { const to = pads[Math.floor(rand() * pads.length)]; f.face = to.x >= f.x ? 1 : -1; f.jump = { x0: f.x, y0: f.y, x1: to.x, y1: waterY(R, to.x, performance.now()) - 0.04, t: 0, dur: 28, h: 0.75, into: "sit" }; f.mode = "jump"; f.pad = to; } } }
+    // insects
+    for (const b of S.bugs) { if (!viewNear(b.hx)) continue;
+      if (b.gone) { if (S.frame - b.gone > 900) { b.gone = 0; b.x = b.hx; b.y = b.hy - 1.5; } continue; }
+      if (b.kind === "dragon") { if (--b.wait <= 0) { b.tx = b.hx + (rand() - 0.5) * 2 * b.hw; b.ty = b.hy - 0.35 - rand() * 1.6; b.wait = 30 + Math.floor(rand() * 90); }
+        const k = Math.hypot(b.tx - b.x, b.ty - b.y) > 0.05 ? 0.12 : 0; b.x += (b.tx - b.x) * k; b.y += (b.ty - b.y) * k + Math.sin(S.frame / 7 + b.id) * 0.004; if (Math.abs(b.tx - b.x) > 0.05) b.face = b.tx > b.x ? 1 : -1; continue; }
+      if (b.rest > 0) { b.rest--; continue; }
+      const fast = b.kind === "bee" ? 0.05 : 0.03, flee = Math.hypot(b.x - gx, b.y - gy) < 1.5;
+      if (--b.wait <= 0) { b.wait = (b.kind === "bee" ? 20 : 50) + Math.floor(rand() * 80);
+        if (!flee && rand() < (b.kind === "bee" ? 0.35 : 0.2)) { const fl = S.flowers.filter(f => Math.abs(f.x + 0.5 - b.hx) < b.hw && top[f.x] >= surf0[f.x]); if (fl.length) { const f = fl[Math.floor(rand() * fl.length)]; b.tx = f.x + 0.5 + (rand() - 0.5) * 0.4; b.ty = landY(f.x) - 0.5; b.land = true; } }
+        else { b.tx = b.hx + (rand() - 0.5) * 2 * b.hw; b.ty = b.hy - 0.5 - rand() * 2.2; b.land = false; } }
+      b.vx += Math.sign(b.tx - b.x) * fast * 0.12 + (rand() - 0.5) * 0.01; b.vy += Math.sign(b.ty - b.y) * fast * 0.1 + (rand() - 0.5) * 0.012; b.vx *= 0.9; b.vy *= 0.9;
+      if (flee) { b.vx += Math.sign(b.x - gx) * 0.01; b.vy -= 0.006; }
+      b.x += b.vx; b.y += b.vy; if (Math.abs(b.vx) > 0.004) b.face = b.vx > 0 ? 1 : -1;
+      if (b.land && Math.hypot(b.tx - b.x, b.ty - b.y) < 0.12) { b.x = b.tx; b.y = b.ty; b.vx = b.vy = 0; b.rest = 90 + Math.floor(rand() * 200); b.land = false; } }
+    // birds
+    for (const b of S.birds) {
+      if (b.kind === "hawk") { b.cx += (gx - b.cx) * 0.0015;
+        if (b.mode === "soar") { b.a += 0.006; const c = Math.max(0, Math.min(WW - 1, Math.round(b.cx))), base = Math.min(surf0[c], S.cam.y + VH * 0.5) - 9;
+          const nx = b.cx + Math.cos(b.a) * b.r * 1.6, ny = base + Math.sin(b.a) * b.r * 0.3; b.face = nx >= b.x ? 1 : -1; b.x = nx; b.y = ny;
+          if (--b.wait <= 0) { const G = S.greats.filter(G => Math.abs(G.x - b.x) < 30).sort((a, c2) => Math.abs(a.x - b.x) - Math.abs(c2.x - b.x))[0];
+            if (G) { b.rest = G; flyTo(b, G.x + 0.5, G.foot - G.h * 0.74 - 0.9, "rest"); wildCall("hawk", b.x, b.y); } else b.wait = 900; } }
+        else if (b.mode === "fly") stepFlight(b);
+        else if (b.mode === "rest") { if (--b.wait <= 0 || Math.hypot(b.x - gx, b.y - gy) < 3) { b.wait = 1500 + Math.floor(rand() * 2000); b.a = Math.atan2((b.y - (surf0[Math.round(b.cx)] - 9)) / 0.3, (b.x - b.cx) / 1.6) || 0; flyTo(b, b.cx + Math.cos(b.a) * b.r * 1.6, b.y - 3, "soar"); } }
+        continue; }
+      if (b.kind === "duck" || b.kind === "swan") { const R = b.R; if (!viewNear(R.x + R.w / 2, 14)) continue; const near = Math.abs(b.x - gx) < (wet ? 3.5 : 2.2) && gy > R.level - 2.5;
+        if (near) { b.tx = gx < R.x + R.w / 2 ? R.x + R.w - 0.6 : R.x + 0.6; b.dab = 0; if (rand() < 0.02) wildCall(b.kind === "duck" ? "quack" : "honk", b.x, R.level); }
+        else if (--b.wait <= 0) { b.wait = 120 + Math.floor(rand() * 400); b.tx = R.x + 0.7 + rand() * (R.w - 1.4); if (b.kind === "duck" && rand() < 0.35) b.dab = 70 + Math.floor(rand() * 60); if (rand() < 0.15) wildCall(b.kind === "duck" ? "quack" : "honk", b.x, R.level); }
+        if (b.dab > 0) { b.dab--; continue; }
+        const sp = (near ? 0.04 : 0.012) * (b.kind === "swan" ? 0.8 : 1); if (Math.abs(b.tx - b.x) > 0.05) { b.face = b.tx > b.x ? 1 : -1; b.x += Math.sign(b.tx - b.x) * Math.min(sp, Math.abs(b.tx - b.x)); }
+        continue; }
+      if (!viewNear(b.mode === "fly" ? b.fly.x1 : b.x, 14) && !viewNear(b.x, 14)) continue;
+      const scare = Math.hypot(b.x - gx, b.y - gy) < (b.kind === "jay" ? 2.2 : 3);
+      if (b.mode === "fly") { stepFlight(b); continue; }
+      if (b.mode === "perch") { const at = perchAt(b.perch); if (!at) { b.mode = "ground"; b.home = b.x; continue; } b.x = at[0]; b.y = at[1];
+        if (scare || --b.wait <= 0) { b.wait = 200 + Math.floor(rand() * 500);
+          if (b.home != null && !scare && Math.hypot(b.home - gx, landY(Math.floor(b.home)) - gy) > 6) { flyTo(b, b.home, landY(Math.floor(b.home)), "ground"); continue; }
+          const opts = S.perches.filter(pr => pr !== b.perch && (() => { const a = perchAt(pr); return a && Math.abs(a[0] - b.x) < (scare ? 12 : 7) && Math.hypot(a[0] - gx, a[1] - gy) > 4; })());
+          if (opts.length) { const pr = opts[Math.floor(rand() * opts.length)], a = perchAt(pr); b.perch = pr; flyTo(b, a[0], a[1], "perch"); if (rand() < 0.4) wildCall(b.kind === "jay" ? "jay" : b.kind === "robin" ? "robin" : "chirp", b.x, b.y); } }
+        continue; }
+      // (on the ground: hops and pecks; the gnome near, up into the nearest tree away from it)
+      b.y = landY(Math.max(0, Math.min(WW - 1, Math.floor(b.x))));
+      if (scare) { const opts = S.perches.map(pr => [pr, perchAt(pr)]).filter(([, a]) => a && Math.abs(a[0] - b.x) < 12 && Math.hypot(a[0] - gx, a[1] - gy) > 4).sort((p1, p2) => Math.abs(p1[1][0] - b.x) - Math.abs(p2[1][0] - b.x));
+        if (opts.length) { const [pr, a] = opts[Math.floor(rand() * Math.min(3, opts.length))]; b.perch = pr; b.wait = 300 + Math.floor(rand() * 300); flyTo(b, a[0], a[1], "perch"); wildCall(b.kind === "robin" ? "robin" : "chirp", b.x, b.y); continue; } }
+      if (b.hop) { b.hop.t += 1 / 10; b.x = b.hop.x0 + (b.hop.x1 - b.hop.x0) * Math.min(1, b.hop.t); if (b.hop.t >= 1) b.hop = null; continue; }
+      if (b.peck > 0) { b.peck--; continue; }
+      if (--b.wait <= 0) { b.wait = 20 + Math.floor(rand() * 90); if (rand() < 0.45) b.peck = 18 + Math.floor(rand() * 20);
+        else { const dx = (rand() < 0.5 ? -1 : 1) * (0.15 + rand() * 0.25), to = Math.abs(b.x + dx - b.home) > 3 ? b.x - dx : b.x + dx, c = Math.floor(to);
+          if (c > 0 && c < WW - 1 && !riverAt(to) && Math.abs(landY(c) - b.y) < 0.6) { b.face = to > b.x ? 1 : -1; b.hop = { x0: b.x, x1: to, t: 0 }; } } } }
+  }
+  function stepFlight(b) {
+    const F = b.fly; F.t += 1 / F.dur; const t = Math.min(1, F.t), e = t * t * (3 - 2 * t), arc = Math.sin(Math.PI * t) * Math.min(2, Math.hypot(F.x1 - F.x0, F.y1 - F.y0) * 0.25);
+    b.x = F.x0 + (F.x1 - F.x0) * e; b.y = F.y0 + (F.y1 - F.y0) * e - arc;
+    if (F.t >= 1) { b.mode = F.then; b.x = F.x1; b.y = F.y1; if (b.mode === "rest") b.wait = 600 + Math.floor(rand() * 900); }
+  }
+  // ---- drawing the wildlife
+  // (a frog from the side, facing right: sitting, its long hind leg folded under it, eye up on its head, throat puffed when it
+  // croaks, the tongue out to an insect; leaping, stretched out; swimming, its legs kicking)
+  function drawFrog(f, s, now) {
+    const c = ctx, u = s * 0.62, x = f.x * s, y = f.y * s, G = "#5aa13a", Gd = "#3f7d28", spot = "#2f6a24", belly = "#dfe9a8";
+    const E = (col, ex, ey, rx, ry, a = 0) => { c.fillStyle = col; c.beginPath(); c.ellipse(ex * u, ey * u, rx * u, ry * u, a, 0, 7); c.fill(); };
+    c.save(); c.translate(x, y); c.scale(f.face, 1);
+    if (f.mode === "jump" || f.mode === "swim") { const J = f.jump, ang = f.mode === "jump" ? Math.atan2((J.y1 - J.y0) - Math.cos(Math.PI * Math.min(1, J.t)) * Math.PI * J.h, Math.abs(J.x1 - J.x0) + 0.01) * 0.6 : 0, k = f.mode === "swim" ? Math.sin(now / 120) : 1;
+      c.translate(0, -0.2 * u); c.rotate(ang);
+      for (const side of [-1, 1]) { const ext = 0.45 + 0.25 * k * side * (f.mode === "swim" ? 1 : 0); c.strokeStyle = side < 0 ? Gd : G; c.lineWidth = 0.1 * u; c.lineCap = "round"; c.beginPath(); c.moveTo(-0.25 * u, 0); c.lineTo(-(0.25 + ext * 0.6) * u, (0.05 + side * 0.05) * u); c.lineTo(-(0.25 + ext * 1.3) * u, (0.02 + side * 0.08) * u); c.stroke();
+        E(side < 0 ? Gd : G, -(0.3 + ext * 1.3), 0.02 + side * 0.08, 0.1, 0.035, 0.3); }
+      E(G, 0, 0, 0.42, 0.17); E(belly, 0.05, 0.08, 0.3, 0.07); E(G, 0.38, -0.03, 0.18, 0.13); for (const [sx, sy] of [[-0.15, -0.08], [0.05, -0.1], [-0.28, -0.02]]) E(spot, sx, sy, 0.05, 0.035);
+      E(G, 0.38, -0.14, 0.08, 0.07); E("#e8c43a", 0.39, -0.15, 0.055, 0.05); E("#111", 0.395, -0.15, 0.04, 0.02);
+      c.strokeStyle = G; c.lineWidth = 0.07 * u; c.beginPath(); c.moveTo(0.25 * u, 0.08 * u); c.lineTo(0.5 * u, 0.18 * u); c.stroke(); c.lineCap = "butt"; c.restore(); return; }
+    // sitting
+    E(Gd, -0.02, -0.03, 0.3, 0.06, 0.08); E(Gd, 0.28, -0.03, 0.09, 0.035);   // (the far foot, the near hand's toes)
+    E(G, -0.2, -0.16, 0.26, 0.15, -0.35);   // (the thigh, folded)
+    E(G, 0.02, -0.3, 0.4, 0.22, -0.4); E(belly, 0.12, -0.2, 0.26, 0.11, -0.35);   // (the body, its belly)
+    E(G, 0.33, -0.47, 0.21, 0.15, -0.12);   // (the head)
+    for (const [sx, sy, r] of [[-0.12, -0.42, 0.05], [0.04, -0.47, 0.04], [-0.27, -0.24, 0.045], [0.1, -0.36, 0.03], [-0.25, -0.12, 0.035]]) E(spot, sx, sy, r, r * 0.75);
+    E(G, 0.33, -0.6, 0.1, 0.09); E("#e8c43a", 0.34, -0.61, 0.072, 0.066); E("#111", 0.345, -0.61, 0.052, 0.024); E("#fff", 0.36, -0.635, 0.016, 0.013);   // (the eye, gold, its pupil level)
+    E(Gd, 0.42, -0.55, 0.025, 0.02);   // (the nostril)
+    c.strokeStyle = "#2a4a1a"; c.lineWidth = Math.max(1, 0.025 * u); c.beginPath(); c.moveTo(0.18 * u, -0.42 * u); c.quadraticCurveTo(0.4 * u, -0.4 * u, 0.53 * u, -0.46 * u); c.stroke();
+    E("#8a6a3a", 0.2, -0.47, 0.04, 0.04);   // (the eardrum)
+    c.strokeStyle = G; c.lineWidth = 0.07 * u; c.lineCap = "round"; c.beginPath(); c.moveTo(0.22 * u, -0.25 * u); c.lineTo(0.3 * u, -0.05 * u); c.stroke(); c.lineCap = "butt";   // (the front leg)
+    const cr = S.frame - f.croak; if (cr < 40) { const puff = 0.6 + 0.4 * Math.abs(Math.sin(cr / 6)); E("rgba(248,244,205,0.95)", 0.36, -0.33, 0.13 * puff, 0.11 * puff); }
+    const tg = S.frame - f.tongue; if (tg < 12) { const k = Math.sin(Math.PI * tg / 12); c.strokeStyle = "#e0607a"; c.lineWidth = Math.max(1.5, 0.05 * u); c.lineCap = "round"; c.beginPath(); c.moveTo(0.52 * u, -0.45 * u);
+      c.lineTo(0.52 * u + ((f.tx - f.x) * f.face * s - 0.52 * u) * k, -0.45 * u + ((f.ty - f.y) * s + 0.45 * u) * k); c.stroke(); c.lineCap = "butt"; }
+    c.restore();
+  }
+  // (a dragonfly: a long slim abdomen, ringed, a thorax, big eyes, four clear wings beating to a blur; a butterfly: its wings
+  // opening and closing, each kind its own colors and marks; a bumblebee: round, banded black and gold, its wings a blur)
+  const BFLY = { monarch: ["#e8781c", "#1a1a1a", "#ffffff"], brimstone: ["#f3e04a", "#c9b22a", "#e8d23a"], white: ["#f6f4ec", "#3a3a3a", "#d8d6cc"], blue: ["#6a8fe0", "#2a3a7a", "#ffffff"] };
+  function drawBug(b, s, now) {
+    if (b.gone) return; const c = ctx, x = b.x * s, y = b.y * s; c.save(); c.translate(x, y); c.scale(b.face || 1, 1);
+    if (b.kind === "dragon") { const u = s * 0.8, f = Math.sin(now / 18 + b.id);
+      c.fillStyle = "rgba(220,235,255,0.45)"; for (const [wx, a] of [[0.02, -0.5 + f * 0.35], [-0.04, -0.6 - f * 0.35]]) { c.save(); c.translate(wx * u, -0.02 * u); c.rotate(a); c.beginPath(); c.ellipse(0, -0.2 * u, 0.06 * u, 0.22 * u, 0, 0, 7); c.fill(); c.restore(); }
+      c.strokeStyle = b.col; c.lineWidth = Math.max(1, 0.04 * u); c.lineCap = "round"; c.beginPath(); c.moveTo(-0.05 * u, 0); c.lineTo(-0.5 * u, 0.02 * u); c.stroke();
+      c.strokeStyle = "rgba(0,0,0,0.5)"; c.lineWidth = Math.max(1, 0.02 * u); c.beginPath(); for (let i = 1; i < 7; i++) { const sx = -0.05 * u - i * 0.065 * u; c.moveTo(sx, -0.02 * u); c.lineTo(sx, 0.025 * u); } c.stroke();
+      c.fillStyle = b.col; c.beginPath(); c.ellipse(0.02 * u, 0, 0.07 * u, 0.045 * u, 0, 0, 7); c.fill(); c.fillStyle = "#1a2a3a"; c.beginPath(); c.arc(0.1 * u, -0.01 * u, 0.04 * u, 0, 7); c.fill(); c.lineCap = "butt"; c.restore(); return; }
+    if (b.kind === "bee") { const u = s * 0.26, f = Math.sin(now / 15 + b.id);
+      c.fillStyle = "rgba(230,240,255,0.6)"; c.beginPath(); c.ellipse(-0.05 * u, -0.35 * u, 0.18 * u, (0.25 + 0.1 * f) * u, -0.3, 0, 7); c.fill();
+      c.fillStyle = "#f2b81e"; c.beginPath(); c.ellipse(0, 0, 0.42 * u, 0.3 * u, 0, 0, 7); c.fill(); c.fillStyle = "#1a1a1a"; for (const bx of [-0.18, 0.08]) c.fillRect(bx * u, -0.3 * u, 0.1 * u, 0.6 * u);
+      c.beginPath(); c.arc(0.4 * u, -0.02 * u, 0.17 * u, 0, 7); c.fill(); c.restore(); return; }
+    const [w, k, d] = BFLY[b.col] || BFLY.monarch, u = s * 0.42, open = b.rest > 0 ? 0.55 + 0.45 * Math.sin(now / 500 + b.id) : Math.abs(Math.sin(now / 70 + b.id));
+    c.fillStyle = "#2a2018"; c.beginPath(); c.ellipse(0, 0, 0.2 * u, 0.04 * u, 0, 0, 7); c.fill();
+    for (const [sy, sc] of [[-1, 1], [1, 0.75]]) { c.save(); c.scale(1, -sy * Math.max(0.08, open)); c.fillStyle = w; c.beginPath(); c.moveTo(0, 0); c.bezierCurveTo(0.35 * u, -0.6 * u * sc, -0.1 * u, -0.75 * u * sc, -0.15 * u, -0.1 * u); c.closePath(); c.fill();
+      c.strokeStyle = k; c.lineWidth = Math.max(1, 0.04 * u); c.stroke(); c.fillStyle = d; c.beginPath(); c.arc(0.05 * u, -0.45 * u * sc, 0.04 * u, 0, 7); c.fill(); c.restore(); }
+    c.strokeStyle = "#2a2018"; c.lineWidth = Math.max(1, 0.02 * u); c.beginPath(); c.moveTo(0.18 * u, -0.02 * u); c.lineTo(0.3 * u, -0.14 * u); c.stroke(); c.restore();
+  }
+  // (a bird from the side, facing right, its kind's size and colors: standing, perched or swimming, or flying, its wings beating;
+  // the hawk soaring on still wings, a beat now and then)
+  const BIRD = {
+    sparrow: { L: 0.24, body: "#9a6a3a", back: "#7a4e28", belly: "#ddd0b8", head: "#8a5a32", cap: "#6e6a62", face: "#c8c2b4", bill: "#4a4038", tail: "#6a4424", mark: "#2a2018" },
+    robin: { L: 0.3, body: "#6e6256", back: "#5e5248", belly: "#e0662a", head: "#3a3430", cap: "#3a3430", face: "#3a3430", bill: "#e0b030", tail: "#3a3430", mark: "#fff" },
+    jay: { L: 0.34, body: "#4a86d8", back: "#3a72c4", belly: "#eef0f4", head: "#4a86d8", cap: "#3a72c4", face: "#f4f6f8", bill: "#1a1a1a", tail: "#2f62b8", mark: "#1a1a1a", crest: true },
+    hawk: { L: 0.62, body: "#7a4e2a", back: "#5e3a1e", belly: "#f0e3cc", head: "#6a4426", cap: "#5e3a1e", face: "#efe2c8", bill: "#2a2a2a", tail: "#b5552a", mark: "#4a2e18", hook: true },
+  };
+  function birdBody(c, u, K, flap, perched, now, id) {
+    const E = (col, ex, ey, rx, ry, a = 0) => { c.fillStyle = col; c.beginPath(); c.ellipse(ex * u, ey * u, rx * u, ry * u, a, 0, 7); c.fill(); };
+    if (!perched) { const up = Math.sin(flap); c.fillStyle = K.back; c.beginPath(); c.moveTo(-0.05 * u, -0.05 * u); c.quadraticCurveTo(-0.1 * u, -0.5 * up * u, -0.45 * u, -0.8 * up * u); c.lineTo(-0.3 * u, -0.6 * up * u + 0.05 * u); c.quadraticCurveTo(-0.2 * u, -0.1 * up * u, 0.15 * u, 0); c.fill(); }   // (the far wing)
+    c.fillStyle = K.tail; c.beginPath(); c.moveTo(-0.3 * u, -0.06 * u); c.lineTo(-0.62 * u, perched ? 0.12 * u : -0.02 * u); c.lineTo(-0.6 * u, perched ? 0.2 * u : 0.06 * u); c.lineTo(-0.28 * u, 0.06 * u); c.fill();
+    E(K.body, 0, 0, 0.36, 0.2, perched ? -0.15 : 0); E(K.belly, 0.06, 0.08, 0.26, 0.11, perched ? -0.15 : 0);
+    E(K.head, 0.32, perched ? -0.16 : -0.06, 0.15, 0.13); E(K.cap, 0.31, perched ? -0.23 : -0.13, 0.12, 0.06);
+    E(K.face, 0.38, perched ? -0.13 : -0.03, 0.07, 0.05);
+    if (K.crest) { c.fillStyle = K.cap; c.beginPath(); c.moveTo(0.24 * u, (perched ? -0.25 : -0.15) * u); c.lineTo(0.18 * u, (perched ? -0.42 : -0.3) * u); c.lineTo(0.34 * u, (perched ? -0.27 : -0.17) * u); c.fill();
+      c.strokeStyle = K.mark; c.lineWidth = Math.max(1, 0.03 * u); c.beginPath(); c.arc(0.3 * u, (perched ? -0.1 : 0) * u, 0.12 * u, 0.2, 2.2); c.stroke(); }
+    const by = perched ? -0.16 : -0.06; c.fillStyle = K.bill; c.beginPath(); c.moveTo(0.45 * u, (by - 0.03) * u); c.lineTo((K.hook ? 0.56 : 0.58) * u, (by + (K.hook ? 0.03 : 0)) * u); c.lineTo(0.45 * u, (by + 0.03) * u); c.fill();
+    if (K.hook) { c.strokeStyle = K.bill; c.lineWidth = Math.max(1, 0.03 * u); c.beginPath(); c.moveTo(0.55 * u, (by + 0.01) * u); c.quadraticCurveTo(0.58 * u, (by + 0.04) * u, 0.54 * u, (by + 0.07) * u); c.stroke(); E("#f2c43a", 0.44, by, 0.03, 0.03); }
+    E("#111", 0.37, by - 0.02, 0.028, 0.028); E("#fff", 0.38, by - 0.03, 0.009, 0.009);
+    if (K === BIRD.sparrow) { E(K.mark, 0.4, by + 0.08, 0.05, 0.04); for (const [sx, sy] of [[-0.1, -0.08], [0.02, -0.12], [-0.2, -0.02]]) E(K.mark, sx, sy, 0.05, 0.02, -0.2); }
+    if (K === BIRD.hawk) { c.fillStyle = K.mark; for (let i = 0; i < 5; i++) { c.beginPath(); c.arc((-0.05 + i * 0.07) * u, 0.12 * u, 0.018 * u, 0, 7); c.fill(); } }
+    if (perched) { E(K.back, -0.06, -0.06, 0.26, 0.12, -0.25); c.strokeStyle = "rgba(0,0,0,0.25)"; c.lineWidth = Math.max(1, 0.02 * u); c.beginPath(); c.moveTo(-0.25 * u, 0); c.quadraticCurveTo(-0.05 * u, -0.03 * u, 0.12 * u, -0.1 * u); c.stroke();
+      c.strokeStyle = "#5a4a3a"; c.lineWidth = Math.max(1, 0.03 * u); c.beginPath(); for (const lx of [-0.02, 0.06]) { c.moveTo(lx * u, 0.15 * u); c.lineTo(lx * u, 0.3 * u); c.lineTo((lx + 0.07) * u, 0.31 * u); } c.stroke(); }
+    else { const up = Math.sin(flap); c.fillStyle = K.back; c.beginPath(); c.moveTo(0.05 * u, -0.05 * u); c.quadraticCurveTo(0, -0.5 * up * u, -0.35 * u, -0.85 * up * u); c.lineTo(-0.2 * u, -0.65 * up * u + 0.06 * u); c.quadraticCurveTo(-0.1 * u, -0.1 * up * u, 0.22 * u, 0.02 * u); c.fill(); }   // (the near wing)
+  }
+  function drawBird(b, s, now) {
+    const c = ctx;
+    if (b.kind === "duck" || b.kind === "swan") { const R = b.R, wy = waterY(R, b.x, now), x = b.x * s, y = wy * s, u = s * (b.kind === "swan" ? 1.6 : 0.95), sw = b.kind === "swan";
+      const E = (col, ex, ey, rx, ry, a = 0) => { c.fillStyle = col; c.beginPath(); c.ellipse(ex * u, ey * u, rx * u, ry * u, a, 0, 7); c.fill(); };
+      c.save(); c.translate(x, y); c.scale(b.face, 1); c.beginPath(); c.rect(-u, -2 * u, 2 * u, 2 * u + 0.04 * u); c.clip();   // (only what is over the water)
+      const dab = b.dab > 0; if (dab) c.rotate(0.9);
+      const body = sw ? "#fbfbf7" : b.hen ? "#9a7a55" : "#b8b8b0", back = sw ? "#ecece6" : b.hen ? "#7a5a38" : "#8a8a82";
+      E(body, 0, -0.08, 0.42, 0.18); E(back, -0.08, -0.14, 0.3, 0.08); c.fillStyle = sw ? "#ecece6" : b.hen ? "#6a4a2a" : "#1a1a1a"; c.beginPath(); c.moveTo(-0.36 * u, -0.12 * u); c.lineTo(-0.5 * u, -0.24 * u); c.lineTo(-0.4 * u, -0.06 * u); c.fill();   // (the body, the tail up)
+      if (!sw && !b.hen) { c.strokeStyle = "#1a1a1a"; c.lineWidth = Math.max(1, 0.03 * u); c.beginPath(); c.arc(-0.42 * u, -0.27 * u, 0.04 * u, 0.5, 4); c.stroke(); E("#6b3a2a", 0.25, -0.1, 0.13, 0.1); }   // (a drake's curl, his chestnut breast)
+      if (!sw && !b.hen) E("#3a5ea8", -0.08, -0.14, 0.07, 0.03);   // (the blue speculum)
+      if (!dab) { if (sw) { c.strokeStyle = body; c.lineWidth = 0.09 * u; c.lineCap = "round"; c.beginPath(); c.moveTo(0.25 * u, -0.12 * u); c.bezierCurveTo(0.45 * u, -0.3 * u, 0.15 * u, -0.5 * u, 0.32 * u, -0.72 * u); c.stroke(); c.lineCap = "butt";
+          E(body, 0.36, -0.74, 0.08, 0.06); c.fillStyle = "#e8722a"; c.beginPath(); c.moveTo(0.4 * u, -0.77 * u); c.lineTo(0.56 * u, -0.7 * u); c.lineTo(0.42 * u, -0.69 * u); c.fill(); E("#1a1a1a", 0.41, -0.75, 0.035, 0.03); E("#111", 0.36, -0.76, 0.014, 0.014); }
+        else { E(b.hen ? "#8a6a45" : "#1f6e3a", 0.33, -0.3, 0.11, 0.09); if (!b.hen) { E("rgba(120,220,160,0.35)", 0.3, -0.33, 0.06, 0.03); c.strokeStyle = "#fff"; c.lineWidth = Math.max(1, 0.025 * u); c.beginPath(); c.arc(0.3 * u, -0.2 * u, 0.06 * u, 0.6, 2.8); c.stroke(); }
+          c.fillStyle = b.hen ? "#c87a2a" : "#e8c43a"; c.beginPath(); c.moveTo(0.42 * u, -0.31 * u); c.quadraticCurveTo(0.56 * u, -0.29 * u, 0.55 * u, -0.25 * u); c.lineTo(0.41 * u, -0.26 * u); c.fill(); E("#111", 0.37, -0.33, 0.018, 0.018); } }
+      c.restore(); c.strokeStyle = "rgba(230,245,255,0.55)"; c.lineWidth = Math.max(1, s / 30); c.beginPath(); c.ellipse(x, y + 0.02 * s, u * 0.5, u * 0.05, 0, 0, Math.PI); c.stroke(); return; }
+    const K = BIRD[b.kind]; if (!K) return; const u = s * K.L * 3, flying = b.mode === "fly" || b.mode === "soar";
+    const flap = b.mode === "soar" ? (Math.sin(now / 900 + b.id) > 0.85 ? now / 70 : 0.35) : flying ? now / (b.kind === "hawk" ? 90 : 45) + b.id : 0;
+    const hopY = b.hop ? -Math.sin(Math.PI * b.hop.t) * 0.12 : 0, pk = b.peck > 0 ? 0.5 : 0;
+    c.save(); c.translate(b.x * s, (b.y + hopY) * s - (flying ? 0 : 0.3 * u)); c.scale(b.face, 1); if (pk) c.rotate(pk); else if (b.mode === "fly") c.rotate(Math.max(-0.4, Math.min(0.4, (b.fly.y1 - b.fly.y0) * 0.1)));
+    birdBody(c, u, K, flap, !flying, now, b.id); c.restore();
+  }
+  function drawWild(s, now, c0, c1, r0, r1) {
+    if (!S.birds) return; const vis = (x, y) => x > c0 - 1 && x < c1 + 2 && y > r0 - 2 && y < r1 + 2;
+    for (const f of S.frogs) if (f.mode !== "swim" && vis(f.x, f.y)) drawFrog(f, s, now);
+    for (const b of S.birds) if (vis(b.x, b.kind === "duck" || b.kind === "swan" ? b.R.level : b.y)) drawBird(b, s, now);
+    for (const b of S.bugs) if (vis(b.x, b.y)) drawBug(b, s, now);
   }
   // a tree house (one of the sixteen styles, World.styles), its floor at y, its middle at x
   // (Matthew: "tree houses should have interiors, and a way to go inside of them"; "no inside of tree houses?") Walking in
@@ -2433,6 +2786,9 @@
     for (const d of S.dams) { const R = d.river; if (!R || R.x > c1 + 2 || R.x + R.w < c0 - 2) continue; ctx.globalAlpha = 0.45;
       for (let k = 0; k < R.w; k++) { const c = R.x + k; for (let rr = R.bed[k] - 1; rr >= R.level - 0.5; rr -= 0.5) { ctx.fillStyle = (k + Math.floor(rr * 2)) % 2 ? "#7a5230" : "#8b6040"; ctx.beginPath(); ctx.roundRect(c * s - 0.05 * s, rr * s, s * 1.1, 0.46 * s, 0.2 * s); ctx.fill(); } }
       ctx.globalAlpha = 1; ctx.strokeStyle = "#5e3d22"; ctx.lineWidth = Math.max(1, s / 10); for (let k = 0; k < R.w * 2; k++) { const x = (R.x + k / 2) * s; ctx.beginPath(); ctx.moveTo(x, (R.level - 0.4) * s); ctx.lineTo(x + 0.3 * s, (R.level - 0.9 - (k % 3) * 0.2) * s); ctx.stroke(); } }
+    pmark("plants");
+    for (const R of S.rivers) if (R.plants && R.x <= c1 + 2 && R.x + R.w >= c0 - 2) drawRiverUnder(R, s, now);
+    if (S.frogs) for (const f of S.frogs) if (f.mode === "swim" && f.x > c0 - 1 && f.x < c1 + 1) drawFrog(f, s, now);
     pmark("creatures");
     // the beavers, the boulders, the diving gear, the gnome, the dirt flying
     for (const B of S.beavers) { const c = Math.floor(B.px), R = riverAt(c + 0.5), y = R ? R.level + 0.35 : landY(Math.max(0, Math.min(WW - 1, c))); B.py = B.py ? B.py + (y - B.py) * 0.25 : y; if (c < c0 - 3 || c > c1 + 3) continue; drawBeaver(B, (B.px + 0.5) * s, B.py * s, !!R); }
@@ -2474,7 +2830,7 @@
         gnomeProfile(ctx, 0, -0.48 * s, s * 0.98, dir, false, true, 0, now, g.gear, null); ctx.restore();
         if (S.frame % 2 === 0) S.parts.push({ x: gx - dir * 0.25, y: g.y / 1000 - 0.05, vx: -dir * (0.01 + 0.03 * rand()), vy: -0.02 - 0.03 * rand(), life: 18 + rand() * 10, col: "#c8b48a" }); }
       else if (lateral) gnomeProfile(ctx, (gx + lp) * s, (g.y / 1000) * s - 0.48 * s, s * 0.98, g.face, Math.abs(g.vx) > 10, g.ground || g.climb, g.vy, now, g.gear, swimPose);
-      else gnome(ctx, (gx + lp) * s, (g.y / 1000) * s - 0.48 * s, s * 0.98, d, true, moving, now, g.gear, false, true, false, swimPose);
+      else gnome(ctx, (gx + lp) * s, (g.y / 1000) * s - 0.48 * s, s * 0.98, d, true, moving, now, g.gear, false, true, !!(S.party && now - S.party.t < 6000 && !swimPose), swimPose);
       if (g.under && !g.gear) { for (let j = 0; j < Math.ceil(g.air / 120); j++) { ctx.strokeStyle = g.air < 150 && Math.floor(now / 150) % 2 ? "#ef4444" : "rgba(220,240,255,0.9)"; ctx.lineWidth = Math.max(1, s / 20); ctx.beginPath(); ctx.arc((gx - 0.5 + j * 0.25) * s, (g.y / 1000 - 1.25 - (j % 2) * 0.12) * s, 0.09 * s, 0, 7); ctx.stroke(); } }
       if (g.swim && !g.under) { ctx.strokeStyle = "rgba(255,255,255,0.8)"; ctx.lineWidth = Math.max(1, s / 16); const wl = Math.floor((g.y / 1000 - 0.45)) ; const sx = gx * s, sy = (wl) * s;
         for (const sd of [-1, 1]) { ctx.beginPath(); ctx.arc(sx + sd * (0.45 + (now % 900) / 900 * 0.5) * s, sy, 0.18 * s, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke(); } }
@@ -2502,6 +2858,9 @@
       ctx.fillStyle = "rgba(40,120,210,0.45)"; ctx.beginPath(); ctx.moveTo(c * s, (r + 1) * s + 0.5); for (let q = 0; q <= 4; q++) ctx.lineTo((c + q / 4) * s + (q === 4 ? 0.5 : 0), wy(q / 4)); ctx.lineTo((c + 1) * s + 0.5, (r + 1) * s + 0.5); ctx.fill();
       ctx.strokeStyle = Math.abs(ww) > 0.8 && Math.sin(c * 2.3 + ph * 0.5) > 0.6 ? "rgba(255,255,255,0.9)" : "rgba(220,240,255,0.6)"; ctx.lineWidth = Math.max(1, s / 16);
       ctx.beginPath(); for (let q = 0; q <= 4; q++) { const xx = (c + q / 4) * s; if (q) ctx.lineTo(xx, wy(q / 4)); else ctx.moveTo(xx, wy(0)); } ctx.stroke(); }
+    for (const R of S.rivers) if (R.plants && R.x <= c1 + 2 && R.x + R.w >= c0 - 2) drawRiverOver(R, s, now);
+    pmark("wildlife");
+    drawWild(s, now, c0, c1, r0, r1);
     // rain, in a shower
     if (S.rain && !LINE) { ctx.strokeStyle = "rgba(200,220,255,0.6)"; ctx.lineWidth = Math.max(1, s / 24); ctx.beginPath(); for (let k = 0; k < 120; k++) { const x = (c0 + ((k * 37.7 + S.frame * 0.3 * (k % 3 + 1)) % (c1 - c0 + 1))) * s, y = (r0 + ((k * 13.3 + S.frame * 0.5) % (r1 - r0 + 1))) * s; const col = Math.floor(x / s); if (col >= 0 && col < WW && y / s < top[col]) { ctx.moveTo(x, y); ctx.lineTo(x + (S.windNow || 0) * 0.45 * s - 0.05 * s, y + 0.5 * s); } } ctx.stroke(); }
     for (const l of S.leaves) { ctx.save(); ctx.translate(l.x * s, l.y * s); ctx.rotate(l.a); ctx.fillStyle = l.col; ctx.beginPath(); ctx.ellipse(0, 0, s * (l.petal ? 0.06 : 0.12), s * (l.petal ? 0.035 : 0.05), 0, 0, 7); ctx.fill(); ctx.restore(); }
@@ -2531,6 +2890,7 @@
       ctx.font = `${Math.round(0.6 * s)}px sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillStyle = "#fff"; ctx.fillText(ITEM[it.kind].icon, 0, -s * 0.02);
       ctx.font = `bold ${Math.round(0.28 * s)}px sans-serif`; ctx.fillStyle = "#fff8d0"; ctx.fillText(`${Math.round(Math.hypot(it.x - S.g.x / 1000, it.y - S.g.y / 1000))} m`, 0, s * 0.85); ctx.restore(); }
     ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
+    if (!LINE) { ctx.save(); ctx.translate(-camX * s, -camY * s); drawParty(s, now); ctx.restore(); }   // (in the world, where the gnome is)
     if (!LINE) hud(now);
   }
   const darkCv = document.createElement("canvas"), darkCtx = darkCv.getContext("2d"); let darkData = null;
@@ -2627,7 +2987,7 @@
     const gx = g ? g.x / 1000 : 0, place = (S.places.find(p => gx >= p.x0 && gx <= p.x1 && (!p.under || depth > 3)) || { name: "" }).name;
     const wv = S.windNow || 0, wa = Math.abs(wv), windWord = wa < 0.15 ? "calm" : wa < 0.45 ? "a breeze" : wa < 0.8 ? "windy" : "a gale", arrows = wa < 0.15 ? "" : (wv > 0 ? "→" : "←").repeat(wa < 0.45 ? 1 : wa < 0.8 ? 2 : 3);
     const runWord = BOT.on ? `🏃 ${Math.floor(BOT.frames / 3600)}:${String(Math.floor(BOT.frames / 60) % 60).padStart(2, "0")} · ${BOT.phase} · ${BOT.items + S.items.filter(i => i.taken).length - BOT.items}/${S.items.length} · 🌳 ${BOT.parts}/${BOT.partsAll || "?"} · 💎 ${BOT.gems}/${BOT.gemsAll || "?"}  ` : "";
-    const line = `${runWord}${hearts}  💎 ${S.gems}  🍃 ${windWord} ${arrows}  ${where}${g && g.gear ? "  🤿" : ""}${g && g.climbPack ? "  🧗" : ""}${g && g.tool ? (g.tool >= 2 ? "  ⚒️" : "  ⛏️") : ""}${place ? "  ·  " + place : ""}`;
+    const line = `${runWord}${hearts}  💎 ${S.found || 0} / ${S.gemTotal || 0}  🍃 ${windWord} ${arrows}  ${where}${g && g.gear ? "  🤿" : ""}${g && g.climbPack ? "  🧗" : ""}${g && g.tool ? (g.tool >= 2 ? "  ⚒️" : "  ⛏️") : ""}${place ? "  ·  " + place : ""}`;
     const tw = ctx.measureText(line).width;
     pill(10 * k, 10 * k, tw + 20 * k, 30 * k); ctx.fillStyle = "#fff"; ctx.fillText(line, 20 * k, 15 * k);
     let below = 46 * k;
@@ -2655,7 +3015,7 @@
       ctx.textAlign = "left"; ctx.textBaseline = "top";
       ctx.fillStyle = "#ef4444"; ctx.beginPath(); ctx.arc(mx + gx / WW * mw, my + g.y / 1000 / WH * mh, 3 * k, 0, 7); ctx.fill(); ctx.strokeStyle = "rgba(255,255,255,0.6)"; ctx.lineWidth = 1; ctx.strokeRect(mx, my, mw, mh); }
     ctx.restore();
-    if (S.frame % 15 === 0) { $("gems").textContent = `💎 ${S.gems}`; $("hearts").textContent = hearts; $("where").textContent = place || where; }
+    if (S.frame % 15 === 0) { $("gems").textContent = `💎 ${S.found || 0} / ${S.gemTotal || 0}`; $("gems").title = `this world's gems: found, and all there are (${S.gems} found in all your worlds)`; $("hearts").textContent = hearts; $("where").textContent = place || where; }
   }
 
   // (Matthew: "it seems like there are performance challenges now with gnome world"; "can we add a FPS HUD please?") The frame's
@@ -2808,7 +3168,7 @@
       return { data: { step: +ms.toFixed(4) }, text: [`a step of the gnome through Hazel: ${ms.toFixed(3)} ms`] };
     },
   });
-  if (Q.has("test")) window.WorldTest = { spriteCache, SPRITES, cellWords, digSteps, ITEM, mat, wat, at, WH, WW, BOT, botPlan, dist, botEnter, botStand, botClimb, profile: gnomeProfile, front: gnome, map: () => { minimap(); return map2Cv; }, look: (x, y) => { S.camFix = x == null ? null : { x, y }; draw(); }, paintHouse, paintSmallHouse, squirrelBody, drawVillager, drawVillagerProfile, drawBusy, S, tick: n => { const h = H(); for (let i = 0; i < n; i++) tick(h); draw(); }, draw, near, code, at, mat, wat, fix, bg, stone, shape, surf0, treeMask, digOut, tile: () => T, drawPebbles, PERF, timedDraw: () => timedDraw(), lineCtx, lineScene, paintTall, leafyTree, drawLodge };
+  if (Q.has("test")) window.WorldTest = { gemFound, gem, spriteCache, SPRITES, cellWords, digSteps, ITEM, mat, wat, at, WH, WW, BOT, botPlan, dist, botEnter, botStand, botClimb, profile: gnomeProfile, front: gnome, map: () => { minimap(); return map2Cv; }, look: (x, y) => { S.camFix = x == null ? null : { x, y }; draw(); }, paintHouse, paintSmallHouse, squirrelBody, drawVillager, drawVillagerProfile, drawBusy, S, tick: n => { const h = H(); for (let i = 0; i < n; i++) tick(h); draw(); }, draw, near, code, at, mat, wat, fix, bg, stone, shape, surf0, treeMask, digOut, tile: () => T, drawPebbles, PERF, timedDraw: () => timedDraw(), lineCtx, lineScene, paintTall, leafyTree, drawLodge };
   document.body.classList.add("js");
   draw();
 })();

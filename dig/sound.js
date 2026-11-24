@@ -45,6 +45,15 @@
     won: () => sfx(t => { tone("triangle", hz(79), hz(86), t, 0.22, 0.2); seq(t + 0.22, [84, 88, 91, 96], 0.07, "quarter", 0.2); tone("sine", hz(96), hz(96), t + 0.5, 0.45, 0.12, 14); }, 0.5),
     start: () => sfx(t => { seq(t, [67, 72, 76], 0.09, "quarter", 0.22); tone("quarter", hz(79), hz(79), t + 0.27, 0.4, 0.22, 14); }),
     over: () => sfx(t => { seq(t, [79, 76, 72], 0.2, "quarter", 0.22); tone("quarter", hz(67), hz(67), t + 0.6, 0.7, 0.22, 18); tone("triangle", hz(43), hz(43), t + 0.6, 0.7, 0.4); }, 0.6),
+    // (Gnome world 0.0.96: the wildlife, soft, now and then) a frog's croak; a sparrow's chirp; a robin's phrase; a blue jay's harsh
+    // call; a hawk's scream, high and falling; a duck's quack; a swan's soft honk
+    croak: () => sfx(t => { for (let i = 0; i < 2; i++) { tone("quarter", hz(41), hz(38), t + i * 0.17, 0.11, 0.11, 25); hiss(t + i * 0.17, 0.09, 0.05, "bandpass", 600); } }),
+    chirp: () => sfx(t => { tone("sine", hz(96), hz(101), t, 0.045, 0.05); tone("sine", hz(98), hz(103), t + 0.08, 0.04, 0.05); }),
+    robin: () => sfx(t => { tone("sine", hz(91), hz(95), t, 0.09, 0.05); tone("sine", hz(94), hz(89), t + 0.13, 0.09, 0.05); tone("sine", hz(93), hz(97), t + 0.27, 0.08, 0.05); }),
+    jay: () => sfx(t => { tone("quarter", hz(84), hz(78), t, 0.2, 0.04); hiss(t, 0.18, 0.04, "bandpass", 3200); }),
+    hawk: () => sfx(t => { tone("sine", hz(97), hz(87), t, 0.65, 0.05, 12); hiss(t, 0.5, 0.02, "highpass", 5000); }),
+    quack: () => sfx(t => { for (let i = 0; i < 2; i++) { tone("quarter", hz(56), hz(52), t + i * 0.16, 0.11, 0.06); hiss(t + i * 0.16, 0.1, 0.04, "bandpass", 900); } }),
+    honk: () => sfx(t => { tone("triangle", hz(61), hz(59), t, 0.28, 0.07); tone("quarter", hz(61), hz(59), t, 0.28, 0.02); }),
   };
   window.DigSound = {
     // (a tap or a key: the chip made, or woken, and the level's tune started if music is on and nothing plays)
