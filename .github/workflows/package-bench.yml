@@ -2,7 +2,7 @@
 # its jit, its compiler's JavaScript ahead of time, and plain JavaScript where a game has it. One runner per game, so a game's
 # four ways share a machine; the results (JSON, the printed lines, the machine) as one artifact per game. Runs on a push to
 # a bench/ branch, so main and the site are untouched.
-# (2026-11-24, branch bench/runs-a97b6f7) with --runs: each game's own run of states, every way from the same start, each
+# (2026-11-24, branch bench/runs-ca851b4: #2857 at ca851b422d, the memos as links on the objects, not WeakMaps) with --runs: each game's own run of states, every way from the same start, each
 # call given what that way's last call answered (the jit's memos meet only what a page would give them); the three games
 # whose calls stand alone (I Ching, tarot, astrology) have no run and are left out.
 name: package bench
@@ -28,11 +28,11 @@ jobs:
           path: hazeljs-pkg
       # (ticket 795, 2026-11-24) the same package, its hazel-lib.js from hazelgrove/hazel#2857 at a97b6f7465 (build.hazel.org/hazeljs, the
       # converters by declared type), so the change from run 45247119864 is the library alone
-      - name: The library from #2857 a97b6f7465
+      - name: The library from #2857 ca851b422d
         run: |
           curl -sfL -A "Mozilla/5.0" https://build.hazel.org/hazeljs/hazel-lib.js -o hazeljs-pkg/hazel-lib.js
           grep -o 'build:"[0-9a-f]*"' hazeljs-pkg/hazel-lib.js | head -1
-          grep -q 'build:"a97b6f7465' hazeljs-pkg/hazel-lib.js
+          grep -q 'build:"ca851b422d' hazeljs-pkg/hazel-lib.js
       - uses: actions/setup-node@v4
         with:
           node-version: 22
