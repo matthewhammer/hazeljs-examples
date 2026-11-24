@@ -3748,8 +3748,22 @@
   let unzooming = false;
   function unzoom() { if (!vpMeta || unzooming || !window.visualViewport || Math.abs(visualViewport.scale - 1) < 0.01) return; unzooming = true; WATCH.zoomResets++;
     vpMeta.setAttribute("content", vpWas + ", maximum-scale=1"); setTimeout(() => { vpMeta.setAttribute("content", vpWas); unzooming = false; addEventListener("resize", () => {}, { once: true }); window.dispatchEvent(new Event("resize")); }, 400); }
-  new MutationObserver(() => { if (FS()) unzoom(); }).observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
-  if (window.visualViewport) visualViewport.addEventListener("resize", () => { if (FS()) unzoom(); });
+  // (0.0.105; Matthew: "let's have fullscreen restore a normal unpinched view by default") And whatever the zoom, full screen
+  // shows the whole view: while the page is zoomed, the picture's frame is laid over just the part of the page in sight (the
+  // visual viewport, its place and size) and the view drawn into it, so a zoom left from before, or one the browser will not
+  // put back, can no longer leave only a corner of the picture in sight. Unzoomed, the frame fills the screen as before.
+  const fsWrap = cv.parentElement;
+  let anchored = false;
+  function fsAnchor() {
+    const vv = window.visualViewport, zoomed = FS() && vv && (Math.abs(vv.scale - 1) > 0.01 || vv.offsetLeft > 0.5 || vv.offsetTop > 0.5);
+    if (zoomed) { Object.assign(fsWrap.style, { left: vv.offsetLeft + "px", top: vv.offsetTop + "px", width: vv.width + "px", height: vv.height + "px", right: "auto", bottom: "auto" });
+      Object.assign(cv.style, { width: vv.width + "px", height: vv.height + "px" }); anchored = true; WATCH.anchored = (WATCH.anchored || 0) + 1; }
+    else if (anchored) { for (const k of ["left", "top", "width", "height", "right", "bottom"]) fsWrap.style[k] = ""; cv.style.width = cv.style.height = ""; anchored = false; }
+    else return;
+    fit(); S.dirty = true;
+  }
+  new MutationObserver(() => { if (FS()) unzoom(); fsAnchor(); }).observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+  if (window.visualViewport) { visualViewport.addEventListener("resize", () => { if (FS()) unzoom(); fsAnchor(); }); visualViewport.addEventListener("scroll", fsAnchor); }
   // (0.0.104; Matthew: "add something I can run under advanced that produces a string to paste into the etherpad we used for
   // mess up dress up with information about the camera/view state or other state that could be buggy in some way") 🐞: what
   // the game sees, as text to paste: the page and its zoom, full screen, the canvas and its tiles, the camera and the gnome, the
@@ -3763,7 +3777,7 @@
       `🐞 Gnome world, ${(document.querySelector(".advanced-version") || {}).textContent || "version ?"} · ${new Date().toISOString()} · the page up ${((performance.now() - WATCH.t0) / 60000).toFixed(1)} min`,
       `device: ${navigator.userAgent} · touch points ${navigator.maxTouchPoints || 0} · screen ${screen.width}×${screen.height} · dpr ${f2(devicePixelRatio)} · window ${innerWidth}×${innerHeight}${screen.orientation ? " · " + screen.orientation.type : ""}`,
       `full screen: the page's ${FS() ? "on" : "off"} · the browser's ${fe ? (fe.id || fe.tagName.toLowerCase()) : "none"}`,
-      vv ? `page zoom: ${f2(vv.scale)} (seen ${f2(WATCH.zoomMin)} to ${f2(WATCH.zoomMax)}, last off 1 ${ago(WATCH.zoomAt)}; put back ${WATCH.zoomResets} times) · visible ${r(vv.width)}×${r(vv.height)} at ${r(vv.offsetLeft)},${r(vv.offsetTop)} · page scrolled ${r(scrollX)},${r(scrollY)}` : "page zoom: no visualViewport",
+      vv ? `page zoom: ${f2(vv.scale)} (seen ${f2(WATCH.zoomMin)} to ${f2(WATCH.zoomMax)}, last off 1 ${ago(WATCH.zoomAt)}; put back ${WATCH.zoomResets} times; the frame laid over the part in sight ${WATCH.anchored || 0} times${anchored ? ", now" : ""}) · visible ${r(vv.width)}×${r(vv.height)} at ${r(vv.offsetLeft)},${r(vv.offsetTop)} · page scrolled ${r(scrollX)},${r(scrollY)}` : "page zoom: no visualViewport",
       `canvas: on the page ${r(cr.width)}×${r(cr.height)} at ${r(cr.left)},${r(cr.top)} · pixels ${cv.width}×${cv.height} · a tile ${f2(T)} px (cap ${TCAP}${S.tileFix ? ", fixed at " + S.tileFix : ""}) · view ${f2(VW)}×${f2(VH)} tiles${S.camFix ? " · camera FIXED at " + JSON.stringify(S.camFix) : ""}`,
       `camera: ${f2(S.cam.x)},${f2(S.cam.y)} (set ${!!S.cam.set}) · world ${WW}×${WH} tiles · the gnome at ${f2((g.x || 0) / 1000)},${f2((g.y || 0) / 1000)} moving ${r(g.vx || 0)},${r(g.vy || 0)} · ${["ground", "swim", "under", "climb"].filter(k => g[k]).join(", ") || "in the air"}${S.ride && S.ride.on ? " · riding Clover" : ""}${BOT.on ? " · speed run on" : ""}`,
       `keys held: ${held.join(", ") || "none"} · pad buttons held: ${pads.join(", ") || "none"} · map ${S.map ? "on" : "off"}`,

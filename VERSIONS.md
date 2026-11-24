@@ -2,6 +2,10 @@
 
 Each version lists what the apps do as of that version. The newest version is first.
 
+## 0.0.105 (2026-11-24)
+
+- **Gnome world: full screen shows the whole view, zoomed or not** (Matthew: "let's have fullscreen restore a normal unpinched view by default"). Going full screen still asks the browser to put a zoom back to 1; and whatever zoom stays, the picture's frame is laid over just the part of the page in sight and the whole view drawn into it, so a pinch left from before can no longer show only a corner of the picture (sky and hills). Unzoomed, full screen fills the screen as before. 🐞 says how often the frame was laid over the part in sight.
+
 ## 0.0.104 (2026-11-24)
 
 - **Gnome world: no zooming in full screen** (Matthew: on the iPad, while walking, "the screen zooms into some form that gets stuck", only the background hills and sky to be seen, right again out of full screen and wrong again back in it; "the ipad has a broken screen, and I'm not sure if the input from touching meets the usual input expectations"). A pinch, or a double tap, anywhere but the picture and the pad zoomed the whole page, and in full screen that shows only a corner of the picture. Now, in full screen, the page takes no pinch (iOS Safari's gesture events are stopped) and no touch gestures at all (touch-action), and a zoom already there is put back to 1 on going full screen and whenever it appears.
