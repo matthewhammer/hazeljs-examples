@@ -2,10 +2,13 @@
 // out, snake, tron", and "For each game, be sure to include 'automated gameplay' mode ... that gameplay should also be Hazel
 // code"). The page: the board drawn on a canvas, a step of Hazel's rules (Snake.step: the snake moved a cell, a meal, a crash,
 // the next meal) at the speed chosen, and 🤖 Hazel plays for you, the robot in Hazel (Snake.robot) choosing each step's way. The
-// rules compiled ahead of time by hazel-jit (compiled.js) when it is here, else, and once they are edited, run by hazeljs.
+// rules compiled ahead of time by hazel-jit (compiled.js) when it is here; else, and once they are edited, built by Hazel's
+// library and compiled as they are built (Hazel.jitProgram, hazel-jit's own build of the library from build.hazel.org, as Gnome
+// world's), so that the robot stays quick with edited rules: interpreted, its choice took 2.4 s a step, 0.4 ms compiled; and
+// interpreted (hazeljs from jsDelivr) only where that build does not load, or with ?interpreted.
 (async () => {
   "use strict";
-  const LIB = "https://cdn.jsdelivr.net/npm/hazeljs@0.0.4/hazel-lib.js";
+  const LIB_JIT = "https://build.hazel.org/hazeljs/hazel-lib.js", LIB_NPM = "https://cdn.jsdelivr.net/npm/hazeljs@0.0.4/hazel-lib.js";
   const PROGRAM = "snake", MODULES = ["Snake"];
   const TAIL = "(start = Snake.start, step = Snake.step, robot = Snake.robot, next_level = Snake.next_level)";
   const KEY = "hazeljs-examples/snake/";
@@ -209,9 +212,10 @@
   function drawStatus() {
     const st = $("status"), b = S.built;
     if (b && b.compiled) { st.className = "status ok"; st.textContent = `✓ Compiled ahead of time: the rules run as JavaScript (hazel-jit, ${b.made || "a prototype"}), every step, without loading Hazel's library or building the program. Hazel loads if you edit the rules.`; return; }
-    if (!window.Hazel) { st.className = "status wait"; st.textContent = S.libFailed ? "Hazel did not load from jsDelivr: check the connection, then reload." : "⏳ Loading Hazel (hazeljs from jsDelivr), whose rules move the snake…"; return; }
+    if (!window.Hazel) { st.className = "status wait"; st.textContent = S.libFailed ? "Hazel did not load (from build.hazel.org, nor jsDelivr): check the connection, then reload." : "⏳ Loading Hazel, whose rules move the snake…"; return; }
     if (!b) { st.className = "status wait"; st.textContent = "⏳ Building the rules…"; return; }
-    if (b.ok) { st.className = "status ok"; st.textContent = `✓ Hazel's rules are ready, built by hazeljs in ${(b.ms / 1000).toFixed(1)} s, and interpreted every step (🤖's choices are slower interpreted).`; return; }
+    if (b.ok && b.jit) { st.className = "status ok"; st.textContent = `✓ Hazel's rules, compiled by hazel-jit as they were built (${(b.ms / 1000).toFixed(1)} s): every step and every one of 🤖's choices runs as JavaScript.`; return; }
+    if (b.ok) { st.className = "status ok"; st.textContent = `✓ Hazel's rules are ready, built by hazeljs in ${(b.ms / 1000).toFixed(1)} s, and interpreted every step${b.reason ? " (not compiled: " + b.reason + ")" : ""} (🤖's choices are much slower interpreted).`; return; }
     st.className = "status no";
     st.textContent = "The rules have an error, so the snake cannot move: " + (b.threw || (b.errors || []).map(e => (e.module ? e.module + ": " : "") + String(e.message || e).replace(/\s+/g, " ")).join("; ") || "they did not build");
   }
@@ -221,9 +225,10 @@
     const sp = L.spec(PROGRAM, TAIL), key = JSON.stringify(sp);
     if (S.built && S.built.key === key) return;
     const t0 = performance.now(); let r, threw = "";
-    try { r = window.Hazel.runProgram(sp); } catch (e) { threw = String(e && e.message || e); r = { ok: false, errors: [] }; }
+    const jit = typeof window.Hazel.jitProgram === "function" && !Q.has("interpreted");
+    try { r = jit ? window.Hazel.jitProgram(sp) : window.Hazel.runProgram(sp); } catch (e) { threw = String(e && e.message || e); r = { ok: false, errors: [] }; }
     const v = r.value && typeof r.value === "object" ? r.value : null;
-    S.built = { key, ok: !!r.ok && !!v && typeof v.step === "function" && typeof v.start === "function", value: v, errors: r.errors || [], threw, ms: performance.now() - t0, at: performance.now() };
+    S.built = { key, ok: r.ok !== false && !(r.errors || []).length && !!v && typeof v.step === "function" && typeof v.start === "function", jit: !!r.compiled, reason: r.reason || "", value: v, errors: r.errors || [], threw, ms: performance.now() - t0, at: performance.now() };
     S.stepMs = []; drawStatus();
     if (S.built.ok) newGame(); else draw();
   }
@@ -240,9 +245,12 @@
   let libAsked = false;
   function loadLib() {
     if (libAsked) return; libAsked = true; drawStatus();
-    const s = document.createElement("script"); s.src = LIB; s.async = true;
-    s.onload = () => { S.libAt = performance.now(); drawStatus(); setTimeout(build, 30); }; s.onerror = () => { S.libFailed = true; drawStatus(); };
-    document.head.append(s);
+    const want = Q.get("lib") === "npm" ? [LIB_NPM] : [LIB_JIT, LIB_NPM];
+    const next = i => { if (i >= want.length) { S.libFailed = true; drawStatus(); return; }
+      const s = document.createElement("script"); s.src = want[i]; s.async = true;
+      s.onload = () => { S.lib = want[i]; S.libAt = performance.now(); drawStatus(); setTimeout(build, 30); }; s.onerror = () => { s.remove(); next(i + 1); };
+      document.head.append(s); };
+    next(0);
   }
   try {
     const [pre, ...mods] = await Promise.all([text("rules/preamble.hz"), ...MODULES.map(m => text(`rules/${m}.hz`))]);

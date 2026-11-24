@@ -2,6 +2,10 @@
 
 Each version lists what the apps do as of that version. The newest version is first.
 
+## 0.0.100 (2026-11-23)
+
+- **Snake: edited rules compiled, so the robot stays quick.** Edit the rules on the page and they were interpreted (hazeljs from jsDelivr): the new robot's choice took 2.4 s a step, so 🤖 could hardly play. Now an edit is built by hazel-jit's own build of Hazel's library (build.hazel.org, as Gnome world's), whose Hazel.jitProgram compiles the rules as it builds them: 1.4 s to build, and 🤖's choice 0.1 ms on a short snake, a step and a choice 1.4 ms on average through three levels (the rules compiled ahead of time, compiled.js, still come first, 0.4 ms). Where that build does not load, jsDelivr's hazeljs interprets them, as before, and the status line says so; ?interpreted asks for it.
+
 ## 0.0.99 (2026-11-23)
 
 - **Gnome world: the villagers say much more, and never the same thing** (Matthew: "let's create more NPC text, based on new animals and ideas/items"; "let's not have any duplicate messages (no two NPCs say the same thing)"). World.greet has 166 lines now (it had 39): 64 for the village, 34 each for the land, the great trees and the water. They tell of the frogs, lily pads and lotus, the dragonflies, bees and butterflies, the robins, sparrows, jays, hawks, ducks and swans, the diggers and where to look for them, the gem count and the party, the hearts, the kinds of ground, the diving gear and the climbing pack. Of the villagers of a place, the one ranked r of n says only its own lines of that place's list (the r-th, the (r + n)-th, ...), a new one each time it speaks, so that no two say the same thing; the shared 🙂 is gone, and so is "Nice cap! Red suits you." (not every gnome's cap is red now). Checked in Node, interpreted and compiled: 96 villagers (more than any world has had in a place), eight greetings each, 166 lines, none shared; and in a world of 66 villagers, 162 lines, none shared.
