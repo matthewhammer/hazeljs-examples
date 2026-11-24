@@ -31,7 +31,7 @@ jobs:
           grep -o 'build:"[0-9a-f]*"' pkg-c/hazel-lib.js | head -1
           grep -o 'build:"[0-9a-f]*"' pkg-a/hazel-lib.js | head -1
           grep -q 'build:"ec2a330996' pkg-c/hazel-lib.js
-          grep -q 'build:"dec7c74e3b' pkg-a/hazel-lib.js
+          grep -q 'build:"2aa0b9b451' pkg-a/hazel-lib.js
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -42,6 +42,7 @@ jobs:
       - name: Idea C, then idea A, on this runner
         run: |
           ulimit -s unlimited || ulimit -s 65536
+          set -o pipefail
           node --stack-size=30000 --max-old-space-size=6000 node/package-bench.mjs ${{ matrix.game }} pkg-c bench/${{ matrix.game }}-c.json --runs --aot-as-is --no-interp | tee bench/${{ matrix.game }}-c.txt
           node --stack-size=30000 --max-old-space-size=6000 node/package-bench.mjs ${{ matrix.game }} pkg-a bench/${{ matrix.game }}-a.json --runs --aot-as-is --no-interp | tee bench/${{ matrix.game }}-a.txt
       - uses: actions/upload-artifact@v4
