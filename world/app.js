@@ -1664,6 +1664,8 @@
       for (let t = 0; t < 12 && riverAt(c + 0.5); t++) c += 2;
       const nearWater = S.rivers.some(R => c > R.x - R.w / 2 - 8 && c < R.x + R.w * 1.5 + 8); add(c + 0.5, landY(c), nearWater ? 3 : 1); }
     for (const hs of S.houses) { if (hs.small) continue; for (const d of [2.4, 1.8, 3.0]) { const x = hs.x + 0.5 - hs.side * d, c = Math.floor(x); if (inside(c, hs.row) && fix[at(c, hs.row)] === F_PLAT) { add(x, hs.row, 2); break; } } }
+    // (each villager's rank among those of its place, and how many there are: World.greet gives each its own lines)
+    const per = {}; for (const v of S.villagers) v.rank = per[v.where] = (per[v.where] ?? -1) + 1; for (const v of S.villagers) v.count = per[v.where] + 1;
   }
   // (a villager whose room has flooded has gone up to a dry one: not seen there, nor heard)
   const villagerAway = v => { const c = Math.floor(v.x), r = Math.floor(v.y - 0.5); return inside(c, r) && wat[at(c, r)] >= 0.5; };
@@ -1674,7 +1676,7 @@
     if (S.frame % 6) return;
     let best = null, bd = 1e9; for (const v of S.villagers) { if (villagerAway(v)) continue; const dx = Math.abs(v.x - gx), dy = Math.abs(v.y - gy); if (dx < 1.7 && dy < 1.3 && dx < bd) { bd = dx; best = v; } }
     if (!best || (S.talk && S.talk.v === best) || S.frame < best.nextAt || Math.abs(g.vx) > 40) return;
-    if (rand() < 0.8 && typeof h.greet === "function") { let t = null; try { t = h.greet(best.id, best.kind, best.where, best.n); } catch (e) { t = null; }
+    if (typeof h.greet === "function") { let t = null; try { t = h.greet(best.id, best.kind, best.where, best.n, best.rank ?? 0, best.count ?? 1); } catch (e) { t = null; }
       if (t && t.line) { S.talk = { v: best, name: t.name, line: t.line, until: S.frame + 60 * 5 }; best.n++; best.nextAt = S.frame + 60 * 10; return; } }
     best.nextAt = S.frame + 60 * 4; S.talk = { v: best, name: "", line: "🙂", until: S.frame + 60 * 1.5 };
   }

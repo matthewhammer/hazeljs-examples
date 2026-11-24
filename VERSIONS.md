@@ -2,6 +2,10 @@
 
 Each version lists what the apps do as of that version. The newest version is first.
 
+## 0.0.99 (2026-11-23)
+
+- **Gnome world: the villagers say much more, and never the same thing** (Matthew: "let's create more NPC text, based on new animals and ideas/items"; "let's not have any duplicate messages (no two NPCs say the same thing)"). World.greet has 166 lines now (it had 39): 64 for the village, 34 each for the land, the great trees and the water. They tell of the frogs, lily pads and lotus, the dragonflies, bees and butterflies, the robins, sparrows, jays, hawks, ducks and swans, the diggers and where to look for them, the gem count and the party, the hearts, the kinds of ground, the diving gear and the climbing pack. Of the villagers of a place, the one ranked r of n says only its own lines of that place's list (the r-th, the (r + n)-th, ...), a new one each time it speaks, so that no two say the same thing; the shared 🙂 is gone, and so is "Nice cap! Red suits you." (not every gnome's cap is red now). Checked in Node, interpreted and compiled: 96 villagers (more than any world has had in a place), eight greetings each, 166 lines, none shared; and in a world of 66 villagers, 162 lines, none shared.
+
 ## 0.0.98 (2026-11-23)
 
 - **Gnome world: the boy's ponytail** (Matthew: "boy has long hair too, but not in braides; as a pony tail"). His sandy-blond hair is long, drawn back from the fringe and tied at the nape: from the front it shows past his shoulder; from behind, it hangs down his back from its band; from the side it swings as he runs. The booklet's drawing follows.

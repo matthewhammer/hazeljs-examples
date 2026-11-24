@@ -60,8 +60,15 @@ for (let n = 0; n < 900; n++) bs = bs.map(b => { calls++; const b2 = G.beaver(b,
   return b2; });
 console.log(`beavers: ${felled} trees felled, ${cuts} logs cut, ${laid} logs laid, ${((performance.now() - tb) / calls).toFixed(2)} ms a step; trees left ${trees}`);
 if (felled < 1 || cuts < 4 || laid < 2 * felled || laid > cuts) bad(`beavers felled ${felled}, cut ${cuts} and laid ${laid}`);
-{ const t1 = G.greet(5, 0, 0, 0), t2 = G.greet(5, 1, 3, 1), t3 = G.greet(9, 2, 2, 4); console.log(`villagers: ${t1.name}: ${t1.line} / ${t2.name}: ${t2.line} / ${t3.name}: ${t3.line}`);
-  if (!t1.name || !t1.line || !t2.line || !t3.name) bad("greet"); }
+{ const t1 = G.greet(5, 0, 0, 0, 0, 1), t2 = G.greet(5, 1, 3, 1, 2, 4), t3 = G.greet(9, 2, 2, 4, 3, 13); console.log(`villagers: ${t1.name}: ${t1.line} / ${t2.name}: ${t2.line} / ${t3.name}: ${t3.line}`);
+  if (!t1.name || !t1.line || !t2.line || !t3.name) bad("greet");
+  // (0.0.99: no two villagers say the same thing) for each place, as many villagers as the most a world has had there and more,
+  // each speaking eight times: every one has a line, and no line is said by two of them
+  let said = 0; const owner = new Map();
+  for (const [where, count] of [[0, 48], [1, 16], [2, 16], [3, 16]]) for (let rank = 0; rank < count; rank++) for (let n = 0; n < 8; n++) {
+    const t = G.greet(rank + where * 100, rank % 3, where, n, rank, count), key = t.line, me = `${where}:${rank}`; said++;
+    if (!key) bad(`villager ${me} says nothing`); else if (owner.has(key) && owner.get(key) !== me) bad(`"${key}" said by ${owner.get(key)} and ${me}`); else owner.set(key, me); }
+  console.log(`villagers: ${said} greetings, ${owner.size} lines, none shared`); }
 // (0.0.95) the diggers: the steps each kind of ground takes with none, the good digger and the super digger; the bedrock, the
 // last four rows, only with the super digger, and never the very last
 { const tbl = [0, 1, 2].map(t => [1, 2, 3, 4, 5, 6, 7, 8].map(w => G.dig_steps(w, 60, t)));
