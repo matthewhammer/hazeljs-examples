@@ -549,16 +549,28 @@
     const t = BOT.cur;
     const done = t.gemAt != null ? !gem[t.gemAt] : t.item ? t.item.taken : Math.abs(gc - t.c) <= 0 && Math.abs(gr - t.r) <= 0;
     if (done) { if (t.gemAt != null) BOT.gems++; else if (t.item) BOT.items++; else BOT.parts++; BOT.cur = null; return; }
-    if (here === BOT.lastCell && g.dt === 0) BOT.still++; else { BOT.still = 0; BOT.lastCell = here; }
+    // (0.0.102; Matthew: "I noticed when I turn on the speed run feature the gnome gets 'stuck' on slopes") No headway is measured
+    // by how far the gnome has gone, not by the tile it is in: on a slope its feet go in and out of the sloped tile, the tile
+    // changed every step or two, and the run, never seen as stuck, never looked for another way
+    // Headway: a step further along the way, a tile dug, or a tile and a half gone (rocking to and fro over a tile is none)
+    { const px = g.x / 1000, py = g.y / 1000; if (!BOT.anchor || BOT.k > BOT.anchor.k || Math.hypot(px - BOT.anchor.x, py - BOT.anchor.y) > 1.5 || g.dt > 0) { BOT.anchor = { x: px, y: py, k: BOT.k }; BOT.still = 0; } else BOT.still++; }
     if (BOT.still > 240) { BOT.still = 0; BOT.tries++; const wp = BOT.path[BOT.k]; if (wp != null) BOT.avoid.add(wp);
       if (BOT.tries > 4) { BOT.skipped.push(t.what + ` (${t.c}, ${t.r})`); BOT.cur = null; return; }
       BOT.path = botPlan(t.c, t.r, BOT.avoid) || []; BOT.k = 0; if (!BOT.path.length) { BOT.skipped.push(t.what + ` (${t.c}, ${t.r})`); BOT.cur = null; return; } }
     for (let j = BOT.k; j < Math.min(BOT.path.length, BOT.k + 4); j++) if (BOT.path[j] === here) BOT.k = j + 1;
+    if (BOT.anchor && BOT.k < BOT.anchor.k) BOT.anchor.k = BOT.k;   // (a new way: its steps counted from here)
     const wp = BOT.path[Math.min(BOT.k, BOT.path.length - 1)]; if (wp == null) { BOT.cur = null; return; }
     const wc = wp % WW, wr = (wp - wc) / WW;
-    if (wr < gr) { S.keys.up = true; if (g.ground && !botClimb(gc, gr) && mat[at(gc, gr - 1)] === AIR) S.jumpQueued = true; }
-    else if (wr > gr && (wc === gc || !g.ground)) S.keys.down = true;
-    if (wc > gc) S.keys.right = true; else if (wc < gc) S.keys.left = true;
+    // (up: a jump from the ground, or out of the water from its surface, as a player would, onto a bank a tile higher; down on a
+    // slope, the digger too: down alone slides down it)
+    if (wr < gr) { S.keys.up = true; if (((g.ground && !botClimb(gc, gr)) || (g.swim && !g.under)) && mat[at(gc, gr - 1)] === AIR) S.jumpQueued = true; }
+    else if (wr > gr && (wc === gc || !g.ground)) { if (!g.ground || Math.abs(g.vx) < 40) S.keys.down = true; if (g.ground && wc === gc && Math.abs(g.vx) < 40 && ((inside(gc, gr0) && shape[at(gc, gr0)]) || (inside(gc, gr0 + 1) && shape[at(gc, gr0 + 1)]))) S.keys.dig = true; }
+    // (across: to a tile on the same row, run on; to stop over a tile to go down or up from, let go in time: let go, the gnome
+    // slows by a quarter a step, so it goes on about three steps' worth of its speed, and it was running past the tile and back)
+    const ex = wc + 0.5 - g.x / 1000, stopping = wr !== gr && g.ground && !g.climb && Math.abs(ex) < 2.5;
+    if (!stopping) { if (wc > gc) S.keys.right = true; else if (wc < gc) S.keys.left = true; }
+    else if (Math.abs(ex) > Math.abs(g.vx) * 3 / 1000 + 0.12 && Math.sign(ex) !== -Math.sign(g.vx || ex)) { if (ex > 0) S.keys.right = true; else S.keys.left = true; }
+    else if (wc !== gc && Math.abs(g.vx) < 15) { if (ex > 0) S.keys.right = true; else S.keys.left = true; }
   }
   function gnomeStep(h) {
     if (S.ride && S.ride.on) { rideStep(h); return; }
@@ -610,7 +622,7 @@
       if (!P.burst) { P.burst = true; spray(140, g.x / 1000, g.y / 1000 - 1, 0, -9, 11); }
       if (age < 30000) { const rate = age < 4000 ? 1 : 0.4; if (Math.random() < 0.7 * rate) spray(1, L + 0.6, B - 0.3, 6, -14, 3); if (Math.random() < 0.7 * rate) spray(1, L + VW - 0.6, B - 0.3, -6, -14, 3);
         if (Math.random() < 0.25 * rate && S.confetti.length < 500) S.confetti.push({ kind: 2, x: L + Math.random() * VW, y: B, vx: 0, vy: -1.8 - Math.random(), rot: 0, vr: 0, col: "#e0f2fe", z: 0.1 + Math.random() * 0.12, ph: Math.random() * 6.3, t: 0 }); }
-      else { S.party = null; if (SND && SND.musicOn) SND.tune(0); } }
+      else { S.party = null; if (SND && SND.musicOn) { if (SND.play) SND.play(musicNow()); else SND.tune(0); } } }
     const keep = [];
     for (const p of S.confetti) { p.t += dt;
       if (p.kind === 2) { p.vy = Math.max(p.vy - 0.6 * dt, -2.8); p.x += (p.vx + Math.sin(p.t * 3 + p.ph) * 0.5) * dt; p.y += p.vy * dt; }
@@ -711,6 +723,7 @@
     for (const B of S.beavers) B.px += (B.b.x / 100 - B.px) * 0.18;
     if (S.frame % 9 === 0) for (const d of S.ducts) if (d.kind === 3) S.smoke.push({ x: d.x + 0.5 + (rand() - 0.5) * 0.2, y: d.y0 - 2.2, r: 0.18, life: 0, drift: 0.004 + rand() * 0.006 });
     windStep(); houseSmoke(); squirrelsStep(); pebblesStep(); villagersStep(h); wildStep(); bunniesStep();
+    if (S.frame % 15 === 0) musicStep();
     for (const s of S.smoke) { s.y -= 0.012; s.x += s.drift + S.windNow * 0.02; s.r += 0.006; s.life++; }
     S.smoke = S.smoke.filter(s => s.life < 200);
     for (const p of S.parts) { p.x += p.vx; p.y += p.vy; p.vy += 0.01; p.life--; }
@@ -2223,6 +2236,27 @@
     R.on = true; R.hop = R.leap = false; R.safe = { x: M.x, y: M.y };
     S.g = { ...g, x: M.x, y: M.y, vx: 0, vy: 0, ground: true, climb: false, swim: false, under: false, face: M.face, dc: -1, dr: -1, dt: 0 };
   }
+  // ---- (0.0.102; Matthew: "let's add different music tracks, --- look at the gnome dig game, and messed up dress up, and let's take
+  // the current loop and extend it into about 10 sections that vary the current loop"; "I'd like a reggae dub remix of the current
+  // music when we are under water --- half tempo -- keep the beat going, and fade like a DJ") The music by where the gnome is, as
+  // each of Dress Up's backgrounds has its own tune, from Gnome dig's: on the land, Lantern road (the gnome's hop grown to ten
+  // sections); under the ground, Root cellar; in a village, Second line; high in the great trees, Garden sun; riding Clover,
+  // Boardwalk; and under the water, the dub of whichever it is, at half time, from the same bar so the beat goes on. A change
+  // waits until the gnome has been in the new place a second and a half (the dub, a third of a second under), and comes in on
+  // the next bar over two and a half seconds, the other going out thinned from the bottom (../shared/chip.js, mix)
+  const MUSIC = { land: "Lantern road", under: "Root cellar", village: "Second line", trees: "Garden sun", ride: "Boardwalk" };
+  const DJ = { place: "land", dub: false, cand: "land", candAt: 0, wet: 0 };
+  function placeOfGnome() { const g = S.g; if (!g) return "land"; if (S.ride && S.ride.on) return "ride";
+    const gx = g.x / 1000, c = Math.max(0, Math.min(WW - 1, Math.floor(gx))), depth = g.y / 1000 - surf0[c];
+    if (depth > 3 && S.villages.some(v => gx >= v.x0 - 1 && gx <= v.x1 + 1)) return "village"; if (depth > 4) return "under"; if (depth < -12) return "trees"; return "land"; }
+  function musicStep() {
+    if (!SND || !SND.mix || !SND.musicOn || S.party) return;
+    const p = placeOfGnome(); if (p !== DJ.cand) { DJ.cand = p; DJ.candAt = S.frame; }
+    DJ.wet = S.g && S.g.under ? Math.min(DJ.wet + 15, 60) : Math.max(DJ.wet - 15, 0);
+    const dub = DJ.dub ? DJ.wet > 0 : DJ.wet >= 20, place = S.frame - DJ.candAt >= 90 ? DJ.cand : DJ.place;
+    if (place !== DJ.place || dub !== DJ.dub) { DJ.place = place; DJ.dub = dub; SND.mix(MUSIC[place], { dub }); }
+  }
+  const musicNow = () => MUSIC[DJ.place];
   // ---- drawing the wildlife
   // (a frog from the side, facing right: sitting, its long hind leg folded under it, eye up on its head, throat puffed when it
   // croaks, the tongue out to an insect; leaping, stretched out; swimming, its legs kicking)
@@ -3572,11 +3606,12 @@
   }
   addEventListener("resize", () => draw());
   const P = window.HazelPause ? window.HazelPause.make({ into: $("new").parentElement, over: $("world").parentElement,
-    onChange: paused => { if (!SND) return; if (paused) SND.stop(); else SND.tune(0); } }) : null;
+    onChange: paused => { if (!SND) return; if (paused) SND.stop(); else if (SND.play) SND.play(musicNow()); else SND.tune(0); } }) : null;
   if (SND) {
     const sw = (id, get, set) => { const b = $(id); if (!b) return; b.setAttribute("aria-pressed", String(get()));
       b.addEventListener("click", () => { set(!get()); b.setAttribute("aria-pressed", String(get())); if (get()) SND.gesture(0); b.blur(); }); };
-    sw("music", () => SND.musicOn, on => { SND.music(on); if (on) SND.tune(0); });
+    if (SND.prefer) SND.prefer(MUSIC.land);
+    sw("music", () => SND.musicOn, on => { SND.music(on); if (on) { if (SND.play) SND.play(musicNow()); else SND.tune(0); } });
     sw("sfx", () => SND.soundsOn, on => SND.sounds(on));
     if (window.HazelVolume) {
       window.HazelVolume.slider($("music"), { label: "Music volume", get: () => SND.volumeOf("music"), set: v => SND.setVolume("music", v), isOn: () => SND.musicOn });

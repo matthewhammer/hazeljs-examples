@@ -74,7 +74,7 @@ if (felled < 1 || cuts < 4 || laid < 2 * felled || laid > cuts) bad(`beavers fel
 { const tbl = [0, 1, 2].map(t => [1, 2, 3, 4, 5, 6, 7, 8].map(w => G.dig_steps(w, 60, t)));
   console.log("dig steps (soil, clay, sand, sandstone, shale, limestone, granite, masonry), none / good / super:", tbl.map(r => r.join(",")).join(" / "));
   if (tbl[0][5] || tbl[0][6] || !tbl[1][5] || !tbl[1][6] || tbl[2][6] >= tbl[1][6] || tbl[1][4] >= tbl[0][4] || tbl[2][4] >= tbl[1][4] || tbl[1][7] || tbl[2][7]) bad("dig_steps");
-  if (G.dig_steps(7, 125, 1) || !G.dig_steps(7, 125, 2) || G.dig_steps(7, 127, 2) || G.dig_steps(1, 127, 2)) bad("dig_steps: the bedrock"); }
+  if (G.dig_steps(7, 205, 1) || !G.dig_steps(7, 205, 2) || G.dig_steps(7, 207, 2) || G.dig_steps(1, 207, 2)) bad("dig_steps: the bedrock"); }   // (0.0.102: the world 208 rows deep)
 if (G.water_row(40, 36, 0) !== 40 || G.water_row(40, 36, 9) !== 37 || G.water_row(40, 36, 30) !== 37) bad("water_row");
 // the gnome on a patch of ground: soil from row 50 down, a pool of water (columns 20 to 27, rows 47 to 49, in a dip of the soil),
 // a ladder at column 12 from row 40 to 49
@@ -147,7 +147,7 @@ const checkGnome = (S, who) => {
       return { cx, cy, r0: row(cy - 3), r1: row(cy - 2), r2: row(cy - 1), r3: row(cy), r4: row(cy + 1) }; };
     const digIn = tool => { let q = { ...gnome0, tool }; for (let i = 0; i < 120; i++) { q = S(q, nearG(q), pad(0, false, true, false, true)); if (q.ev === 1) return `${i + 1} steps (${q.dc},${q.dr})`; } return "no"; };
     const d0 = digIn(0), d1 = digIn(1), d2 = digIn(2); console.log(`${who}: granite dug with no digger: ${d0}; the good digger: ${d1}; the super digger: ${d2}`);
-    if (d0 !== "no" || !d1.startsWith("72 steps (5,50)") || !d2.startsWith("24 steps (5,50)")) bad(`${who}: the diggers`); }
+    if (d0 !== "no" || !d1.startsWith("24 steps (5,50)") || !d2.startsWith("8 steps (5,50)")) bad(`${who}: the diggers`); }   // (0.0.102: each digger three times as fast)
   const t = performance.now(); run(S, gnome0, 300, i => pad(i % 50 < 25 ? 1 : -1, i % 40 === 0, false, i % 40 === 0));
   console.log(`${who}: a step ${((performance.now() - t) / 300).toFixed(3)} ms`);
 };

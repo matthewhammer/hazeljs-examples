@@ -334,7 +334,63 @@
         "e6 - . c6 . . g5 - c6 . e6 . g6 . . .",
         "f#6 - . d6 . . a5 - d6 . f#6 . a5 . . .",
         "g6 . f#6 . e6 . d6 . b5 . a5 . g5 . b5 .",
-        "g5 - - - - - . . d6 . e6 . f#6 . . ."] }] }];
+        "g5 - - - - - . . d6 . e6 . f#6 . . ."] }] },
+    // ---- (0.0.102; Matthew, for Gnome world: "let's take the current loop and extend it into about 10 sections that vary the
+    // current loop") Lantern hop grown into ten sections, about a minute: its three as they were, then the first again run up
+    // and down in eighths, its third; a break of the bass, the chops and the drums under horn stabs; the first and second a
+    // whole step up (D), the second answered in calls; a bridge (IV, iii, ii, V); the second again as a duet of the horn and the
+    // bass alone; and the third, up, for the end, held. Round again, in C. Gnome world plays it on the land
+    { name: "Lantern road", style: "ska", bpm: 170, sections: [
+      { chords: ["C", "F", "G", "C"], lead: [
+        "c5 . e5 . g5 - e5 . c6 - . g5 . e5 . .",
+        "f5 . a5 . c6 - a5 . f5 - . c5 . f5 . .",
+        "g5 . b5 . d6 - b5 . g5 . a5 . b5 . d6 .",
+        "c6 - - . g5 . e5 . c5 - - - . . . ."] },
+      { chords: ["Am", "F", "C", "G"], lead: [
+        "e5 - . a5 . . c6 - b5 . a5 . e5 . . .",
+        "f5 - . a5 . . c6 - d6 . c6 . a5 . . .",
+        "e5 . g5 . c6 . e6 - d6 . c6 . g5 . . .",
+        "d6 - . b5 . . g5 . d5 . g5 . b5 . d6 ."] },
+      { chords: ["C", "F", "G", "C"], lead: [
+        "c5 d5 e5 . g5 a5 g5 e5 c6 - . g5 a5 g5 e5 .",
+        "f5 g5 a5 . c6 d6 c6 a5 f5 - . c5 d5 e5 f5 .",
+        "g5 a5 b5 . d6 e6 d6 b5 g5 . a5 . b5 c6 d6 .",
+        "e6 - d6 c6 - . g5 . e5 . c5 - - . . ."] },
+      { chords: ["F", "G", "C", "C"], lead: [
+        "a5 . c6 . f6 - e6 . d6 . c6 . a5 . . .",
+        "b5 . d6 . g6 - f6 . e6 . d6 . b5 . . .",
+        "c6 . e6 . g6 - e6 . c6 . g5 . e5 . c5 .",
+        "c6 - - - - - . . g5 . a5 . b5 . . ."] },
+      { chords: ["C", "F", "G", "C"], mute: ["chord"], lead: [
+        "c6 . . . . . . . e6 . . . . . . .",
+        "f6 . . . . . . . c6 . . . . . . .",
+        "d6 . . . . . . . b5 . . . g5 . . .",
+        "c6 . . . g5 . . . e5 . g5 . c6 . d6 ."] },
+      { chords: ["C", "F", "G", "C"], up: 2, lead: [
+        "c5 . e5 . g5 - e5 . c6 - . g5 . e5 . .",
+        "f5 . a5 . c6 - a5 . f5 - . c5 . f5 . .",
+        "g5 . b5 . d6 - b5 . g5 . a5 . b5 . d6 .",
+        "c6 - - . g5 . e5 . c5 - - - . . . ."] },
+      { chords: ["Am", "F", "C", "G"], up: 2, lead: [
+        "e5 - . a5 . . . . c6 . b5 . a5 . . .",
+        "f5 - . a5 . . . . d6 . c6 . a5 . . .",
+        "e5 . g5 . c6 . e6 . g6 - e6 . d6 . c6 .",
+        "d6 - - - b5 - - - g5 . a5 . b5 . d6 ."] },
+      { chords: ["F", "Em", "Dm", "G"], up: 2, lead: [
+        "a5 . . f5 a5 . c6 . a5 . . . f5 . . .",
+        "g5 . . e5 g5 . b5 . g5 . . . e5 . . .",
+        "f5 . . d5 f5 . a5 . f5 . a5 . d6 . . .",
+        "g5 . b5 . d6 . g6 - - - f6 . e6 . d6 ."] },
+      { chords: ["Am", "F", "C", "G"], up: 2, mute: ["drums", "chord"], lead: [
+        "e5 - . a5 . . c6 - b5 . a5 . e5 . . .",
+        "f5 - . a5 . . c6 - d6 . c6 . a5 . . .",
+        "e5 . g5 . c6 . e6 - d6 . c6 . g5 . . .",
+        "d6 - . b5 . . g5 . d5 . g5 . b5 . d6 ."] },
+      { chords: ["F", "G", "C", "C"], up: 2, lead: [
+        "a5 . c6 . f6 - e6 . d6 . c6 . a5 . . .",
+        "b5 . d6 . g6 - f6 . e6 . d6 . b5 . . .",
+        "c6 . e6 . g6 - e6 . c6 . e6 . g6 . c6 .",
+        "c6 - - - - - - - . . . . . . . ."] }] }];
   // ---- a tune as steps: for every sixteenth, the notes that start on it (an instrument, a note, how many steps it lasts)
   const ARP = [0, 1, 2, 3, 2, 1, 2, 1];
   // (0.0.57) the bands under the lead, by a tune's style: what the bass, the chords and the drums play in a bar, put(k, note) on
@@ -381,6 +437,18 @@
       for (const [k, iv, len] of bass) { const c = at(k); put(k, ["bass", BASS(c) + (iv === null ? c.third : iv), len]); }
       if (last) { put(13, ["rim"]); put(15, ["rim"]); }
     },
+    // (0.0.102; Matthew, for Gnome world: "a reggae dub remix of the current music when we are under water --- half tempo -- keep
+    // the beat going") dub, at half time: the one drop (the kick and a rim click on three, the rim into the echo); the hats few;
+    // the chord skanked on two and four into the echo; the bass round and long, leaving room; a snare thrown into the echo now
+    // and then
+    dub(put, at, last, b) {
+      put(8, ["kick"]); put(8, ["rim", "echo"]);
+      for (const k of [2, 6, 10, 14]) put(k, ["hat", 0.022]);
+      for (const k of [4, 12]) { const c = at(k); put(k, ["chord", VOICE(c, [0, c.third, 7], 64), 1, "half", 0.04, "echo"]); }
+      for (const [k, iv, len] of [[0, 0, 5], [6, 7, 2], [8, 0, 3], [12, 7, 2], [14, 12, 2]]) put(k, ["bass", BASS(at(k)) + iv, len]);
+      if (b % 2 === 1) put(14, ["snare", "echo"]);
+      if (last) put(15, ["rim", "echo"]);
+    },
     // progressive house: the kick on every beat, a clap on two and four, open hats on the off-beats; a bass rolling on the
     // off-beats; a pad (the chord with a ninth) swelling up between kicks, so it pumps; a plucked arpeggio in sixteenths
     house(put, at, last, b) {
@@ -393,16 +461,22 @@
       if (last) for (const k of [10, 13, 14, 15]) put(k, ["clap"]);
     },
   };
-  function stepsOf(T) {
+  // (0.0.102) A section may vary its tune: up, its notes and chords that many semitones higher; mute, the parts it leaves out
+  // ("lead", "bass", "chord", "drums", ...); style, the band under it in another style. And a tune's dub (dub true): at half time,
+  // the band in the dub style, the lead only now and then (the first half of every other bar), into the echo
+  const DRUMS = ["kick", "snare", "hat", "ohat", "ghost", "clap", "rim"];
+  function stepsOf(T, dub = false) {
     const out = [];
     T.sections.forEach((sec, si) => sec.lead.forEach((bar, b) => {
       const toks = bar.trim().split(/\s+/);
       if (toks.length !== 16) throw new Error(`${T.name}, section ${si + 1}, bar ${b + 1}: ${toks.length} sixteenths`);
-      const halves = sec.chords[b].split("/").map(chordOf), at = k => halves[k < 8 || halves.length === 1 ? 0 : 1];
+      const up = sec.up || 0, mute = sec.mute || [], off = ev => mute.includes(ev[0]) || (mute.includes("drums") && DRUMS.includes(ev[0]));
+      const halves = sec.chords[b].split("/").map(chordOf).map(c => up ? { ...c, root: (c.root + up) % 12 } : c), at = k => halves[k < 8 || halves.length === 1 ? 0 : 1];
       const base = out.length;
       for (let k = 0; k < 16; k++) out.push([]);
-      toks.forEach((t, k) => { if (t === "-" || t === ".") return; let len = 1; while (k + len < 16 && toks[k + len] === "-") len++; out[base + k].push(["lead", midi(t), len]); });
-      if (T.style) { STYLES[T.style]((k, ev) => out[base + k].push(ev), at, b === sec.lead.length - 1, b); return; }
+      toks.forEach((t, k) => { if (t === "-" || t === "." || off(["lead"]) || (dub && (b % 2 === 1 || k >= 8))) return; let len = 1; while (k + len < 16 && toks[k + len] === "-") len++; out[base + k].push(dub ? ["lead", midi(t) + up, len, "echo"] : ["lead", midi(t) + up, len]); });
+      const style = dub ? "dub" : sec.style || T.style;
+      if (style) { STYLES[style]((k, ev) => { if (!off(ev)) out[base + k].push(ev); }, at, b === sec.lead.length - 1, b); return; }
       for (let e = 0; e < 8; e++) { const c = at(2 * e), r = 40 + ((c.root - 4 + 12) % 12);   // (the bass between E2 and D#3)
         out[base + 2 * e].push(["bass", e === 7 ? r + 7 : e % 2 ? r + 12 : r, 2]); }
       for (let k = 0; k < 16; k++) { const c = at(k), tones = [0, c.third, 7, 12]; out[base + k].push(["arp", 57 + ((c.root - 9 + 12) % 12) + tones[ARP[k % 8]], 1]); }
@@ -416,6 +490,9 @@
     return out;
   }
   const SONGS = TUNES.map(T => ({ name: T.name, style: T.style || "chip", swing: T.swing || 0, step: 60 / T.bpm / 4, steps: stepsOf(T) }));
+  // (a tune's dub, made the first time it is asked for: the same bars at half time, so a bar of it lines up with a bar of the tune)
+  const DUBS = new Map();
+  const dub = i => { if (!(i in SONGS)) return null; if (!DUBS.has(i)) { const T = TUNES[i]; DUBS.set(i, { name: T.name + " (dub)", base: i, style: "dub", lead: T.style || "chip", swing: 0.1, step: 60 / T.bpm / 4 * 2, steps: stepsOf(T, true) }); } return DUBS.get(i); };
 
 
   // ---- the chip: one for a page, its 🎵 and 🔊 kept under the page's key; MIX the loudness of the music and of the sounds
@@ -425,6 +502,10 @@
     const kept = (k, d) => { try { const v = JSON.parse(localStorage.getItem(KEY + k)); return v === null ? d : v; } catch (e) { return d; } };
     const keep = (k, v) => { try { localStorage.setItem(KEY + k, JSON.stringify(v)); } catch (e) { /* this visit only */ } };
       let ctx = null, master, musicBus, sfxBus, noise, pulse = {}, timer = 0, song = null, at = 0, next = 0, playing = false;
+    // (0.0.102) the decks: each a song playing (from at, its next step at next), into its own gain and a high-pass (for a DJ's
+    // fade: the one going out thinned from the bottom as it fades); its wet bus also into the echo (a delay fed back through a
+    // low-pass, its tail going on after the deck has gone). The first deck's song, at, next are the song, at, next above
+    let decks = [], echo = null;
 
     const S = { music: kept("music", true), sfx: kept("sfx", true), tune: 0, notes: 0, sounds: 0,
                 vol: { music: kept("music-volume", 1), sfx: kept("sfx-volume", 1) } };   // (0.0.56: each slider's level, 0 to 1)
@@ -446,6 +527,9 @@
       noise = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
       const d = noise.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
       pulse = { quarter: wave(0.25), eighth: wave(0.125), half: wave(0.5) };
+      { const inp = ctx.createGain(), d = ctx.createDelay(3), fb = ctx.createGain(), lp = ctx.createBiquadFilter(), out = ctx.createGain();
+        inp.gain.value = 0.55; d.delayTime.value = 0.5; fb.gain.value = 0.5; lp.type = "lowpass"; lp.frequency.value = 1800; out.gain.value = 0.9;
+        inp.connect(d); d.connect(lp); lp.connect(fb); fb.connect(d); lp.connect(out); out.connect(musicBus); echo = { inp, d }; }
       document.addEventListener("visibilitychange", () => { if (document.hidden) ctx.suspend(); else ctx.resume(); });
       return true;
     }
@@ -467,13 +551,13 @@
       g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
       s.connect(f); f.connect(g); g.connect(bus); s.start(t, Math.random() * 0.5); s.stop(t + dur + 0.02);
     }
-    function play(ev, t, step) {
+    function play(ev, t, step, D) {
       S.notes++;
-      const [inst, n, len] = ev;
-      if (inst === "lead" && song.style === "ska") {   // (a horn: a square lead, an octave below it on the triangle)
-        tone(musicBus, "half", hz(n), hz(n), t, len * step * 0.9, 0.075, len >= 4 ? 16 : 0); tone(musicBus, "triangle", hz(n - 12), hz(n - 12), t, len * step * 0.9, 0.1); }
-      else if (inst === "lead") tone(musicBus, song.style === "house" ? "half" : "quarter", hz(n), hz(n), t, len * step * 0.95, song.style === "house" ? 0.085 : 0.11, len >= 4 ? 14 : 0);
-      else if (inst === "chord") for (const m of n) tone(musicBus, ev[3], hz(m), hz(m), t, len * step * 0.6, ev[4]);
+      const [inst, n, len] = ev, song = D.song, musicBus = ev[ev.length - 1] === "echo" ? D.wet : D.out, style = song.lead || song.style;
+      if (inst === "lead" && style === "ska") {   // (a horn: a square lead, an octave below it on the triangle; in a dub, softer)
+        const v = song.style === "dub" ? 0.6 : 1; tone(musicBus, "half", hz(n), hz(n), t, len * step * 0.9, 0.075 * v, len >= 4 ? 16 : 0); tone(musicBus, "triangle", hz(n - 12), hz(n - 12), t, len * step * 0.9, 0.1 * v); }
+      else if (inst === "lead") tone(musicBus, style === "house" ? "half" : "quarter", hz(n), hz(n), t, len * step * 0.95, style === "house" ? 0.085 : 0.11, len >= 4 ? 14 : 0);
+      else if (inst === "chord") for (const m of n) tone(musicBus, ev[3], hz(m), hz(m), t, len * step * (song.style === "dub" ? 0.35 : 0.6), ev[4]);
       else if (inst === "pad") for (const m of n) tone(musicBus, "half", hz(m), hz(m), t + 0.01, len * step * 0.95, 0.017, 0, len * step * 0.6);
       else if (inst === "pluck") tone(musicBus, "quarter", hz(n), hz(n), t, step * 0.5, 0.038);
       else if (inst === "ohat") hiss(musicBus, t, 0.11, 0.06, "highpass", 6500);
@@ -482,26 +566,55 @@
       else if (inst === "rim") { hiss(musicBus, t, 0.04, 0.14, "bandpass", 2600, 3); tone(musicBus, "triangle", 900, 700, t, 0.025, 0.08); }
       else if (inst === "bubble") tone(musicBus, "quarter", hz(n), hz(n), t, step * 0.45, 0.026);
       else if (inst === "arp") tone(musicBus, "eighth", hz(n), hz(n), t, step * 0.8, 0.032);
-      else if (inst === "bass") tone(musicBus, "triangle", hz(n), hz(n), t, len * step * 0.9, 0.3);
+      else if (inst === "bass") tone(musicBus, song.style === "dub" ? "sine" : "triangle", hz(n), hz(n), t, len * step * 0.9, song.style === "dub" ? 0.42 : 0.3);
       else if (inst === "kick") { tone(musicBus, "sine", 160, 45, t, 0.1, 0.5); }
       else if (inst === "snare") { hiss(musicBus, t, 0.12, 0.22, "bandpass", 1900, 0.7); tone(musicBus, "triangle", 190, 150, t, 0.06, 0.15); }
-      else if (inst === "hat") hiss(musicBus, t, 0.03, ev[1] ?? 0.06, "highpass", 7000);
+      else if (inst === "hat") hiss(musicBus, t, 0.03, typeof ev[1] === "number" ? ev[1] : 0.06, "highpass", 7000);
     }
     // (the scheduler: every 25 ms, the notes of the next 120 ms put on the audio clock)
+    const adv = (D, k) => D.song.step * (D.song.swing ? (k % 2 ? 1 - D.song.swing : 1 + D.song.swing) : 1);   // (a swing: the off sixteenths late)
     function tick() {
-      if (!playing || !song) return;
-      while (next < ctx.currentTime + 0.12) {
-        for (const ev of song.steps[at]) play(ev, next, song.step);
-        next += song.step * (song.swing ? (at % 2 ? 1 - song.swing : 1 + song.swing) : 1); at = (at + 1) % song.steps.length;   // (a swing: the off sixteenths late)
+      if (!playing) return;
+      for (const D of decks) while (D.next < ctx.currentTime + 0.12 && D.next < D.until) {
+        for (const ev of D.song.steps[D.at]) play(ev, D.next, D.song.step, D);
+        D.next += adv(D, D.at); D.at = (D.at + 1) % D.song.steps.length;
       }
+      decks = decks.filter(D => { if (D.until < ctx.currentTime - 1) { D.out.disconnect(); return false; } return true; });
+      const D0 = decks[decks.length - 1]; if (D0) { song = D0.song; at = D0.at; next = D0.next; }
+    }
+    function deck(sg, t0, from = 0) {
+      const out = ctx.createGain(), hp = ctx.createBiquadFilter(), wet = ctx.createGain();
+      hp.type = "highpass"; hp.frequency.value = 10; out.connect(hp); hp.connect(musicBus); wet.connect(out); wet.connect(echo.inp);
+      const D = { song: sg, at: from % sg.steps.length, next: t0, until: Infinity, out, hp, wet }; decks.push(D);
+      if (sg.style === "dub") echo.d.delayTime.setValueAtTime(sg.step * 3, t0);   // (the echo a dotted eighth of the dub)
+      return D;
     }
     function start(i) {
       S.tune = i in SONGS ? i : 0; song = SONGS[S.tune];
       if (!ctx) return;
-      at = 0; next = ctx.currentTime + 0.25; playing = true;
+      for (const D of decks) D.out.disconnect(); decks = [];
+      const D = deck(song, ctx.currentTime + 0.25); at = 0; next = D.next; playing = true;
       clearInterval(timer); timer = setInterval(tick, 25); tick();
     }
-    function stop() { playing = false; clearInterval(timer); timer = 0; }
+    function stop() { playing = false; clearInterval(timer); timer = 0; for (const D of decks) D.out.disconnect(); decks = []; }
+    // (0.0.102; Matthew: "fade like a DJ") mix(x): song x (a number, or a dub) brought in on the next bar of the one playing, over
+    // fade seconds: it rises as the other falls, the other thinned from the bottom as it goes. A tune and its dub go on from the
+    // same bar, so the beat goes on through the change; any other starts at its top
+    function mix(x, fade = 2.5) {
+      const sg = typeof x === "number" ? SONGS[x] : x; if (!sg) return;
+      if (typeof x === "number") S.tune = x;
+      if (!ctx || !S.music) { song = sg; return; }
+      const cur = decks[decks.length - 1];
+      if (!playing || !cur) { start(typeof x === "number" ? x : 0); if (typeof x !== "number") { for (const D of decks) D.out.disconnect(); decks = []; deck(sg, ctx.currentTime + 0.25); } return; }
+      if (cur.song === sg) return;
+      let n = (16 - cur.at % 16) % 16 || 16, t0 = cur.next; for (let k = 0; k < n; k++) t0 += adv(cur, cur.at + k);
+      const kin = (a, b) => (a.base ?? SONGS.indexOf(a)) === (b.base ?? SONGS.indexOf(b));
+      const D = deck(sg, t0, kin(sg, cur.song) ? cur.at + n : 0);
+      D.out.gain.setValueAtTime(0.0001, ctx.currentTime); D.out.gain.setValueAtTime(0.0001, t0); D.out.gain.linearRampToValueAtTime(1, t0 + fade);
+      for (const O of decks) if (O !== D && O.until === Infinity) { O.out.gain.setValueAtTime(O.out.gain.value, t0); O.out.gain.linearRampToValueAtTime(0.0001, t0 + fade);
+        O.hp.frequency.setValueAtTime(10, t0); O.hp.frequency.exponentialRampToValueAtTime(700, t0 + fade); O.until = t0 + fade; }
+      while (decks.length > 3) decks.shift().out.disconnect();
+    }
     // (a game's sound; a big one (duck) dips the music under it for a moment)
     const sfx = (f, duck = 0) => { if (!ctx || !S.sfx) return; S.sounds++; const t = ctx.currentTime + 0.005; f(t);
       if (duck && S.music) { const g = musicBus.gain; g.cancelScheduledValues(t); g.setTargetAtTime(level("music") * (1 - duck), t, 0.01); g.setTargetAtTime(level("music"), t + duck * 0.5, 0.08); } };
@@ -509,7 +622,7 @@
       // (a tap or a key: the chip made, or woken, and tune i started if music is on and nothing plays)
       gesture(i) { if (!init()) return; if (ctx.state === "suspended") ctx.resume(); if (!playing && S.music && i != null) start(i); },
       tune(i) { if (ctx && S.music) start(i); else { S.tune = i in SONGS ? i : 0; song = SONGS[S.tune]; } },
-      stop,
+      stop, mix,
       music(on) { S.music = !!on; keep("music", S.music); if (!ctx) return; musicBus.gain.cancelScheduledValues(ctx.currentTime); musicBus.gain.setTargetAtTime(level("music"), ctx.currentTime, 0.05); if (!on) stop(); },
       sounds(on) { S.sfx = !!on; keep("sfx", S.sfx); if (ctx) sfxBus.gain.setTargetAtTime(level("sfx"), ctx.currentTime, 0.05); },
       get musicOn() { return S.music; }, get soundsOn() { return S.sfx; },
@@ -517,7 +630,7 @@
       volumeOf: which => S.vol[which],
       setVolume(which, v) { S.vol[which] = Math.max(0, Math.min(1, v)); keep(which + "-volume", S.vol[which]);
         if (ctx) { const b = which === "music" ? musicBus : sfxBus; b.gain.cancelScheduledValues(ctx.currentTime); b.gain.setTargetAtTime(level(which), ctx.currentTime, 0.03); } },
-      status: () => ({ tune: SONGS[S.tune].name, playing, notes: S.notes, sounds: S.sounds, state: ctx ? ctx.state : "not made" }),
+      status: () => ({ tune: SONGS[S.tune].name, playing, notes: S.notes, sounds: S.sounds, state: ctx ? ctx.state : "not made", decks: decks.map(D => ({ song: D.song.name, at: D.at, until: D.until })) }),
       // (a game's own sounds: f(t) at the audio clock's now, if sounds are on; and the chip's voices for them, on the sounds' bus)
       sfx,
       tone: (kind, f0, f1, t, dur, vol, vib = 0) => tone(sfxBus, kind, f0, f1, t, dur, vol, vib),
@@ -526,5 +639,5 @@
       get ctx() { return ctx; }, get bus() { return sfxBus; },
     };
   }
-  window.HazelChip = { make, TUNES, SONGS, hz, midi };
+  window.HazelChip = { make, TUNES, SONGS, hz, midi, dub };
 })();

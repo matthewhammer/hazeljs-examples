@@ -55,9 +55,15 @@
     quack: () => sfx(t => { for (let i = 0; i < 2; i++) { tone("quarter", hz(56), hz(52), t + i * 0.16, 0.11, 0.06); hiss(t + i * 0.16, 0.1, 0.04, "bandpass", 900); } }),
     honk: () => sfx(t => { tone("triangle", hz(61), hz(59), t, 0.28, 0.07); tone("quarter", hz(61), hz(59), t, 0.28, 0.02); }),
   };
+  let pref = -1;   // (0.0.102: a page's own first tune, by name, which a tap starts instead of a level's: Gnome world's)
   window.DigSound = {
     // (a tap or a key: the chip made, or woken, and the level's tune started if music is on and nothing plays)
-    gesture(lv) { C.gesture(lv != null ? tuneOf(lv) : null); },
+    gesture(lv) { C.gesture(pref >= 0 ? pref : lv != null ? tuneOf(lv) : null); },
+    // (0.0.102, for Gnome world: its music by where the gnome is) a tune by its name: mixed in on the next bar, as a DJ would, or
+    // its dub (half time) under the water; played now; or the one a tap starts
+    mix(name, o = {}) { const i = byName(name); if (i >= 0 && C.mix) C.mix(o.dub ? window.HazelChip.dub(i) : i, o.fade); },
+    play(name) { const i = byName(name); C.tune(i >= 0 ? i : tuneOf(0)); },
+    prefer(name) { pref = byName(name); },
     tune(lv) { C.tune(tuneOf(lv)); },
     // (0.0.74) a level cleared: the party's own tune, round and round until you go on
     celebrate() { const i = byName("Confetti skank"); if (i >= 0) C.tune(i); },
