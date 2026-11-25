@@ -237,6 +237,16 @@
       // last of the things (a save from before it has one fewer; restore lets it in)
       const lf = big.filter(hs => hs !== pack && hs !== fl && hs !== hi).sort((a, b) => a.x - b.x)[0];
       if (lf) S.items.push({ kind: "tail", x: lf.x + 0.5 - lf.side * 1.1, y: lf.row - 0.55, taken: false }); }
+    // (0.0.126; Matthew: "The gem finder is initially placed near a patch of gems, not too far down. Perhaps on the left part of
+    // the world.") the gem finder: in the left quarter of the world, four to twelve tiles under the land, in ground a gnome digs
+    // with no digger, beside the richest patch of gems there (the most within three tiles; nearer the top and home, the better): now the
+    // last of the things (a save from before it has one fewer; restore lets it in)
+    { let best = null;
+      for (let c = 16; c < Math.floor(WW / 4); c++) for (let r = surf0[c] + 4; r <= surf0[c] + 12; r++) { if (!inside(c, r)) continue; const i = at(c, r);
+        if (gem[i] || !diggable(i)) continue;
+        let n = 0; for (let dc = -3; dc <= 3; dc++) for (let dr = -3; dr <= 3; dr++) if (inside(c + dc, r + dr) && gem[at(c + dc, r + dr)]) n++;
+        const score = n * 4 - (r - surf0[c]) - c / 30; if (n > 0 && (!best || score > best.score)) best = { c, r, score }; }   // (nearer home, the better: found early)
+      if (best) S.items.push({ kind: "finder", x: best.c + 0.5, y: best.r + 0.5, taken: false }); }
     for (const R of S.rivers) holdRiver(R);
     for (let c = 0; c < WW; c++) top[c] = topOf(c);
     S.dry = []; for (let i = 0; i < NN; i++) if (mat[i] === AIR && (bg[i] === B_PLASTER || bg[i] === B_WOOD || bg[i] === B_STAIR)) S.dry.push(i);
@@ -549,6 +559,8 @@
     flippers: { icon: "🏊", label: "🏊 swim flippers", what: "🏊 the swim flippers", banner: "🏊 The swim flippers: swim three times as fast, across, up and down (on by themselves in the water)" },
     tail: { icon: "🐈", label: "🐈 cat tail", what: "🐈 the cat tail", banner: "🐈 The cat tail! Hold ↑ and press R to put it on: jump, and keep pressing jump in the air, or hold it, to fly up (faster with the running shoes)" },
     climber: { icon: "🪝", label: "🪝 super climbing gear", what: "🪝 the super climbing gear", banner: "🪝 The super climbing gear: climb three times as fast, trees, ladders, stairs and tunnels" },
+    // (0.0.126; Matthew: "a new item, gem finder -- it looks like a compass, but it's a bit magical too")
+    finder: { icon: "🧭", label: "🧭 gem finder", what: "🧭 the gem finder", banner: "🧭 The gem finder! A magic compass: over your head, its needle points to the nearest gem still in the ground, and the map shows that gem big. Dig it out, and it points to the next" },
     shoes: { icon: "👟", label: "👟 running shoes", what: "👟 the running shoes", banner: "👟 The running shoes: hold 💨 (or Shift) to dash, up to full speed in a flash" },
   };
   const BOT = { on: false, phase: "", queue: [], cur: null, path: [], k: 0, lastCell: -1, still: 0, tries: 0, skipped: [], frames: 0, t0: 0, items: 0, parts: 0, partsAll: 0, gems: 0, gemsAll: 0, report: null,
@@ -748,6 +760,37 @@
     if (v) { u.voice = v; u.lang = v.lang; } else u.lang = "en-US";
     u.rate = 0.86; u.pitch = 1; saying++; SPEECH.speak(u);   // (slow, for a child learning to read, as the villagers speak)
   }
+  // ---- (0.0.126; Matthew: "Once we have this item, the gnome has an on-screen indicator pointing towards the nearest unfound
+  // gem. Also, that same gem shows up as a large gem icon on the overview map. When we get that gem, the gem finder indicators
+  // update to the next nearest gem.") The gem finder's aim: the gem still in the ground nearest the gnome, looked for again twice
+  // a second as it moves, and at once when the one it points to is dug out
+  const GEMAIM = { i: -1, at: -1e9 };
+  const hasFinder = () => S.items.some(it => it.kind === "finder" && it.taken);
+  function gemAim() {
+    if (!S.g || !hasFinder()) return (GEMAIM.i = -1);
+    if (GEMAIM.i >= 0 && gem[GEMAIM.i] && S.frame - GEMAIM.at < 30 && S.frame >= GEMAIM.at) return GEMAIM.i;
+    const gx = S.g.x / 1000, gy = S.g.y / 1000 - 0.5; let best = -1, bd = Infinity;
+    for (let i = 0; i < NN; i++) if (gem[i]) { const c = i % WW, r = (i - c) / WW, d = (c + 0.5 - gx) * (c + 0.5 - gx) + (r + 0.5 - gy) * (r + 0.5 - gy); if (d < bd) { bd = d; best = i; } }
+    GEMAIM.i = best; GEMAIM.at = S.frame; return best;
+  }
+  // (the gem finder drawn, u a tile: a brass compass, its face deep blue with stars twinkling in it, a soft violet glow round it,
+  // and a needle red at its tip, a spark on it; ang, where the tip points)
+  function gemCompass(c, u, ang, now) {
+    const glow = c.createRadialGradient(0, 0, u * 0.2, 0, 0, u * 0.75); glow.addColorStop(0, "rgba(167,139,250,0.55)"); glow.addColorStop(1, "rgba(167,139,250,0)");
+    c.fillStyle = glow; c.beginPath(); c.arc(0, 0, u * 0.75, 0, 7); c.fill();
+    c.fillStyle = "#b7791f"; c.beginPath(); c.arc(0, 0, u * 0.42, 0, 7); c.fill(); c.fillStyle = "#f6d365"; c.beginPath(); c.arc(0, 0, u * 0.37, 0, 7); c.fill();
+    const face = c.createRadialGradient(-u * 0.08, -u * 0.08, u * 0.02, 0, 0, u * 0.32); face.addColorStop(0, "#3b4cca"); face.addColorStop(1, "#1e1b4b");
+    c.fillStyle = face; c.beginPath(); c.arc(0, 0, u * 0.31, 0, 7); c.fill();
+    for (let k = 0; k < 6; k++) { const a = k * 1.047 + 0.4, rr = u * (0.12 + 0.05 * (k % 3)), tw = 0.5 + 0.5 * Math.sin(now / 240 + k * 1.7);
+      c.fillStyle = `rgba(255,255,255,${(0.35 + 0.55 * tw).toFixed(2)})`; c.beginPath(); c.arc(Math.cos(a) * rr, Math.sin(a) * rr, u * 0.018 * (1 + tw), 0, 7); c.fill(); }
+    c.strokeStyle = "#f6d365"; c.lineWidth = Math.max(1, u * 0.025); c.beginPath();
+    for (let k = 0; k < 4; k++) { const a = k * Math.PI / 2; c.moveTo(Math.cos(a) * u * 0.25, Math.sin(a) * u * 0.25); c.lineTo(Math.cos(a) * u * 0.31, Math.sin(a) * u * 0.31); } c.stroke();
+    c.save(); c.rotate(ang);
+    c.fillStyle = "#ef4444"; c.beginPath(); c.moveTo(u * 0.3, 0); c.lineTo(0, -u * 0.06); c.lineTo(0, u * 0.06); c.closePath(); c.fill();
+    c.fillStyle = "#f1f5f9"; c.beginPath(); c.moveTo(-u * 0.24, 0); c.lineTo(0, -u * 0.06); c.lineTo(0, u * 0.06); c.closePath(); c.fill();
+    c.fillStyle = "#fde68a"; c.beginPath(); c.arc(u * 0.3, 0, u * 0.03 * (1.2 + Math.sin(now / 120)), 0, 7); c.fill();
+    c.restore(); c.fillStyle = "#f6d365"; c.beginPath(); c.arc(0, 0, u * 0.045, 0, 7); c.fill();
+  }
   function pickups() {
     const g = S.g;
     // (a gem lying loose in an open tile, as some came to: picked up as the gnome goes through it)
@@ -761,6 +804,7 @@
       else if (it.kind === "carpet") { S.carpet.have = true; useRide("carpet"); }
       else if (it.kind === "tail") { S.tail.have = true; useRide("tail"); }
       else if (it.kind === "shoes" || it.kind === "flippers" || it.kind === "climber") S.g = { ...S.g, kit: (S.g.kit | 0) | KIT[it.kind] };
+      else if (it.kind === "finder") GEMAIM.at = -1e9;   // (0.0.126: had, it looks for the nearest gem at once)
       else S.g = { ...S.g, tool: Math.max(S.g.tool || 0, it.kind === "super" ? 2 : 1) };
       powerNote(it.kind); }
     // a heart, walked into, gives back one heart (not with all five: it stays for later)
@@ -3879,6 +3923,7 @@
         ctx.lineWidth = Math.max(1, s / 30); ctx.beginPath(); for (const k of [0, 1, 2]) { ctx.moveTo(X(-0.11 + k * 0.05), Y(-0.15 + k * 0.035)); ctx.lineTo(X(-0.06 + k * 0.05), Y(-0.1 + k * 0.035)); } ctx.stroke();
         ctx.strokeStyle = "rgba(40,25,10,0.8)"; ctx.lineWidth = Math.max(1, s / 22); }
       else if (it.kind === "tail") { ctx.save(); ctx.scale(s / 34, s / 34); catTail(ctx, -9, 8, 1, Math.sin(now / 300) * 0.2); ctx.restore(); }   // (0.0.116: the cat tail, curled)
+      else if (it.kind === "finder") gemCompass(ctx, s * 0.95, now / 700 + Math.sin(now / 430) * 0.8, now);   // (0.0.126: the gem finder, its needle wandering till it is had)
       else if (it.kind === "flippers") for (const [ox, rot] of [[-0.15, -0.28], [0.15, 0.28]]) {   // (0.0.114: the swim flippers, a pair, teal, ribbed)
         ctx.save(); ctx.translate(ox * s, 0); ctx.rotate(rot);
         ctx.fillStyle = "#14b8a6"; ctx.beginPath(); ctx.moveTo(-0.08 * s, -0.24 * s); ctx.lineTo(0.08 * s, -0.24 * s); ctx.lineTo(0.17 * s, 0.32 * s); ctx.quadraticCurveTo(0, 0.4 * s, -0.17 * s, 0.32 * s); ctx.closePath(); ctx.fill(); ctx.stroke();
@@ -3944,6 +3989,12 @@
       if (g.swim && !g.under) { ctx.strokeStyle = "rgba(255,255,255,0.8)"; ctx.lineWidth = Math.max(1, s / 16); const wl = Math.floor((g.y / 1000 - 0.45)) ; const sx = gx * s, sy = (wl) * s;
         for (const sd of [-1, 1]) { ctx.beginPath(); ctx.arc(sx + sd * (0.45 + (now % 900) / 900 * 0.5) * s, sy, 0.18 * s, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke(); } }
     }
+    // (0.0.126) the gem finder, had: over the gnome's head, its needle toward the nearest gem still in the ground; and that gem glowing
+    { const gi = !LINE && g ? gemAim() : -1;
+      if (gi >= 0) { const gc = gi % WW, gr = (gi - gc) / WW, tx = gc + 0.5, ty = gr + 0.5, hx = g.x / 1000, hy = g.y / 1000 - 1.85, pulse = 0.8 + 0.2 * Math.sin(now / 220);
+        const gl = ctx.createRadialGradient(tx * s, ty * s, 0, tx * s, ty * s, s * 1.1 * pulse); gl.addColorStop(0, "rgba(196,181,253,0.75)"); gl.addColorStop(1, "rgba(167,139,250,0)");
+        ctx.fillStyle = gl; ctx.beginPath(); ctx.arc(tx * s, ty * s, s * 1.1 * pulse, 0, 7); ctx.fill();
+        ctx.save(); ctx.translate(hx * s, hy * s); gemCompass(ctx, s * 1.3, Math.atan2(ty - hy, tx - hx), now); ctx.restore(); } }
     drawPebbles(true, c0, c1, r0, r1);
     drawTalk(s);
     for (const p of S.parts) { if (p.fire) { const k = Math.max(0, p.life / p.life0); ctx.fillStyle = k > 0.65 ? "#fde047" : k > 0.35 ? "#fb923c" : "#ef4444"; ctx.globalAlpha = Math.min(1, 0.35 + k);
@@ -3994,13 +4045,16 @@
     for (let k = words.length - 1; k >= 0; k--) { const w = words[k], f = (now - w.at) / 1200; if (f > 1) { words.splice(k, 1); continue; } ctx.globalAlpha = 1 - f; ctx.fillStyle = "#fff"; ctx.strokeStyle = "rgba(0,0,0,0.6)"; ctx.lineWidth = 3; ctx.strokeText(w.t, w.x * s, (w.y - f) * s); ctx.fillText(w.t, w.x * s, (w.y - f) * s); ctx.globalAlpha = 1; }
     ctx.restore();
     // (each thing to be found that is off the screen: a pointer at the screen's edge, toward it, its sign and how far)
-    if (!LINE) for (const it of S.items) { if (it.taken) continue; const dx = it.x - (camX + VW / 2), dy = it.y - (camY + VH / 2);
-      if (Math.abs(dx) < VW / 2 - 0.5 && Math.abs(dy) < VH / 2 - 0.5) continue;
+    // (0.0.126: and the gem the finder points to, off the screen: its pointer too, 💎 on violet)
+    const edgePointer = (tx, ty, icon, ring, fill) => { const dx = tx - (camX + VW / 2), dy = ty - (camY + VH / 2);
+      if (Math.abs(dx) < VW / 2 - 0.5 && Math.abs(dy) < VH / 2 - 0.5) return;
       const k = Math.min((VW / 2 - 1.4) / Math.max(0.001, Math.abs(dx)), (VH / 2 - 1.4) / Math.max(0.001, Math.abs(dy))), px = (VW / 2 + dx * k) * s, py = (VH / 2 + dy * k) * s, a = Math.atan2(dy, dx), pulse = 1 + 0.08 * Math.sin(now / 200);
-      ctx.save(); ctx.translate(px, py); ctx.fillStyle = "rgba(30,20,8,0.7)"; ctx.beginPath(); ctx.arc(0, 0, s * 0.62 * pulse, 0, 7); ctx.fill(); ctx.strokeStyle = "#fde68a"; ctx.lineWidth = Math.max(2, s / 14); ctx.stroke();
-      ctx.save(); ctx.rotate(a); ctx.fillStyle = "#fde68a"; ctx.beginPath(); ctx.moveTo(s * 0.95 * pulse, 0); ctx.lineTo(s * 0.62, -s * 0.22); ctx.lineTo(s * 0.62, s * 0.22); ctx.closePath(); ctx.fill(); ctx.restore();
-      ctx.font = `${Math.round(0.6 * s)}px sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillStyle = "#fff"; ctx.fillText(ITEM[it.kind].icon, 0, -s * 0.02);
-      ctx.font = `bold ${Math.round(0.28 * s)}px sans-serif`; ctx.fillStyle = "#fff8d0"; ctx.fillText(`${Math.round(Math.hypot(it.x - S.g.x / 1000, it.y - S.g.y / 1000))} m`, 0, s * 0.85); ctx.restore(); }
+      ctx.save(); ctx.translate(px, py); ctx.fillStyle = fill; ctx.beginPath(); ctx.arc(0, 0, s * 0.62 * pulse, 0, 7); ctx.fill(); ctx.strokeStyle = ring; ctx.lineWidth = Math.max(2, s / 14); ctx.stroke();
+      ctx.save(); ctx.rotate(a); ctx.fillStyle = ring; ctx.beginPath(); ctx.moveTo(s * 0.95 * pulse, 0); ctx.lineTo(s * 0.62, -s * 0.22); ctx.lineTo(s * 0.62, s * 0.22); ctx.closePath(); ctx.fill(); ctx.restore();
+      ctx.font = `${Math.round(0.6 * s)}px sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillStyle = "#fff"; ctx.fillText(icon, 0, -s * 0.02);
+      ctx.font = `bold ${Math.round(0.28 * s)}px sans-serif`; ctx.fillStyle = "#fff8d0"; ctx.fillText(`${Math.round(Math.hypot(tx - S.g.x / 1000, ty - S.g.y / 1000))} m`, 0, s * 0.85); ctx.restore(); };
+    if (!LINE) for (const it of S.items) if (!it.taken) edgePointer(it.x, it.y, ITEM[it.kind].icon, "#fde68a", "rgba(30,20,8,0.7)");
+    if (!LINE && GEMAIM.i >= 0 && gem[GEMAIM.i] && hasFinder()) { const gc = GEMAIM.i % WW; edgePointer(gc + 0.5, (GEMAIM.i - gc) / WW + 0.5, "💎", "#c4b5fd", "rgba(46,16,101,0.78)"); }
     ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
     if (!LINE) { ctx.save(); ctx.translate(-camX * s, -camY * s); drawParty(s, now); ctx.restore(); }   // (in the world, where the gnome is)
     if (!LINE) hud(now);
@@ -4104,7 +4158,7 @@
       if (mb) { if (mb.hidden === show) mb.hidden = !show; const which = riding ? "clover" : flying ? "carpet" : tailed ? "tail" : nextRide(), icon = which === "carpet" ? "🧞" : which === "tail" ? "🐈" : "🐇", on = String(riding || flying || tailed);
         if (mb.textContent !== icon) { mb.textContent = icon; mb.title = which === "carpet" ? "The magic carpet: on or off (R)" : which === "tail" ? "The cat tail: on or off (R)" : "Ride Clover the rabbit: on or off (R); a carrot first"; }
         if (mb.getAttribute("aria-pressed") !== on) mb.setAttribute("aria-pressed", on); } }
-    const line = `${runWord}${hearts}  💎 ${S.found || 0} / ${S.gemTotal || 0}${S.carrots ? "  🥕 " + S.carrots : ""}${S.ride && S.ride.on ? "  🐇" : ""}${S.carpet && S.carpet.have ? (S.carpet.on ? "  🧞 flying" : "  🧞") : ""}${S.tail && S.tail.on ? (S.tail.fly > 0 ? "  🐈 flying" : "  🐈") : ""}  🍃 ${windWord} ${arrows}  ${where}${g && g.gear ? "  🤿" : ""}${g && g.climbPack ? "  🧗" : ""}${g && g.tool ? (g.tool >= 2 ? "  ⚒️" : "  ⛏️") : ""}${place ? "  ·  " + place : ""}`;
+    const line = `${runWord}${hearts}  💎 ${S.found || 0} / ${S.gemTotal || 0}${S.carrots ? "  🥕 " + S.carrots : ""}${S.ride && S.ride.on ? "  🐇" : ""}${S.carpet && S.carpet.have ? (S.carpet.on ? "  🧞 flying" : "  🧞") : ""}${S.tail && S.tail.on ? (S.tail.fly > 0 ? "  🐈 flying" : "  🐈") : ""}  🍃 ${windWord} ${arrows}  ${where}${g && g.gear ? "  🤿" : ""}${hasFinder() ? "  🧭" : ""}${g && g.climbPack ? "  🧗" : ""}${g && g.tool ? (g.tool >= 2 ? "  ⚒️" : "  ⛏️") : ""}${place ? "  ·  " + place : ""}`;
     const tw = ctx.measureText(line).width;
     pill(10 * k, 10 * k, tw + 20 * k, 30 * k); ctx.fillStyle = "#fff"; ctx.fillText(line, 20 * k, 15 * k);
     let below = 46 * k;
@@ -4129,6 +4183,10 @@
       for (const it of S.items) { if (it.taken) continue; const ix = mx + it.x / WW * mw, iy = my + it.y / WH * mh;
         ctx.fillStyle = "rgba(0,0,0,0.55)"; ctx.beginPath(); ctx.arc(ix, iy, 8 * k, 0, 7); ctx.fill(); ctx.strokeStyle = "#fde68a"; ctx.lineWidth = 1.5; ctx.stroke();
         ctx.fillText(ITEM[it.kind].icon, ix, iy + 0.5 * k); }
+      // (0.0.126: the gem the finder points to, big on the map, pulsing)
+      if (GEMAIM.i >= 0 && gem[GEMAIM.i] && hasFinder()) { const gc = GEMAIM.i % WW, ix = mx + (gc + 0.5) / WW * mw, iy = my + ((GEMAIM.i - gc) / WW + 0.5) / WH * mh, pz = 1 + 0.15 * Math.sin(now / 220);
+        ctx.fillStyle = "rgba(46,16,101,0.75)"; ctx.beginPath(); ctx.arc(ix, iy, 12 * k * pz, 0, 7); ctx.fill(); ctx.strokeStyle = "#c4b5fd"; ctx.lineWidth = 2; ctx.stroke();
+        ctx.font = `${Math.round(19 * k)}px sans-serif`; ctx.fillText("💎", ix, iy + 0.5 * k); ctx.font = `${Math.round(13 * k)}px sans-serif`; }
       ctx.textAlign = "left"; ctx.textBaseline = "top";
       ctx.fillStyle = "#ef4444"; ctx.beginPath(); ctx.arc(mx + gx / WW * mw, my + g.y / 1000 / WH * mh, 3 * k, 0, 7); ctx.fill(); ctx.strokeStyle = "rgba(255,255,255,0.6)"; ctx.lineWidth = 1; ctx.strokeRect(mx, my, mw, mh); }
     ctx.restore();
@@ -4400,7 +4458,7 @@
       if (k0 >= 0) d = { ...d, items: [...d.items.slice(0, k0 + 1), ...d.items.slice(k0 + 3)], shape: { ...d.shape, items: d.shape.items - 2 } }; }
     // (a save from before the magic carpet, 0.0.106, or the running shoes, 0.0.109, has a thing or two fewer: those, the last, lie
     // where they were put)
-    const have = shapeOf(), older = k => k === "items" && d.shape.items < have.items && S.items.slice(d.shape.items).every(it => it.kind === "carpet" || it.kind === "shoes" || it.kind === "flippers" || it.kind === "climber" || it.kind === "tail");
+    const have = shapeOf(), older = k => k === "items" && d.shape.items < have.items && S.items.slice(d.shape.items).every(it => it.kind === "carpet" || it.kind === "shoes" || it.kind === "flippers" || it.kind === "climber" || it.kind === "tail" || it.kind === "finder");
     for (const k in d.shape) if (d.shape[k] !== have[k] && !older(k)) throw new Error("its world was planned by other rules (were they edited?)");
     for (const k of d.roots) { const t = S.rootPlan[k]; if (t && !t.done) { t.done = true; if (h.roots && S.built.compiled) rootSet(h, t, false); } }
     setTileBytes(d.tiles);
@@ -4632,6 +4690,7 @@
   if (Q.has("test")) Object.assign(window.WorldTest, { PAD, padPoll, padTaught, PAD_USUAL, mountToggle, rideOn, nextRide, tailJS, tailToggle, ridePop, ridePopOpen, ridePick, RIDEPOP });
   if (Q.has("test")) Object.assign(window.WorldTest, { CANVAS, newCanvas, dropCanvas, purgePictures, WATCH, bugReport, IOS });
   if (Q.has("test")) Object.assign(window.WorldTest, { SKYC, skyClouds, cloudArt, storminess });   // (0.0.125: the sky)
+  if (Q.has("test")) Object.assign(window.WorldTest, { GEMAIM, gemAim, hasFinder, gemCompass });   // (0.0.126: the gem finder)
   // (^ticket(873): the speed run's steps alone, timed, no drawing: up to n, while the run is on and not yet at its dig)
   if (Q.has("test")) Object.assign(window.WorldTest, { steps: n => { const h = H(); const t0 = performance.now(); let k = 0; for (; k < n && BOT.on && BOT.phase !== "dig"; k++) tick(h); return { k, ms: performance.now() - t0 }; } });   // (0.0.115: the canvases kept, ^ticket(852))   // (0.0.112: the 🎮 controller, driven by hand where frames do not come)
   if (Q.has("test")) Object.assign(window.WorldTest, { snapshot, saveText, readSave, loadText, restartNow: () => restartNow(H()), askRestart, stopBot, digest, bot: on => { if (on !== BOT.on) $("run").click(); return BOT.on; }, carpetToggle, carpetHits, carpetTop, flyJS });

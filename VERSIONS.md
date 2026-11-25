@@ -2,6 +2,15 @@
 
 Each version lists what the apps do as of that version. The newest version is first.
 
+## 0.0.126 (2026-11-25)
+
+- **Gnome world: the gem finder 🧭** (Matthew: "let's have a new item, gem finder -- it looks like a compass, but it's a bit magical too. Once we have this item, the gnome has an on-screen indicator pointing towards the nearest unfound gem. Also, that same gem shows up as a large gem icon on the overview map. When we get that gem, the gem finder indicators update to the next nearest gem. The gem finder is initially placed near a patch of gems, not too far down. Perhaps on the left part of the world."). A brass compass with a deep blue face full of twinkling stars, a soft violet glow round it, and a red needle with a spark at its tip. It lies in the left quarter of the world, a little way down (4 to 12 tiles under the land), in ground you can dig with no digger, beside the richest patch of gems there, nearer home the better: in seed 7, 11 tiles under the land at column 29, five gems round it. Once you have it:
+  - **over the gnome's head**, the compass, its needle pointing to the nearest gem still in the ground, and that gem glowing violet;
+  - **at the screen's edge**, when that gem is off the screen, a violet 💎 pointer with its distance, as the other things' pointers;
+  - **on the map**, that gem as a big 💎;
+  - dig that gem out, and all three point to the next nearest at once. 🧭 in the line at the top says you have it.
+  - It's the last of the things, so a save from before it loads (it lies where it was put). Checked in the page: its place; picked up, its card; it points to the same gem a search of every tile finds; that gem dug out, it points to another; a search takes 0.4 ms, twice a second.
+
 ## 0.0.125 (2026-11-25)
 
 - **Gnome world: a sky worth flying in** (Matthew: "when we fly into the sky portion of the game world, we don't see enough background stuff --- let's ensure that there are birds up there sometimes, and more clouds, and more detailed pad-style clouds. or storm clouds for storm weather, etc."). The sky had its gradient, the sun, two bands of far hills and nine plain white ellipses near the top of the world; flown up into, it was mostly empty. Now:
