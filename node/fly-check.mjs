@@ -137,7 +137,7 @@ const madeUp = (spread, nThings, nHearts) => { const cx = 5 + rnd() * 800, cy = 
   const things = [], hearts = [];
   for (let k = 0; k < nThings; k++) { const [x, y] = at(); things.push({ x, y, kind: KINDS[Math.floor(rnd() * KINDS.length)], taken: rnd() < 0.3 }); }
   for (let k = 0; k < nHearts; k++) { const [x, y] = at(); hearts.push({ x, y, taken: rnd() < 0.3 }); }
-  const me = { x: cx + (rnd() - 0.5) * 2, y: cy + (rnd() - 0.5) * 2, hearts: Math.floor(rnd() * 6), gear: rnd() < 0.3, tool: Math.floor(rnd() * 3), kit: Math.floor(rnd() * 8), pack: rnd() < 0.3, carrots: Math.floor(rnd() * 4) };
+  const me = { x: cx + (rnd() - 0.5) * 2, y: cy + (rnd() - 0.5) * 2, hearts: Math.floor(rnd() * 6), gear: rnd() < 0.3, tool: Math.floor(rnd() * 4), kit: Math.floor(rnd() * 8), pack: rnd() < 0.3, carrots: Math.floor(rnd() * 4) };
   return [me, things, hearts]; };
 let pSame = 0, pFirst = null; const pseen = { things: 0, hearts: 0, steps: 0 };
 for (let i = 0; i < N; i++) { const [me, things, hearts] = madeUp(3, 1 + Math.floor(rnd() * 6), Math.floor(rnd() * 5));

@@ -102,10 +102,10 @@
   // each kind of ground, from Hazel (World.ground): its pores (0 to 1), water's flow through it (a share of the pores a step), the
   // share that clings, the steps to dig it, its color
   const PORES = new Float32Array(10), FLOW = new Float32Array(10), CLING = new Float32Array(10), DIG = new Uint8Array(10), COLOR = [], NAME = [];
-  // (0.0.95) the steps a tile takes to dig, from the rules (World.dig_steps), for each digger (none, the good, the super), each kind
+  // (0.0.95) the steps a tile takes to dig, from the rules (World.dig_steps), for each digger (none, the good, the super, both: 0.0.138), each kind
   // of ground, and each band of rows: the ground, the bedrock (the last four rows) and the world's floor (the very last)
-  const DIGT = new Uint8Array(3 * 10 * 3);
-  const digSteps = (m, r, tool) => m > 9 ? 0 : DIGT[((Math.min(2, Math.max(0, tool | 0)) * 10 + m) * 3) + (r >= WH - 1 ? 2 : r >= WH - 4 ? 1 : 0)];
+  const DIGT = new Uint8Array(4 * 10 * 3);
+  const digSteps = (m, r, tool) => m > 9 ? 0 : DIGT[((Math.min(3, Math.max(0, tool | 0)) * 10 + m) * 3) + (r >= WH - 1 ? 2 : r >= WH - 4 ? 1 : 0)];
   const S = { built: null, lib: "", libFailed: false, plan: null, seed: kept("seed", 7), rivers: [], dams: [], lodges: [], beavers: [], rooms: [], villages: [],
     greats: [], trees: [], bushes: [], shrooms: [], flowers: [], rootSets: [], threadSets: [], rootPlan: [], boulders: [], ducts: [], lamps: [], items: [], houses: [], bridges: [], smoke: [], parts: [], drops: [], rain: 0, rainAt: 0,
     styles: [], dry: [], works: new Map(), windNow: 0.2, leaves: [], g: null, hero: kept("hero", "dad"), hearts: 5, gems: kept("gems", 0), hurtAt: -1e9, faintAt: 0, start: { x: 12500, y: 0 }, keys: { left: false, right: false, up: false, down: false, dig: false, dash: false },
@@ -127,7 +127,7 @@
   function build(h, seed) {
     const p = h.plan(seed); S.plan = p; seedRand = seed * 7 + 3;
     for (let k = 0; k <= 9; k++) { const gr = h.ground(k); PORES[k] = gr.pores / 100; FLOW[k] = gr.flow / 1000; CLING[k] = gr.cling / 100; DIG[k] = gr.dig;
-      for (let t = 0; t < 3; t++) [60, WH - 3, WH - 1].forEach((r, b) => { DIGT[(t * 10 + k) * 3 + b] = h.dig_steps ? h.dig_steps(k, r, t) : t === 0 && b < 2 && k <= 5 ? gr.dig : 0; });
+      for (let t = 0; t < 4; t++) [60, WH - 3, WH - 1].forEach((r, b) => { DIGT[(t * 10 + k) * 3 + b] = h.dig_steps ? h.dig_steps(k, r, t) : t === 0 && b < 2 && k <= 5 ? gr.dig : 0; });
       COLOR[k] = "#" + gr.color.toString(16).padStart(6, "0"); NAME[k] = gr.name; }
     S.styles = h.styles;
     mat.fill(AIR); wat.fill(0); bg.fill(B_NONE); fix.fill(0); gem.fill(0); root.fill(0); stone.fill(0); shape.fill(0);
@@ -822,8 +822,10 @@
   // thing found: the game paused, its words on the pause card, wrapped, with 🔊 Read aloud (L, or the controller's listen button,
   // reads them too); going on (the space bar, ▶️ Go on, a tap on the card, the controller's pause) clears them. The speed run
   // is not paused: its banner, as before
-  function powerNote(kind) {
-    const I = ITEM[kind], PZ = pauser();
+  // (0.0.138; N: "when we have both diggers, it's about 3x faster than the current max dig speed") the second digger found says so
+  const BOTH_DIGGERS = { label: "⛏️⚒️ both diggers", banner: "⛏️⚒️ Both diggers! Digging is three times as fast as the super digger alone: granite in three steps, the bedrock in four." };
+  function powerNote(kind, over = null) {
+    const I = over || ITEM[kind], PZ = pauser();
     if (BOT.on || !PZ || !PZ.say) { S.banner = { text: I.banner, t: performance.now() }; return; }
     S.note = I.banner; S.banner = null; for (const k in S.keys) S.keys[k] = false;
     PZ.say({ title: I.label, text: I.banner, read: readNote, close: () => { S.note = null; hushTalk(); } });
@@ -840,7 +842,7 @@
   // gem. Also, that same gem shows up as a large gem icon on the overview map. When we get that gem, the gem finder indicators
   // update to the next nearest gem.") The gem finder's aim: the gem still in the ground nearest the gnome, looked for again twice
   // a second as it moves, and at once when the one it points to is dug out
-  const GEMAIM = { i: -1, at: -1e9 };
+  const GEMAIM = { i: -1, at: -1e9 }, HEADTOP = { x: 0, y: 0 };   // (HEADTOP: the top of the gnome as last drawn, in tiles; 0.0.138)
   const hasFinder = () => S.items.some(it => it.kind === "finder" && it.taken);
   function gemAim() {
     if (!S.g || !hasFinder()) return (GEMAIM.i = -1);
@@ -871,14 +873,14 @@
   // its twin in JavaScript, the same answers, for ⚡ and the check in Node. A thing is taken within 0.8 of a tile across and 1 up
   // or down of the gnome's middle, in the page's order; a heart the same, only while the gnome has fewer than five, and no more
   // than make five. What a thing gives the gnome is in the answer (the climbing pack, the diving gear, a carrot, the shoes,
-  // flippers or claws, a tool, the better kept); the carpet, the cat tail and the gem finder give what the page holds
+  // flippers or claws, a digger: 1 the good, 2 the super, 3 both); the carpet, the cat tail and the gem finder give what the page holds
   const pickupJS = (me, things, hearts) => {
     const near = (tx, ty) => Math.abs(tx - me.x) < 0.8 && Math.abs(ty - (me.y - 0.5)) < 1, KITS = { shoes: 1, flippers: 2, climber: 4 };
     const m = { x: me.x, y: me.y, hearts: me.hearts, gear: me.gear, tool: me.tool, kit: me.kit, pack: me.pack, carrots: me.carrots }, items = [], hs = [];
     for (let i = 0; i < things.length; i++) { const t = things[i]; if (t.taken || !near(t.x, t.y)) continue; items.push(i); const k = t.kind;
       if (k === "climb") m.pack = true; else if (k === "gear") m.gear = true; else if (k === "carrot") m.carrots++;
       else if (k === "carpet" || k === "tail" || k === "finder") { /* the page's */ }
-      else if (KITS[k]) m.kit |= KITS[k]; else m.tool = Math.max(m.tool, k === "super" ? 2 : 1); }
+      else if (KITS[k]) m.kit |= KITS[k]; else m.tool |= k === "super" ? 2 : 1; }   // (0.0.138: both diggers kept, 3)
     for (let i = 0; i < hearts.length && m.hearts < 5; i++) { const h = hearts[i]; if (!h.taken && near(h.x, h.y)) { hs.push(i); m.hearts++; } }
     return { me: m, items, hearts: hs };
   };
@@ -901,7 +903,7 @@
       if (it.kind === "carpet") { S.carpet.have = true; useRide("carpet"); }
       else if (it.kind === "tail") { S.tail.have = true; useRide("tail"); }
       else if (it.kind === "finder") GEMAIM.at = -1e9;   // (0.0.126: had, it looks for the nearest gem at once)
-      powerNote(it.kind); }
+      powerNote(it.kind, (it.kind === "good" || it.kind === "super") && m.tool === 3 ? BOTH_DIGGERS : null); }
     // a heart, walked into, gives back one heart (not with all five: it stays for later)
     for (const i of a.hearts) { const hh = hs[i]; hh.taken = true; popWord("❤️", hh.x, hh.y - 0.7); if (SND) SND.gem(); }
     S.hearts = m.hearts;
@@ -3216,6 +3218,7 @@
     const mouth = drawRabbit(ctx, x, y, s, { face: g.face, k: 1.15, pose, t, saddle: true, rider: true, kit: g.gear, pack: g.climbPack || kitHas(g, "climber"), fur: RABBIT_FUR[0], gy: fr * s, now });
     const climb = pose === "climb", lean = climb ? -Math.PI / 2 : (low ? 0.9 : 0) + (pose === "hop" ? (t - 0.5) * 0.3 : 0);
     const ox = x - g.face * (climb ? 0.76 : 0.05) * s, oy = y - (climb ? 0.46 : low ? 0.78 : 1.08) * s;
+    { const a = g.face * lean; HEADTOP.x = (ox + 0.83 * s * Math.sin(a)) / s; HEADTOP.y = Math.min(oy - 0.83 * s * Math.cos(a), oy - 0.4 * s) / s; }   // (0.0.138: the top of the rider, cap or shoulder, for the gem finder)
     ctx.save(); ctx.translate(ox, oy); ctx.rotate(g.face * lean); gnomeProfile(ctx, 0, 0, s * 0.98, g.face, false, true, 0, now, g.gear, { ride: true }); ctx.restore();
     const ha = g.face * lean, hx0 = 0.24 * s * g.face, hy0 = -0.08 * s, hx = ox + hx0 * Math.cos(ha) - hy0 * Math.sin(ha), hy = oy + hx0 * Math.sin(ha) + hy0 * Math.cos(ha);
     ctx.strokeStyle = "#4a2e18"; ctx.lineWidth = Math.max(1, s / 30); ctx.beginPath(); ctx.moveTo(hx, hy); ctx.quadraticCurveTo((hx + mouth[0]) / 2, Math.max(hy, mouth[1]) + 0.12 * s, mouth[0], mouth[1]); ctx.stroke();
@@ -4184,6 +4187,7 @@
     drawClover(c0, c1, now);   // (0.0.122: with the gnome, not behind the ground)
     const blink = performance.now() - S.hurtAt < 1500 && Math.floor(now / 100) % 2 === 0;
     const flying = !!(S.carpet && S.carpet.on && !S.faintAt);
+    HEADTOP.x = gx; HEADTOP.y = g.y / 1000 - 1.31 + (flying ? carpetBob(now) : 0);   // (the cap's tip as the gnome is drawn; on Clover, drawRider's)
     if (flying) drawCarpet(g, now, s);
     if (!S.faintAt && !blink && S.ride && S.ride.on) drawRider(g, now);
     else if (!blink && flying) { const C = S.carpet, gy0 = (g.y / 1000 + carpetBob(now)) * s - 0.48 * s;   // (standing on it: in profile going across, facing us still)
@@ -4223,9 +4227,11 @@
       if (g.swim && !g.under) { ctx.strokeStyle = "rgba(255,255,255,0.8)"; ctx.lineWidth = Math.max(1, s / 16); const wl = Math.floor((g.y / 1000 - 0.45)) ; const sx = gx * s, sy = (wl) * s;
         for (const sd of [-1, 1]) { ctx.beginPath(); ctx.arc(sx + sd * (0.45 + (now % 900) / 900 * 0.5) * s, sy, 0.18 * s, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke(); } }
     }
-    // (0.0.126) the gem finder, had: over the gnome's head, its needle toward the nearest gem still in the ground; and that gem glowing
+    // (0.0.126) the gem finder, had: over the gnome's head, its needle toward the nearest gem still in the ground; and that gem glowing.
+    // (0.0.138; Matthew: "the gem finder obscures our head sometimes", "by default it looks fine (no carpet, no rabbit)") It hangs
+    // over the top of the gnome as drawn, as far above it as on foot: on Clover she lifts the gnome 0.6 of a tile, and it was not
     { const gi = !LINE && g ? gemAim() : -1;
-      if (gi >= 0) { const gc = gi % WW, gr = (gi - gc) / WW, tx = gc + 0.5, ty = gr + 0.5, hx = g.x / 1000, hy = g.y / 1000 - 1.85, pulse = 0.8 + 0.2 * Math.sin(now / 220);
+      if (gi >= 0) { const gc = gi % WW, gr = (gi - gc) / WW, tx = gc + 0.5, ty = gr + 0.5, hx = HEADTOP.x, hy = HEADTOP.y - 0.55, pulse = 0.8 + 0.2 * Math.sin(now / 220);
         const gl = ctx.createRadialGradient(tx * s, ty * s, 0, tx * s, ty * s, s * 1.1 * pulse); gl.addColorStop(0, "rgba(196,181,253,0.75)"); gl.addColorStop(1, "rgba(167,139,250,0)");
         ctx.fillStyle = gl; ctx.beginPath(); ctx.arc(tx * s, ty * s, s * 1.1 * pulse, 0, 7); ctx.fill();
         ctx.save(); ctx.translate(hx * s, hy * s); gemCompass(ctx, s * 1.3, Math.atan2(ty - hy, tx - hx), now); ctx.restore(); } }
@@ -4392,7 +4398,7 @@
       if (mb) { if (mb.hidden === show) mb.hidden = !show; const which = riding ? "clover" : flying ? "carpet" : tailed ? "tail" : nextRide(), icon = which === "carpet" ? "🧞" : which === "tail" ? "🐈" : "🐇", on = String(riding || flying || tailed);
         if (mb.textContent !== icon) { mb.textContent = icon; mb.title = which === "carpet" ? "The magic carpet: on or off (R)" : which === "tail" ? "The cat tail: on or off (R)" : "Ride Clover the rabbit: on or off (R); a carrot first"; }
         if (mb.getAttribute("aria-pressed") !== on) mb.setAttribute("aria-pressed", on); } }
-    const line = `${runWord}${hearts}  💎 ${S.found || 0} / ${S.gemTotal || 0}${S.carrots ? "  🥕 " + S.carrots : ""}${S.ride && S.ride.on ? "  🐇" : ""}${S.carpet && S.carpet.have ? (S.carpet.on ? "  🧞 flying" : "  🧞") : ""}${S.tail && S.tail.on ? (S.tail.fly > 0 ? "  🐈 flying" : "  🐈") : ""}  🍃 ${windWord} ${arrows}  ${where}${g && g.gear ? "  🤿" : ""}${hasFinder() ? "  🧭" : ""}${g && g.climbPack ? "  🧗" : ""}${g && g.tool ? (g.tool >= 2 ? "  ⚒️" : "  ⛏️") : ""}${place ? "  ·  " + place : ""}`;
+    const line = `${runWord}${hearts}  💎 ${S.found || 0} / ${S.gemTotal || 0}${S.carrots ? "  🥕 " + S.carrots : ""}${S.ride && S.ride.on ? "  🐇" : ""}${S.carpet && S.carpet.have ? (S.carpet.on ? "  🧞 flying" : "  🧞") : ""}${S.tail && S.tail.on ? (S.tail.fly > 0 ? "  🐈 flying" : "  🐈") : ""}  🍃 ${windWord} ${arrows}  ${where}${g && g.gear ? "  🤿" : ""}${hasFinder() ? "  🧭" : ""}${g && g.climbPack ? "  🧗" : ""}${g && g.tool ? (g.tool >= 3 ? "  ⛏️⚒️" : g.tool >= 2 ? "  ⚒️" : "  ⛏️") : ""}${place ? "  ·  " + place : ""}`;
     const tw = ctx.measureText(line).width;
     pill(10 * k, 10 * k, tw + 20 * k, 30 * k); ctx.fillStyle = "#fff"; ctx.fillText(line, 20 * k, 15 * k);
     let below = 46 * k;
@@ -4498,7 +4504,7 @@
       if (BOT.on) { stopBot(); b.blur(); return; }
       const h = H(); if (!h || !S.g) return;
       const got = []; for (const it of S.items) if (!it.taken && (it.kind === "good" || it.kind === "super" || it.kind === "gear" || it.kind === "flippers")) { it.taken = true; got.push(ITEM[it.kind].icon); }
-      S.g = { ...S.g, tool: 2, gear: true, kit: (S.g.kit | 0) | KIT.flippers };
+      S.g = { ...S.g, tool: 3, gear: true, kit: (S.g.kit | 0) | KIT.flippers };   // (0.0.138: both diggers, as if found)
       Object.assign(BOT, { on: true, phase: "dig", queue: [], cur: null, path: [], k: 0, skipped: [], frames: 0, t0: performance.now(), items: 0, parts: 0, partsAll: 0, gems: 0, gemsAll: 0, report: null,
         digAll: 0, digLeft: 0, digSkip: new Set(), digPass: 1, digT0: 0, chunks: 0, sayAt: 0, rng: 1 + Math.floor(Math.random() * 0x7ffffffe) });
       b.setAttribute("aria-pressed", "true"); $("run").setAttribute("aria-pressed", "false");
@@ -4661,7 +4667,7 @@
       c.restore(); c.lineWidth = 3; c.strokeStyle = "#fff"; c.beginPath(); c.arc(R, R, R - 2.5, 0, 7); c.stroke(); }
   }
   buildHeads();
-  $("new").addEventListener("click", () => { const h = H(); if (!h) return; S.seed = 1 + Math.floor(Math.random() * 100000); keep("seed", S.seed); build(h, S.seed); $("new").blur(); });
+  $("new").addEventListener("click", () => { const h = H(); if (!h) return; S.seed = 1 + Math.floor(Math.random() * 100000); keep("seed", S.seed); build(h, S.seed); keepWorld(); $("new").blur(); });
 
   // ---- (0.0.101; Matthew, 2026-11-24: "M wants a save/load feature, so that the game world state is preserved in a file"; "and
   // water state"; "choice of gnome family member as main char"; "position in the game world, and game world state for weather")
@@ -4733,6 +4739,8 @@
     S.g = Object.fromEntries(Object.entries(d.gnome).map(([k, v]) => (k === "shoes" ? ["kit", v ? KIT.shoes : 0] : [k, v]))); if (S.g.kit === undefined) S.g.kit = 0;   /* (0.0.111: a save from before the shoes; the gnome's fields in their saved order, so a save loaded and saved again is the same file. 0.0.114: a save from 0.0.109 to 0.0.113 has the shoes as a field of their own: the kit, in its place) */ S.hearts = d.hearts > 0 ? d.hearts : 5; S.faintAt = 0; S.found = d.found; S.gemTotal = d.gemTotal;
     S.works = new Map(d.works);
     d.items.forEach((t, k) => { S.items[k].taken = !!t; });
+    // (0.0.138: a save from before, both diggers taken, kept only the better one: both now)
+    if ((S.g.tool | 0) < 3 && S.items.some(it => it.kind === "good" && it.taken) && S.items.some(it => it.kind === "super" && it.taken)) S.g = { ...S.g, tool: 3 };
     (d.heartItems || []).forEach((t, k) => { S.heartItems[k].taken = !!t; });
     d.trees.forEach(({ fallDir, ...t }, k) => { Object.assign(S.trees[k], t); if (fallDir != null) S.trees[k].fallDir = fallDir; });
     S.fallen = d.fallen.filter(f => S.trees[f.tree]).map(f => { const t = S.trees[f.tree], fl = { x: t.x, t, F: fallenOf(t), k: 0 }; while (fl.k < f.k) cutPiece(fl); return fl; });
@@ -4762,7 +4770,7 @@
     const h = H(); if (!h || !S.g) throw new Error("the world is not made yet");
     const d = await readSave(text), back = snapshot();
     try { restore(h, d); } catch (e) { restore(h, back); throw e; }
-    stopBot(); S.banner = { text: `📂 Loaded ${name || "the saved world"}`, t: performance.now() };
+    stopBot(); S.banner = { text: `📂 Loaded ${name || "the saved world"}`, t: performance.now() }; keepWorld();
   }
   $("save").addEventListener("click", () => { saveFile(); $("save").blur(); });
   $("load").addEventListener("click", () => { $("load-file").click(); $("load").blur(); });
@@ -4771,7 +4779,60 @@
     catch (err) { inp.value = ""; S.banner = { text: "📂 Could not load it: " + (err && err.message || err), t: performance.now() }; console.error(err); } });
   // 🔄 Restart: this world again as it began, from its plan, after asking (Matthew: "let's also have a restart feature, with a
   // popup confirmation"); the world stands still while it asks
-  function restartNow(h) { stopBot(); build(h, S.seed); S.banner = { text: "🔄 This world, as it began", t: performance.now() }; }
+  function restartNow(h) { stopBot(); build(h, S.seed); S.banner = { text: "🔄 This world, as it began", t: performance.now() }; keepWorld(); }
+  // ---- (0.0.138; Matthew: "when we reload to the next version, we should do the equiv of save and load -- currently, there's a
+  // builtin reset to start state --- let's not do that by default. people can press the button for that.") The world is kept in
+  // this browser as a save is (IndexedDB, the save file's own text): every ten seconds of play, when the page goes out of sight,
+  // and before the 🆕 chip switches to the newer version (it waits for that); leaving the page, it tries once more, at once, but a
+  // browser may drop a write begun as the page goes (the app's browser pane did), so a plain reload may lose the last seconds; and a page that opens finds it and loads it, as 📂 Load would, the
+  // wheel of heads turning until it has. 🔄 Restart, 🌍 New world and 📂 Load keep what they made. A kept world that does not fit
+  // the rules (they were edited, or a new version plans the world otherwise) is left, and the world begins as new, saying so.
+  // The checks' pages (?test) neither keep nor find one, unless ?keep
+  const KEEPS = !Q.has("test") || Q.has("keep");
+  // (one handle to the browser's storage, opened once and kept, so that leaving the page can write at once)
+  let keptHandle = null;
+  const keptDb = () => keptHandle ? Promise.resolve(keptHandle) : new Promise((ok, no) => {
+    const t = setTimeout(() => no(new Error("this browser's storage did not answer")), 3000);
+    try { const r = indexedDB.open("gnome-world", 1); r.onupgradeneeded = () => r.result.createObjectStore("kept");
+      r.onsuccess = () => { clearTimeout(t); keptHandle = r.result; keptHandle.onversionchange = () => { keptHandle.close(); keptHandle = null; }; ok(keptHandle); };
+      r.onerror = () => { clearTimeout(t); no(r.error); }; }
+    catch (e) { clearTimeout(t); no(e); } });
+  const keptDo = (mode, f) => keptDb().then(db => new Promise((ok, no) => {
+    const tx = db.transaction("kept", mode), q = f(tx.objectStore("kept"));
+    tx.oncomplete = () => ok(q && q.result); tx.onerror = tx.onabort = () => no(tx.error); }));
+  // (a save asked for while one is being made is made again after it, from the world as it is then: one more at most)
+  let keeping = null, keepNext = null;
+  function keepWorld() {
+    if (!KEEPS || !H() || !S.g || S.resuming) return Promise.resolve();
+    if (keeping) return keepNext || (keepNext = keeping.then(() => { keepNext = null; return keepWorld(); }));
+    keeping = saveText(snapshot()).then(text => keptDo("readwrite", st => st.put({ text, at: Date.now() }, "world")))
+      .catch(e => console.warn("Gnome world: could not keep the world in this browser:", e)).finally(() => { keeping = null; });
+    return keeping;
+  }
+  // (leaving the page, there is no time to pack the tiles: the save as it is, unpacked, written at once on the handle kept)
+  function keepWorldNow() {
+    if (!KEEPS || !keptHandle || !H() || !S.g || S.resuming) return;
+    try { const snap = snapshot(), text = JSON.stringify({ ...snap, page: "0.0.138", saved: new Date().toISOString(), tiles: { gzip: false, bytes: snap.tiles.length, data: b64(snap.tiles) } });
+      keptHandle.transaction("kept", "readwrite").objectStore("kept").put({ text, at: Date.now() }, "world"); }
+    catch (e) { console.warn("Gnome world: could not keep the world in this browser:", e); }
+  }
+  async function resumeKept(h) {
+    S.resuming = true;
+    try {
+      const k = await keptDo("readonly", st => st.get("world")); if (!k || !k.text) return;
+      const d = await readSave(k.text), back = snapshot();
+      try { restore(h, d); S.banner = { text: "↩️ Your world, as you left it (🔄 Restart begins it again)", t: performance.now() }; }
+      catch (e) { restore(h, back); S.banner = { text: "🌍 Your world from before could not be carried over (" + (e && e.message || e) + "), so this one begins as new", t: performance.now() }; }
+    } catch (e) { console.warn("Gnome world: no world kept in this browser:", e); }
+    finally { S.resuming = false; building(false); }
+  }
+  if (KEEPS) {
+    keptDb().catch(() => {});   // (the handle opened now, for leaving the page)
+    setInterval(() => { if (document.visibilityState === "visible" && !S.asking) keepWorld(); }, 10000);   // (about 4 ms of the page's thread each, 0.0.138's laptop)
+    document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") keepWorld(); });
+    addEventListener("pagehide", keepWorldNow);
+    window.HazelBeforeSwitch = () => keepWorld();   // (shared/offline.js waits for it, two seconds at most, before the 🆕 chip's switch)
+  }
   function askRestart() {
     const h = H(); if (!h || !S.g || S.asking) return;
     const dlg = $("restart-ask"); for (const k in S.keys) S.keys[k] = false;
@@ -4827,8 +4888,13 @@
   setInterval(() => { if (S.built && S.built.ok) drawStatus(); }, 3000);
   let L = null, timer = 0;
   const building = (on, say) => { const b = $("building"); if (b) b.hidden = !on; if (say) $("building-say").textContent = say; };
-  const buildSoon = then => { building(true, "🔨 Building the rules…"); requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(then, 0))); };
-  function buildRules() { try { buildRulesNow(); } finally { building(false); } }
+  // (two frames, so the wheel is turning before the build holds the page; or 120 ms, whichever is first: a tab out of sight gets
+  // no frames, and its rules must build all the same. 0.0.137 waited for the frames alone, so a page opened behind another
+  // built only once it was looked at)
+  const buildSoon = then => { building(true, "🔨 Building the rules…"); let done = false; const go = () => { if (!done) { done = true; then(); } };
+    requestAnimationFrame(() => requestAnimationFrame(go)); setTimeout(go, 120); };
+  let resumed = false;
+  function buildRules() { try { buildRulesNow(); } finally { if (!S.resuming) building(false); } }
   function buildRulesNow() {
     if (!window.Hazel || !L) return;
     const sp = L.spec(PROGRAM, TAIL), key = JSON.stringify(sp);
@@ -4840,6 +4906,8 @@
     S.built = { key, ok: !!v && typeof v.step === "function" && typeof v.plan === "function" && !(r.errors || []).length, compiled: !!r.compiled, reason: r.reason || "", value: v, errors: r.errors || [], threw, ms: performance.now() - t0 };
     S.stepMs = [];
     if (S.built.ok) { try { build(v, S.seed); } catch (e) { S.built = { ...S.built, ok: false, threw: "making the world: " + String(e && e.message || e) }; console.error(e); } }
+    // (0.0.138: the first time the rules are built, the world this browser kept, if it kept one)
+    if (S.built.ok && !resumed) { resumed = true; if (KEEPS) { building(true, "↩️ Bringing back your world…"); resumeKept(H()); } }
     drawStatus();
   }
   function loadLib() {
@@ -5017,9 +5085,9 @@
   if (Q.has("test")) Object.assign(window.WorldTest, { PAD, padPoll, padTaught, PAD_USUAL, mountToggle, rideOn, nextRide, tailJS, tailToggle, ridePop, ridePopOpen, ridePick, RIDEPOP });
   if (Q.has("test")) Object.assign(window.WorldTest, { CANVAS, newCanvas, dropCanvas, purgePictures, WATCH, bugReport, IOS });
   if (Q.has("test")) Object.assign(window.WorldTest, { SKYC, skyClouds, cloudArt, storminess });   // (0.0.125: the sky)
-  if (Q.has("test")) Object.assign(window.WorldTest, { GEMAIM, gemAim, hasFinder, gemCompass });   // (0.0.126: the gem finder)
+  if (Q.has("test")) Object.assign(window.WorldTest, { GEMAIM, gemAim, hasFinder, gemCompass, HEADTOP, draw, keepWorldNow });   // (0.0.126: the gem finder)
   if (Q.has("test")) Object.assign(window.WorldTest, { CAVE, CAVEFX, caveLife });   // (0.0.127: the caverns)
-  if (Q.has("test")) Object.assign(window.WorldTest, { botItemOrder, timeSpeedRun, TP, wakeTill, wakeAll, waterStep, setRules, H, rideJS, rideStep, boulderJS, bouldersStep, pickupJS, pickups, windJS, windStep });   // (0.0.130: the speed run's order of the things; ⏱)
+  if (Q.has("test")) Object.assign(window.WorldTest, { botItemOrder, timeSpeedRun, TP, wakeTill, wakeAll, waterStep, setRules, H, rideJS, rideStep, boulderJS, bouldersStep, pickupJS, pickups, windJS, windStep, keepWorld });   // (0.0.130: the speed run's order of the things; ⏱)
   // (^ticket(873): the speed run's steps alone, timed, no drawing: up to n, while the run is on and not yet at its dig)
   if (Q.has("test")) Object.assign(window.WorldTest, { steps: (n, any) => { const h = H(); const t0 = performance.now(); let k = 0; for (; k < n && (any || (BOT.on && BOT.phase !== "dig")); k++) tick(h); return { k, ms: performance.now() - t0 }; } });   // (any: steps with or without the speed run)   // (0.0.115: the canvases kept, ^ticket(852))   // (0.0.112: the 🎮 controller, driven by hand where frames do not come)
   if (Q.has("test")) Object.assign(window.WorldTest, { snapshot, saveText, readSave, loadText, restartNow: () => restartNow(H()), askRestart, stopBot, digest, bot: on => { if (on !== BOT.on) $("run").click(); return BOT.on; }, carpetToggle, carpetHits, carpetTop, flyJS });

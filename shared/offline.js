@@ -74,8 +74,11 @@
     if (!offered) return;
     const to = new URL(location.href);
     to.searchParams.set("v", offered.number);
-    // (version.json first, afresh into this browser's cache, so the new page reads the new number)
-    fetch(VJSON.href, { cache: "reload" }).catch(() => {}).finally(() => location.replace(to.href));
+    // (the app's own last word first, if it has one, two seconds at most: Gnome world keeps its world, 0.0.138; then version.json,
+    // afresh into this browser's cache, so the new page reads the new number)
+    const last = typeof window.HazelBeforeSwitch === "function"
+      ? Promise.race([Promise.resolve().then(window.HazelBeforeSwitch), new Promise(r => setTimeout(r, 2000))]).catch(() => {}) : Promise.resolve();
+    last.then(() => fetch(VJSON.href, { cache: "reload" })).catch(() => {}).finally(() => location.replace(to.href));
   }
   function chip() {
     const h = document.querySelector("h1");

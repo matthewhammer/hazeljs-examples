@@ -74,7 +74,10 @@ if (felled < 1 || cuts < 4 || laid < 2 * felled || laid > cuts) bad(`beavers fel
 { const tbl = [0, 1, 2].map(t => [1, 2, 3, 4, 5, 6, 7, 8].map(w => G.dig_steps(w, 60, t)));
   console.log("dig steps (soil, clay, sand, sandstone, shale, limestone, granite, masonry), none / good / super:", tbl.map(r => r.join(",")).join(" / "));
   if (tbl[0][5] || tbl[0][6] || !tbl[1][5] || !tbl[1][6] || tbl[2][6] >= tbl[1][6] || tbl[1][4] >= tbl[0][4] || tbl[2][4] >= tbl[1][4] || tbl[1][7] || tbl[2][7]) bad("dig_steps");
-  if (G.dig_steps(7, 205, 1) || !G.dig_steps(7, 205, 2) || G.dig_steps(7, 207, 2) || G.dig_steps(1, 207, 2)) bad("dig_steps: the bedrock"); }   // (0.0.102: the world 208 rows deep)
+  if (G.dig_steps(7, 205, 1) || !G.dig_steps(7, 205, 2) || G.dig_steps(7, 207, 2) || G.dig_steps(1, 207, 2)) bad("dig_steps: the bedrock");
+  // (0.0.138; N: "when we have both diggers, it's about 3x faster than the current max dig speed") both: a third of the super's, at least one
+  const both = [1, 2, 3, 4, 5, 6, 7, 8].map(w => G.dig_steps(w, 60, 3)); console.log("dig steps with both diggers:", both.join(","), "; the bedrock", G.dig_steps(7, 205, 3));
+  if (both.some((d, k) => d !== (tbl[2][k] ? Math.ceil(tbl[2][k] / 3) : 0)) || G.dig_steps(7, 205, 3) !== Math.ceil(G.dig_steps(7, 205, 2) / 3) || G.dig_steps(7, 207, 3)) bad("dig_steps: both diggers"); }   // (0.0.102: the world 208 rows deep)
 if (G.water_row(40, 36, 0) !== 40 || G.water_row(40, 36, 9) !== 37 || G.water_row(40, 36, 30) !== 37) bad("water_row");
 // the gnome on a patch of ground: soil from row 50 down, a pool of water (columns 20 to 27, rows 47 to 49, in a dip of the soil),
 // a ladder at column 12 from row 40 to 49

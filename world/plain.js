@@ -15,6 +15,7 @@
     if (w < 1 || w > 7 || r >= 207) return 0;
     if (tool <= 0) return DIG[w];
     if (tool === 1) { if (w === 6) return 16; if (w === 7) return r >= 204 ? 0 : 24; const d = DIG[w]; return d >= 18 ? q(d * 2, 9) : d < 6 ? 2 : q(d, 3); }
+    if (tool >= 3) return q(dig_steps(w, r, 2) + 2, 3);   // (0.0.138: both diggers, a third of the super digger's steps)
     if (w === 6) return 5; if (w === 7) return r >= 204 ? 12 : 8;
     const k = q(DIG[w], 9); return k < 1 ? 1 : k;
   }
