@@ -2,6 +2,10 @@
 
 Each version lists what the apps do as of that version. The newest version is first.
 
+## 0.0.132 (2026-11-25)
+
+- **Gnome world: a world made again is the same world, step for step.** The water's step goes across the world one way, then the other, turn about; which way it went first was left from whatever the page had done before, not set as the world was made. So two runs of the same fresh world could part, slowly, a small difference in the water growing until a villager stood elsewhere and the world's chances came out otherwise (found by the speed run timed three ways, ^report(65): its runs in separate pages parted at about step 14,000, though every answer of the rules was the same). Now a world made starts the water the same way each time.
+
 ## 0.0.131 (2026-11-25)
 
 - **Gnome world: the water takes half the time** (⏱, the new measuring tool, on this laptop: a step of the speed run 1.68 ms, the water 1.61 ms of it, 96%; the gnome's own step through Hazel 0.02 ms, the speed run finding its way 0.007 ms). The water looked at every tile from just over the land down to the bedrock, some 97,000, twice a step, though nearly all of them are still. Now the world's water is in blocks of 8 tiles square, each stepped only while awake: while water is moving in it, and a second and a half after; water moving wakes its block and, at a block's edge, the one beside, over or under; a tile dug, rain, a river's level changing, the village's pumps wake theirs; everything is awake as a world is made or loaded, and settles. Where water never stops (a river's water seeping down through sand toward the pumps, which draw it off), its blocks stay awake: about one block in nine, once the world has settled. Measured in the page, the water a step: the first second after the world is made 3.56 ms (2.80 before: everything awake, settling), after 660 steps 1.28 ms (2.00), after 2,000 1.00 ms (1.86), after 10,000 0.82 ms. Water still seeps into a hole dug in soaked ground as before. On a slower computer the speed run takes more steps a frame, and the game's own step is shorter.

@@ -286,6 +286,7 @@
     for (const R of S.rivers) holdRiver(R);
     for (let c = 0; c < WW; c++) top[c] = topOf(c);
     wakeAll();   // (0.0.131: all the water's blocks awake, to settle)
+    sweep = 1; wetFrom = 0;   // (0.0.132: the water's way across, the first step, the same in every world made: it went on from the page's steps before, and two runs of one world parted by it, ^ticket(873))
     S.dry = []; for (let i = 0; i < NN; i++) if (mat[i] === AIR && (bg[i] === B_PLASTER || bg[i] === B_WOOD || bg[i] === B_STAIR)) S.dry.push(i);
     // where things are, for the words at the top of the picture
     S.places = [
