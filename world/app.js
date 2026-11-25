@@ -212,7 +212,7 @@
     // carpet, in the farthest room of the gnome village farthest right, toward its far wall: the last of the things, so a save
     // made before it had one fewer (restore lets it in); after the super digger, the last before it
     S.carpet = { have: false, on: false, vx: 0, vy: 0, face: 1, ph: 0, wisps: null };
-    S.tail = { have: false, on: false, meter: 0, fly: 0, lift: 0, flut: 0 };   // (0.0.116: the cat tail, N's)
+    S.tail = { have: false, on: false, meter: 0, fly: 0, lift: 0, flut: 0, rep: 0 };   // (0.0.116: the cat tail, N's)
     { const v = [...S.villages].sort((a, b) => b.x1 - a.x1)[0], mine = v ? S.rooms.filter(R => R.x >= v.x0 && R.x < v.x1) : [];
       const R = mine.sort((a, b) => (b.x + b.w) - (a.x + a.w) || b.y - a.y)[0];
       if (R) S.items.push({ kind: "carpet", x: R.x + R.w - 1.4, y: R.y + 3.35, taken: false }); }
@@ -547,7 +547,7 @@
     carpet: { icon: "🧞", label: "🧞 magic carpet", what: "🧞 the magic carpet", banner: "🧞 The magic carpet! Hold → and press R to fly it: the arrows steer, and let go, it floats" },
     // (0.0.114; Matthew: "more power up items, which are used by default (no need to turn them 'off')")
     flippers: { icon: "🏊", label: "🏊 swim flippers", what: "🏊 the swim flippers", banner: "🏊 The swim flippers: swim three times as fast, across, up and down (on by themselves in the water)" },
-    tail: { icon: "🐈", label: "🐈 cat tail", what: "🐈 the cat tail", banner: "🐈 The cat tail! Hold ↑ and press R to put it on: jump, and keep pressing jump in the air to fly up" },
+    tail: { icon: "🐈", label: "🐈 cat tail", what: "🐈 the cat tail", banner: "🐈 The cat tail! Hold ↑ and press R to put it on: jump, and keep pressing jump in the air, or hold it, to fly up (faster with the running shoes)" },
     climber: { icon: "🪝", label: "🪝 super climbing gear", what: "🪝 the super climbing gear", banner: "🪝 The super climbing gear: climb three times as fast, trees, ladders, stairs and tunnels" },
     shoes: { icon: "👟", label: "👟 running shoes", what: "👟 the running shoes", banner: "👟 The running shoes: hold 💨 (or Shift) to dash, up to full speed in a flash" },
   };
@@ -675,7 +675,7 @@
   // the way again round where it stuck, four times, then on to the next)
   function botStep() {
     if (S.ride && S.ride.on) { const M = S.mount; S.ride.on = false; M.x = S.g.x; M.y = S.g.y; }   // (0.0.102: the speed run is on foot)
-    if (S.tail && S.tail.on) Object.assign(S.tail, { on: false, meter: 0, fly: 0, lift: 0, flut: 0 });   // (0.0.116: and without the tail)
+    if (S.tail && S.tail.on) Object.assign(S.tail, { on: false, meter: 0, fly: 0, lift: 0, flut: 0, rep: 0 });   // (0.0.116: and without the tail)
     if (S.carpet && S.carpet.on) S.carpet.on = false;
     const g = S.g, gc = Math.floor(g.x / 1000), gr0 = Math.floor((g.y - 1) / 1000), gr = inside(gc, gr0) && shape[at(gc, gr0)] ? gr0 - 1 : gr0, here = at(gc, gr);
     for (const k in S.keys) S.keys[k] = false;
@@ -716,7 +716,7 @@
     const t0 = performance.now();
     let g0 = S.g;
     if (S.tail && S.tail.on) {   // (0.0.116: the cat tail's flight, Hazel's Tail.step, before the gnome's own step; tailJS where the rules are not built)
-      const T = S.tail, tt = { meter: T.meter | 0, fly: T.fly | 0, lift: T.lift | 0, flut: T.flut | 0 }, byHazel = !!(h && h.tail) && !Q.has("jstail");
+      const T = S.tail, tt = { meter: T.meter | 0, fly: T.fly | 0, lift: T.lift | 0, flut: T.flut | 0, rep: T.rep | 0 }, byHazel = !!(h && h.tail) && !Q.has("jstail");
       const r = byHazel ? h.tail(S.g, pad, tt) : tailJS(S.g, pad, tt);
       g0 = { ...r.gnome }; if (S.g.climbPack) g0.climbPack = true; pad = { ...r.pad }; Object.assign(T, r.tail); S.tailBy = byHazel ? "Hazel" : "JS";
       if (r.tail.lift === 17) T.wagAt = performance.now(); }
@@ -878,7 +878,7 @@
     S.frame++;
     if (S.faintAt && S.ride && S.ride.on) { const M = S.mount; S.ride.on = false; M.x = S.g.x; M.y = S.g.y; M.face = S.g.face; }
     if (S.faintAt && S.carpet && S.carpet.on) S.carpet.on = false;
-    if (S.faintAt && S.tail && S.tail.on) Object.assign(S.tail, { fly: 0, lift: 0, flut: 0, meter: 0 });
+    if (S.faintAt && S.tail && S.tail.on) Object.assign(S.tail, { fly: 0, lift: 0, flut: 0, meter: 0, rep: 0 });
     if (S.faintAt) { if (performance.now() - S.faintAt > 1800) { S.faintAt = 0; S.hearts = 5; S.g = { ...S.g, x: S.start.x, y: top[Math.floor(S.start.x / 1000)] * 1000, vx: 0, vy: 0, air: 600 }; S.cam.set = false; } }
     else { if (BOT.on) { BOT.frames++; botStep(); } gnomeStep(h); }
     bouldersStep();
@@ -2441,7 +2441,9 @@
       for (let i = 0; i < n; i++) S.bunnies.push({ x: x + 0.5 + i * 1.4, home: x + 0.5, face: q() < 0.5 ? -1 : 1, hop: null, wait: Math.floor(q() * 200), nib: 0, ear: 0, id: j, fur: RABBIT_FUR[1 + Math.floor(q() * 3)] }); }
     let c = 44; while (c < 90 && !open(c)) c++;
     S.mount = { x: (c + 0.5) * 1000, y: surf0[c] * 1000, face: -1, tame: false, nib: 0, ear: 0, wait: 60 };
-    for (const gc of [26, 29, 32]) { let cc = gc; while (cc < gc + 8 && !open(cc)) cc++; S.items.push({ kind: "carrot", x: cc + 0.5, y: surf0[cc] - 0.5, taken: false }); }
+    // (0.0.123; Matthew: "let's have only one carrot on the ground, just to the right of the clover the rabbit. instead of three in
+    // row to the left") one carrot, two steps to Clover's right (or the first open ground after); and the pantry's, as before
+    { let cc = c + 2; while (cc < c + 10 && !open(cc)) cc++; S.items.push({ kind: "carrot", x: cc + 0.5, y: surf0[cc] - 0.5, taken: false }); }
     const pantry = S.rooms.find(R => R.kind === 3); if (pantry) S.items.push({ kind: "carrot", x: pantry.x + pantry.w * 0.7, y: pantry.y + 3.3, taken: false });
   }
   function bunniesStep() {
@@ -2585,18 +2587,18 @@
   function tailJS(g, p, t) {
     const wet = g.climb || g.swim || g.under, full = t.meter >= 50, takeoff = p.jump && g.ground && full && !wet, speed = Math.abs(g.vx);
     const meter0 = g.ground ? (speed >= 270 ? Math.min(t.meter + 1, 50) : Math.max(t.meter - 3, 0)) : t.meter;
-    const air = !g.ground && !wet, flap = air && p.jump, fly0 = takeoff || flap ? 240 : g.ground || wet ? 0 : Math.max(t.fly - 1, 0), ended = t.fly === 1 && fly0 === 0;
+    const air = !g.ground && !wet, flap = air && (p.jump || (p.up && t.rep <= 0)), fly0 = takeoff || flap ? 240 : g.ground || wet ? 0 : Math.max(t.fly - 1, 0), ended = t.fly === 1 && fly0 === 0;
     const meter = ended || (t.fly > 0 && g.ground) ? 0 : meter0;
     const lift0 = flap ? 18 : air ? t.lift : 0, flut0 = flap ? 36 : air ? t.flut : 0;   // (0.0.120: every press of jump in the air a flap, as Tail.hz)
     const flying = air && fly0 > 0, lifting = lift0 > 0, fluttering = !lifting && flut0 > 0 && g.vy > 30;
     return { gnome: { x: g.x, y: g.y, vx: g.vx, vy: lifting ? (g.vy < -81 ? g.vy : -81) : fluttering ? 19 : g.vy, face: g.face, ground: g.ground, climb: g.climb, swim: g.swim, under: g.under, air: g.air, gear: g.gear, tool: g.tool, kit: g.kit, dc: g.dc, dr: g.dr, dt: g.dt, ev: g.ev },
-             pad: { dx: p.dx, up: p.up && (!flying || g.vy < -81), down: p.down && !flying, jump: p.jump, dig: p.dig, dash: p.dash }, tail: { meter, fly: fly0, lift: Math.max(lift0 - 1, 0), flut: Math.max(flut0 - 1, 0) } };
+             pad: { dx: p.dx, up: p.up && (!flying || g.vy < -81), down: p.down && !flying, jump: p.jump, dig: p.dig, dash: p.dash }, tail: { meter, fly: fly0, lift: Math.max(lift0 - 1, 0), flut: Math.max(flut0 - 1, 0), rep: flap ? ((g.kit & 1) === 1 ? 12 : 24) : air && p.up && t.rep > 0 ? t.rep - 1 : 0 } };   // (0.0.123: up held, a flap every 24 steps, 12 with the shoes)
   }
   function tailToggle() {
     const T = S.tail, g = S.g; if (!T || !T.have || !g || S.faintAt || BOT.on) return;
     const say = text => { S.banner = { text, t: performance.now() }; };
-    if (T.on) { Object.assign(T, { on: false, meter: 0, fly: 0, lift: 0, flut: 0 }); say("🐈 The cat tail, off: tucked away in your pack"); return; }
-    Object.assign(T, { on: true, meter: 0, fly: 0, lift: 0, flut: 0 }); say("🐈 The cat tail! Jump, and keep pressing jump in the air to fly up (R to take it off)");
+    if (T.on) { Object.assign(T, { on: false, meter: 0, fly: 0, lift: 0, flut: 0, rep: 0 }); say("🐈 The cat tail, off: tucked away in your pack"); return; }
+    Object.assign(T, { on: true, meter: 0, fly: 0, lift: 0, flut: 0, rep: 0 }); say("🐈 The cat tail! Jump, and keep pressing jump in the air, or hold it, to fly up (R to take it off)");
   }
   // (Clover not yet won over, near, with a carrot in hand: R gives it to her, whatever is chosen, as 🎒 cannot choose her till then)
   const nextRide = () => { const M = S.mount, ok = { clover: nearClover() && !!M && (M.tame || S.carrots > 0), carpet: !!(S.carpet && S.carpet.have), tail: !!(S.tail && S.tail.have) };
@@ -4207,7 +4209,7 @@
   // its gusts, the rain and when it comes next). 📂 Load makes the world from its seed again, then puts all that back. The birds,
   // frogs, insects and squirrels, the villagers' strolls and the dust and smoke start afresh. The tiles go packed (gzip, then
   // base64) where the browser can pack them: a world's tiles are 0.7 MB as they are.
-  const SAVE_KIND = "hazeljs-examples/gnome-world", SAVE_V = 6;   // (2, 0.0.102: the bigger world, Clover, the carrots; 3, 0.0.106: the magic carpet; 4, 0.0.109: the running shoes; 5, 0.0.114: the swim flippers and the super climbing gear; 6, 0.0.116: the cat tail)
+  const SAVE_KIND = "hazeljs-examples/gnome-world", SAVE_V = 7;   // (7, 0.0.123: one carrot on the ground, not three; 2, 0.0.102: the bigger world, Clover, the carrots; 3, 0.0.106: the magic carpet; 4, 0.0.109: the running shoes; 5, 0.0.114: the swim flippers and the super climbing gear; 6, 0.0.116: the cat tail)
   const TILES = [mat, bg, fix, gem, stone, shape, root, top, wat];
   const bytesOf = A => new Uint8Array(A.buffer, A.byteOffset, A.byteLength);
   const TILE_BYTES = TILES.reduce((n, A) => n + A.byteLength, 0);
@@ -4251,6 +4253,10 @@
   // as it was is put back instead)
   function restore(h, d) {
     S.frame = d.frame; S.seed = d.seed; build(h, S.seed);
+    // (0.0.123: a save from before, v 6 or less, has the garden's three carrots, one after another, the first of Clover's things:
+    // the one carrot now in the first one's place, the other two dropped)
+    if ((d.v | 0) < 7 && Array.isArray(d.items)) { const k0 = S.items.findIndex(it => it.kind === "carrot");
+      if (k0 >= 0) d = { ...d, items: [...d.items.slice(0, k0 + 1), ...d.items.slice(k0 + 3)], shape: { ...d.shape, items: d.shape.items - 2 } }; }
     // (a save from before the magic carpet, 0.0.106, or the running shoes, 0.0.109, has a thing or two fewer: those, the last, lie
     // where they were put)
     const have = shapeOf(), older = k => k === "items" && d.shape.items < have.items && S.items.slice(d.shape.items).every(it => it.kind === "carpet" || it.kind === "shoes" || it.kind === "flippers" || it.kind === "climber" || it.kind === "tail");
@@ -4272,7 +4278,7 @@
     d.villagers.forEach((v, k) => { S.villagers[k].n = v.n; S.villagers[k].nextAt = v.nextAt; });
     if (d.ride) S.ride = { ...d.ride, safe: d.ride.safe ? { ...d.ride.safe } : null }; if (d.mount) S.mount = { ...d.mount }; S.carrots = d.carrots || 0;
     S.carpet = { have: !!(d.carpet && d.carpet.have), on: !!(d.carpet && d.carpet.on), vx: 0, vy: 0, face: d.carpet && d.carpet.face < 0 ? -1 : 1, ph: 0, wisps: null };
-    S.tail = { have: !!(d.tail && d.tail.have), on: !!(d.tail && d.tail.on), meter: 0, fly: 0, lift: 0, flut: 0 };   // (0.0.116; a save from before has none)
+    S.tail = { have: !!(d.tail && d.tail.have), on: !!(d.tail && d.tail.on), meter: 0, fly: 0, lift: 0, flut: 0, rep: 0 };   // (0.0.116; a save from before has none)
     if (HEROES[d.hero]) { S.hero = d.hero; keep("hero", S.hero); heroPicker(); }
     keep("seed", S.seed);
     rootChunks.clear(); S.minimapAt = -1e9; S.cam.set = false; S.party = null; S.confetti = []; S.talk = null; hushTalk(); S.parts = []; S.smoke = [];

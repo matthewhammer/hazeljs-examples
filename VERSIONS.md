@@ -2,6 +2,11 @@
 
 Each version lists what the apps do as of that version. The newest version is first.
 
+## 0.0.123 (2026-11-25)
+
+- **Gnome world: hold jump with the cat tail and it keeps flapping, faster with the running shoes** (Matthew: "if we hold up (jump) while using cat tail, let's do an auto-repeat that's faster when the running shoes"). In the air with the tail on, ↑ held (the jump button held, on a controller) flaps by itself again and again: every 24 steps without the shoes (a flap's lift, then a little float), every 12 with them (lift after lift). Pressing jump still flaps at once, as before. In Hazel, `Tail.hz` (the tail's state counts the steps to the next flap), its JavaScript twin the same at 20,000 made-up steps, gnomes with and without shoes among them. Checked in the page: ↑ held four seconds, 14.96 tiles up without the shoes (10 flaps, 3.74 tiles a second), 17.74 with them (19 flaps, 4.43 a second).
+- **One carrot on the ground, just right of Clover** (Matthew: "let's have only one carrot on the ground, just to the right of the clover the rabbit. instead of three in row to the left."). It lies two steps to her right; the village pantry's carrot is as before. Saves are now version 7. A save from before (version 6 or less, with the three) still loads: its first carrot's place is the one carrot's, and the other two are dropped. Checked: a save made on 0.0.122, with the garden's first carrot, the pantry's and the cat tail taken, loads with those three taken; saved again and loaded, the same. The booklet says so too.
+
 ## 0.0.122 (2026-11-25)
 
 - **Gnome world: Clover no longer vanishes in a hole or a tunnel** (Matthew: "clover disappears when we dismount"; "if clover falls into a hole we dig under her, she disappears"). She was there all along, but painted over: waiting, she was drawn with the wild rabbits, early in the picture, before the great trees, the ground and the back walls of the tunnels and holes dug, which were drawn over her; ridden, she is drawn with the gnome, late, so she showed. Left in a tunnel, or dropped into a hole dug under her, or in front of a great tree, she was hidden behind it. Now, waiting, she is drawn with the gnome too, in front of all that. Checked in the page, a hole four deep dug under her where she sat (seed 7): on 0.0.121 she made no pixel on the screen in it, now 133 (on the land, 142).
