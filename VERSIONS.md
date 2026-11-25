@@ -2,6 +2,15 @@
 
 Each version lists what the apps do as of that version. The newest version is first.
 
+## 0.0.129 (2026-11-25)
+
+- **Gnome world: the dig fills on a whole kit of drums and strange sounds** (Matthew: "let's have the fills use all kinds of drum sounds: toms, like reggae fills; rims, like reggae fills; misc percussion, like reggae dub tracks, and multi-rhythm sections; bizzare sounds -- like in dub"). Each of the four fill tracks now has a fill or two for every bar, taken in turn bar by bar, so they don't repeat; and each fill can lay rhythms over one another: thirty-seconds (the tune's swing on them) with triplets or sixes against them, as the many-rhythm sections do. The kit:
+  - **drums**: kick, snare, a snare hit hard, three toms rolling down as reggae fills do, rimshots, claps, hats open and closed;
+  - **hand drums and the rest**: bongos high and low, conga, timbale, cowbell, woodblock, claves, shaker, guiro, triangle;
+  - **dub's strange sounds**: a siren, a laser, a pew, a boom dropping, a spring's boing, rimshots thrown into the echo, noise swelling up backwards.
+  - Each kind of music its own fills: reggae's rims and toms with timbales, bongos and congas; funk's ghost notes, congas, guiro and cowbell; house's claps, shakers, a laser and a triangle; ska's snare runs, woodblock and cowbell; and under the water the dub's strange sounds, its echo throwing them back.
+  - Checked in the page, muted: reggae, its dub, funk and house, a dozen digs each across the bars, each beat its own fill, the next dig its partner, a different fill each bar, no error.
+
 ## 0.0.128 (2026-11-25)
 
 - **Gnome world: digging plays drum fills on the music's beat** (Matthew: "dig sound effect is missing --- unless we go into water, and we hear that one. let's have dig sound effect mean --- trigger drum fill track 1, 2, 3 or 4 --- each one is filled with drum fills for the music currently playing, but is muted. Depending on the 1, 2, 3 or 4 beat being active as we trigger the 'dig' event, we get to hear one of those drum fills; it's possible to re-trigger it again before the end of the beat, if we dig fast enough; in that case, we trigger the complementary fill (1 triggers 3, 2 triggers 4)"). The dig's sound was there, but a soft hiss and a low thump at 82 Hz, under the music: laptop speakers can't play that low, so digging seemed silent, while the splash, high and bright, came through. Now:

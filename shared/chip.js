@@ -622,17 +622,29 @@
     // tracks for each style, each a beat of drums in eight thirty-seconds, going round under the music, silent. fill(): the beat of
     // the bar sounding now (1 to 4) opens its own track for the rest of that beat, from its next thirty-second (the tune's swing
     // on them); again in the same beat, the first is closed and the other of its pair opens instead (1 and 3, 2 and 4). On the
-    // sounds' bus, so the 🔊 slider has them. The tracks: k kick, s snare, S a snare hit hard, h m l the high, middle and low
-    // toms, c a clap, r a rim, x a hat, o an open hat, . nothing
+    // sounds' bus, so the 🔊 slider has them
+    // (0.0.129; Matthew: "let's have the fills use all kinds of drum sounds: toms, like reggae fills; rims, like reggae fills;
+    // misc percussion, like reggae dub tracks, and multi-rhythm sections; bizzare sounds -- like in dub") Each track now has a
+    // fill or two for each bar, taken in turn bar by bar; a fill is one or more layers, each its own count of notes to the beat:
+    // 8 (thirty-seconds, the tune's swing on them), 6 or 3 (triplets against them, the many-rhythm sections). The kit: k kick,
+    // s snare, S snare hit hard, h m l the toms high, middle and low, r rim, c clap, x hat, o open hat; the hand drums and the
+    // rest: b B bongos high and low, g conga, t timbale, v cowbell, w woodblock, q claves, z shaker, u guiro, i triangle; and dub's
+    // strange sounds: Z a siren, L a laser, P a pew, D a boom dropping, K a spring's boing, E a rim thrown into the echo, R noise
+    // swelling up backwards
     const FILLS = {
-      chip: ["s.s.s.s.", "h.h.m.m.", "ssssssss", "hhmmllkS"],
-      ska: ["s.s.s.ss", "h.m.l.k.", "ssssssss", "hhmmllkS"],
-      funk: ["s..s.ss.", "k.s.k.s.", "s.sshhm.", "hmhmllkS"],
-      reggae: ["r...r.r.", "k...r...", "r.r.r.rr", "l.l.m.h."],
-      house: ["c.c.c.c.", "k.k.k.ko", "cccccccc", "k.ck.ccS"],
-      dub: ["r.......", "s.....r.", "r.r.r.r.", "l..m..h."],
+      chip: [[["8:s.s.s.ss"], ["8:w.w.wwv."]], [["8:h.m.l.k."], ["6:hhmmll"]], [["8:ssssssss"], ["8:v.v.vvvv", "6:z.z.z."]], [["8:hhmmllkS"], ["3:hml", "8:x.x.x.x."]]],
+      ska: [[["8:s.s.s.ss"], ["8:w.w.wwv."]], [["8:h.m.l.k."], ["6:hhmmll"]], [["8:ssssssss"], ["8:v.v.vvvv", "6:z.z.z."]], [["8:hhmmllkS"], ["3:hml", "8:x.x.x.x."]]],
+      funk: [[["8:s..s.ss."], ["8:g.gB.g.b"]], [["8:k.s.k.s."], ["8:u...v.v."]], [["8:s.sshhm."], ["6:bbBBgg", "8:x.x.x.x."]], [["8:hmhmllkS"], ["8:v.vv.vS.", "3:g.g"]]],
+      reggae: [[["8:r.r.r.rr"], ["8:t..t.tt.", "6:z.z.z."]], [["8:l.m.h.l."], ["8:k...r.q."]], [["8:rrr.trrt"], ["3:hml", "8:z.z.z.z."]], [["8:h.hmm.ll"], ["6:bBbBgg", "8:....E..."]]],
+      dub: [[["8:E......."], ["8:Z.......", "3:..q"]], [["8:L...E..."], ["8:D...r..."]], [["6:E.E.E."], ["8:K.....E.", "6:z.z.z."]], [["3:lmh", "8:....Z..."], ["8:P.P.P.L."], ["8:R......D"]]],
+      house: [[["8:c.c.c.c."], ["8:z.z.z.zz"]], [["8:k.k.k.ko"], ["8:v..v..v."]], [["8:cccccccc"], ["6:L.L.L.", "8:k...k..."]], [["8:k.ck.ccS"], ["8:i...c.cc"]]],
     };
-    let lastFill = null;
+    let lastFill = null, sendE = null;
+    function swell(bus, t, dur, vol) {   // (noise rising, then cut: a sound played backwards)
+      const n = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain(); n.buffer = noise; f.type = "bandpass"; f.frequency.value = 1400; f.Q.value = 0.6;
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + dur); g.gain.setValueAtTime(0, t + dur + 0.005);
+      n.connect(f); f.connect(g); g.connect(bus); n.start(t, Math.random() * 0.5); n.stop(t + dur + 0.02);
+    }
     function drum(bus, ch, t) {
       const V = 0.62;
       if (ch === "k") tone(bus, "sine", 150, 45, t, 0.12, 0.5 * V);
@@ -642,27 +654,48 @@
       else if (ch === "r") { hiss(bus, t, 0.04, 0.15 * V, "bandpass", 2600, 3); tone(bus, "triangle", 900, 700, t, 0.025, 0.08 * V); }
       else if (ch === "x") hiss(bus, t, 0.03, 0.07 * V, "highpass", 7000);
       else if (ch === "o") hiss(bus, t, 0.11, 0.07 * V, "highpass", 6500);
+      // (the hand drums and the rest)
+      else if (ch === "b" || ch === "B") { const f = ch === "b" ? 420 : 300; tone(bus, "sine", f, f * 0.78, t, 0.08, 0.3 * V); hiss(bus, t, 0.02, 0.05 * V, "bandpass", 2400, 1.5); }
+      else if (ch === "g") { tone(bus, "sine", 215, 175, t, 0.16, 0.32 * V); hiss(bus, t, 0.03, 0.08 * V, "bandpass", 1500, 1); }
+      else if (ch === "t") { tone(bus, "triangle", 520, 400, t, 0.13, 0.2 * V); hiss(bus, t, 0.09, 0.05 * V, "highpass", 3000); }
+      else if (ch === "v") { tone(bus, "half", 562, 560, t, 0.11, 0.06 * V); tone(bus, "half", 845, 842, t, 0.11, 0.045 * V); }
+      else if (ch === "w") { tone(bus, "triangle", 1100, 1040, t, 0.04, 0.2 * V); hiss(bus, t, 0.015, 0.05 * V, "bandpass", 1900, 2); }
+      else if (ch === "q") tone(bus, "sine", 2500, 2450, t, 0.03, 0.13 * V);
+      else if (ch === "z") hiss(bus, t, 0.05, 0.06 * V, "highpass", 5500);
+      else if (ch === "u") for (let j = 0; j < 6; j++) hiss(bus, t + j * 0.018, 0.012, 0.06 * V, "bandpass", 3000 + j * 150, 2);
+      else if (ch === "i") { tone(bus, "sine", 3200, 3200, t, 0.45, 0.035 * V); tone(bus, "sine", 4700, 4700, t, 0.35, 0.02 * V); }
+      // (dub's strange sounds)
+      else if (ch === "Z") { tone(bus, "half", 700, 1400, t, 0.16, 0.035 * V); tone(bus, "half", 1400, 650, t + 0.16, 0.2, 0.035 * V); }
+      else if (ch === "L") tone(bus, "sine", 2400, 120, t, 0.13, 0.12 * V);
+      else if (ch === "P") tone(bus, "quarter", 950, 280, t, 0.1, 0.06 * V);
+      else if (ch === "D") tone(bus, "sine", 95, 28, t, 0.4, 0.5 * V);
+      else if (ch === "K") tone(bus, "triangle", 320, 170, t, 0.28, 0.16 * V, 40);
+      else if (ch === "E") { if (!sendE && echo) { sendE = ctx.createGain(); sendE.gain.value = 1.2; sendE.connect(echo.inp); }
+        for (const o of sendE ? [bus, sendE] : [bus]) { hiss(o, t, 0.04, 0.16 * V, "bandpass", 2600, 3); tone(o, "triangle", 900, 700, t, 0.025, 0.09 * V); } }
+      else if (ch === "R") swell(bus, t, 0.22, 0.12 * V);
     }
     // (the beat sounding at time now on deck D: the sixteenth a and its start t walked back from the deck's next; the beat's start,
-    // its eight thirty-seconds' times, and which beat of the bar it is)
+    // its eight thirty-seconds' times, its end, which beat of the bar it is, and which bar)
     function beatAt(D, now) {
       const len = D.song.steps.length; let a = D.at, t = D.next;
       while (t > now) { a = (a - 1 + len) % len; t -= adv(D, a); }
       const k = a % 4, a0 = (a - k + len) % len; let bt = t; for (let j = 1; j <= k; j++) bt -= adv(D, (a - j + len) % len);
       const slots = []; let u = bt; for (let j = 0; j < 4; j++) { const d = adv(D, (a0 + j) % len); slots.push(u, u + d / 2); u += d; }
-      return { beat: Math.floor((a % 16) / 4), bt, slots, end: u };
+      return { beat: Math.floor((a % 16) / 4), bar: Math.floor(a / 16), bt, slots, end: u };
     }
     function fill(at) {
       if (!ctx || !S.sfx || !playing) return null;
       const D = [...decks].reverse().find(D => D.until === Infinity) || decks[decks.length - 1]; if (!D) return null;
-      const now = at ?? ctx.currentTime, B = beatAt(D, now);
+      const now = at ?? ctx.currentTime, B = beatAt(D, now), style = D.song.style;   // (a dub's own, not its tune's)
       let track = B.beat; const again = !!lastFill && Math.abs(lastFill.bt - B.bt) < 0.005;
       if (again) { track = (lastFill.track + 2) % 4; const g = lastFill.G.gain; g.cancelScheduledValues(now); g.setValueAtTime(g.value, now); g.linearRampToValueAtTime(0, now + 0.006); }
-      const pat = (FILLS[D.song.lead || D.song.style] || FILLS.chip)[track], G = ctx.createGain(); G.connect(sfxBus);
-      let n = 0; for (let j = 0; j < 8; j++) if (B.slots[j] >= now + 0.006 && pat[j] !== ".") { drum(G, pat[j], B.slots[j]); n++; }
-      if (!n) { const last = [...pat].reverse().find(ch => ch !== ".") || "s"; drum(G, last, now + 0.006); n = 1; }   // (too late in the beat for any of it: one hit, now)
+      const vars = (FILLS[style] || FILLS.chip)[track], layers = vars[B.bar % vars.length], G = ctx.createGain(); G.connect(sfxBus);
+      let n = 0, lastCh = null;
+      for (const L of layers) { const [cnt, pat] = L.split(":"), m = +cnt, dur = (B.end - B.bt) / m;
+        for (let j = 0; j < m; j++) { const ch = pat[j], tj = m === 8 ? B.slots[j] : B.bt + j * dur; if (!ch || ch === ".") continue; lastCh = ch; if (tj >= now + 0.006) { drum(G, ch, tj); n++; } } }
+      if (!n) { drum(G, lastCh || "s", now + 0.006); n = 1; }   // (too late in the beat for any of it: one hit, now)
       S.sounds++; lastFill = { bt: B.bt, track, G };
-      return { beat: B.beat + 1, track: track + 1, again, notes: n, style: D.song.lead || D.song.style };
+      return { beat: B.beat + 1, track: track + 1, again, notes: n, style, bar: B.bar, layers };
     }
     // (a game's sound; a big one (duck) dips the music under it for a moment)
     const sfx = (f, duck = 0) => { if (!ctx || !S.sfx) return; S.sounds++; const t = ctx.currentTime + 0.005; f(t);
