@@ -13,7 +13,11 @@ let C = null, code = 1;
 try {
   C = await chrome({ port: 9334 });
   const p = await C.open(BASE + WHAT, "booklet");
-  await p.until("document.readyState === 'complete' && [...document.images].every(i => i.complete)", "the booklet and its pictures loaded", 60000);
+  // (0.0.138: a runner's Chrome 157 left the tab /json/new opened on about:blank, and the wait, met at once by about:blank, printed
+  // a blank page, twice; Chrome 158 had navigated. So the booklet is asked for again if the tab is elsewhere, and the wait is for
+  // the booklet itself: its address and its sections, as well as its pictures)
+  if (!String(await p.eval("location.href")).startsWith(BASE + WHAT)) await p.send("Page.navigate", { url: BASE + WHAT });
+  await p.until(`location.href.startsWith(${JSON.stringify(BASE + WHAT)}) && document.readyState === 'complete' && !!document.querySelector('section.page') && [...document.images].every(i => i.complete)`, "the booklet and its pictures loaded", 60000);
   await p.eval("document.fonts.ready.then(() => true)");
   await p.send("Emulation.setEmulatedMedia", { media: "print" });
   const sections = await p.eval(`[...document.querySelectorAll("section.page")].filter(s => getComputedStyle(s).display !== "none").map(s => (s.querySelector("h2") || {}).textContent || "the cover")`);
