@@ -551,7 +551,8 @@
     climber: { icon: "🪝", label: "🪝 super climbing gear", what: "🪝 the super climbing gear", banner: "🪝 The super climbing gear: climb three times as fast, trees, ladders, stairs and tunnels" },
     shoes: { icon: "👟", label: "👟 running shoes", what: "👟 the running shoes", banner: "👟 The running shoes: hold 💨 (or Shift) to dash, up to full speed in a flash" },
   };
-  const BOT = { on: false, phase: "", queue: [], cur: null, path: [], k: 0, lastCell: -1, still: 0, tries: 0, skipped: [], frames: 0, t0: 0, items: 0, parts: 0, partsAll: 0, gems: 0, gemsAll: 0, report: null };
+  const BOT = { on: false, phase: "", queue: [], cur: null, path: [], k: 0, lastCell: -1, still: 0, tries: 0, skipped: [], frames: 0, t0: 0, items: 0, parts: 0, partsAll: 0, gems: 0, gemsAll: 0, report: null,
+    digAll: 0, digLeft: 0, digSkip: new Set(), digPass: 1, digT0: 0, chunks: 0, rng: 1, sayAt: 0 };
   const dist = new Float64Array(NN), prev = new Int32Array(NN), heapI = new Int32Array(NN * 8), heapD = new Float64Array(NN * 8);   // (64-bit: in 32, a cost a hair lower rounded back to the same, and two tiles went on "improving" each other until the search's limit)
   function botClimb(c, r) { const i = at(c, r); return fix[i] === F_LADDER || fix[i] === F_STAIR || fix[i] === F_HATCH || bg[i] === B_DUG || wat[i] >= 0.5 || ((!!S.g.climbPack || kitHas(S.g, "climber")) && treeAt(c, r)); }
   function botStand(c, r) { if (r + 1 >= WH) return true; const b = at(c, r + 1); return mat[b] !== AIR || fix[b] === F_PLAT || fix[b] === F_BRIDGE || fix[b] === F_HATCH || boulderAt(c, r + 1); }
@@ -598,26 +599,77 @@
       return out; }
     if (phase === "gems") { const all = []; for (let i = 0; i < NN; i++) if (gem[i]) all.push(i); BOT.gemsAll = BOT.gemsAll || all.length;
       return all.map(i => ({ c: i % WW, r: Math.floor(i / WW), what: "💎 a gem", gemAt: i })); }
+    if (phase === "dig") return digChunk();
     return [];
   }
+  // (0.0.119; Matthew: "N and I just watched the full speed run. It was very satisfying. After it completes, during the
+  // celebration, let's go into another phase --- dig up the entire world. randomly walk over the world, finding chunks of world
+  // to dig, and dig them up. Keep going until every diggable tile is dug.") ⛏️ The dig, after the gems: the world in chunks of
+  // 8 by 8 tiles; the gnome digs out every tile of the chunk it is in that its digger can dig, the nearest first, then walks on
+  // at random to a chunk beside it (the eight round it) with some left to dig; none beside it has any, to one of the nearest
+  // that has, at random among them. A tile it cannot get to, after four tries, waits for a second time round; the run ends when
+  // none is left, or only tiles it could not get to twice. What no digger digs stays: the houses' masonry and timber, and the
+  // bedrock's last row. The walk's chances are the world's own (from its seed): a world is dug the same way each time
+  const DIG_CH = 8, DIG_CW = Math.ceil(WW / DIG_CH), DIG_CR = Math.ceil(WH / DIG_CH);
+  const digCan = i => { const m = mat[i]; return m !== AIR && digSteps(m, (i / WW) | 0, S.g.tool) > 0; };
+  const digRand = () => { BOT.rng = (BOT.rng * 1103515245 + 12345) & 0x7fffffff; return BOT.rng / 0x80000000; };
+  // (every tile still to dig, by chunk; those waiting for the second time round not counted in the chunks)
+  function digCount() { const left = new Int32Array(DIG_CW * DIG_CR); let all = 0, open = 0;
+    for (let i = 0; i < NN; i++) if (digCan(i)) { all++; if (BOT.digSkip.has(i)) continue; const c = i % WW, r = (i - c) / WW; left[((r / DIG_CH) | 0) * DIG_CW + ((c / DIG_CH) | 0)]++; open++; }
+    BOT.digLeft = all; if (!BOT.digAll) BOT.digAll = all; return { left, open }; }
+  function digChunk() {
+    let { left, open } = digCount();
+    if (!open && BOT.digSkip.size && BOT.digPass < 2) { BOT.digPass = 2; BOT.digSkip.clear(); ({ left, open } = digCount()); }
+    if (!open) return [];
+    const g = S.g, cc = Math.max(0, Math.min(DIG_CW - 1, Math.floor(g.x / 1000 / DIG_CH))), cr = Math.max(0, Math.min(DIG_CR - 1, Math.floor((g.y - 1) / 1000 / DIG_CH)));
+    let pick = [];
+    if (left[cr * DIG_CW + cc]) pick = [cr * DIG_CW + cc];
+    else for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const x = cc + dx, y = cr + dy;
+      if ((dx || dy) && x >= 0 && x < DIG_CW && y >= 0 && y < DIG_CR && left[y * DIG_CW + x]) pick.push(y * DIG_CW + x); }
+    if (!pick.length) { let best = Infinity;
+      for (let k = 0; k < left.length; k++) if (left[k]) { const x = k % DIG_CW, y = (k - x) / DIG_CW, d = Math.abs(x - cc) + Math.abs(y - cr) * 1.5;
+        if (d < best) { best = d; pick = [k]; } else if (d === best) pick.push(k); } }
+    const k = pick[Math.floor(digRand() * pick.length)], x0 = (k % DIG_CW) * DIG_CH, y0 = Math.floor(k / DIG_CW) * DIG_CH, out = [];
+    for (let r = y0; r < Math.min(WH, y0 + DIG_CH); r++) for (let c = x0; c < Math.min(WW, x0 + DIG_CH); c++) { const i = at(c, r); if (digCan(i) && !BOT.digSkip.has(i)) out.push({ c, r, what: "⛏️ a tile", digAt: i }); }
+    BOT.chunks++; return out;
+  }
+  // (a target it cannot get to: a thing, a tree's part or a gem, reported; a tile to dig, kept for the second time round)
+  function botSkip(t) { if (t.digAt != null) BOT.digSkip.add(t.digAt); else BOT.skipped.push(t.what + ` (${t.c}, ${t.r})`); }
   function botNext() {
     const g = S.g, gc = Math.floor(g.x / 1000), gr = Math.floor((g.y - 1) / 1000);
     for (;;) {
-      if (!BOT.queue.length) { const order = ["items", "trees", "gems"], i = order.indexOf(BOT.phase) + 1;
+      if (!BOT.queue.length) {
+        if (BOT.phase === "dig") { BOT.queue = digChunk(); if (BOT.queue.length) continue; botFinish(); return false; }
+        const order = ["items", "trees", "gems", "dig"], i = order.indexOf(BOT.phase) + 1;
         if (i >= order.length) { botFinish(); return false; }
+        if (order[i] === "dig") botRunDone();
         BOT.phase = order[i]; BOT.queue = botTargets(BOT.phase); if (BOT.phase === "trees") BOT.partsAll = BOT.queue.length; continue; }
-      if (BOT.phase === "gems") BOT.queue.sort((a, b) => Math.abs(a.c - gc) + Math.abs(a.r - gr) * 1.5 - Math.abs(b.c - gc) - Math.abs(b.r - gr) * 1.5);
-      const t = BOT.queue.shift(); if (t.gemAt != null && !gem[t.gemAt]) continue; if (t.item && t.item.taken) continue;
+      if (BOT.phase === "gems" || BOT.phase === "dig") BOT.queue.sort((a, b) => Math.abs(a.c - gc) + Math.abs(a.r - gr) * 1.5 - Math.abs(b.c - gc) - Math.abs(b.r - gr) * 1.5);
+      const t = BOT.queue.shift(); if (t.gemAt != null && !gem[t.gemAt]) continue; if (t.item && t.item.taken) continue; if (t.digAt != null && !digCan(t.digAt)) continue;
       BOT.cur = t; BOT.tries = 0; BOT.avoid = new Set(); BOT.path = botPlan(t.c, t.r, null) || []; BOT.k = 0; BOT.still = 0;
-      if (!BOT.path.length && !(gc === t.c && gr === t.r)) { BOT.skipped.push(t.what + ` (${t.c}, ${t.r})`); continue; }
+      if (!BOT.path.length && !(gc === t.c && gr === t.r)) { botSkip(t); continue; }
       return true; }
+  }
+  const runTime = frames => { const secs = frames / 60; return `${Math.floor(secs / 60)}:${String(Math.round(secs % 60) % 60).padStart(2, "0")}`; };
+  function botReport() {
+    return { time: runTime(BOT.frames), frames: BOT.frames, items: `${S.items.filter(i => i.taken).length}/${S.items.length}`, treeParts: `${BOT.parts}/${BOT.partsAll}`, gems: `${BOT.gems}/${BOT.gemsAll}`, skipped: [...BOT.skipped], realMs: Math.round(performance.now() - BOT.t0) };
+  }
+  // (the speed run done, as it always ended, its time and its banner; and on, during the celebration, to the dig)
+  function botRunDone() {
+    BOT.report = botReport(); console.log("speed run", BOT.report);
+    S.banner = { text: `🏃 Speed run: ${BOT.report.time} · ${BOT.report.items} things · ${BOT.report.treeParts} tree parts · 💎 ${BOT.report.gems}`, t: performance.now() + 3000 };
+    BOT.sayAt = performance.now() + 6500; BOT.digT0 = BOT.frames; BOT.digAll = 0; BOT.digLeft = 0; BOT.digSkip = new Set(); BOT.digPass = 1; BOT.chunks = 0;
+    BOT.rng = ((S.seed | 0) * 7919 + 104729) & 0x7fffffff || 1;
   }
   function botFinish() {
     BOT.on = false; for (const k in S.keys) S.keys[k] = false;
-    const secs = BOT.frames / 60, mm = Math.floor(secs / 60), ss = Math.round(secs % 60);
-    BOT.report = { time: `${mm}:${String(ss).padStart(2, "0")}`, frames: BOT.frames, items: `${S.items.filter(i => i.taken).length}/${S.items.length}`, treeParts: `${BOT.parts}/${BOT.partsAll}`, gems: `${BOT.gems}/${BOT.gemsAll}`, skipped: BOT.skipped, realMs: Math.round(performance.now() - BOT.t0) };
-    S.banner = { text: `🏃 Speed run: ${BOT.report.time} · ${BOT.report.items} things · ${BOT.report.treeParts} tree parts · 💎 ${BOT.report.gems}`, t: performance.now() };
-    console.log("speed run", BOT.report); $("run").setAttribute("aria-pressed", "false");
+    if (BOT.phase === "dig") { const R = BOT.report || botReport();
+      R.dig = { time: runTime(BOT.frames - BOT.digT0), dug: BOT.digAll - BOT.digLeft, of: BOT.digAll, left: BOT.digLeft, chunks: BOT.chunks, all: runTime(BOT.frames), realMs: Math.round(performance.now() - BOT.t0) }; BOT.report = R;
+      S.banner = { text: `⛏️ The whole world dug: ${R.dig.dug.toLocaleString()} tiles in ${R.dig.time}${R.dig.left ? ` (${R.dig.left} out of reach)` : ""} · 🏃 ${R.dig.all} in all`, t: performance.now() + 4000 };
+      S.party = { t: performance.now(), burst: false }; if (SND) { SND.cleared(); if (SND.musicOn) SND.celebrate(); }
+      console.log("speed run and dig", R); }
+    else { BOT.report = botReport(); S.banner = { text: `🏃 Speed run: ${BOT.report.time} · ${BOT.report.items} things · ${BOT.report.treeParts} tree parts · 💎 ${BOT.report.gems}`, t: performance.now() }; console.log("speed run", BOT.report); }
+    $("run").setAttribute("aria-pressed", "false");
   }
   // (each step of the run: the keys toward the next tile on the way; arrived, the next target; no headway for four seconds,
   // the way again round where it stuck, four times, then on to the next)
@@ -627,18 +679,20 @@
     if (S.carpet && S.carpet.on) S.carpet.on = false;
     const g = S.g, gc = Math.floor(g.x / 1000), gr0 = Math.floor((g.y - 1) / 1000), gr = inside(gc, gr0) && shape[at(gc, gr0)] ? gr0 - 1 : gr0, here = at(gc, gr);
     for (const k in S.keys) S.keys[k] = false;
+    if (BOT.sayAt && performance.now() > BOT.sayAt) { BOT.sayAt = 0; S.banner = { text: "⛏️ And now: dig up the whole world, every tile a digger can dig", t: performance.now() + 1500 }; }
+    if (BOT.phase === "dig" && BOT.frames % 60 === 0) digCount();   // (the count for the run's line, once a second of the run)
     if (!BOT.cur && !botNext()) return;
     const t = BOT.cur;
-    const done = t.gemAt != null ? !gem[t.gemAt] : t.item ? t.item.taken : Math.abs(gc - t.c) <= 0 && Math.abs(gr - t.r) <= 0;
-    if (done) { if (t.gemAt != null) BOT.gems++; else if (t.item) BOT.items++; else BOT.parts++; BOT.cur = null; return; }
+    const done = t.gemAt != null ? !gem[t.gemAt] : t.item ? t.item.taken : t.digAt != null ? !digCan(t.digAt) : Math.abs(gc - t.c) <= 0 && Math.abs(gr - t.r) <= 0;
+    if (done) { if (t.gemAt != null) BOT.gems++; else if (t.item) BOT.items++; else if (t.digAt == null) BOT.parts++; BOT.cur = null; return; }
     // (0.0.102; Matthew: "I noticed when I turn on the speed run feature the gnome gets 'stuck' on slopes") No headway is measured
     // by how far the gnome has gone, not by the tile it is in: on a slope its feet go in and out of the sloped tile, the tile
     // changed every step or two, and the run, never seen as stuck, never looked for another way
     // Headway: a step further along the way, a tile dug, or a tile and a half gone (rocking to and fro over a tile is none)
     { const px = g.x / 1000, py = g.y / 1000; if (!BOT.anchor || BOT.k > BOT.anchor.k || Math.hypot(px - BOT.anchor.x, py - BOT.anchor.y) > 1.5 || g.dt > 0) { BOT.anchor = { x: px, y: py, k: BOT.k }; BOT.still = 0; } else BOT.still++; }
     if (BOT.still > 240) { BOT.still = 0; BOT.tries++; const wp = BOT.path[BOT.k]; if (wp != null) BOT.avoid.add(wp);
-      if (BOT.tries > 4) { BOT.skipped.push(t.what + ` (${t.c}, ${t.r})`); BOT.cur = null; return; }
-      BOT.path = botPlan(t.c, t.r, BOT.avoid) || []; BOT.k = 0; if (!BOT.path.length) { BOT.skipped.push(t.what + ` (${t.c}, ${t.r})`); BOT.cur = null; return; } }
+      if (BOT.tries > 4) { botSkip(t); BOT.cur = null; return; }
+      BOT.path = botPlan(t.c, t.r, BOT.avoid) || []; BOT.k = 0; if (!BOT.path.length) { botSkip(t); BOT.cur = null; return; } }
     for (let j = BOT.k; j < Math.min(BOT.path.length, BOT.k + 4); j++) if (BOT.path[j] === here) BOT.k = j + 1;
     if (BOT.anchor && BOT.k < BOT.anchor.k) BOT.anchor.k = BOT.k;   // (a new way: its steps counted from here)
     const wp = BOT.path[Math.min(BOT.k, BOT.path.length - 1)]; if (wp == null) { BOT.cur = null; return; }
@@ -3874,7 +3928,8 @@
     const where = g && (g.swim || g.under) ? (g.under ? "🫧 under the water" : "🏊 swimming") : depth > 1 ? `🕳️ ${depth} m down` : depth < -2 ? `🌳 ${-depth} m up` : "🌿 on the land";
     const gx = g ? g.x / 1000 : 0, place = (S.places.find(p => gx >= p.x0 && gx <= p.x1 && (!p.under || depth > 3)) || { name: "" }).name;
     const wv = S.windNow || 0, wa = Math.abs(wv), windWord = wa < 0.15 ? "calm" : wa < 0.45 ? "a breeze" : wa < 0.8 ? "windy" : "a gale", arrows = wa < 0.15 ? "" : (wv > 0 ? "→" : "←").repeat(wa < 0.45 ? 1 : wa < 0.8 ? 2 : 3);
-    const runWord = BOT.on ? `🏃 ${Math.floor(BOT.frames / 3600)}:${String(Math.floor(BOT.frames / 60) % 60).padStart(2, "0")} · ${BOT.phase} · ${BOT.items + S.items.filter(i => i.taken).length - BOT.items}/${S.items.length} · 🌳 ${BOT.parts}/${BOT.partsAll || "?"} · 💎 ${BOT.gems}/${BOT.gemsAll || "?"}  ` : "";
+    const runWord = BOT.on && BOT.phase === "dig" ? `🏃 ${Math.floor(BOT.frames / 3600)}:${String(Math.floor(BOT.frames / 60) % 60).padStart(2, "0")} · ⛏️ ${(BOT.digAll - BOT.digLeft).toLocaleString()} of ${BOT.digAll.toLocaleString()} dug (${BOT.digAll ? Math.floor((BOT.digAll - BOT.digLeft) * 100 / BOT.digAll) : 0}%)  `
+      : BOT.on ? `🏃 ${Math.floor(BOT.frames / 3600)}:${String(Math.floor(BOT.frames / 60) % 60).padStart(2, "0")} · ${BOT.phase} · ${BOT.items + S.items.filter(i => i.taken).length - BOT.items}/${S.items.length} · 🌳 ${BOT.parts}/${BOT.partsAll || "?"} · 💎 ${BOT.gems}/${BOT.gemsAll || "?"}  ` : "";
     { const mb = $("mount"), riding = !!(S.ride && S.ride.on), flying = !!(S.carpet && S.carpet.on), tailed = !!(S.tail && S.tail.on), show = riding || flying || tailed || nearClover() || !!(S.carpet && S.carpet.have) || !!(S.tail && S.tail.have);
       if (mb) { if (mb.hidden === show) mb.hidden = !show; const which = riding ? "clover" : flying ? "carpet" : tailed ? "tail" : nextRide(), icon = which === "carpet" ? "🧞" : which === "tail" ? "🐈" : "🐇", on = String(riding || flying || tailed);
         if (mb.textContent !== icon) { mb.textContent = icon; mb.title = which === "carpet" ? "The magic carpet: on or off (R)" : which === "tail" ? "The cat tail: on or off (R)" : "Ride Clover the rabbit: on or off (R); a carrot first"; }
@@ -3973,7 +4028,7 @@
   { const b = $("build"); if (b) b.addEventListener("pointerdown", e => { e.preventDefault(); buildHere(); }); }
   { const b = $("mount"); if (b) b.addEventListener("pointerdown", e => { e.preventDefault(); mountToggle(); }); }
   { const b = $("run"); if (b) b.addEventListener("click", () => { BOT.on = !BOT.on; b.setAttribute("aria-pressed", String(BOT.on));
-      if (BOT.on) { Object.assign(BOT, { phase: "", queue: [], cur: null, path: [], k: 0, skipped: [], frames: 0, t0: performance.now(), items: 0, parts: 0, partsAll: 0, gems: 0, gemsAll: 0, report: null }); S.banner = { text: "🏃 Speed run: every thing, every part of every big tree, every gem", t: performance.now() }; }
+      if (BOT.on) { Object.assign(BOT, { phase: "", queue: [], cur: null, path: [], k: 0, skipped: [], frames: 0, t0: performance.now(), items: 0, parts: 0, partsAll: 0, gems: 0, gemsAll: 0, report: null, digAll: 0, digLeft: 0, digSkip: new Set(), digPass: 1, digT0: 0, chunks: 0, sayAt: 0 }); S.banner = { text: "🏃 Speed run: every thing, every part of every big tree, every gem", t: performance.now() }; }
       else for (const k in S.keys) S.keys[k] = false; b.blur(); }); }
   // ---- 🎮 a game controller (0.0.112; Matthew, 2026-11-25: "We have a Linux laptop that N often uses. Let's add game controller
   // support ... for the buttons, and a configure controller feature -- see messed up dress up for the game controller configure
@@ -4349,7 +4404,7 @@
       `full screen: the page's ${FS() ? "on" : "off"} · the browser's ${fe ? (fe.id || fe.tagName.toLowerCase()) : "none"}`,
       vv ? `page zoom: ${f2(vv.scale)} (seen ${f2(WATCH.zoomMin)} to ${f2(WATCH.zoomMax)}, last off 1 ${ago(WATCH.zoomAt)}; put back ${WATCH.zoomResets} times; the frame laid over the part in sight ${WATCH.anchored || 0} times${anchored ? ", now" : ""}) · visible ${r(vv.width)}×${r(vv.height)} at ${r(vv.offsetLeft)},${r(vv.offsetTop)} · page scrolled ${r(scrollX)},${r(scrollY)}` : "page zoom: no visualViewport",
       `canvas: on the page ${r(cr.width)}×${r(cr.height)} at ${r(cr.left)},${r(cr.top)} · pixels ${cv.width}×${cv.height} · a tile ${f2(T)} px (cap ${TCAP}${S.tileFix ? ", fixed at " + S.tileFix : ""}) · view ${f2(VW)}×${f2(VH)} tiles${S.camFix ? " · camera FIXED at " + JSON.stringify(S.camFix) : ""}`,
-      `camera: ${f2(S.cam.x)},${f2(S.cam.y)} (set ${!!S.cam.set}) · world ${WW}×${WH} tiles · the gnome at ${f2((g.x || 0) / 1000)},${f2((g.y || 0) / 1000)} moving ${r(g.vx || 0)},${r(g.vy || 0)} · ${["ground", "swim", "under", "climb"].filter(k => g[k]).join(", ") || "in the air"}${S.ride && S.ride.on ? " · riding Clover" : ""}${BOT.on ? " · speed run on" : ""}`,
+      `camera: ${f2(S.cam.x)},${f2(S.cam.y)} (set ${!!S.cam.set}) · world ${WW}×${WH} tiles · the gnome at ${f2((g.x || 0) / 1000)},${f2((g.y || 0) / 1000)} moving ${r(g.vx || 0)},${r(g.vy || 0)} · ${["ground", "swim", "under", "climb"].filter(k => g[k]).join(", ") || "in the air"}${S.ride && S.ride.on ? " · riding Clover" : ""}${BOT.on ? ` · speed run on (${BOT.phase}${BOT.phase === "dig" ? `: ${BOT.digAll - BOT.digLeft} of ${BOT.digAll} dug, chunk ${BOT.chunks}, round ${BOT.digPass}` : ""})` : ""}`,
       // (0.0.118; Matthew, on 0.0.116's report of Clover stuck: "it doesn't seem like that text has enough game details") the
       // world's seed and who plays, the gnome whole, what is ridden and each ride's own state, and the tiles round the gnome
       `world: seed ${S.seed} · playing ${S.hero} · frame ${S.frame} · riding ${rideOn() || "nothing"} (last used ${S.use})`,
