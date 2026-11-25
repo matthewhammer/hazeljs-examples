@@ -1,4 +1,4 @@
-# (ticket 847, 2026-11-24) records the page's way, idea A against idea C: each game's own run of states (node/package-bench.mjs
+# (ticket 847, 2026-11-24, then with direct reads: Matthew, "A, add direct reads", e2529357f0) records the page's way, idea A against idea C: each game's own run of states (node/package-bench.mjs
 # --runs) twice on one runner, through the jit of hazeljs 0.0.12 (hazelgrove/hazel ec2a330996, build 6: records as arrays
 # carrying their labels, idea C) and through the jit of hazelgrove/hazel's trial/847-records-objects (records as plain objects,
 # idea A), the games' own compiled.js as the ahead-of-time reference for both (--aot-as-is), the interpreter left out. Runs on
@@ -31,7 +31,7 @@ jobs:
           grep -o 'build:"[0-9a-f]*"' pkg-c/hazel-lib.js | head -1
           grep -o 'build:"[0-9a-f]*"' pkg-a/hazel-lib.js | head -1
           grep -q 'build:"ec2a330996' pkg-c/hazel-lib.js
-          grep -q 'build:"2aa0b9b451' pkg-a/hazel-lib.js
+          grep -q 'build:"e2529357f0' pkg-a/hazel-lib.js
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -39,14 +39,15 @@ jobs:
         run: |
           mkdir -p bench
           { nproc; grep -m1 'model name' /proc/cpuinfo; node --version; } | tee bench/${{ matrix.game }}-machine.txt
-      - name: Idea C, then idea A, on this runner
+      - name: Idea C, today's C with direct reads simulated, then idea A with direct reads, on this runner
         run: |
           ulimit -s unlimited || ulimit -s 65536
           set -o pipefail
           node --stack-size=30000 --max-old-space-size=6000 node/package-bench.mjs ${{ matrix.game }} pkg-c bench/${{ matrix.game }}-c.json --runs --aot-as-is --no-interp | tee bench/${{ matrix.game }}-c.txt
+          node --import ./node/direct-sim.mjs --stack-size=30000 --max-old-space-size=6000 node/package-bench.mjs ${{ matrix.game }} pkg-c bench/${{ matrix.game }}-cd.json --runs --aot-as-is --no-interp | tee bench/${{ matrix.game }}-cd.txt
           node --stack-size=30000 --max-old-space-size=6000 node/package-bench.mjs ${{ matrix.game }} pkg-a bench/${{ matrix.game }}-a.json --runs --aot-as-is --no-interp | tee bench/${{ matrix.game }}-a.txt
       - uses: actions/upload-artifact@v4
         if: ${{ always() }}
         with:
-          name: ac-${{ matrix.game }}
+          name: acd-${{ matrix.game }}
           path: bench/
