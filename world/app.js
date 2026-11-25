@@ -179,6 +179,13 @@
         for (let c = c0 - 1; c <= c0 + 1; c++) for (let r = r0 - 1; r <= r0; r++) { const i = at(c, r); mat[i] = AIR; bg[i] = B_CAVE; }
         best = at(c0, r0); }
       const c = best % WW, r = (best - c) / WW; S.items.push({ kind: "super", x: c + 0.5, y: r + 0.45, taken: false }); }
+    // (0.0.106; N's ask, through Matthew: "a magic carpet ... The carpet is in the far right underground gnome house") the magic
+    // carpet, in the farthest room of the gnome village farthest right, toward its far wall: the last of the things, so a save
+    // made before it had one fewer (restore lets it in); after the super digger, the last before it
+    S.carpet = { have: false, on: false, vx: 0, vy: 0, face: 1, ph: 0, wisps: null };
+    { const v = [...S.villages].sort((a, b) => b.x1 - a.x1)[0], mine = v ? S.rooms.filter(R => R.x >= v.x0 && R.x < v.x1) : [];
+      const R = mine.sort((a, b) => (b.x + b.w) - (a.x + a.w) || b.y - a.y)[0];
+      if (R) S.items.push({ kind: "carpet", x: R.x + R.w - 1.4, y: R.y + 3.35, taken: false }); }
     for (const R of S.rivers) holdRiver(R);
     for (let c = 0; c < WW; c++) top[c] = topOf(c);
     S.dry = []; for (let i = 0; i < NN; i++) if (mat[i] === AIR && (bg[i] === B_PLASTER || bg[i] === B_WOOD || bg[i] === B_STAIR)) S.dry.push(i);
@@ -484,6 +491,7 @@
     good: { icon: "⛏️", label: "⛏️ good digger", what: "⛏️ the good digger", banner: "⛏️ The good digger: tough ground goes faster, and limestone and granite give way" },
     super: { icon: "⚒️", label: "⚒️ super digger", what: "⚒️ the super digger", banner: "⚒️ The super digger: three times as fast, through anything, even the bedrock" },
     carrot: { icon: "🥕", label: "🥕 carrot", what: "🥕 a carrot", banner: "🥕 A carrot! Clover the rabbit 🐇 would love it: go and see her, and press R" },
+    carpet: { icon: "🧞", label: "🧞 magic carpet", what: "🧞 the magic carpet", banner: "🧞 The magic carpet! Press C (or 🧞) to fly it: the arrows steer, and let go, it floats" },
   };
   const BOT = { on: false, phase: "", queue: [], cur: null, path: [], k: 0, lastCell: -1, still: 0, tries: 0, skipped: [], frames: 0, t0: 0, items: 0, parts: 0, partsAll: 0, gems: 0, gemsAll: 0, report: null };
   const dist = new Float64Array(NN), prev = new Int32Array(NN), heapI = new Int32Array(NN * 8), heapD = new Float64Array(NN * 8);   // (64-bit: in 32, a cost a hair lower rounded back to the same, and two tiles went on "improving" each other until the search's limit)
@@ -557,6 +565,7 @@
   // the way again round where it stuck, four times, then on to the next)
   function botStep() {
     if (S.ride && S.ride.on) { const M = S.mount; S.ride.on = false; M.x = S.g.x; M.y = S.g.y; }   // (0.0.102: the speed run is on foot)
+    if (S.carpet && S.carpet.on) S.carpet.on = false;
     const g = S.g, gc = Math.floor(g.x / 1000), gr0 = Math.floor((g.y - 1) / 1000), gr = inside(gc, gr0) && shape[at(gc, gr0)] ? gr0 - 1 : gr0, here = at(gc, gr);
     for (const k in S.keys) S.keys[k] = false;
     if (!BOT.cur && !botNext()) return;
@@ -587,6 +596,7 @@
     else if (wc !== gc && Math.abs(g.vx) < 15) { if (ex > 0) S.keys.right = true; else S.keys.left = true; }
   }
   function gnomeStep(h) {
+    if (S.carpet && S.carpet.on) { carpetStep(); return; }
     if (S.ride && S.ride.on) { rideStep(h); return; }
     const k = S.keys, pad = { dx: (k.right ? 1 : 0) - (k.left ? 1 : 0), up: k.up, down: k.down, jump: S.jumpQueued, dig: !!k.dig };
     S.jumpQueued = false;
@@ -610,6 +620,7 @@
       if (it.kind === "climb") S.g = { ...S.g, climbPack: true };
       else if (it.kind === "gear") S.g = { ...S.g, gear: true };
       else if (it.kind === "carrot") S.carrots = (S.carrots || 0) + 1;
+      else if (it.kind === "carpet") S.carpet.have = true;
       else S.g = { ...S.g, tool: Math.max(S.g.tool || 0, it.kind === "super" ? 2 : 1) };
       S.banner = { text: ITEM[it.kind].banner, t: performance.now() }; }
     // a heart, walked into, gives back one heart (not with all five: it stays for later)
@@ -726,6 +737,7 @@
   function tick(h) {
     S.frame++;
     if (S.faintAt && S.ride && S.ride.on) { const M = S.mount; S.ride.on = false; M.x = S.g.x; M.y = S.g.y; M.face = S.g.face; }
+    if (S.faintAt && S.carpet && S.carpet.on) S.carpet.on = false;
     if (S.faintAt) { if (performance.now() - S.faintAt > 1800) { S.faintAt = 0; S.hearts = 5; S.g = { ...S.g, x: S.start.x, y: top[Math.floor(S.start.x / 1000)] * 1000, vx: 0, vy: 0, air: 600 }; S.cam.set = false; } }
     else { if (BOT.on) { BOT.frames++; botStep(); } gnomeStep(h); }
     bouldersStep();
@@ -2244,12 +2256,15 @@
       if (c > 1 && c < WW - 2 && !riverAt(to) && Math.abs(landY(c) - by) < 1.3) { b.face = away; b.hop = { x0: b.x, x1: to, y0: by, y1: landY(c), t: 0, dur: b.flee ? 16 : 22, h: b.flee ? 0.9 : 0.45 }; }
       else { b.face = -away; b.wait = 40; } }
   }
-  // (what World.step sees round Clover and the gnome: nothing to climb without the pack; without the gear, outside a leap, a
-  // column beside her with water at her feet or below them, before any ground, a wall)
+  // (what World.step sees round Clover and the gnome: without the gear, outside a leap, a column beside her with water at her
+  // feet or below them, before any ground, a wall. (0.0.106; Matthew: "there's a stuck state when we ride the rabbit into a hole
+  // we dig -- let's say that rabbits can climb out of the earth, but not other ladders in the gnome house, or to tree houses.
+  // Rabbits can navigate underground, even with a rider.") What she can climb: dug earth, a hole or a tunnel, with her claws;
+  // not a ladder, a stair or a hatch, nor a tree, pack or no pack)
   function rideNear(g) {
     const cx = Math.floor(g.x / 1000), cy = Math.floor((g.y - 1) / 1000), R = S.ride, wall = [false, false, false];
     if (!g.gear && !R.leap && !g.swim && !g.under) for (const d of [-1, 1]) for (let r = cy - 1; r <= cy + 12; r++) { const v = code(cx + d, r); if (v & 16 && v < 64) { wall[d + 1] = true; break; } if (r > cy && (v & 15) >= 1 && (v & 15) <= 10) break; }
-    const t = (c, r) => { if (wall[c - cx + 1] && r <= cy) return 10; const v = code(c, r); return !g.climbPack && v < 64 && (v & 32) ? v - 32 : v; };
+    const t = (c, r) => { if (wall[c - cx + 1] && r <= cy) return 10; const v = code(c, r); return v < 64 && (v & 32) && !(inside(c, r) && bg[at(c, r)] === B_DUG) ? v - 32 : v; };
     const row = r => t(cx - 1, r) + 512 * t(cx, r) + 262144 * t(cx + 1, r);
     return { cx, cy, r0: row(cy - 3), r1: row(cy - 2), r2: row(cy - 1), r3: row(cy), r4: row(cy + 1) };
   }
@@ -2293,6 +2308,114 @@
       S.carrots--; M.tame = true; if (SND) SND.gem(); say("🥕 Clover munches the carrot, and lets you ride! (R to get off)"); }
     R.on = true; R.hop = R.leap = false; R.safe = { x: M.x, y: M.y };
     S.g = { ...g, x: M.x, y: M.y, vx: 0, vy: 0, ground: true, climb: false, swim: false, under: false, face: M.face, dc: -1, dr: -1, dt: 0 };
+  }
+  // ---- (0.0.106; N's ask, through Matthew, 2026-11-25) 🧞 The magic carpet: "Once obtained, the gnome can fly into the air on
+  // it, by enabling it ... The carpet floats in midair, stationary, unless the arrow keys are engaged. The carpet responds in a
+  // precise way, and is pretty fast going laterally. As it goes, there's an animation that indicates wind rolling over and under
+  // it, causing it to flap like a sideways flag." C (or 🧞) puts it under the gnome, lifted a little, and takes it away again
+  // anywhere (the gnome falls as ever). On it, this step moves the gnome, not World.step: its speed eases to the arrows' in a
+  // few frames and to a stop as quickly, so it goes where it is sent and stays there; through open air, not ground, rock, a
+  // boulder or into the water (it skims the top)
+  const CARPET = { fast: 14 / 60, up: 9 / 60 };   // (tiles a frame: across, up or down)
+  const carpetHits = (x, y) => { const rb = Math.floor(y + 0.28);
+    for (let c = Math.floor(x - 0.38); c <= Math.floor(x + 0.38); c++) for (let r = Math.floor(y - 0.92); r <= rb; r++) {
+      if (!inside(c, r)) return true; const i = at(c, r); if (mat[i] !== AIR || boulderAt(c, r) || (r === rb && wat[i] >= 0.5)) return true; }
+    return false; };
+  function carpetStep() {
+    const C = S.carpet, k = S.keys, g0 = S.g, dx = (k.right ? 1 : 0) - (k.left ? 1 : 0), dy = (k.down ? 1 : 0) - (k.up ? 1 : 0);
+    S.jumpQueued = false;
+    const ease = (v, t, a) => v + Math.max(-a, Math.min(a, t - v));
+    C.vx = ease(C.vx || 0, dx * CARPET.fast, CARPET.fast / 5); C.vy = ease(C.vy || 0, dy * CARPET.up, CARPET.up / 4);
+    let x = g0.x / 1000, y = g0.y / 1000;
+    if (C.vx) { const nx = x + C.vx; if (!carpetHits(nx, y)) x = nx; else C.vx = 0; }
+    if (C.vy) { const ny = y + C.vy; if (!carpetHits(x, ny)) y = ny; else C.vy = 0; }
+    if (dx) C.face = dx;
+    S.g = { ...g0, x: Math.round(x * 1000), y: Math.round(y * 1000), vx: 0, vy: 0, face: C.face, ground: false, climb: false, swim: false, under: false, air: Math.max(g0.air || 0, 600), ev: 0, dc: -1, dr: -1, dt: 0 };
+    pickups();
+  }
+  function carpetToggle() {
+    const C = S.carpet, g = S.g; if (!C || !C.have || !g || S.faintAt || BOT.on) return;
+    const say = text => { S.banner = { text, t: performance.now() }; };
+    if (S.ride && S.ride.on) { say("🐇 Hop off Clover first (R), then fly"); return; }
+    if (C.on) { C.on = false; C.vx = C.vy = 0; S.g = { ...g, vx: 0, vy: 0 }; say("🧞 The carpet rolls itself up, back in your pack"); return; }
+    const x = g.x / 1000, y = g.y / 1000 - (g.ground || g.climb ? 0.35 : 0);
+    if (carpetHits(x, y)) { say("🧞 No room to unroll the carpet here"); return; }
+    C.on = true; C.vx = C.vy = 0; C.face = g.face < 0 ? -1 : 1;
+    S.g = { ...g, y: Math.round(y * 1000), vx: 0, vy: 0, ground: false, climb: false, swim: false, under: false, dc: -1, dr: -1, dt: 0 };
+    say("🧞 Up on the magic carpet! The arrows fly it; let go and it floats (C to get off)");
+  }
+  // (still, it bobs a little in the air; going, it holds steady and the cloth ripples instead)
+  const carpetBob = now => { const C = S.carpet, sp = Math.min(1, Math.hypot(C.vx || 0, C.vy || 0) / CARPET.fast); return (1 - sp) * Math.sin(now / 380) * 0.05; };
+  // the carpet's top, painted once for each size (N: "the carpet itself has a tile pattern with squares overlapping in complex
+  // ways, like old fashioned singles, but coming from the center and moving out to the edges, with 4 way symmetry. Let's use the
+  // colors gold (fringe and pattern) and various orange/red/dark red filling colors"): squares on a grid, each larger than its
+  // cell and pushed a little away from the middle, laid from the middle out, ring by ring, each ring over the edges of the ring
+  // inside it, as shingles lie; within a ring, those nearer the middle lines first, so it is the same from either side and
+  // either end. Seen from a little above, the squares are foreshortened, as the carpet is
+  const CARPET_FILL = ["#7f1d1d", "#b91c1c", "#ea580c", "#9a3412", "#dc2626", "#f97316", "#991b1b"];
+  let carpetArt = null;
+  function carpetTop(s) {
+    const W = Math.max(28, Math.round(1.8 * s)), Hh = Math.max(10, Math.round(0.5 * s));
+    if (carpetArt && carpetArt.W === W && carpetArt.H === Hh) return carpetArt;
+    const cv2 = document.createElement("canvas"); cv2.width = W; cv2.height = Hh; const c = cv2.getContext("2d");
+    c.fillStyle = "#4c0d0d"; c.fillRect(0, 0, W, Hh);
+    // (a grid of diamond-shaped squares, 13 across and 5 down, the rings rectangles round the middle one, as the carpet is)
+    const NI = 6, NJ = 2, pad = Math.max(1.5, Hh * 0.12), cw = (W / 2 - pad) / (NI + 0.8), ch = (Hh / 2 - pad) / (NJ + 0.8), cells = [];
+    for (let i = -NI; i <= NI; i++) for (let j = -NJ; j <= NJ; j++) cells.push({ i, j, ring: Math.max(Math.abs(i) / NI, Math.abs(j) / NJ) });
+    cells.sort((a, b) => a.ring - b.ring || (Math.abs(a.i) + Math.abs(a.j)) - (Math.abs(b.i) + Math.abs(b.j)));
+    const dia = (x, y, rx, ry) => { c.beginPath(); c.moveTo(x, y - ry); c.lineTo(x + rx, y); c.lineTo(x, y + ry); c.lineTo(x - rx, y); c.closePath(); };
+    const lw = Math.max(0.7, Math.min(cw, ch) * 0.2), sh = Math.max(1, Math.round(Math.min(cw, ch) * 0.3));
+    for (const q of cells) { const ring = Math.round(q.ring * NI), mid = q.i === 0 && q.j === 0;
+      const x = W / 2 + q.i * cw, y = Hh / 2 + q.j * ch, rx = cw * (mid ? 1.25 : 0.86), ry = ch * (mid ? 1.25 : 0.9);
+      // its shadow, a little outward, on the shingles inside it; then the shingle, gold-edged, a gold seed in it
+      c.fillStyle = "rgba(25,4,4,0.75)"; dia(x + Math.sign(q.i) * sh, y + Math.sign(q.j) * sh, rx, ry); c.fill();
+      c.fillStyle = mid ? "#f59e0b" : CARPET_FILL[((q.i + q.j) & 1 ? ring + 3 : ring) % CARPET_FILL.length]; dia(x, y, rx, ry); c.fill();
+      c.strokeStyle = "#fbbf24"; c.lineWidth = lw; c.stroke();
+      c.fillStyle = mid ? "#b91c1c" : "#fcd34d"; dia(x, y, rx * (mid ? 0.55 : 0.28), ry * (mid ? 0.55 : 0.28)); c.fill(); }
+    // its border: gold, a broad line at the edge and a fine one inside it
+    c.strokeStyle = "#f59e0b"; c.lineWidth = Math.max(1, pad * 0.6); c.strokeRect(pad * 0.3, pad * 0.3, W - pad * 0.6, Hh - pad * 0.6);
+    c.strokeStyle = "#fde68a"; c.lineWidth = Math.max(0.6, pad * 0.18); c.strokeRect(pad * 0.75, pad * 0.75, W - pad * 1.5, Hh - pad * 1.5);
+    return (carpetArt = { cv: cv2, W, H: Hh });
+  }
+  // the carpet flying, under the gnome's feet: its top in sixteen strips, each shifted up or down by whole pixels (no shear, so no
+  // filtering: one sprite copied in pieces), a ripple running back along it from the leading end and growing toward the trailing
+  // end, as a flag streams; its edge under it; gold tassels at both ends, the trailing ones streaming; and the wind, curls of it
+  // rolling back over the top and under the cloth
+  function drawCarpet(g, now, s) {
+    const C = S.carpet, art = carpetTop(s), W = art.W, Hh = art.H, sp = Math.min(1, Math.hypot(C.vx || 0, C.vy || 0) / CARPET.fast), dir = C.face || 1;
+    const x0 = Math.round(g.x / 1000 * s - W / 2), y0 = Math.round((g.y / 1000 - 0.12 + carpetBob(now)) * s);
+    C.ph = (C.ph || 0) + 0.12 + 0.35 * sp;
+    const n = 16, sw = W / n, amp = (0.025 + 0.11 * sp) * s, edge = Math.max(1, Math.round(s * 0.05)), offs = [];
+    for (let k2 = 0; k2 < n; k2++) { const u = dir > 0 ? 1 - (k2 + 0.5) / n : (k2 + 0.5) / n;
+      const dy = Math.round(Math.sin(C.ph - u * 5.5) * amp * (0.25 + 0.75 * u)); offs.push(dy);
+      const sx = Math.floor(k2 * sw), sw2 = Math.floor((k2 + 1) * sw) - sx;
+      if (!LINE) { ctx.fillStyle = "#3f0a0a"; ctx.fillRect(x0 + sx, y0 + dy + Hh, sw2, edge); }
+      ctx.drawImage(art.cv, sx, 0, sw2, Hh, x0 + sx, y0 + dy, sw2, Hh); }
+    // the fringe (Matthew: "let's have the fringe look like individual strands, like grass or other features we have now"): at
+    // each end, strands, each its own length, its own gold and its own sway, as the grass blades are drawn; at rest they hang a
+    // little, out and down; flying, the trailing end's stream back and wave, and the leading end's are pressed back short
+    const FR = ["#fbbf24", "#f59e0b", "#fde68a", "#eab308"], m = 11;
+    ctx.lineWidth = Math.max(1, s / 44); ctx.lineCap = "round";
+    for (const end of [-1, 1]) { const lead = end === dir && sp > 0.12, ex = end < 0 ? x0 : x0 + W, ey = y0 + offs[end < 0 ? 0 : n - 1];
+      for (let j = 0; j < m; j++) { const h = ((j * 7919 + (end > 0 ? 31 : 0)) % 97) / 97, yy = ey + (j + 0.5) * Hh / m;
+        const len = s * (0.12 + 0.08 * h) * (lead ? 0.6 : 1 + 0.45 * sp), wv = Math.sin(C.ph * (1.3 + 0.5 * h) + j * 0.9) * (lead ? 0.015 : 0.03 + 0.08 * sp) * s;
+        const tx = ex + end * len, ty = yy + (1 - sp) * (0.05 + 0.04 * h) * s + wv;
+        ctx.strokeStyle = FR[(j + (end > 0 ? 1 : 0)) % FR.length]; ctx.beginPath(); ctx.moveTo(ex, yy); ctx.quadraticCurveTo(ex + end * len * 0.55, yy + wv * 0.35, tx, ty); ctx.stroke(); } }
+    ctx.lineCap = "butt";
+    // the wind
+    if (LINE || sp < 0.12) return;
+    if (!C.wisps) C.wisps = Array.from({ length: 6 }, (_, j) => ({ u: j / 6 * 1.6 - 0.3, side: j % 2 ? 1 : -1 }));
+    ctx.lineWidth = Math.max(1, s / 26); ctx.lineCap = "round";
+    for (const w of C.wisps) { w.u += 0.03 + 0.07 * sp; if (w.u > 1.35) { w.u = -0.3; w.side = Math.random() < 0.5 ? -1 : 1; }
+      const lead = dir > 0 ? x0 + W : x0, px = lead - dir * w.u * W, a = Math.max(0, Math.min(1, (sp - 0.12) * 1.6)) * Math.min(1, (1.35 - w.u) * 2, (w.u + 0.3) * 3);
+      if (a <= 0.02) continue;
+      const over = w.side > 0, py = over ? y0 - s * 0.16 : y0 + Hh + edge + s * 0.14, len = s * 0.42;
+      ctx.strokeStyle = `rgba(240,248,255,${(0.75 * a).toFixed(3)})`; ctx.beginPath(); ctx.moveTo(px, py);
+      if (w.u < 0.95) ctx.quadraticCurveTo(px - dir * len * 0.5, py + (over ? -1 : 1) * s * 0.06, px - dir * len, py);
+      else { const r = s * 0.12, cx = px - dir * len * 0.4, cy = py + (over ? 1 : -1) * r;   // (past the trailing end, it rolls over the edge, or up under it)
+        ctx.lineTo(cx, py); ctx.arc(cx, cy, r, over ? -Math.PI / 2 : Math.PI / 2, (over ? -Math.PI / 2 : Math.PI / 2) + dir * Math.PI * 1.3, dir < 0); }
+      ctx.stroke(); }
+    ctx.lineCap = "butt";
   }
   // ---- (0.0.102; Matthew: "let's add different music tracks, --- look at the gnome dig game, and messed up dress up, and let's take
   // the current loop and extend it into about 10 sections that vary the current loop"; "I'd like a reggae dub remix of the current
@@ -2467,7 +2590,10 @@
     if (pose !== "swim" && pose !== "climb") { const gy = o.gy ?? y, up = Math.max(0, (gy - y) / s), q = Math.max(0.25, 1 - up / 4);
       c.fillStyle = `rgba(0,0,0,${(0.2 * q).toFixed(3)})`; c.beginPath(); c.ellipse(x, gy + 0.5 * s / 40 * k, (20 + 4 * st) * q * s / 40 * k, 3 * q * s / 40 * k, 0, 0, 7); c.fill(); }
     c.save(); c.translate(x, y); c.scale(f * s / 40 * k, s / 40 * k);
-    if (pose === "climb") { c.translate(0, -16); c.rotate(-1.2); c.translate(0, 16); }
+    // (0.0.106; Matthew: "it's not a jump, it's climbing up the implied earth wall, using its claws"; "with a rider, I think it
+    // turns sideways (rider sticking out left or right), and moving its limbs like a crawl") climbing: upright, her belly to the
+    // earth she faces, her paws and hind feet on it, each pair reaching and pulling in turn as she goes (o.t, how far she has climbed)
+    if (pose === "climb") { c.translate(0, -16); c.rotate(-Math.PI / 2); c.translate(0, 16); }
     c.rotate(lean);
     const ear = (dx, col, a, inner) => { const bx = headX - 3 + dx, by = headY - 5, cx = bx + Math.sin(a) * 10, cy = by - Math.cos(a) * 10; E(cx, cy, 3.4, 11, col, a); if (inner) E(cx + Math.sin(a) * 0.6, cy + 0.6, 1.5, 8, "#e6a49c", a); };
     // (Matthew: "the rabbit hopping animation should show the hind feet, in at least one frame, right?") In a hop, each hind leg
@@ -2477,8 +2603,10 @@
         const kx = hx - 4 + dx + (tt > 0.6 ? 14 * (tt - 0.6) / 0.4 : 0), ky = -5 + (tt > 0.6 ? -2 * (tt - 0.6) / 0.4 : 0);
         c.strokeStyle = col; c.lineWidth = 6.5; c.lineCap = "round"; c.beginPath(); c.moveTo(hx + 1 + dx, -11); c.lineTo(kx, ky); c.stroke(); c.lineCap = "butt";
         E(kx + Math.cos(th) * 6.5, ky + Math.sin(th) * 6.5, 7.5, 2.9, col, th); E(kx + Math.cos(th) * 12.5, ky + Math.sin(th) * 12.5, 2.4, 2.2, col); }
-      else if (pose === "swim") { c.save(); c.translate(hx + dx, -6); c.rotate(0.6 + 0.4 * Math.sin(o.now / 120)); E(-9, 0, 10, 3, col); c.restore(); } else E(hx + 3 + dx, -2.6, 10, 3, col); };
-    const paw = (dx, col) => { if (pose === "hop") { const px = t < 0.35 ? 12 : t < 0.7 ? 24 : 22, py = t < 0.35 ? -7 : t < 0.7 ? -10 : -2.5; E(px + dx, py, 5, 2.4, col, t < 0.35 ? 0.5 : t < 0.7 ? -0.4 : 0.1); } else if (pose === "climb") E(22 + dx, -20 - dx, 2.6, 5, col); else if (pose === "swim") E(17 + dx, -5 + 2 * Math.sin(o.now / 120 + dx), 4.5, 2.2, col, 0.4); else E(14 + dx, -2, 4, 2.4, col); };
+      else if (pose === "swim") { c.save(); c.translate(hx + dx, -6); c.rotate(0.6 + 0.4 * Math.sin(o.now / 120)); E(-9, 0, 10, 3, col); c.restore(); }
+      else if (pose === "climb") E(hx + 3 + dx + 3.5 * Math.sin(t + (dx ? 0 : Math.PI)), 0.5, 9, 3, col, 0.1);
+      else E(hx + 3 + dx, -2.6, 10, 3, col); };
+    const paw = (dx, col) => { if (pose === "hop") { const px = t < 0.35 ? 12 : t < 0.7 ? 24 : 22, py = t < 0.35 ? -7 : t < 0.7 ? -10 : -2.5; E(px + dx, py, 5, 2.4, col, t < 0.35 ? 0.5 : t < 0.7 ? -0.4 : 0.1); } else if (pose === "climb") { const r = Math.sin(t + (dx > 0 ? Math.PI : 0)); E(19 + dx * 0.6 + 4.5 * r, -3 + dx * 0.4, 5.2, 2.4, col, -0.15); E(23 + dx * 0.6 + 4.5 * r, -1.2 + dx * 0.4, 1.2, 1, "#f5efe4"); } else if (pose === "swim") E(17 + dx, -5 + 2 * Math.sin(o.now / 120 + dx), 4.5, 2.2, col, 0.4); else E(14 + dx, -2, 4, 2.4, col); };
     ear(-2.5, dark, earA - 0.2, false);
     foot(3, dark, 0.06); paw(-2, dark);
     // (the tail, the haunch, the back, the chest, the neck and the head: in the booklet's line drawing, outlined as one shape, all
@@ -2531,12 +2659,15 @@
   // under a low roof)
   function drawRider(g, now) {
     const s = T, gx = g.x / 1000, lp = ladderPush(gx, g.y / 1000, g.climb), x = (gx + lp) * s, y = g.y / 1000 * s, wet = g.swim || g.under, moving = Math.abs(g.vx) > 10;
-    const pose = g.climb ? "climb" : wet ? "swim" : !g.ground || moving ? "hop" : "sit";
-    const t = !g.ground && !g.climb && !wet ? Math.max(0, Math.min(1, 0.5 + g.vy / 400)) : moving ? 0.95 : 0;
-    const low = (() => { const c = Math.floor(gx), r = Math.floor((g.y - 1) / 1000) - 1; return inside(c, r) && mat[at(c, r)] !== AIR; })();
     const fc = Math.floor(gx); let fr = Math.ceil(g.y / 1000 - 0.001); while (fr < g.y / 1000 + 14 && !floorAt(fc, fr) && !(inside(fc, fr) && wat[at(fc, fr)] >= 0.5)) fr++;   // (the ground, or the water, under her)
+    // (in dug earth she can climb any way, but along a tunnel's floor she hops as ever: climbing, she is on the wall, with nothing under her)
+    const onFloor = fr * 1000 - g.y < 80 && floorAt(fc, fr);
+    const pose = g.climb && !onFloor && !wet ? "climb" : wet ? "swim" : (!g.ground && !g.climb) || moving ? "hop" : "sit";
+    const t = pose === "climb" ? g.y / 1000 * 9 : !g.ground && !g.climb && !wet ? Math.max(0, Math.min(1, 0.5 + g.vy / 400)) : moving ? 0.95 : 0;
+    const low = (() => { const c = Math.floor(gx), r = Math.floor((g.y - 1) / 1000) - 1; return inside(c, r) && mat[at(c, r)] !== AIR; })();
     const mouth = drawRabbit(ctx, x, y, s, { face: g.face, k: 1.15, pose, t, saddle: true, rider: true, kit: g.gear, pack: g.climbPack, fur: RABBIT_FUR[0], gy: fr * s, now });
-    const lean = (low ? 0.9 : 0) + (pose === "hop" ? (t - 0.5) * 0.3 : pose === "climb" ? -0.5 : 0), ox = x - g.face * (pose === "climb" ? 0.45 : 0.05) * s, oy = y - (low ? 0.78 : pose === "climb" ? 0.88 : 1.08) * s;
+    const climb = pose === "climb", lean = climb ? -Math.PI / 2 : (low ? 0.9 : 0) + (pose === "hop" ? (t - 0.5) * 0.3 : 0);
+    const ox = x - g.face * (climb ? 0.76 : 0.05) * s, oy = y - (climb ? 0.46 : low ? 0.78 : 1.08) * s;
     ctx.save(); ctx.translate(ox, oy); ctx.rotate(g.face * lean); gnomeProfile(ctx, 0, 0, s * 0.98, g.face, false, true, 0, now, g.gear, { ride: true }); ctx.restore();
     const ha = g.face * lean, hx0 = 0.24 * s * g.face, hy0 = -0.08 * s, hx = ox + hx0 * Math.cos(ha) - hy0 * Math.sin(ha), hy = oy + hx0 * Math.sin(ha) + hy0 * Math.cos(ha);
     ctx.strokeStyle = "#4a2e18"; ctx.lineWidth = Math.max(1, s / 30); ctx.beginPath(); ctx.moveTo(hx, hy); ctx.quadraticCurveTo((hx + mouth[0]) / 2, Math.max(hy, mouth[1]) + 0.12 * s, mouth[0], mouth[1]); ctx.stroke();
@@ -3258,6 +3389,10 @@
       else if (it.kind === "carrot") { ctx.rotate(0.35); ctx.fillStyle = "#4d7c0f"; for (const a of [-0.5, -0.15, 0.2, 0.5]) { ctx.save(); ctx.translate(0, -0.18 * s); ctx.rotate(a); ctx.beginPath(); ctx.ellipse(0, -0.2 * s, 0.05 * s, 0.2 * s, 0, 0, 7); ctx.fill(); ctx.restore(); }
         ctx.fillStyle = "#f97316"; ctx.beginPath(); ctx.moveTo(-0.13 * s, -0.2 * s); ctx.quadraticCurveTo(0, -0.26 * s, 0.13 * s, -0.2 * s); ctx.quadraticCurveTo(0.08 * s, 0.1 * s, 0, 0.38 * s); ctx.quadraticCurveTo(-0.08 * s, 0.1 * s, -0.13 * s, -0.2 * s); ctx.fill(); ctx.stroke();
         ctx.strokeStyle = "rgba(124,45,18,0.6)"; ctx.beginPath(); for (const yy of [-0.08, 0.04, 0.16]) { ctx.moveTo(-0.07 * s, yy * s); ctx.lineTo(0.02 * s, (yy + 0.02) * s); } ctx.stroke(); }
+      else if (it.kind === "carpet") { const art = carpetTop(s), w = s * 0.95, hh = w * art.H / art.W;   // (the magic carpet, flat, its tassels at both ends)
+        if (LINE) ctx.strokeRect(-w / 2, -hh / 2, w, hh); else ctx.drawImage(art.cv, -w / 2, -hh / 2, w, hh);
+        ctx.strokeStyle = "#fbbf24"; ctx.lineWidth = Math.max(1, s / 34); ctx.beginPath();
+        for (let j = 0; j < 4; j++) { const yy = -hh / 2 + (j + 0.5) * hh / 4; ctx.moveTo(-w / 2, yy); ctx.lineTo(-w / 2 - s * 0.07, yy); ctx.moveTo(w / 2, yy); ctx.lineTo(w / 2 + s * 0.07, yy); } ctx.stroke(); }
       else { ctx.fillStyle = "#facc15"; ctx.beginPath(); ctx.roundRect(-0.18 * s, -0.35 * s, 0.36 * s, 0.7 * s, 0.15 * s); ctx.fill(); ctx.stroke();
         ctx.fillStyle = "#0284c7"; ctx.beginPath(); ctx.roundRect(0.2 * s, -0.3 * s, 0.45 * s, 0.25 * s, 0.1 * s); ctx.fill(); ctx.stroke(); ctx.fillStyle = "rgba(224,242,254,0.7)"; ctx.fillRect(0.26 * s, -0.25 * s, 0.33 * s, 0.13 * s); }
       ctx.restore();
@@ -3267,7 +3402,12 @@
       ctx.fillStyle = "rgba(30,20,8,0.72)"; ctx.beginPath(); ctx.roundRect(x - tw / 2 - s * 0.18, ly - s * 0.26, tw + s * 0.36, s * 0.52, s * 0.18); ctx.fill(); ctx.strokeStyle = "#fde68a"; ctx.lineWidth = Math.max(1, s / 24); ctx.stroke();
       ctx.fillStyle = "#fff8d0"; ctx.fillText(label, x, ly); ctx.textAlign = "left"; ctx.textBaseline = "alphabetic"; }
     const blink = performance.now() - S.hurtAt < 1500 && Math.floor(now / 100) % 2 === 0;
+    const flying = !!(S.carpet && S.carpet.on && !S.faintAt);
+    if (flying) drawCarpet(g, now, s);
     if (!S.faintAt && !blink && S.ride && S.ride.on) drawRider(g, now);
+    else if (!blink && flying) { const C = S.carpet, gy0 = (g.y / 1000 + carpetBob(now)) * s - 0.48 * s;   // (standing on it: in profile going across, facing us still)
+      if (Math.abs(C.vx) > 0.02) gnomeProfile(ctx, gx * s, gy0, s * 0.98, C.face, false, true, 0, now, g.gear, null);
+      else gnome(ctx, gx * s, gy0, s * 0.98, 2, true, false, now, g.gear, false, true, false, null); }
     else if (!S.faintAt && !blink) {
       const moving = Math.abs(g.vx) > 10 || (g.climb && (S.keys.up || S.keys.down)), d = g.climb && !g.ground ? 0 : g.face > 0 ? 1 : 3;
       const swimPose = g.swim && !g.gear ? { swim: true, stroke: Math.abs(g.vx) > 10, t: now } : g.under ? { swim: true, stroke: true, under: true, t: now } : null;
@@ -3442,7 +3582,8 @@
     const wv = S.windNow || 0, wa = Math.abs(wv), windWord = wa < 0.15 ? "calm" : wa < 0.45 ? "a breeze" : wa < 0.8 ? "windy" : "a gale", arrows = wa < 0.15 ? "" : (wv > 0 ? "→" : "←").repeat(wa < 0.45 ? 1 : wa < 0.8 ? 2 : 3);
     const runWord = BOT.on ? `🏃 ${Math.floor(BOT.frames / 3600)}:${String(Math.floor(BOT.frames / 60) % 60).padStart(2, "0")} · ${BOT.phase} · ${BOT.items + S.items.filter(i => i.taken).length - BOT.items}/${S.items.length} · 🌳 ${BOT.parts}/${BOT.partsAll || "?"} · 💎 ${BOT.gems}/${BOT.gemsAll || "?"}  ` : "";
     const rideBtn = $("ride"), showRide = !!(S.ride && (S.ride.on || nearClover())); if (rideBtn && rideBtn.hidden === showRide) rideBtn.hidden = !showRide;
-    const line = `${runWord}${hearts}  💎 ${S.found || 0} / ${S.gemTotal || 0}${S.carrots ? "  🥕 " + S.carrots : ""}${S.ride && S.ride.on ? "  🐇" : ""}  🍃 ${windWord} ${arrows}  ${where}${g && g.gear ? "  🤿" : ""}${g && g.climbPack ? "  🧗" : ""}${g && g.tool ? (g.tool >= 2 ? "  ⚒️" : "  ⛏️") : ""}${place ? "  ·  " + place : ""}`;
+    { const cb = $("carpet"), showC = !!(S.carpet && S.carpet.have); if (cb) { if (cb.hidden === showC) cb.hidden = !showC; const on = String(!!S.carpet.on); if (cb.getAttribute("aria-pressed") !== on) cb.setAttribute("aria-pressed", on); } }
+    const line = `${runWord}${hearts}  💎 ${S.found || 0} / ${S.gemTotal || 0}${S.carrots ? "  🥕 " + S.carrots : ""}${S.ride && S.ride.on ? "  🐇" : ""}${S.carpet && S.carpet.have ? (S.carpet.on ? "  🧞 flying" : "  🧞") : ""}  🍃 ${windWord} ${arrows}  ${where}${g && g.gear ? "  🤿" : ""}${g && g.climbPack ? "  🧗" : ""}${g && g.tool ? (g.tool >= 2 ? "  ⚒️" : "  ⛏️") : ""}${place ? "  ·  " + place : ""}`;
     const tw = ctx.measureText(line).width;
     pill(10 * k, 10 * k, tw + 20 * k, 30 * k); ctx.fillStyle = "#fff"; ctx.fillText(line, 20 * k, 15 * k);
     let below = 46 * k;
@@ -3518,6 +3659,7 @@
     else if (e.key === "f" || e.key === "F") PERF.on = !PERF.on;
     else if (e.key === "b" || e.key === "B") { e.preventDefault(); buildHere(); }
     else if (e.key === "r" || e.key === "R" || e.key === "e" || e.key === "E") { e.preventDefault(); rideToggle(); }
+    else if (e.key === "c" || e.key === "C") { e.preventDefault(); carpetToggle(); }
     else if (e.key === "l" || e.key === "L") { e.preventDefault(); listen(); }
   });
   // (0.0.104) a tap or a click on the listen button in a villager's bubble
@@ -3534,6 +3676,7 @@
   }
   { const b = $("build"); if (b) b.addEventListener("pointerdown", e => { e.preventDefault(); buildHere(); }); }
   { const b = $("ride"); if (b) b.addEventListener("pointerdown", e => { e.preventDefault(); rideToggle(); }); }
+  { const b = $("carpet"); if (b) b.addEventListener("pointerdown", e => { e.preventDefault(); carpetToggle(); }); }
   { const b = $("run"); if (b) b.addEventListener("click", () => { BOT.on = !BOT.on; b.setAttribute("aria-pressed", String(BOT.on));
       if (BOT.on) { Object.assign(BOT, { phase: "", queue: [], cur: null, path: [], k: 0, skipped: [], frames: 0, t0: performance.now(), items: 0, parts: 0, partsAll: 0, gems: 0, gemsAll: 0, report: null }); S.banner = { text: "🏃 Speed run: every thing, every part of every big tree, every gem", t: performance.now() }; }
       else for (const k in S.keys) S.keys[k] = false; b.blur(); }); }
@@ -3563,7 +3706,7 @@
   // its gusts, the rain and when it comes next). 📂 Load makes the world from its seed again, then puts all that back. The birds,
   // frogs, insects and squirrels, the villagers' strolls and the dust and smoke start afresh. The tiles go packed (gzip, then
   // base64) where the browser can pack them: a world's tiles are 0.7 MB as they are.
-  const SAVE_KIND = "hazeljs-examples/gnome-world", SAVE_V = 2;   // (2, 0.0.102: the bigger world, Clover, the carrots)
+  const SAVE_KIND = "hazeljs-examples/gnome-world", SAVE_V = 3;   // (2, 0.0.102: the bigger world, Clover, the carrots; 3, 0.0.106: the magic carpet)
   const TILES = [mat, bg, fix, gem, stone, shape, root, top, wat];
   const bytesOf = A => new Uint8Array(A.buffer, A.byteOffset, A.byteLength);
   const TILE_BYTES = TILES.reduce((n, A) => n + A.byteLength, 0);
@@ -3585,11 +3728,12 @@
       beavers: S.beavers.map(B => plain({ b: B.b, px: B.px, py: B.py })), boulders: plain(S.boulders), pebbles: plain(S.pebbles),
       villagers: S.villagers.map(v => ({ n: v.n, nextAt: v.nextAt })), roots: S.rootPlan.flatMap((t, k) => t.done ? [k] : []),
       ride: plain(S.ride), mount: plain(S.mount), carrots: S.carrots || 0,
+      carpet: { have: !!(S.carpet && S.carpet.have), on: !!(S.carpet && S.carpet.on), face: S.carpet ? S.carpet.face : 1 },
       tiles: tileBytes() };
   }
   async function saveText(snap) {
     const gz = typeof CompressionStream === "function", packed = gz ? await squeeze(snap.tiles, new CompressionStream("gzip")) : snap.tiles;
-    return JSON.stringify({ ...snap, page: "0.0.102", saved: new Date().toISOString(), tiles: { gzip: gz, bytes: snap.tiles.length, data: b64(packed) } });
+    return JSON.stringify({ ...snap, page: "0.0.106", saved: new Date().toISOString(), tiles: { gzip: gz, bytes: snap.tiles.length, data: b64(packed) } });
   }
   async function readSave(text) {
     let d; try { d = JSON.parse(text); } catch (e) { d = null; }
@@ -3605,7 +3749,9 @@
   // as it was is put back instead)
   function restore(h, d) {
     S.frame = d.frame; S.seed = d.seed; build(h, S.seed);
-    const have = shapeOf(); for (const k in d.shape) if (d.shape[k] !== have[k]) throw new Error("its world was planned by other rules (were they edited?)");
+    // (a save from before the magic carpet, 0.0.106, has one thing fewer: the carpet, the last, lies where it was put)
+    const have = shapeOf(), older = k => k === "items" && d.shape.items === have.items - 1 && S.items[S.items.length - 1].kind === "carpet";
+    for (const k in d.shape) if (d.shape[k] !== have[k] && !older(k)) throw new Error("its world was planned by other rules (were they edited?)");
     for (const k of d.roots) { const t = S.rootPlan[k]; if (t && !t.done) { t.done = true; if (h.roots && S.built.compiled) rootSet(h, t, false); } }
     setTileBytes(d.tiles);
     seedRand = d.rand; S.damAt = d.damAt;
@@ -3622,6 +3768,7 @@
     S.boulders = d.boulders.map(b => ({ ...b })); S.pebbles = d.pebbles.map(p => ({ ...p }));
     d.villagers.forEach((v, k) => { S.villagers[k].n = v.n; S.villagers[k].nextAt = v.nextAt; });
     if (d.ride) S.ride = { ...d.ride, safe: d.ride.safe ? { ...d.ride.safe } : null }; if (d.mount) S.mount = { ...d.mount }; S.carrots = d.carrots || 0;
+    S.carpet = { have: !!(d.carpet && d.carpet.have), on: !!(d.carpet && d.carpet.on), vx: 0, vy: 0, face: d.carpet && d.carpet.face < 0 ? -1 : 1, ph: 0, wisps: null };
     if (HEROES[d.hero]) { S.hero = d.hero; keep("hero", S.hero); heroPicker(); }
     keep("seed", S.seed);
     rootChunks.clear(); S.minimapAt = -1e9; S.cam.set = false; S.party = null; S.confetti = []; S.talk = null; hushTalk(); S.parts = []; S.smoke = [];
@@ -3670,7 +3817,7 @@
       rivers: js(S.rivers.map(R => R.level)), dams: js(S.dams.map(d => d.logs)), works: js([...S.works]), things: js(S.items.map(it => [it.kind, it.x, it.y, !!it.taken])), heartItems: js((S.heartItems || []).map(hh => [hh.x, hh.y, !!hh.taken])),
       trees: js(S.trees.map(t => [t.x, t.alive, t.grow, t.fallAt, t.fallDir ?? null, t.regrow])), fallen: js(S.fallen.map(f => [f.x, S.trees.indexOf(f.t), f.k, f.F.trunk, [...f.F.gone]])),
       piles: js(S.piles), beavers: js(S.beavers.map(B => [B.b, B.px, B.py])), boulders: js(S.boulders), pebbles: js(S.pebbles),
-      villagers: js(S.villagers.map(v => [v.id, v.n, v.nextAt])), ride: js({ ride: S.ride, mount: S.mount, carrots: S.carrots || 0 }), rootsDone: js(S.rootPlan.map(t => t.done ? 1 : 0)), rootSets: S.rootSets.length + S.threadSets.length };
+      villagers: js(S.villagers.map(v => [v.id, v.n, v.nextAt])), ride: js({ ride: S.ride, mount: S.mount, carrots: S.carrots || 0 }), carpet: js({ have: !!(S.carpet && S.carpet.have), on: !!(S.carpet && S.carpet.on), face: S.carpet ? S.carpet.face : 1 }), rootsDone: js(S.rootPlan.map(t => t.done ? 1 : 0)), rootSets: S.rootSets.length + S.threadSets.length };
   }
   addEventListener("resize", () => draw());
   const P = window.HazelPause ? window.HazelPause.make({ into: $("new").parentElement, over: $("world").parentElement,
@@ -3814,7 +3961,7 @@
   });
   if (Q.has("test")) window.WorldTest = { gemFound, gem, spriteCache, SPRITES, birdBody, BIRD, bushSprite, drawSprite, strips, drawRabbit, gnomeProfile, RABBIT_FUR, cellWords, digSteps, ITEM, mat, wat, at, WH, WW, BOT, botPlan, dist, botEnter, botStand, botClimb, profile: gnomeProfile, front: gnome, map: () => { minimap(); return map2Cv; }, look: (x, y) => { S.camFix = x == null ? null : { x, y }; draw(); }, paintHouse, paintSmallHouse, squirrelBody, drawVillager, drawVillagerProfile, drawBusy, S, tick: n => { const h = H(); for (let i = 0; i < n; i++) tick(h); draw(); }, draw, near, code, at, mat, wat, fix, bg, stone, shape, surf0, treeMask, digOut, tile: () => T, drawPebbles, PERF, timedDraw: () => timedDraw(), lineCtx, lineScene, paintTall, leafyTree, drawLodge };
   if (Q.has("test")) Object.assign(window.WorldTest, { listen, voiceOf, spoken, hushTalk });
-  if (Q.has("test")) Object.assign(window.WorldTest, { snapshot, saveText, readSave, loadText, restartNow: () => restartNow(H()), askRestart, stopBot, digest, bot: on => { if (on !== BOT.on) $("run").click(); return BOT.on; } });
+  if (Q.has("test")) Object.assign(window.WorldTest, { snapshot, saveText, readSave, loadText, restartNow: () => restartNow(H()), askRestart, stopBot, digest, bot: on => { if (on !== BOT.on) $("run").click(); return BOT.on; }, carpetToggle, carpetHits, carpetTop });
   document.body.classList.add("js");
   draw();
 })();
