@@ -2860,6 +2860,9 @@
     robin: { L: 0.3, body: "#6e6256", back: "#5e5248", belly: "#e0662a", head: "#3a3430", cap: "#3a3430", face: "#3a3430", bill: "#e0b030", tail: "#3a3430", mark: "#fff" },
     jay: { L: 0.34, body: "#4a86d8", back: "#3a72c4", belly: "#eef0f4", head: "#4a86d8", cap: "#3a72c4", face: "#f4f6f8", bill: "#1a1a1a", tail: "#2f62b8", mark: "#1a1a1a", crest: true, bars: true },
     hawk: { L: 0.62, body: "#7a4e2a", back: "#5e3a1e", belly: "#f0e3cc", head: "#6a4426", cap: "#5e3a1e", face: "#efe2c8", bill: "#2a2a2a", tail: "#b5552a", mark: "#4a2e18", hook: true },
+    // (0.0.125: the birds of the open sky, flying over: a goose, brown with its black head and neck and white cheek; a gull, white and grey)
+    goose: { L: 0.5, body: "#8a7d6c", back: "#6a5e50", belly: "#ece6da", head: "#1e1e1e", cap: "#1e1e1e", face: "#f4f2ec", bill: "#1a1a1a", tail: "#2a2622", mark: "#3a332c" },
+    gull: { L: 0.42, body: "#f4f6f8", back: "#a9b4c0", belly: "#ffffff", head: "#f8f9fb", cap: "#eef1f4", face: "#ffffff", bill: "#f2c43a", tail: "#e6eaee", mark: "#2a2a2a" },
   };
   // (0.0.102; Matthew: "birds will generally look better if scaled up by 2x compared to current size. more detail on larger birds
   // so they aren't just ovals with line-wings sticking out") A bird twice the size, drawn as a bird is built: one smooth body,
@@ -3560,6 +3563,90 @@
       c.fillStyle = "#d9b98a"; c.beginPath(); c.ellipse(-1.05 * s, -0.43 * s, 0.07 * s, 0.13 * s, 0, 0, 7); c.fill(); c.strokeStyle = "rgba(120,80,40,0.6)"; c.beginPath(); c.ellipse(-1.05 * s, -0.43 * s, 0.035 * s, 0.07 * s, 0, 0, 7); c.stroke(); }
     c.restore();
   }
+  // ---- (0.0.125; Matthew: "when we fly into the sky portion of the game world, we don't see enough background stuff --- let's
+  // ensure that there are birds up there sometimes, and more clouds, and more detailed pad-style clouds. or storm clouds for
+  // storm weather, etc.") The sky: clouds at three depths (far, small, pale and slow; near, big and bright), each depth moving
+  // past at its own speed as the view moves (parallax), spread over the whole sky, so that there are always some in view, high
+  // or low, and drifting with the wind; each cloud drawn as the trees' leaf pads are, puffs lit on top and shaded beneath, its
+  // base flat, painted once at the size it is drawn (never scaled up: that cost the iPad). In a storm (the rain) the sky darkens,
+  // the clouds turn grey, a deck of storm clouds rolls in, and now and then lightning. And now and then a flight of birds crosses
+  // the view up there: geese in a V, or gulls gliding. All of it only drawn: not in the world's state, nor in a save
+  const SKYC = { list: null, storm: null, seed: -1, drift: 0, at: 0, art: new Map(), flock: null, flockAt: 0, bolt: null };
+  const CLOUD_DEPTHS = [{ par: 0.3, n: 190, w: 3.2, a: 0.7 }, { par: 0.5, n: 340, w: 5, a: 0.86 }, { par: 0.72, n: 370, w: 7.5, a: 1 }], CLOUD_SIZES = [0.7, 1, 1.4];   // (each depth's clouds in three sizes; the far ones paler)
+  function skyClouds() {
+    if (SKYC.list && SKYC.seed === S.seed) return SKYC;
+    const r = seededR(S.seed * 17 + 3); let j = 0; const q = () => r(j++);
+    const make = (D, n, storm) => { const spanX = WW * D.par + 70, spanY = 118 * D.par + 18, out = [];
+      for (let k = 0; k < n; k++) out.push({ D, X: q() * spanX - 30, Y: q() * spanY - 4, spanX, shape: Math.floor(q() * 4), size: Math.floor(q() * 3), spd: 0.6 + q() * 0.8, storm }); return out; };
+    SKYC.list = CLOUD_DEPTHS.flatMap(D => make(D, D.n, false));
+    SKYC.storm = make({ par: 0.6, n: 0, w: 8, a: 1 }, 420, true);
+    SKYC.seed = S.seed; return SKYC;
+  }
+  // (a cloud's picture: w tiles wide at this tile size; its puffs from its shape; fair or stormy)
+  function cloudArt(shape, w, storm) {
+    const res = Math.min(T, TCAP), key = `${shape}:${w}:${storm ? 1 : 0}`; let a = SKYC.art.get(key);
+    if (a && a.res === res) { SKYC.art.delete(key); SKYC.art.set(key, a); return a; }   // (the last used, last)
+    if (a) { dropCanvas(a.cv); SKYC.art.delete(key); }
+    while (SKYC.art.size >= 80) { const k0 = SKYC.art.keys().next().value; dropCanvas(SKYC.art.get(k0).cv); SKYC.art.delete(k0); }   // (at most 80 kept, the least used let go: an iPad's canvas memory)
+    const Wp = Math.ceil(w * res), Hp = Math.ceil(w * 0.5 * res), cv2 = newCanvas(Wp, Hp), g = cv2.getContext("2d");
+    const r = seededR(shape * 37 + 11), base = Hp * 0.84, n = 4 + shape % 3, lobes = [];
+    for (let i = 0; i < n; i++) { const t = (i + 0.5) / n, rad = Hp * (0.2 + 0.24 * Math.sin(Math.PI * t) * (0.8 + 0.4 * r(i)));
+      lobes.push([Wp * (0.14 + 0.72 * t) + (r(i + 10) - 0.5) * Wp * 0.05, base - rad * (0.5 + 0.35 * r(i + 20)), rad]); }
+    for (let i = 0; i < n - 1; i++) { const t = (i + 1) / n, rad = Hp * (0.15 + 0.1 * r(i + 30)); lobes.push([Wp * (0.14 + 0.72 * t), base - rad * 0.45, rad]); }
+    const C = storm ? { shade: "#3c4454", lit: "#6e7a8b", rim: "#93a0b2", under: "rgba(30,34,44,0.6)" } : { shade: "#b9c8db", lit: "#ffffff", rim: "#eef5fc", under: "rgba(150,170,196,0.55)" };
+    const sil = () => { g.beginPath(); for (const [x, y, rr] of lobes) { g.moveTo(x + rr, y); g.arc(x, y, rr, 0, 7); } g.rect(Wp * 0.12, base - Hp * 0.18, Wp * 0.76, Hp * 0.18); };
+    g.save(); g.beginPath(); g.rect(0, 0, Wp, base); g.clip();   // (its base flat)
+    g.fillStyle = C.shade; sil(); g.fill();
+    g.save(); sil(); g.clip();   // (each puff lit on top: the puffs again, a little up and to the left)
+    g.fillStyle = C.lit; g.beginPath(); for (const [x, y, rr] of lobes) { g.moveTo(x - rr * 0.1 + rr * 0.9, y - rr * 0.24); g.arc(x - rr * 0.1, y - rr * 0.24, rr * 0.9, 0, 7); } g.fill();
+    const gr = g.createLinearGradient(0, base - Hp * 0.4, 0, base); gr.addColorStop(0, "rgba(0,0,0,0)"); gr.addColorStop(1, C.under); g.fillStyle = gr; g.fillRect(0, 0, Wp, base);   // (shaded beneath)
+    g.strokeStyle = C.rim; g.lineWidth = Math.max(1, res * 0.035); g.lineCap = "round";   // (a pale rim on each puff's lit side)
+    for (const [x, y, rr] of lobes) { g.beginPath(); g.arc(x - rr * 0.1, y - rr * 0.2, rr * 0.72, Math.PI * 1.08, Math.PI * 1.55); g.stroke(); }
+    g.restore(); g.restore();
+    a = { cv: cv2, res, w: Wp, h: Hp }; SKYC.art.set(key, a); return a;
+  }
+  // (how stormy, 0 to 1: the rain's own time, coming on over a second and a half and going off as it ends)
+  const storminess = () => (S.rain > 0 ? Math.max(0, Math.min(1, Math.min(S.rain, 14 * 60 - S.rain) / 90)) : 0);
+  function drawSkyClouds(now, s, W, Hh, camX, camY, which, st) {
+    const K = skyClouds(), drift = SKYC.drift, wide = W / s + 12, deep = Hh / s + 6;
+    const list = which === "storm" ? K.storm : K.list.filter(cl => cl.D.par === which);
+    for (const cl of list) { const D = cl.D, X = ((cl.X + drift * cl.spd * D.par) % cl.spanX + cl.spanX) % cl.spanX - 30, x = X - camX * D.par, y = cl.Y - camY * D.par;
+      if (x < -D.w * 1.4 - 2 || x > wide || y < -5 || y > deep) continue;
+      const w = Math.max(2, Math.round(D.w * CLOUD_SIZES[cl.size])), px = Math.round(x * s), py = Math.round(y * s);
+      if (cl.storm) { ctx.globalAlpha = st; ctx.drawImage(cloudArt(cl.shape, w, true).cv, px, py); continue; }
+      if (st < 1) { ctx.globalAlpha = D.a * (1 - st * 0.85); ctx.drawImage(cloudArt(cl.shape, w, false).cv, px, py); }
+      if (st > 0) { ctx.globalAlpha = st; ctx.drawImage(cloudArt(cl.shape, w, true).cv, px, py); } }
+    ctx.globalAlpha = 1;
+  }
+  // (a flight of birds up in the sky, now and then, while the view is up there: geese in a V or gulls gliding, crossing it
+  // with the wind or against it, at five tiles a second or so; drawn as the other birds are)
+  function skyBirds(now, s, W, Hh, camX, camY) {
+    const dt = Math.min(0.05, Math.max(0, (now - (SKYC.at || now)) / 1000)), VWt = W / s, VHt = Hh / s;
+    const land = surf0[Math.max(0, Math.min(WW - 1, Math.floor(camX + VWt / 2)))], up = camY + VHt * 0.6 < land - 5;
+    let F = SKYC.flock;
+    if (!F && up && now > SKYC.flockAt) { const goose = Math.random() < 0.6, n = goose ? 5 + Math.floor(Math.random() * 5) : 2 + Math.floor(Math.random() * 3), dir = Math.random() < 0.5 ? 1 : -1;
+      const y = camY + VHt * (0.15 + Math.random() * 0.45), birds = [];
+      for (let i = 0; i < n; i++) birds.push(goose ? { dx: -Math.ceil(i / 2) * 1.5, dy: Math.ceil(i / 2) * 0.85 * (i % 2 ? -1 : 1), ph: Math.random() * 6 } : { dx: -i * (1.8 + Math.random()), dy: (Math.random() - 0.5) * 2.4, ph: Math.random() * 6 });
+      F = SKYC.flock = { kind: goose ? "goose" : "gull", birds, x: dir > 0 ? camX - 3 : camX + VWt + 3, y, vx: dir * (goose ? 5 : 4) * (1 + 0.15 * (S.windNow || 0) * dir), face: dir, born: now }; }
+    if (F) { F.x += F.vx * dt; if (F.kind === "gull") F.y += Math.sin(now / 900) * dt * 0.4;
+      const K = BIRD[F.kind], u = s * K.L * 3.2;   // (half the size of the birds by the ground: up there, further off)
+      for (const b of F.birds) { const bx = F.x + b.dx * F.face, by = F.y + b.dy; if (bx < camX - 4 || bx > camX + VWt + 4 || by < camY - 3 || by > camY + VHt + 3) continue;
+        const flap = F.kind === "gull" ? (Math.sin(now / 1100 + b.ph) > 0.6 ? now / 80 + b.ph : 0.3) : now / 110 + b.ph;
+        ctx.save(); ctx.translate((bx - camX) * s, (by - camY) * s); ctx.scale(F.face, 1); birdBody(ctx, u, K, flap, false, now, 0); ctx.restore(); }
+      const gone = F.face > 0 ? F.x - 12 > camX + VWt : F.x + 12 < camX;
+      if (gone || now - F.born > 60000 || Math.abs(F.y - (camY + VHt / 2)) > VHt * 2) { SKYC.flock = null; SKYC.flockAt = now + (6000 + Math.random() * 14000); } }
+  }
+  // (lightning, in a storm's thick: now and then a jagged bolt from the clouds and the whole view lit for a moment)
+  function skyLightning(now, s, W, Hh, st) {
+    if (st > 0.8 && !SKYC.bolt && Math.random() < 1 / 360) { const x0 = W * (0.15 + Math.random() * 0.7), pts = [[x0, Hh * 0.08]]; let x = x0, y = Hh * 0.08;
+      while (y < Hh * (0.55 + Math.random() * 0.25)) { x += (Math.random() - 0.5) * s * 1.6; y += s * (0.5 + Math.random() * 0.7); pts.push([x, y]); }
+      SKYC.bolt = { pts, at: now }; }
+    const B = SKYC.bolt; if (!B) return; const age = now - B.at; if (age > 420) { SKYC.bolt = null; return; }
+    if (age < 160) { ctx.strokeStyle = "rgba(255,255,240,0.95)"; ctx.lineWidth = Math.max(2, s / 10); ctx.lineJoin = "round"; ctx.beginPath(); B.pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.stroke();
+      ctx.strokeStyle = "rgba(200,220,255,0.45)"; ctx.lineWidth = Math.max(5, s / 4); ctx.stroke(); }
+  }
+  const skyFlash = (now, W, Hh) => { const B = SKYC.bolt; if (!B) return; const age = now - B.at, a = age < 90 ? 0.32 : age < 420 ? 0.32 * (1 - (age - 90) / 330) : 0; if (a <= 0) return;
+    ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = `rgba(235,240,255,${a.toFixed(3)})`; ctx.fillRect(0, 0, W, Hh); ctx.restore(); };
   function draw() {
     fit();
     const now = performance.now(), W = cv.width, Hh = cv.height, s = T, g = S.g;
@@ -3576,14 +3663,35 @@
     VIEW.y0 = camY * s; VIEW.y1 = (camY + VH) * s;
     pmark("sky");
     // the sky, the sun, far hills (slower, behind), clouds
-    const sk = ctx.createLinearGradient(0, 0, 0, Hh); sk.addColorStop(0, "#5fa8e0"); sk.addColorStop(1, "#cfe9f7"); ctx.fillStyle = sk; ctx.fillRect(0, 0, W, Hh);
-    const skyY = y => (y - camY) * s;
-    ctx.fillStyle = "#fff6c2"; ctx.beginPath(); ctx.arc(W * 0.82, skyY(6 + SKY) * 0.4 + s * 2, s * 1.4, 0, 7); ctx.fill();
-    for (const [par, col, amp, base] of [[0.25, "#a8c8a0", 4, 33 + SKY], [0.5, "#86b07a", 3, 36 + SKY]]) { ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(0, Hh);
-      for (let px = 0; px <= W + 8; px += 8) { const wx = (px / s + camX * par); ctx.lineTo(px, (base - amp * (Math.sin(wx / 9) * 0.6 + Math.sin(wx / 23 + 1) * 0.8) - camY * (1 - par) - camY * par) * s); }
-      ctx.lineTo(W, Hh); ctx.fill(); }
-    for (let k = 0; k < 9; k++) { const cx = ((k * 61 + now / 900) % (WW * 0.6)) * 1.6 - camX * 0.35 * s / s; const x = (cx - camX * 0.0) * s * 0.5 + ((k * 137) % W), y = skyY(4 + SKY + (k * 7) % 12) * 0.6 + s;
-      ctx.fillStyle = "rgba(255,255,255,0.75)"; ctx.beginPath(); ctx.ellipse(((x % (W + 400)) + W + 400) % (W + 400) - 200, y, s * 1.6, s * 0.45, 0, 0, 7); ctx.fill(); }
+    if (LINE) {   // (the booklet's line pictures: the sky as it was drawn for them)
+      const sk = ctx.createLinearGradient(0, 0, 0, Hh); sk.addColorStop(0, "#5fa8e0"); sk.addColorStop(1, "#cfe9f7"); ctx.fillStyle = sk; ctx.fillRect(0, 0, W, Hh);
+      const skyY = y => (y - camY) * s;
+      ctx.fillStyle = "#fff6c2"; ctx.beginPath(); ctx.arc(W * 0.82, skyY(6 + SKY) * 0.4 + s * 2, s * 1.4, 0, 7); ctx.fill();
+      for (const [par, col, amp, base] of [[0.25, "#a8c8a0", 4, 33 + SKY], [0.5, "#86b07a", 3, 36 + SKY]]) { ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(0, Hh);
+        for (let px = 0; px <= W + 8; px += 8) { const wx = (px / s + camX * par); ctx.lineTo(px, (base - amp * (Math.sin(wx / 9) * 0.6 + Math.sin(wx / 23 + 1) * 0.8) - camY * (1 - par) - camY * par) * s); }
+        ctx.lineTo(W, Hh); ctx.fill(); }
+      for (let k = 0; k < 9; k++) { const cx = ((k * 61 + now / 900) % (WW * 0.6)) * 1.6 - camX * 0.35 * s / s; const x = (cx - camX * 0.0) * s * 0.5 + ((k * 137) % W), y = skyY(4 + SKY + (k * 7) % 12) * 0.6 + s;
+        ctx.fillStyle = "rgba(255,255,255,0.75)"; ctx.beginPath(); ctx.ellipse(((x % (W + 400)) + W + 400) % (W + 400) - 200, y, s * 1.6, s * 0.45, 0, 0, 7); ctx.fill(); }
+    } else {   // (0.0.125: the sky's clouds at three depths among the hills, storm and lightning, birds up high)
+      const st = storminess(), dts = Math.min(0.05, Math.max(0, (now - (SKYC.at || now)) / 1000)), wind = S.windNow || 0;
+      SKYC.drift += dts * (Math.sign(wind || 1) * (0.25 + Math.abs(wind) * 1.6));
+      const mix = (a, b) => mixHex(a, b, st);
+      const sk = ctx.createLinearGradient(0, 0, 0, Hh); sk.addColorStop(0, mix("#5fa8e0", "#3d4859")); sk.addColorStop(1, mix("#cfe9f7", "#8d99a9")); ctx.fillStyle = sk; ctx.fillRect(0, 0, W, Hh);
+      const skyY = y => (y - camY) * s;
+      if (st < 1) { ctx.globalAlpha = 1 - st; ctx.fillStyle = "#fff6c2"; ctx.beginPath(); ctx.arc(W * 0.82, skyY(6 + SKY) * 0.4 + s * 2, s * 1.4, 0, 7); ctx.fill(); ctx.globalAlpha = 1; }
+      drawSkyClouds(now, s, W, Hh, camX, camY, 0.3, st);
+      const hill = (par, col, amp, base) => { ctx.fillStyle = mix(col, "#4f5e55"); ctx.beginPath(); ctx.moveTo(0, Hh);
+        for (let px = 0; px <= W + 8; px += 8) { const wx = (px / s + camX * par); ctx.lineTo(px, (base - amp * (Math.sin(wx / 9) * 0.6 + Math.sin(wx / 23 + 1) * 0.8) - camY * (1 - par) - camY * par) * s); }
+        ctx.lineTo(W, Hh); ctx.fill(); };
+      hill(0.25, "#a8c8a0", 4, 33 + SKY);
+      drawSkyClouds(now, s, W, Hh, camX, camY, 0.5, st);
+      hill(0.5, "#86b07a", 3, 36 + SKY);
+      if (st > 0) drawSkyClouds(now, s, W, Hh, camX, camY, "storm", st);
+      drawSkyClouds(now, s, W, Hh, camX, camY, 0.72, st);
+      skyLightning(now, s, W, Hh, st);
+      skyBirds(now, s, W, Hh, camX, camY);
+      SKYC.at = now;
+    }
     ctx.save(); ctx.translate(-camX * s, -camY * s);
     pmark("trees");
     // above the land: the trees, bushes and mushrooms (painted once, sprites), then the great trees over them
@@ -3866,6 +3974,7 @@
     drawWild(s, now, c0, c1, r0, r1);
     // rain, in a shower
     if (S.rain && !LINE) { ctx.strokeStyle = "rgba(200,220,255,0.6)"; ctx.lineWidth = Math.max(1, s / 24); ctx.beginPath(); for (let k = 0; k < 120; k++) { const x = (c0 + ((k * 37.7 + S.frame * 0.3 * (k % 3 + 1)) % (c1 - c0 + 1))) * s, y = (r0 + ((k * 13.3 + S.frame * 0.5) % (r1 - r0 + 1))) * s; const col = Math.floor(x / s); if (col >= 0 && col < WW && y / s < top[col]) { ctx.moveTo(x, y); ctx.lineTo(x + (S.windNow || 0) * 0.45 * s - 0.05 * s, y + 0.5 * s); } } ctx.stroke(); }
+    if (!LINE) skyFlash(now, W, Hh);   // (0.0.125: lightning lights the whole view a moment)
     for (const l of S.leaves) { ctx.save(); ctx.translate(l.x * s, l.y * s); ctx.rotate(l.a); ctx.fillStyle = l.col; ctx.beginPath(); ctx.ellipse(0, 0, s * (l.petal ? 0.06 : 0.12), s * (l.petal ? 0.035 : 0.05), 0, 0, 7); ctx.fill(); ctx.restore(); }
     pmark("dark");
     // the dark under the ground: each tile darker the further it is under the sky, lit by the lantern, the lamps and the light
@@ -4521,7 +4630,8 @@
   if (Q.has("test")) window.WorldTest = { gemFound, gem, spriteCache, SPRITES, birdBody, BIRD, bushSprite, drawSprite, strips, drawRabbit, gnomeProfile, RABBIT_FUR, cellWords, digSteps, ITEM, mat, wat, at, WH, WW, BOT, botPlan, dist, botEnter, botStand, botClimb, profile: gnomeProfile, front: gnome, map: () => { minimap(); return map2Cv; }, look: (x, y) => { S.camFix = x == null ? null : { x, y }; draw(); }, paintHouse, paintSmallHouse, squirrelBody, drawVillager, drawVillagerProfile, drawBusy, S, tick: n => { const h = H(); for (let i = 0; i < n; i++) tick(h); draw(); }, draw, near, code, at, mat, wat, fix, bg, stone, shape, surf0, treeMask, digOut, tile: () => T, drawPebbles, PERF, timedDraw: () => timedDraw(), lineCtx, lineScene, paintTall, leafyTree, drawLodge };
   if (Q.has("test")) Object.assign(window.WorldTest, { listen, voiceOf, spoken, hushTalk });
   if (Q.has("test")) Object.assign(window.WorldTest, { PAD, padPoll, padTaught, PAD_USUAL, mountToggle, rideOn, nextRide, tailJS, tailToggle, ridePop, ridePopOpen, ridePick, RIDEPOP });
-  if (Q.has("test")) Object.assign(window.WorldTest, { CANVAS, newCanvas, dropCanvas, purgePictures, WATCH, bugReport, IOS });   // (0.0.115: the canvases kept, ^ticket(852))   // (0.0.112: the 🎮 controller, driven by hand where frames do not come)
+  if (Q.has("test")) Object.assign(window.WorldTest, { CANVAS, newCanvas, dropCanvas, purgePictures, WATCH, bugReport, IOS });
+  if (Q.has("test")) Object.assign(window.WorldTest, { SKYC, skyClouds, cloudArt, storminess });   // (0.0.125: the sky)   // (0.0.115: the canvases kept, ^ticket(852))   // (0.0.112: the 🎮 controller, driven by hand where frames do not come)
   if (Q.has("test")) Object.assign(window.WorldTest, { snapshot, saveText, readSave, loadText, restartNow: () => restartNow(H()), askRestart, stopBot, digest, bot: on => { if (on !== BOT.on) $("run").click(); return BOT.on; }, carpetToggle, carpetHits, carpetTop, flyJS });
   document.body.classList.add("js");
   // (0.0.108) a screen that can be touched, whatever else points at it (an iPad with its trackpad on): full screen keeps the pad (world.css)

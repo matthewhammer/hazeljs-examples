@@ -2,6 +2,15 @@
 
 Each version lists what the apps do as of that version. The newest version is first.
 
+## 0.0.125 (2026-11-25)
+
+- **Gnome world: a sky worth flying in** (Matthew: "when we fly into the sky portion of the game world, we don't see enough background stuff --- let's ensure that there are birds up there sometimes, and more clouds, and more detailed pad-style clouds. or storm clouds for storm weather, etc."). The sky had its gradient, the sun, two bands of far hills and nine plain white ellipses near the top of the world; flown up into, it was mostly empty. Now:
+  - **Clouds all over the sky, at three depths**: far ones small, paler and slow, near ones big and bright, each depth sliding past at its own speed as you fly (parallax), in three sizes each; a view anywhere in the sky has clouds in it, high or low, and they drift with the wind, faster in a gale. The far clouds go behind the far hills.
+  - **Each cloud drawn as the trees' leaf pads are**: rounded puffs, lit on top, scalloped and shaded underneath, a flat base; painted once at the size it's drawn (nothing scaled up, which cost the iPad), at most 80 kept.
+  - **Storms**: when it rains, the sky darkens, the sun goes, the clouds turn storm grey, a deck of storm clouds rolls in, the hills dim, and now and then lightning: a bolt from the clouds and the whole view lit a moment.
+  - **Birds up high, now and then**: while you're up in the sky, a V of geese or a few gliding gulls crosses the view every so often, drawn as the other birds are, half their size (further off).
+  - Measured in the page, full screen (1567×993): the clouds cost 0.3 ms a frame; a storm's first frame paints its 23 cloud pictures, 16 ms once; after that, storm or fair, the same.
+
 ## 0.0.124 (2026-11-25)
 
 - **Gnome world: Clover can't trap you in water any more** (Matthew, with a picture: a room dug three under the land, a pool on its clay floor, riding Clover in it: "stuck state with clover. cannot dismount -- not on solid ground. clover wont' climb up a ladder that we created earlier without her? we cannot get out."; then "we should permit getting off clover in these situations; post dismount, clover automatically jumps to the nearest dry land"). Four changes:
