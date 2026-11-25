@@ -13,8 +13,8 @@ const BUILD_ONLY = process.argv.includes("--build-only"), NO_FLY = process.argv.
 await import(pathToFileURL(lib).href);
 const Hazel = globalThis.Hazel;
 const read = f => readFileSync(new URL("../world/rules/" + f, import.meta.url), "utf8").replace(/\s+$/, "");
-const modules = NO_FLY ? ["World"] : ["World", "Fly", "Tail", "Ride", "Boulder"];   // (0.0.116: and the cat tail's flight, Tail.hz; 0.0.134: Clover's ride, Ride.hz)
-const tail = "(plan = World.plan, step = World.step" + (NO_FLY ? "" : ", fly = Fly.step, tail = Tail.step, ride_pre = Ride.pre, ride_post = Ride.post, boulder = Boulder.step") + ")";
+const modules = NO_FLY ? ["World"] : ["World", "Fly", "Tail", "Ride", "Boulder", "Pickup"];   // (0.0.116: and the cat tail's flight, Tail.hz; 0.0.134: Clover's ride, Ride.hz)
+const tail = "(plan = World.plan, step = World.step" + (NO_FLY ? "" : ", fly = Fly.step, tail = Tail.step, ride_pre = Ride.pre, ride_post = Ride.post, boulder = Boulder.step, pickup = Pickup.step") + ")";
 const spec = { preamble: read("preamble.hz"), modules: modules.map(name => ({ name, text: read(name + ".hz") })), tail };
 const t0 = performance.now();
 const built = Hazel.jitProgram(spec);
@@ -125,5 +125,31 @@ btime(boulderJS); btime(boulderH); const bjs = btime(boulderJS), bhz = btime(bou
 console.log(`the boulders: Boulder.step the same as the page's boulderJS at ${bSame} of ${N} made-up boulders${bFirst ? "; first differs: " + JSON.stringify(bFirst) : ""} (wobbles begun ${bseen.wobble}, falls begun ${bseen.fell}, landed ${bseen.landed}, hit the gnome ${bseen.hit})`);
 console.log(`a boulder's step: the page's JavaScript ${bjs.toFixed(3)} µs, Hazel's Boulder.step through the jit ${bhz.toFixed(3)} µs (${(bhz / bjs).toFixed(1)}×)`);
 result.boulder = { steps: N, same: bSame, first: bFirst, seen: bseen, jsUs: bjs, hazelUs: bhz };
+// (0.0.136) picking things up, piece 4: Hazel's Pickup.step against the page's pickupJS. Two sets of 20,000 made-up steps: one
+// close, the things and hearts in a few tiles round the gnome, so many are taken (for the same answers); one as in a world, the
+// page's twelve things and twenty-six hearts spread over 900 tiles across, so nearly always none is near (for the time a step:
+// it is the lists that cost, crossing, each step)
+const psrc = app.slice(app.indexOf("  const pickupJS = (me, things, hearts) => {"), app.indexOf("  // (⏱ times it as a part of its own"));
+const pickupJS = new Function(psrc + "; return pickupJS;")(), pickupH = built.value.pickup;
+const KINDS = ["good", "super", "climb", "gear", "carrot", "carpet", "tail", "shoes", "flippers", "climber", "finder"];
+const pcanon = a => JSON.stringify([a.me.x, a.me.y, a.me.hearts, a.me.gear, a.me.tool, a.me.kit, a.me.pack, a.me.carrots, Array.from(a.items), Array.from(a.hearts)]);
+const madeUp = (spread, nThings, nHearts) => { const cx = 5 + rnd() * 800, cy = 5 + rnd() * 150, at = () => [cx + (rnd() - 0.5) * spread, cy + (rnd() - 0.5) * spread * (spread > 50 ? 0.2 : 1)];
+  const things = [], hearts = [];
+  for (let k = 0; k < nThings; k++) { const [x, y] = at(); things.push({ x, y, kind: KINDS[Math.floor(rnd() * KINDS.length)], taken: rnd() < 0.3 }); }
+  for (let k = 0; k < nHearts; k++) { const [x, y] = at(); hearts.push({ x, y, taken: rnd() < 0.3 }); }
+  const me = { x: cx + (rnd() - 0.5) * 2, y: cy + (rnd() - 0.5) * 2, hearts: Math.floor(rnd() * 6), gear: rnd() < 0.3, tool: Math.floor(rnd() * 3), kit: Math.floor(rnd() * 8), pack: rnd() < 0.3, carrots: Math.floor(rnd() * 4) };
+  return [me, things, hearts]; };
+let pSame = 0, pFirst = null; const pseen = { things: 0, hearts: 0, steps: 0 };
+for (let i = 0; i < N; i++) { const [me, things, hearts] = madeUp(3, 1 + Math.floor(rnd() * 6), Math.floor(rnd() * 5));
+  const a1 = pickupH(me, things, hearts), a2 = pickupJS(me, things, hearts);
+  if (pcanon(a1) === pcanon(a2)) pSame++; else if (!pFirst) pFirst = { step: i, me, things, hearts, hazel: pcanon(a1), js: pcanon(a2) };
+  pseen.things += a2.items.length; pseen.hearts += a2.hearts.length; if (a2.items.length || a2.hearts.length) pseen.steps++; }
+const pin = []; let pRealSame = 0, pRealTook = 0;
+for (let i = 0; i < N; i++) { const w = madeUp(900, 12, 26); pin.push(w); const a1 = pickupH(...w), a2 = pickupJS(...w); if (pcanon(a1) === pcanon(a2)) pRealSame++; if (a2.items.length || a2.hearts.length) pRealTook++; }
+const ptime = f => { const ts = []; for (let k = 0; k < 7; k++) { const t = performance.now(); for (const w of pin) f(w[0], w[1], w[2]); ts.push((performance.now() - t) * 1000 / pin.length); } ts.sort((x, y) => x - y); return ts[3]; };
+ptime(pickupJS); ptime(pickupH); const pjs = ptime(pickupJS), phz = ptime(pickupH);
+console.log(`picking things up: Pickup.step the same as the page's pickupJS at ${pSame} of ${N} made-up steps close by${pFirst ? "; first differs: " + JSON.stringify(pFirst) : ""} (things taken ${pseen.things}, hearts ${pseen.hearts}, at ${pseen.steps} steps), and at ${pRealSame} of ${N} as in a world (twelve things, twenty-six hearts, over 900 tiles; something taken at ${pRealTook})`);
+console.log(`a step of picking up, as in a world: the page's JavaScript ${pjs.toFixed(3)} µs, Hazel's Pickup.step through the jit ${phz.toFixed(3)} µs (${(phz / pjs).toFixed(1)}×); of a 16.7 ms frame, ${(phz / 16670 * 100).toFixed(4)}%`);
+result.pickup = { steps: N, same: pSame, realSame: pRealSame, first: pFirst, seen: pseen, jsUs: pjs, hazelUs: phz };
 if (out) writeFileSync(out, JSON.stringify(result, null, 1));
-process.exit(same === N && tSame === N && rSame === N && bSame === N ? 0 : 1);
+process.exit(same === N && tSame === N && rSame === N && bSame === N && pSame === N && pRealSame === N ? 0 : 1);

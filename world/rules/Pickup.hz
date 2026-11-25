@@ -1,0 +1,29 @@
+# Picking things up (piece 4 of ^report(64)'s plan; Gnome world 0.0.136, the page's JavaScript moved into Hazel): what the gnome takes as it goes, each step. A thing lying in the world is taken when the gnome's middle comes within 0.8 of a tile of it across and 1 tile up or down (the gnome's middle half a tile above its feet), in the order the page lists them; a heart, the same, but only while the gnome has fewer than five, and no more than make five. The gnome as the page gives it (me): its feet in tiles (x, y), its hearts, and what it has (gear, the diving gear; tool, 0 none, 1 the good shovel, 2 the super pickaxe; kit, the shoes 1, the flippers 2 and the climbing claws 4, added; pack, the climbing pack; carrots). A thing taken gives what it is: the climbing pack, the diving gear, a carrot, the shoes, flippers or claws, a tool (the better kept); the carpet, the cat tail and the gem finder give what the page holds (a ride, a compass), so here they are only taken. The answer: the gnome with what it took, and which things and which hearts it took (their places in the page's lists), for the page to mark, to sound and to say #
+let step : ((x = Float, y = Float, hearts = Int, gear = Bool, tool = Int, kit = Int, pack = Bool, carrots = Int), [(x = Float, y = Float, kind = String, taken = Bool)], [(x = Float, y = Float, taken = Bool)]) -> (me = (x = Float, y = Float, hearts = Int, gear = Bool, tool = Int, kit = Int, pack = Bool, carrots = Int), items = [Int], hearts = [Int]) = fun (me, things, hearts) ->
+  let near : (Float, Float) -> Bool = fun (tx, ty) ->
+    (let dx = tx -. me.x in let dy = ty -. (me.y -. 0.5) in
+     (if dx <. 0. then 0. -. dx else dx) <. 0.8 && (if dy <. 0. then 0. -. dy else dy) <. 1.) in
+  let with_bit : (Int, Int) -> Int = fun (kit, b) -> (if (kit / b) - ((kit / b) / 2) * 2 == 1 then kit else kit + b) in
+  let take : ((x = Float, y = Float, hearts = Int, gear = Bool, tool = Int, kit = Int, pack = Bool, carrots = Int), String) -> (x = Float, y = Float, hearts = Int, gear = Bool, tool = Int, kit = Int, pack = Bool, carrots = Int) = fun (m, kind) ->
+    (if kind == "climb" then (x = m.x, y = m.y, hearts = m.hearts, gear = m.gear, tool = m.tool, kit = m.kit, pack = true, carrots = m.carrots)
+     else if kind == "gear" then (x = m.x, y = m.y, hearts = m.hearts, gear = true, tool = m.tool, kit = m.kit, pack = m.pack, carrots = m.carrots)
+     else if kind == "carrot" then (x = m.x, y = m.y, hearts = m.hearts, gear = m.gear, tool = m.tool, kit = m.kit, pack = m.pack, carrots = m.carrots + 1)
+     else if kind == "carpet" || kind == "tail" || kind == "finder" then m
+     else if kind == "shoes" then (x = m.x, y = m.y, hearts = m.hearts, gear = m.gear, tool = m.tool, kit = with_bit(m.kit, 1), pack = m.pack, carrots = m.carrots)
+     else if kind == "flippers" then (x = m.x, y = m.y, hearts = m.hearts, gear = m.gear, tool = m.tool, kit = with_bit(m.kit, 2), pack = m.pack, carrots = m.carrots)
+     else if kind == "climber" then (x = m.x, y = m.y, hearts = m.hearts, gear = m.gear, tool = m.tool, kit = with_bit(m.kit, 4), pack = m.pack, carrots = m.carrots)
+     else (let t = (if kind == "super" then 2 else 1) in (x = m.x, y = m.y, hearts = m.hearts, gear = m.gear, tool = (if m.tool > t then m.tool else t), kit = m.kit, pack = m.pack, carrots = m.carrots))) in
+  let walk : ([(x = Float, y = Float, kind = String, taken = Bool)], Int, (x = Float, y = Float, hearts = Int, gear = Bool, tool = Int, kit = Int, pack = Bool, carrots = Int)) -> (me = (x = Float, y = Float, hearts = Int, gear = Bool, tool = Int, kit = Int, pack = Bool, carrots = Int), items = [Int]) = fun (l, i, m) ->
+    case l
+    | [] => (me = m, items = [])
+    | t :: rest => (if !t.taken && near(t.x, t.y) then (let r = walk(rest, i + 1, take(m, t.kind)) in (me = r.me, items = i :: r.items)) else walk(rest, i + 1, m))
+    end in
+  let mend : ([(x = Float, y = Float, taken = Bool)], Int, Int) -> (n = Int, hearts = [Int]) = fun (l, i, n) ->
+    (if n >= 5 then (n = n, hearts = []) else
+     case l
+     | [] => (n = n, hearts = [])
+     | h :: rest => (if !h.taken && near(h.x, h.y) then (let r = mend(rest, i + 1, n + 1) in (n = r.n, hearts = i :: r.hearts)) else mend(rest, i + 1, n))
+     end) in
+  let w = walk(things, 0, me) in
+  let hs = mend(hearts, 0, me.hearts) in
+  (me = (x = w.me.x, y = w.me.y, hearts = hs.n, gear = w.me.gear, tool = w.me.tool, kit = w.me.kit, pack = w.me.pack, carrots = w.me.carrots), items = w.items, hearts = hs.hearts)

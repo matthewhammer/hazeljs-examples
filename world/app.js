@@ -35,8 +35,8 @@
   if (window.visualViewport) { const vz = () => { const z = visualViewport.scale; WATCH.zoomMin = Math.min(WATCH.zoomMin, z); WATCH.zoomMax = Math.max(WATCH.zoomMax, z); if (Math.abs(z - 1) > 0.01) WATCH.zoomAt = performance.now(); };
     visualViewport.addEventListener("resize", vz); visualViewport.addEventListener("scroll", vz); }
   const LIB_JIT = "https://build.hazel.org/hazeljs/hazel-lib.js", LIB_NPM = "https://cdn.jsdelivr.net/npm/hazeljs@0.0.4/hazel-lib.js";
-  const PROGRAM = "world", MODULES = ["World", "Fly", "Tail", "Ride", "Boulder"];
-  const TAIL = "(plan = World.plan, ground = World.ground, village = World.village, furnish = World.furnish, limbs = World.limbs, styles = World.styles, beaver = World.beaver, water_row = World.water_row, step = World.step, roots = World.roots, threads = World.threads, greet = World.greet, dig_steps = World.dig_steps, fly = Fly.step, tail = Tail.step, ride_pre = Ride.pre, ride_post = Ride.post, boulder = Boulder.step)";
+  const PROGRAM = "world", MODULES = ["World", "Fly", "Tail", "Ride", "Boulder", "Pickup"];
+  const TAIL = "(plan = World.plan, ground = World.ground, village = World.village, furnish = World.furnish, limbs = World.limbs, styles = World.styles, beaver = World.beaver, water_row = World.water_row, step = World.step, roots = World.roots, threads = World.threads, greet = World.greet, dig_steps = World.dig_steps, fly = Fly.step, tail = Tail.step, ride_pre = Ride.pre, ride_post = Ride.post, boulder = Boulder.step, pickup = Pickup.step)";
   const KEY = "hazeljs-examples/world/";
   const Q = new URLSearchParams(location.search);
   const $ = id => document.getElementById(id);
@@ -117,7 +117,7 @@
   // once (the world's plan, its villages and trees); off unless chosen; kept on this device, and in a save made with it on
   let plainView = null, plainOf = null;
   const H = () => { if (!(S.built && S.built.ok)) return null; const v = S.built.value; if (S.rules !== "plain" || !window.WorldPlain) return v;
-    if (plainOf !== v) { plainOf = v; plainView = { ...v, step: window.WorldPlain.step, beaver: window.WorldPlain.beaver, water_row: window.WorldPlain.water_row, fly: undefined, tail: undefined, ride_pre: undefined, ride_post: undefined, boulder: undefined }; }
+    if (plainOf !== v) { plainOf = v; plainView = { ...v, step: window.WorldPlain.step, beaver: window.WorldPlain.beaver, water_row: window.WorldPlain.water_row, fly: undefined, tail: undefined, ride_pre: undefined, ride_post: undefined, boulder: undefined, pickup: undefined }; }
     return plainView; };
   function setRules(r) { S.rules = r === "plain" ? "plain" : "hazel"; keep("rules", S.rules); plainOf = null; const box = document.getElementById("rules-plain"); if (box) box.checked = S.rules === "plain"; if (typeof drawStatus === "function") drawStatus(); }
   let seedRand = 1;
@@ -867,25 +867,44 @@
     c.fillStyle = "#fde68a"; c.beginPath(); c.arc(u * 0.3, 0, u * 0.03 * (1.2 + Math.sin(now / 120)), 0, 7); c.fill();
     c.restore(); c.fillStyle = "#f6d365"; c.beginPath(); c.arc(0, 0, u * 0.045, 0, 7); c.fill();
   }
-  function pickups() {
+  // ---- picking things up (0.0.136; piece 4 of ^report(64)'s plan): what the gnome takes as it goes is Hazel's, Pickup.step; here
+  // its twin in JavaScript, the same answers, for ⚡ and the check in Node. A thing is taken within 0.8 of a tile across and 1 up
+  // or down of the gnome's middle, in the page's order; a heart the same, only while the gnome has fewer than five, and no more
+  // than make five. What a thing gives the gnome is in the answer (the climbing pack, the diving gear, a carrot, the shoes,
+  // flippers or claws, a tool, the better kept); the carpet, the cat tail and the gem finder give what the page holds
+  const pickupJS = (me, things, hearts) => {
+    const near = (tx, ty) => Math.abs(tx - me.x) < 0.8 && Math.abs(ty - (me.y - 0.5)) < 1, KITS = { shoes: 1, flippers: 2, climber: 4 };
+    const m = { x: me.x, y: me.y, hearts: me.hearts, gear: me.gear, tool: me.tool, kit: me.kit, pack: me.pack, carrots: me.carrots }, items = [], hs = [];
+    for (let i = 0; i < things.length; i++) { const t = things[i]; if (t.taken || !near(t.x, t.y)) continue; items.push(i); const k = t.kind;
+      if (k === "climb") m.pack = true; else if (k === "gear") m.gear = true; else if (k === "carrot") m.carrots++;
+      else if (k === "carpet" || k === "tail" || k === "finder") { /* the page's */ }
+      else if (KITS[k]) m.kit |= KITS[k]; else m.tool = Math.max(m.tool, k === "super" ? 2 : 1); }
+    for (let i = 0; i < hearts.length && m.hearts < 5; i++) { const h = hearts[i]; if (!h.taken && near(h.x, h.y)) { hs.push(i); m.hearts++; } }
+    return { me: m, items, hearts: hs };
+  };
+  // (⏱ times it as a part of its own: the gnome's step so far, then this)
+  function pickups() { tmark("the gnome"); pickupsNow(); tmark("picking things up"); }
+  function pickupsNow() {
     const g = S.g;
-    // (a gem lying loose in an open tile, as some came to: picked up as the gnome goes through it)
+    // (a gem lying loose in an open tile, as some came to: picked up as the gnome goes through it; the page's, a read of one tile)
     { const c = Math.floor(g.x / 1000), r = Math.floor((g.y - 500) / 1000), i = inside(c, r) ? at(c, r) : -1;
       if (i >= 0 && gem[i] && mat[i] === AIR) { gem[i] = 0; S.gems++; keep("gems", S.gems); gemFound(); popWord("💎", c + 0.5, r + 0.3); if (SND) SND.gem(); } }
-    // the diving gear, walked into
-    for (const it of S.items) if (!it.taken && Math.abs(it.x - g.x / 1000) < 0.8 && Math.abs(it.y - (g.y / 1000 - 0.5)) < 1) { it.taken = true; if (SND) SND.gem();
-      if (it.kind === "climb") S.g = { ...S.g, climbPack: true };
-      else if (it.kind === "gear") S.g = { ...S.g, gear: true };
-      else if (it.kind === "carrot") S.carrots = (S.carrots || 0) + 1;
-      else if (it.kind === "carpet") { S.carpet.have = true; useRide("carpet"); }
+    const h = H(), byHazel = !!(h && h.pickup) && !Q.has("jspickup");
+    const me = { x: g.x / 1000, y: g.y / 1000, hearts: S.hearts, gear: !!g.gear, tool: g.tool | 0, kit: g.kit | 0, pack: !!g.climbPack, carrots: S.carrots | 0 };
+    const hs = S.heartItems || [], a = byHazel ? h.pickup(me, S.items, hs) : pickupJS(me, S.items, hs);
+    if (!a.items.length && !a.hearts.length) return;
+    // what the things gave, onto the gnome (only what changed, as before); then each thing's sound, the page's part of it, its note
+    const m = a.me, ch = {};
+    if (m.gear !== me.gear) ch.gear = m.gear; if (m.tool !== me.tool) ch.tool = m.tool; if (m.kit !== me.kit) ch.kit = m.kit; if (m.pack !== me.pack) ch.climbPack = m.pack;
+    if (Object.keys(ch).length) S.g = { ...S.g, ...ch }; if (m.carrots !== me.carrots) S.carrots = m.carrots;
+    for (const i of a.items) { const it = S.items[i]; it.taken = true; if (SND) SND.gem();
+      if (it.kind === "carpet") { S.carpet.have = true; useRide("carpet"); }
       else if (it.kind === "tail") { S.tail.have = true; useRide("tail"); }
-      else if (it.kind === "shoes" || it.kind === "flippers" || it.kind === "climber") S.g = { ...S.g, kit: (S.g.kit | 0) | KIT[it.kind] };
       else if (it.kind === "finder") GEMAIM.at = -1e9;   // (0.0.126: had, it looks for the nearest gem at once)
-      else S.g = { ...S.g, tool: Math.max(S.g.tool || 0, it.kind === "super" ? 2 : 1) };
       powerNote(it.kind); }
     // a heart, walked into, gives back one heart (not with all five: it stays for later)
-    if (S.hearts < 5) for (const hh of S.heartItems || []) if (!hh.taken && Math.abs(hh.x - g.x / 1000) < 0.8 && Math.abs(hh.y - (g.y / 1000 - 0.5)) < 1) {
-      hh.taken = true; S.hearts++; popWord("❤️", hh.x, hh.y - 0.7); if (SND) SND.gem(); if (S.hearts >= 5) break; }
+    for (const i of a.hearts) { const hh = hs[i]; hh.taken = true; popWord("❤️", hh.x, hh.y - 0.7); if (SND) SND.gem(); }
+    S.hearts = m.hearts;
   }
   // (Matthew: "is there a celebration when we get them all? what happens?") There was none. The last gem of the world found: a
   // banner, Gnome dig's fanfare and its party tune, the gnome cheering, and its party: a burst of confetti, stars and bubbles
@@ -4972,7 +4991,7 @@
   if (Q.has("test")) Object.assign(window.WorldTest, { SKYC, skyClouds, cloudArt, storminess });   // (0.0.125: the sky)
   if (Q.has("test")) Object.assign(window.WorldTest, { GEMAIM, gemAim, hasFinder, gemCompass });   // (0.0.126: the gem finder)
   if (Q.has("test")) Object.assign(window.WorldTest, { CAVE, CAVEFX, caveLife });   // (0.0.127: the caverns)
-  if (Q.has("test")) Object.assign(window.WorldTest, { botItemOrder, timeSpeedRun, TP, wakeTill, wakeAll, waterStep, setRules, H, rideJS, rideStep, boulderJS, bouldersStep });   // (0.0.130: the speed run's order of the things; ⏱)
+  if (Q.has("test")) Object.assign(window.WorldTest, { botItemOrder, timeSpeedRun, TP, wakeTill, wakeAll, waterStep, setRules, H, rideJS, rideStep, boulderJS, bouldersStep, pickupJS, pickups });   // (0.0.130: the speed run's order of the things; ⏱)
   // (^ticket(873): the speed run's steps alone, timed, no drawing: up to n, while the run is on and not yet at its dig)
   if (Q.has("test")) Object.assign(window.WorldTest, { steps: (n, any) => { const h = H(); const t0 = performance.now(); let k = 0; for (; k < n && (any || (BOT.on && BOT.phase !== "dig")); k++) tick(h); return { k, ms: performance.now() - t0 }; } });   // (any: steps with or without the speed run)   // (0.0.115: the canvases kept, ^ticket(852))   // (0.0.112: the 🎮 controller, driven by hand where frames do not come)
   if (Q.has("test")) Object.assign(window.WorldTest, { snapshot, saveText, readSave, loadText, restartNow: () => restartNow(H()), askRestart, stopBot, digest, bot: on => { if (on !== BOT.on) $("run").click(); return BOT.on; }, carpetToggle, carpetHits, carpetTop, flyJS });
