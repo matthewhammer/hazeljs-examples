@@ -615,6 +615,55 @@
         O.hp.frequency.setValueAtTime(10, t0); O.hp.frequency.exponentialRampToValueAtTime(700, t0 + fade); O.until = t0 + fade; }
       while (decks.length > 3) decks.shift().out.disconnect();
     }
+    // ---- (0.0.128, Gnome world; Matthew: "let's have dig sound effect mean --- trigger drum fill track 1, 2, 3 or 4 --- each one
+    // is filled with drum fills for the music currently playing, but is muted. Depending on the 1, 2, 3 or 4 beat being active as
+    // we trigger the 'dig' event, we get to hear one of those drum fills; it's possible to re-trigger it again before the end of
+    // the beat, if we dig fast enough; in that case, we trigger the complementary fill (1 triggers 3, 2 triggers 4)") Four fill
+    // tracks for each style, each a beat of drums in eight thirty-seconds, going round under the music, silent. fill(): the beat of
+    // the bar sounding now (1 to 4) opens its own track for the rest of that beat, from its next thirty-second (the tune's swing
+    // on them); again in the same beat, the first is closed and the other of its pair opens instead (1 and 3, 2 and 4). On the
+    // sounds' bus, so the 🔊 slider has them. The tracks: k kick, s snare, S a snare hit hard, h m l the high, middle and low
+    // toms, c a clap, r a rim, x a hat, o an open hat, . nothing
+    const FILLS = {
+      chip: ["s.s.s.s.", "h.h.m.m.", "ssssssss", "hhmmllkS"],
+      ska: ["s.s.s.ss", "h.m.l.k.", "ssssssss", "hhmmllkS"],
+      funk: ["s..s.ss.", "k.s.k.s.", "s.sshhm.", "hmhmllkS"],
+      reggae: ["r...r.r.", "k...r...", "r.r.r.rr", "l.l.m.h."],
+      house: ["c.c.c.c.", "k.k.k.ko", "cccccccc", "k.ck.ccS"],
+      dub: ["r.......", "s.....r.", "r.r.r.r.", "l..m..h."],
+    };
+    let lastFill = null;
+    function drum(bus, ch, t) {
+      const V = 0.62;
+      if (ch === "k") tone(bus, "sine", 150, 45, t, 0.12, 0.5 * V);
+      else if (ch === "s" || ch === "S") { const a = ch === "S" ? 1.5 : 1; hiss(bus, t, 0.12, 0.22 * a * V, "bandpass", 1900, 0.7); tone(bus, "triangle", 200, 150, t, 0.06, 0.14 * a * V); }
+      else if (ch === "h" || ch === "m" || ch === "l") { const f = ch === "h" ? 230 : ch === "m" ? 170 : 125; tone(bus, "sine", f, f * 0.6, t, 0.17, 0.36 * V); hiss(bus, t, 0.05, 0.05 * V, "bandpass", f * 5, 1.2); }
+      else if (ch === "c") for (const d of [0, 0.011, 0.022]) hiss(bus, t + d, 0.1, 0.14 * V, "bandpass", 1300, 0.9);
+      else if (ch === "r") { hiss(bus, t, 0.04, 0.15 * V, "bandpass", 2600, 3); tone(bus, "triangle", 900, 700, t, 0.025, 0.08 * V); }
+      else if (ch === "x") hiss(bus, t, 0.03, 0.07 * V, "highpass", 7000);
+      else if (ch === "o") hiss(bus, t, 0.11, 0.07 * V, "highpass", 6500);
+    }
+    // (the beat sounding at time now on deck D: the sixteenth a and its start t walked back from the deck's next; the beat's start,
+    // its eight thirty-seconds' times, and which beat of the bar it is)
+    function beatAt(D, now) {
+      const len = D.song.steps.length; let a = D.at, t = D.next;
+      while (t > now) { a = (a - 1 + len) % len; t -= adv(D, a); }
+      const k = a % 4, a0 = (a - k + len) % len; let bt = t; for (let j = 1; j <= k; j++) bt -= adv(D, (a - j + len) % len);
+      const slots = []; let u = bt; for (let j = 0; j < 4; j++) { const d = adv(D, (a0 + j) % len); slots.push(u, u + d / 2); u += d; }
+      return { beat: Math.floor((a % 16) / 4), bt, slots, end: u };
+    }
+    function fill(at) {
+      if (!ctx || !S.sfx || !playing) return null;
+      const D = [...decks].reverse().find(D => D.until === Infinity) || decks[decks.length - 1]; if (!D) return null;
+      const now = at ?? ctx.currentTime, B = beatAt(D, now);
+      let track = B.beat; const again = !!lastFill && Math.abs(lastFill.bt - B.bt) < 0.005;
+      if (again) { track = (lastFill.track + 2) % 4; const g = lastFill.G.gain; g.cancelScheduledValues(now); g.setValueAtTime(g.value, now); g.linearRampToValueAtTime(0, now + 0.006); }
+      const pat = (FILLS[D.song.lead || D.song.style] || FILLS.chip)[track], G = ctx.createGain(); G.connect(sfxBus);
+      let n = 0; for (let j = 0; j < 8; j++) if (B.slots[j] >= now + 0.006 && pat[j] !== ".") { drum(G, pat[j], B.slots[j]); n++; }
+      if (!n) { const last = [...pat].reverse().find(ch => ch !== ".") || "s"; drum(G, last, now + 0.006); n = 1; }   // (too late in the beat for any of it: one hit, now)
+      S.sounds++; lastFill = { bt: B.bt, track, G };
+      return { beat: B.beat + 1, track: track + 1, again, notes: n, style: D.song.lead || D.song.style };
+    }
     // (a game's sound; a big one (duck) dips the music under it for a moment)
     const sfx = (f, duck = 0) => { if (!ctx || !S.sfx) return; S.sounds++; const t = ctx.currentTime + 0.005; f(t);
       if (duck && S.music) { const g = musicBus.gain; g.cancelScheduledValues(t); g.setTargetAtTime(level("music") * (1 - duck), t, 0.01); g.setTargetAtTime(level("music"), t + duck * 0.5, 0.08); } };
@@ -635,7 +684,7 @@
         if (ctx) { const b = which === "music" ? musicBus : sfxBus; b.gain.cancelScheduledValues(ctx.currentTime); b.gain.setTargetAtTime(level(which), ctx.currentTime, 0.03); } },
       status: () => ({ tune: SONGS[S.tune].name, playing, notes: S.notes, sounds: S.sounds, state: ctx ? ctx.state : "not made", decks: decks.map(D => ({ song: D.song.name, at: D.at, until: D.until })) }),
       // (a game's own sounds: f(t) at the audio clock's now, if sounds are on; and the chip's voices for them, on the sounds' bus)
-      sfx,
+      sfx, fill,
       tone: (kind, f0, f1, t, dur, vol, vib = 0) => tone(sfxBus, kind, f0, f1, t, dur, vol, vib),
       hiss: (t, dur, vol, filter, freq, q = 1) => hiss(sfxBus, t, dur, vol, filter, freq, q),
       seq: (t, notes, each, kind = "half", vol = 0.14) => notes.forEach((n, i) => tone(sfxBus, kind, hz(n), hz(n), t + i * each, each * 0.95, vol)),

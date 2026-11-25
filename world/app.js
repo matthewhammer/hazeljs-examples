@@ -456,7 +456,7 @@
     mat[i] = AIR; bg[i] = B_DUG; wat[i] = water; shape[i] = 0; dirtyRootsAt(c, r);
     if (stone[i]) { dropStones(c, r, stone[i]); stone[i] = 0; }
     if (gem[i]) { S.gems++; keep("gems", S.gems); gemFound(); popWord("💎", c + 0.5, r + 0.3); if (SND) SND.gem(); gem[i] = 0; }
-    else if (SND && S.frame - (S.digSndAt || 0) > 8) { SND.dig(); S.digSndAt = S.frame; }
+    else if (SND && S.frame - (S.digSndAt || 0) > 2) { S.lastFill = SND.digFill ? SND.digFill() : (SND.dig(), null); S.digSndAt = S.frame; }   // (0.0.128: a drum fill on the beat)
     for (let k = 0; k < 7; k++) S.parts.push({ x: c + 0.5, y: r + 0.5, vx: (rand() - 0.5) * 0.12, vy: -rand() * 0.12, life: 30 + rand() * 20, col: COLOR[m] });
     if (r <= top[c]) top[c] = topOf(c);
     S.minimapAt = -1e9;

@@ -21,6 +21,10 @@
   const SFX = {
     // (a cell of earth dug: short and low, a little different each time, as it comes every fifth of a second when digging on)
     dig: () => sfx(t => { const k = crunches++ % 3; hiss(t, 0.05, 0.1, "lowpass", 700 + 200 * k); tone("triangle", hz(40 + k), hz(33), t, 0.06, 0.16); }),
+    // (0.0.128, Gnome world: its dig a drum fill on the music's beat, ../shared/chip.js's fill; no music playing, a crunch that
+    // laptop speakers carry: the soft one's low thump, 82 Hz, they cannot, under the music, so digging seemed to make no sound)
+    digFill: () => { const r = C.fill ? C.fill() : null; if (r) return r;
+      sfx(t => { const k = crunches++ % 3; hiss(t, 0.07, 0.2, "bandpass", 1500 + 300 * k, 1.1); hiss(t, 0.04, 0.12, "highpass", 4000); tone("triangle", hz(52 + k), hz(45), t, 0.07, 0.2); }); return null; },
     gem: () => sfx(t => { seq(t, [88, 93, 100], 0.05, "eighth", 0.18); hiss(t + 0.1, 0.12, 0.08, "highpass", 7000); }, 0.25),
     flash: () => sfx(t => { tone("sine", hz(84), hz(96), t, 0.2, 0.16); hiss(t, 0.16, 0.08, "highpass", 5000); }),
     caught_mon: () => sfx(t => seq(t, [76, 79, 84, 88], 0.06, "quarter", 0.2), 0.25),

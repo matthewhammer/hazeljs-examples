@@ -2,6 +2,15 @@
 
 Each version lists what the apps do as of that version. The newest version is first.
 
+## 0.0.128 (2026-11-25)
+
+- **Gnome world: digging plays drum fills on the music's beat** (Matthew: "dig sound effect is missing --- unless we go into water, and we hear that one. let's have dig sound effect mean --- trigger drum fill track 1, 2, 3 or 4 --- each one is filled with drum fills for the music currently playing, but is muted. Depending on the 1, 2, 3 or 4 beat being active as we trigger the 'dig' event, we get to hear one of those drum fills; it's possible to re-trigger it again before the end of the beat, if we dig fast enough; in that case, we trigger the complementary fill (1 triggers 3, 2 triggers 4)"). The dig's sound was there, but a soft hiss and a low thump at 82 Hz, under the music: laptop speakers can't play that low, so digging seemed silent, while the splash, high and bright, came through. Now:
+  - **Four fill tracks** for each kind of music: a beat of drums each, in thirty-seconds (snare runs, toms rolling down, kicks, claps in the house tunes, rimshots in the reggae, an open hat), going round under the music, silent.
+  - **A tile dug** opens the fill of the beat of the bar sounding then (1, 2, 3 or 4) for the rest of that beat, in time with the music, its swing too.
+  - **Dig again in the same beat** and its partner opens instead, the first cut off: 1 and 3, 2 and 4 (and back again on a third dig).
+  - With no music playing, digging makes a brighter crunch that laptop speakers carry. They're sounds, so the 🔊 slider has them. Gnome dig keeps its own dig sound.
+  - Checked in the page with Lantern hop (ska, 170 bpm), muted: a dig on beat 4 opened fill 4, a second at once fill 2; digging every 110 ms (three to a beat), the beats in order 1, 2, 3, 4, each beat's first dig its own fill, the next its partner, the next back again.
+
 ## 0.0.127 (2026-11-25)
 
 - **Gnome world: caverns under the ground, with stalactites, stalagmites, bats, blind white cave fish and glowing cave mushrooms** (Matthew: "let's introduce more 'cave areas' under the ground. special tiles that indicate cave features (stalagtites/mites) bats fish in the cave ponds that are bright white, from being underground animals mushrooms that live in caves?"). Till now there were only the small caves in the limestone shelves, two or three tiles high. Now:
