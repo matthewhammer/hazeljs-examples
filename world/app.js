@@ -617,12 +617,30 @@
     if (!isFinite(dist[goal])) return null;
     const path = []; for (let i = goal; i !== start && i >= 0; i = prev[i]) path.push(i); path.reverse(); return path;
   }
+  // (0.0.130; Matthew, watching the speed run with N: "I noticed that the order of getting items isn't very optimized") The order
+  // of the things, planned as a whole: it was by how far each lay from where the run began, set once, so after each it set out
+  // for the next nearest to home, often back across the world. Now the shortest round of them all from where the gnome is, every
+  // order weighed (Held and Karp's way: for each set of things had and the last of them, the cheapest way there; a dozen things,
+  // some four thousand sets): a step across a tile counted 1, up or down 1.6 (climbing and digging are slower); once the running
+  // shoes are had, across 0.45 (the dash); the good digger before the super digger, which lies in rock only a digger digs
+  function botItemOrder(left, gc, gr) {
+    const n = left.length; if (n <= 1) return left;
+    const P = [{ x: gc + 0.5, y: gr + 0.5 }, ...left], shoes = left.findIndex(it => it.kind === "shoes"), good = left.findIndex(it => it.kind === "good"), sup = left.findIndex(it => it.kind === "super");
+    const cost = (a, b, fast) => Math.abs(P[a].x - P[b].x) * (fast ? 0.45 : 1) + Math.abs(P[a].y - P[b].y) * 1.6;
+    const N = 1 << n, best = new Float64Array(N * n).fill(Infinity), from = new Int16Array(N * n).fill(-1);
+    for (let j = 0; j < n; j++) if (j !== sup || good < 0) best[(1 << j) * n + j] = cost(0, j + 1, false);
+    for (let m = 1; m < N; m++) for (let j = 0; j < n; j++) { const v = best[m * n + j]; if (!(m >> j & 1) || v === Infinity) continue;
+      const fast = shoes >= 0 && (m >> shoes & 1);
+      for (let k = 0; k < n; k++) { if (m >> k & 1) continue; if (k === sup && good >= 0 && !(m >> good & 1)) continue;
+        const m2 = m | (1 << k), w = v + cost(j + 1, k + 1, fast); if (w < best[m2 * n + k]) { best[m2 * n + k] = w; from[m2 * n + k] = j; } } }
+    let end = -1, bv = Infinity; for (let j = 0; j < n; j++) if (best[(N - 1) * n + j] < bv) { bv = best[(N - 1) * n + j]; end = j; }
+    if (end < 0) return left;
+    const order = []; for (let m = N - 1, j = end; j >= 0;) { order.push(left[j]); const pj = from[m * n + j]; m &= ~(1 << j); j = pj; }
+    return order.reverse();
+  }
   function botTargets(phase) {
     const g = S.g, gc = g.x / 1000, gr = g.y / 1000;
-    if (phase === "items") { const left = S.items.filter(it => !it.taken).sort((a, b) => Math.hypot(a.x - gc, a.y - gr) - Math.hypot(b.x - gc, b.y - gr));
-      // (the good digger before the super digger, which lies in rock that only a digger digs)
-      const sup = left.findIndex(it => it.kind === "super"), good = left.findIndex(it => it.kind === "good"); if (sup >= 0 && good > sup) left.splice(good, 0, ...left.splice(sup, 1));
-      return left.map(it => ({ c: Math.floor(it.x), r: Math.floor(it.y), what: ITEM[it.kind].what, item: it })); }
+    if (phase === "items") return botItemOrder(S.items.filter(it => !it.taken), gc, gr).map(it => ({ c: Math.floor(it.x), r: Math.floor(it.y), what: ITEM[it.kind].what, item: it }));
     if (phase === "trees") { const out = [];
       for (const G of [...S.greats].sort((a, b) => Math.abs(a.x - gc) - Math.abs(b.x - gc))) {
         const name = G.kind === 31 ? "the stair tree" : "a great tree";
@@ -706,7 +724,7 @@
       S.party = { t: performance.now(), burst: false }; if (SND) { SND.cleared(); if (SND.musicOn) SND.celebrate(); }
       console.log("speed run and dig", R); }
     else { BOT.report = botReport(); S.banner = { text: `🏃 Speed run: ${BOT.report.time} · ${BOT.report.items} things · ${BOT.report.treeParts} tree parts · 💎 ${BOT.report.gems}`, t: performance.now() }; console.log("speed run", BOT.report); }
-    $("run").setAttribute("aria-pressed", "false");
+    $("run").setAttribute("aria-pressed", "false"); const dg = $("digall"); if (dg) dg.setAttribute("aria-pressed", "false");
   }
   // (each step of the run: the keys toward the next tile on the way; arrived, the next target; no headway for four seconds,
   // the way again round where it stuck, four times, then on to the next)
@@ -742,6 +760,14 @@
     // slows by a quarter a step, so it goes on about three steps' worth of its speed, and it was running past the tile and back)
     const ex = wc + 0.5 - g.x / 1000, stopping = wr !== gr && g.ground && !g.climb && Math.abs(ex) < 2.5;
     if (!stopping) { if (wc > gc) S.keys.right = true; else if (wc < gc) S.keys.left = true; }
+    // (0.0.130; Matthew: "while walking laterally, it doesn't seem like the gnome is dashing at all") It never did. Now, on the
+    // ground, with four open tiles or more of its way ahead going the same way across (a step up or down a slope between them
+    // allowed, not two), it holds the dash; fewer, it lets go, in time to slow for the turn
+    if (!stopping && g.ground && !g.climb && !g.swim && !g.under && wc !== gc) { const dir = wc > gc ? 1 : -1; let run = 0, ups = 0, pc0 = gc;
+      for (let j = BOT.k; j < Math.min(BOT.path.length, BOT.k + 14); j++) { const p = BOT.path[j], pc = p % WW, pr = (p - pc) / WW;
+        if (mat[p] !== AIR) break;
+        if (pc === pc0 + dir) { run++; ups = 0; pc0 = pc; } else if (pc === pc0 && Math.abs(pr - gr) <= 2 && ++ups <= 1) continue; else break; }
+      if (run >= 4) S.keys.dash = true; }
     else if (Math.abs(ex) > Math.abs(g.vx) * 3 / 1000 + 0.12 && Math.sign(ex) !== -Math.sign(g.vx || ex)) { if (ex > 0) S.keys.right = true; else S.keys.left = true; }
     else if (wc !== gc && Math.abs(g.vx) < 15) { if (ex > 0) S.keys.right = true; else S.keys.left = true; }
   }
@@ -943,27 +969,33 @@
   }
 
   // ---- one frame: the gnome, the boulders, the water, the beavers, the smoke; the camera after the gnome
+  // (0.0.130; ⏱ under ⚙️ Advanced: a step's parts timed, while TP.on; otherwise a call that does nothing)
+  const TP = { on: false, ms: {}, t: 0 };
+  const tmark = k => { if (!TP.on) return; const t = performance.now(); TP.ms[k] = (TP.ms[k] || 0) + t - TP.t; TP.t = t; };
   function tick(h) {
+    if (TP.on) TP.t = performance.now();
     S.frame++;
     if (S.faintAt && S.ride && S.ride.on) { const M = S.mount; S.ride.on = false; M.x = S.g.x; M.y = S.g.y; M.face = S.g.face; }
     if (S.faintAt && S.carpet && S.carpet.on) S.carpet.on = false;
     if (S.faintAt && S.tail && S.tail.on) Object.assign(S.tail, { fly: 0, lift: 0, flut: 0, meter: 0, rep: 0 });
     if (S.faintAt) { if (performance.now() - S.faintAt > 1800) { S.faintAt = 0; S.hearts = 5; S.g = { ...S.g, x: S.start.x, y: top[Math.floor(S.start.x / 1000)] * 1000, vx: 0, vy: 0, air: 600 }; S.cam.set = false; } }
-    else { if (BOT.on) { BOT.frames++; botStep(); } gnomeStep(h); }
-    bouldersStep();
-    waterStep();
-    if (S.frame % 6 === 0) beaversStep(h);
+    else { if (BOT.on) { BOT.frames++; botStep(); tmark("the speed run's way"); } gnomeStep(h); tmark("the gnome"); }
+    bouldersStep(); tmark("boulders");
+    waterStep(); tmark("water");
+    if (S.frame % 6 === 0) beaversStep(h); tmark("beavers");
     for (const t of S.trees) if (t.alive && t.grow < 1) t.grow = Math.min(1, t.grow + 1 / (60 * 60));
     // (a heart taken comes back once its place has gone out of the view, so that none appears while you look)
     if (S.frame % 30 === 0 && S.cam.set) for (const hh of S.heartItems || []) if (hh.taken && (hh.x < S.cam.x - 1 || hh.x > S.cam.x + VW + 1 || hh.y < S.cam.y - 1 || hh.y > S.cam.y + VH + 1)) hh.taken = false;
     for (const B of S.beavers) B.px += (B.b.x / 100 - B.px) * 0.18;
     if (S.frame % 9 === 0) for (const d of S.ducts) if (d.kind === 3) S.smoke.push({ x: d.x + 0.5 + (rand() - 0.5) * 0.2, y: d.y0 - 2.2, r: 0.18, life: 0, drift: 0.004 + rand() * 0.006 });
-    windStep(); houseSmoke(); squirrelsStep(); pebblesStep(); villagersStep(h); wildStep(); bunniesStep();
+    tmark("trees, hearts, smoke");
+    windStep(); houseSmoke(); tmark("wind and smoke"); squirrelsStep(); tmark("squirrels"); pebblesStep(); tmark("pebbles"); villagersStep(h); tmark("villagers"); wildStep(); tmark("birds, frogs, bugs"); bunniesStep(); tmark("rabbits");
     if (S.frame % 15 === 0) musicStep();
     for (const s of S.smoke) { s.y -= 0.012; s.x += s.drift + S.windNow * 0.02; s.r += 0.006; s.life++; }
     S.smoke = S.smoke.filter(s => s.life < 200);
     for (const p of S.parts) { p.x += p.vx; p.y += p.vy; p.vy += p.fire ? -0.002 : 0.01; p.life--; }
     S.parts = S.parts.filter(p => p.life > 0);
+    tmark("music, sparks");
   }
 
   // ---- drawing: the sky and far hills, the trees, the ground (its tiles; the water in it as blue, darker the fuller), the
@@ -4384,7 +4416,21 @@
   }
   { const b = $("build"); if (b) b.addEventListener("pointerdown", e => { e.preventDefault(); buildHere(); }); }
   { const b = $("mount"); if (b) b.addEventListener("pointerdown", e => { e.preventDefault(); mountToggle(); }); }
-  { const b = $("run"); if (b) b.addEventListener("click", () => { BOT.on = !BOT.on; b.setAttribute("aria-pressed", String(BOT.on));
+  // (0.0.130; Matthew: "let's have a 'dig everything' automation, next to the 'speed run' button, that's just digging up the
+  // whole world, randomly, for fun. When we enable this button, if the gnome doesn't have the full dig/swim capabilities, let's
+  // just add them, as if we got them ourselves. It's like a cheat code.") 🕳️: the good and the super digger, the diving gear and
+  // the swim flippers, each had if it was not, as if found; then the speed run's dig alone, its walk from a chance of its own
+  // each time; again, it stops
+  { const b = $("digall"); if (b) b.addEventListener("click", () => {
+      if (BOT.on) { stopBot(); b.blur(); return; }
+      const h = H(); if (!h || !S.g) return;
+      const got = []; for (const it of S.items) if (!it.taken && (it.kind === "good" || it.kind === "super" || it.kind === "gear" || it.kind === "flippers")) { it.taken = true; got.push(ITEM[it.kind].icon); }
+      S.g = { ...S.g, tool: 2, gear: true, kit: (S.g.kit | 0) | KIT.flippers };
+      Object.assign(BOT, { on: true, phase: "dig", queue: [], cur: null, path: [], k: 0, skipped: [], frames: 0, t0: performance.now(), items: 0, parts: 0, partsAll: 0, gems: 0, gemsAll: 0, report: null,
+        digAll: 0, digLeft: 0, digSkip: new Set(), digPass: 1, digT0: 0, chunks: 0, sayAt: 0, rng: 1 + Math.floor(Math.random() * 0x7ffffffe) });
+      b.setAttribute("aria-pressed", "true"); $("run").setAttribute("aria-pressed", "false");
+      S.banner = { text: `🕳️ Dig everything!${got.length ? ` ${got.join(" ")} yours` : ""}`, t: performance.now() + 1500 }; b.blur(); }); }
+  { const b = $("run"); if (b) b.addEventListener("click", () => { BOT.on = !BOT.on; b.setAttribute("aria-pressed", String(BOT.on)); const dg = $("digall"); if (dg) dg.setAttribute("aria-pressed", "false");
       if (BOT.on) { Object.assign(BOT, { phase: "", queue: [], cur: null, path: [], k: 0, skipped: [], frames: 0, t0: performance.now(), items: 0, parts: 0, partsAll: 0, gems: 0, gemsAll: 0, report: null, digAll: 0, digLeft: 0, digSkip: new Set(), digPass: 1, digT0: 0, chunks: 0, sayAt: 0 }); S.banner = { text: "🏃 Speed run: every thing, every part of every big tree, every gem", t: performance.now() }; }
       else for (const k in S.keys) S.keys[k] = false; b.blur(); }); }
   // ---- 🎮 a game controller (0.0.112; Matthew, 2026-11-25: "We have a Linux laptop that N often uses. Let's add game controller
@@ -4611,7 +4657,7 @@
     keep("seed", S.seed);
     rootChunks.clear(); S.minimapAt = -1e9; S.cam.set = false; S.party = null; S.confetti = []; S.talk = null; hushTalk(); S.parts = []; S.smoke = [];
   }
-  function stopBot() { BOT.on = false; $("run").setAttribute("aria-pressed", "false"); for (const k in S.keys) S.keys[k] = false; }
+  function stopBot() { BOT.on = false; $("run").setAttribute("aria-pressed", "false"); const d = $("digall"); if (d) d.setAttribute("aria-pressed", "false"); for (const k in S.keys) S.keys[k] = false; }
   const stamp = () => { const d = new Date(), p = n => String(n).padStart(2, "0"); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}`; };
   async function saveFile() {
     if (!H() || !S.g) return;
@@ -4801,8 +4847,49 @@
   const bugCap = document.createElement("h3"); bugCap.className = "advanced-cap"; bugCap.textContent = "🐞 What the game sees, for a bug report";
   const bugRow = document.createElement("div"); bugRow.className = "speed-row"; bugRow.append(bugBtn, bugCopy, bugPad);
   const bugHint = document.createElement("p"); bugHint.className = "muted speed-hint"; bugHint.textContent = "When something looks wrong, press it here before reloading: the screen, its zoom and full screen, the camera, the touches the page has felt, and its last errors, as lines to paste.";
+  // ---- (0.0.130; Matthew: "on my work laptop (this one) the speedrun seemed like it was moving in 'fast forward'; on the laptop
+  // that N uses, it seems like it's in slow motion. FPS is just below 60 FPS"; "I can do some measurements on the laptop, if
+  // needed. Just install a special measurement tool under advanced") ⏱ The speed run, measured: the world kept aside; a fresh
+  // one, the speed run's steps alone for twelve seconds, each part of a step timed (the speed run finding its way, the gnome's
+  // step, the water, the boulders, the beavers, the creatures...); a frame's drawing; then six seconds of the speed run as the
+  // game plays it (as many steps a frame as fit in 12 ms, and the frame drawn): frames and steps a second; the world put back
+  async function timeSpeedRun(say) {
+    const h = H(); if (!h || !S.g) return "⏱ Hazel was not ready";
+    const kept = await saveText(snapshot()), wasMap = S.map, sleep = ms => new Promise(r => setTimeout(r, ms));
+    try {
+      S.asking = true; restartNow(h); S.asking = true; BOT.on = false; $("run").click();
+      say("⏱ the speed run's steps alone, 12 s…"); await sleep(50);
+      TP.ms = {}; TP.on = true; let n = 0; const t0 = performance.now();
+      while (performance.now() - t0 < 12000 && BOT.on) { const t1 = performance.now(); while (performance.now() - t1 < 40 && BOT.on) { tick(h); n++; } await sleep(0); }
+      const tAll = performance.now() - t0; TP.on = false; const parts = Object.entries(TP.ms).sort((a, b) => b[1] - a[1]), sum = parts.reduce((a, [, v]) => a + v, 0);
+      say("⏱ a frame's drawing…"); const d0 = performance.now(); for (let k = 0; k < 20; k++) draw(); const drawMs = (performance.now() - d0) / 20;
+      say("⏱ the speed run as the game plays it, 6 s…"); S.asking = false; const f0 = PERF.frames ? PERF.frames.length : 0, b0 = BOT.frames; let frames = 0, last = performance.now(); const gaps = [];
+      await new Promise(done => { const t2 = performance.now(); let over = false; const end = () => { if (!over) { over = true; done(); } }; setTimeout(end, 6500);   // (a page out of sight has no frames: six and a half seconds at most)
+        const go = t => { if (over) return; frames++; gaps.push(t - last); last = t; if (t - t2 < 6000) requestAnimationFrame(go); else end(); }; requestAnimationFrame(go); });
+      const steps = BOT.frames - b0, secs = 6, fps = frames / secs, sps = steps / secs; if (!gaps.length) gaps.push(0);
+      const med = xs => [...xs].sort((a, b) => a - b)[xs.length >> 1] || 0;
+      const D = { app: "Gnome world", what: "speed run", v: (document.querySelector(".advanced-version") || {}).textContent || "?", at: new Date().toISOString(),
+        device: { ua: navigator.userAgent, cores: navigator.hardwareConcurrency || null, dpr: window.devicePixelRatio, screen: `${screen.width}x${screen.height}`, canvas: `${cv.width}x${cv.height}`, tile: T },
+        alone: { steps: n, ms: +tAll.toFixed(0), stepMs: +(sum / n).toFixed(3), parts: Object.fromEntries(parts.map(([k, v]) => [k, +(v / n).toFixed(3)])) },
+        drawMs: +drawMs.toFixed(1), played: { fps: +fps.toFixed(1), stepsPerSec: +sps.toFixed(0), stepsPerFrame: +(steps / Math.max(1, frames)).toFixed(2), frameMs: +med(gaps).toFixed(1), worstMs: +Math.max(...gaps).toFixed(0) } };
+      return [`⏱ Gnome world speed run, measured · ${D.v} · ${D.at} · ${navigator.userAgent.replace(/^Mozilla\/5\.0 /, "")} · ${D.device.cores} cores · canvas ${D.device.canvas}, a tile ${T} px`,
+        `the steps alone: ${D.alone.stepMs} ms a step (${n} steps in ${(tAll / 1000).toFixed(1)} s): ` + parts.slice(0, 8).map(([k, v]) => `${k} ${(v / n).toFixed(3)} ms (${(v / sum * 100).toFixed(0)}%)`).join(", "),
+        `a frame's drawing: ${D.drawMs} ms · as the game plays it: ${D.played.fps} frames a second, ${D.played.stepsPerSec} steps a second (${D.played.stepsPerFrame} a frame), a frame ${D.played.frameMs} ms, the slowest ${D.played.worstMs} ms`,
+        `DATA ${JSON.stringify(D)}`].join("\n");
+    } finally { TP.on = false; stopBot(); S.asking = true; try { await loadText(kept); } catch (e) { /* the world as the speed run left it */ } S.map = wasMap; S.asking = false; }
+  }
+  const tpOut = document.createElement("textarea"); tpOut.readOnly = true; tpOut.rows = 5; tpOut.className = "bug-report"; tpOut.placeholder = "⏱ the speed run's numbers show here";
+  const tpBtn = document.createElement("button"); tpBtn.type = "button"; tpBtn.className = "primary"; tpBtn.textContent = "⏱ time the speed run (20 s)";
+  const tpCopy = document.createElement("button"); tpCopy.type = "button"; tpCopy.textContent = "📋 copy";
+  const tpPad = document.createElement("a"); tpPad.href = bugPad.href; tpPad.target = "_blank"; tpPad.rel = "noopener"; tpPad.textContent = "📝 then paste it here";
+  tpBtn.addEventListener("click", async () => { if (tpBtn.disabled) return; tpBtn.disabled = true; const say = t => { tpOut.value = t; };
+    try { tpOut.value = await timeSpeedRun(say); } catch (e) { tpOut.value = "⏱ the timing itself failed: " + (e && e.message || e); } tpBtn.disabled = false; tpCopy.textContent = "📋 copy"; });
+  tpCopy.addEventListener("click", () => { tpOut.select(); try { navigator.clipboard.writeText(tpOut.value).then(() => { tpCopy.textContent = "📋 copied"; }, () => document.execCommand("copy")); } catch (e) { document.execCommand("copy"); } });
+  const tpCap = document.createElement("h3"); tpCap.className = "advanced-cap"; tpCap.textContent = "⏱ The speed run, measured";
+  const tpRow = document.createElement("div"); tpRow.className = "speed-row"; tpRow.append(tpBtn, tpCopy, tpPad);
+  const tpHint = document.createElement("p"); tpHint.className = "muted speed-hint"; tpHint.textContent = "Twenty seconds: the speed run from a fresh world, its steps alone (each part of a step timed), a frame's drawing, then the speed run as the game plays it. Your world is kept aside and put back after. Then copy the line into the pad.";
   if (window.OracleAdvanced) window.OracleAdvanced.panel({
-    extras: [bugCap, bugRow, bugOut, bugHint],
+    extras: [bugCap, bugRow, bugOut, bugHint, tpCap, tpRow, tpOut, tpHint],
     holder: $("advanced"), name: "Gnome world", built: () => S.built, libAt: () => 0, keysIn: null,
     mode: () => ({ asked: S.built && S.built.compiled ? "compiled" : "interpreted", error: null }),
     about: "600 of the gnome's steps through Hazel, running and jumping",
@@ -4821,6 +4908,7 @@
   if (Q.has("test")) Object.assign(window.WorldTest, { SKYC, skyClouds, cloudArt, storminess });   // (0.0.125: the sky)
   if (Q.has("test")) Object.assign(window.WorldTest, { GEMAIM, gemAim, hasFinder, gemCompass });   // (0.0.126: the gem finder)
   if (Q.has("test")) Object.assign(window.WorldTest, { CAVE, CAVEFX, caveLife });   // (0.0.127: the caverns)
+  if (Q.has("test")) Object.assign(window.WorldTest, { botItemOrder, timeSpeedRun, TP });   // (0.0.130: the speed run's order of the things; ⏱)
   // (^ticket(873): the speed run's steps alone, timed, no drawing: up to n, while the run is on and not yet at its dig)
   if (Q.has("test")) Object.assign(window.WorldTest, { steps: n => { const h = H(); const t0 = performance.now(); let k = 0; for (; k < n && BOT.on && BOT.phase !== "dig"; k++) tick(h); return { k, ms: performance.now() - t0 }; } });   // (0.0.115: the canvases kept, ^ticket(852))   // (0.0.112: the 🎮 controller, driven by hand where frames do not come)
   if (Q.has("test")) Object.assign(window.WorldTest, { snapshot, saveText, readSave, loadText, restartNow: () => restartNow(H()), askRestart, stopBot, digest, bot: on => { if (on !== BOT.on) $("run").click(); return BOT.on; }, carpetToggle, carpetHits, carpetTop, flyJS });
