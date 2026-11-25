@@ -1,8 +1,10 @@
-# (ticket 847, 2026-11-24, then with direct reads: Matthew, "A, add direct reads", e2529357f0; eq kept small, 0e055e04c9; decisions 2 and 4, cells and constructors keyed $h/$t/$c/$v, f311f4e408) records the page's way, idea A against idea C: each game's own run of states (node/package-bench.mjs
-# --runs) twice on one runner, through the jit of hazeljs 0.0.12 (hazelgrove/hazel ec2a330996, build 6: records as arrays
-# carrying their labels, idea C) and through the jit of hazelgrove/hazel's trial/847-records-objects (records as plain objects,
-# idea A), the games' own compiled.js as the ahead-of-time reference for both (--aot-as-is), the interpreter left out. Runs on
-# a push to a bench/ branch, so main and the site are untouched.
+# (ticket 853, 2026-11-25; Matthew: "let's work on turning tail calls into loops next. followed by passing function arguments as
+# JS arguments") hazel-jit's output with a recursive function's self tail calls as loops and a named function's tuple parts as
+# JS arguments, against hazel-jit as on #2859: each game's own run of states (node/package-bench.mjs --runs) through the jit of
+# hazeljs 0.0.13 (hazelgrove/hazel 20febee548, the base), then of the same package with the library of hazelgrove/hazel's
+# trial/853-pkg (6d041e9769: hazeljs with trial/853-jit-loops-args merged), then the base again, on one runner, the games' own
+# compiled.js as the ahead-of-time reference (--aot-as-is; the same file every way, a check on the runner's noise), the
+# interpreter left out. Runs on a push to a bench/ branch, so main and the site are untouched.
 name: package bench
 on:
   push:
@@ -18,20 +20,20 @@ jobs:
         game: [checkers, go, minesweeper, mahjong, solitaire, mahjong-solitaire, pinball, downhill, bricks, snake, trails, starwave, bugs, dig]
     steps:
       - uses: actions/checkout@v4
-      # hazeljs 0.0.12, not on npm: hazelgrove/hazeljs's editor-in-package at the commit that made it (hazel-lib.js from ec2a330996)
+      # hazeljs 0.0.13: hazelgrove/hazeljs's editor-in-package at the commit that made it (hazel-lib.js from 20febee548)
       - uses: actions/checkout@v4
         with:
           repository: hazelgrove/hazeljs
-          ref: 41c6cb05a4134fb4c12cc73639116a212685b239
-          path: pkg-c
-      - name: The same package with the trial's library (idea A)
+          ref: 3a4a1cdb2dc1f01135d9f0bc304eb19c4693658c
+          path: pkg-0
+      - name: The same package with the trial's library (loops and JS arguments)
         run: |
-          cp -r pkg-c pkg-a
-          curl -sfL -A "Mozilla/5.0" https://build.hazel.org/trial/847-records-objects/hazel-lib.js -o pkg-a/hazel-lib.js
-          grep -o 'build:"[0-9a-f]*"' pkg-c/hazel-lib.js | head -1
-          grep -o 'build:"[0-9a-f]*"' pkg-a/hazel-lib.js | head -1
-          grep -q 'build:"ec2a330996' pkg-c/hazel-lib.js
-          grep -q 'build:"f311f4e408' pkg-a/hazel-lib.js
+          cp -r pkg-0 pkg-1
+          curl -sfL -A "Mozilla/5.0" https://build.hazel.org/trial/853-pkg/hazel-lib.js -o pkg-1/hazel-lib.js
+          grep -o 'build:"[0-9a-f]*"' pkg-0/hazel-lib.js | head -1
+          grep -o 'build:"[0-9a-f]*"' pkg-1/hazel-lib.js | head -1
+          grep -q 'build:"20febee548' pkg-0/hazel-lib.js
+          grep -q 'build:"6d041e9769' pkg-1/hazel-lib.js
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -39,15 +41,15 @@ jobs:
         run: |
           mkdir -p bench
           { nproc; grep -m1 'model name' /proc/cpuinfo; node --version; } | tee bench/${{ matrix.game }}-machine.txt
-      - name: Idea C, today's C with direct reads simulated, then idea A with direct reads, on this runner
+      - name: The base, the trial, the base again, on this runner
         run: |
           ulimit -s unlimited || ulimit -s 65536
           set -o pipefail
-          node --stack-size=30000 --max-old-space-size=6000 node/package-bench.mjs ${{ matrix.game }} pkg-c bench/${{ matrix.game }}-c.json --runs --aot-as-is --no-interp | tee bench/${{ matrix.game }}-c.txt
-          node --import ./node/direct-sim.mjs --stack-size=30000 --max-old-space-size=6000 node/package-bench.mjs ${{ matrix.game }} pkg-c bench/${{ matrix.game }}-cd.json --runs --aot-as-is --no-interp | tee bench/${{ matrix.game }}-cd.txt
-          node --stack-size=30000 --max-old-space-size=6000 node/package-bench.mjs ${{ matrix.game }} pkg-a bench/${{ matrix.game }}-a.json --runs --aot-as-is --no-interp | tee bench/${{ matrix.game }}-a.txt
+          node --stack-size=30000 --max-old-space-size=6000 node/package-bench.mjs ${{ matrix.game }} pkg-0 bench/${{ matrix.game }}-base.json --runs --aot-as-is --no-interp | tee bench/${{ matrix.game }}-base.txt
+          node --stack-size=30000 --max-old-space-size=6000 node/package-bench.mjs ${{ matrix.game }} pkg-1 bench/${{ matrix.game }}-trial.json --runs --aot-as-is --no-interp | tee bench/${{ matrix.game }}-trial.txt
+          node --stack-size=30000 --max-old-space-size=6000 node/package-bench.mjs ${{ matrix.game }} pkg-0 bench/${{ matrix.game }}-base2.json --runs --aot-as-is --no-interp | tee bench/${{ matrix.game }}-base2.txt
       - uses: actions/upload-artifact@v4
         if: ${{ always() }}
         with:
-          name: acd-${{ matrix.game }}
+          name: b853-${{ matrix.game }}
           path: bench/
