@@ -2418,7 +2418,10 @@
     if (!k.up) R.leapt = false;   // (up held: leap again at each landing)
     if (g.ground || g.climb || g.swim || g.under) R.hop = R.leap = false;
     if (g.dc >= 0 && g.dt > 0) g.dt += 2;   // (she digs three times as fast)
-    if (!g.gear && (g.swim || g.under) && R.safe) {   // (no swimming without the diving gear: back onto the bank)
+    // (no swimming without the diving gear: back onto the bank. 0.0.118; Matthew: "clover got stuck in the ground for me", his 🐞:
+    // riding at the bottom of a hole dug five deep, its last tile with water seeped into it; there her last safe place was that
+    // tile, and climbing up out of it counts as in the water too, so every step put her back: climbing, she is not swimming)
+    if (!g.gear && (g.swim || g.under) && !g.climb && R.safe) {
       g = { ...g, x: R.safe.x, y: R.safe.y, vx: 0, vy: 0, swim: false, under: false, ground: true, climb: false, air: 600, ev: 0, dc: -1, dr: -1, dt: 0 }; R.hop = R.leap = false;
       if (SND) SND.splash(); S.banner = { text: "🐇 Clover won't swim without her diving kit 🤿", t: performance.now() }; }
     if (g.ground && !g.swim && !g.under) R.safe = { x: g.x, y: g.y };
@@ -4347,6 +4350,17 @@
       vv ? `page zoom: ${f2(vv.scale)} (seen ${f2(WATCH.zoomMin)} to ${f2(WATCH.zoomMax)}, last off 1 ${ago(WATCH.zoomAt)}; put back ${WATCH.zoomResets} times; the frame laid over the part in sight ${WATCH.anchored || 0} times${anchored ? ", now" : ""}) · visible ${r(vv.width)}×${r(vv.height)} at ${r(vv.offsetLeft)},${r(vv.offsetTop)} · page scrolled ${r(scrollX)},${r(scrollY)}` : "page zoom: no visualViewport",
       `canvas: on the page ${r(cr.width)}×${r(cr.height)} at ${r(cr.left)},${r(cr.top)} · pixels ${cv.width}×${cv.height} · a tile ${f2(T)} px (cap ${TCAP}${S.tileFix ? ", fixed at " + S.tileFix : ""}) · view ${f2(VW)}×${f2(VH)} tiles${S.camFix ? " · camera FIXED at " + JSON.stringify(S.camFix) : ""}`,
       `camera: ${f2(S.cam.x)},${f2(S.cam.y)} (set ${!!S.cam.set}) · world ${WW}×${WH} tiles · the gnome at ${f2((g.x || 0) / 1000)},${f2((g.y || 0) / 1000)} moving ${r(g.vx || 0)},${r(g.vy || 0)} · ${["ground", "swim", "under", "climb"].filter(k => g[k]).join(", ") || "in the air"}${S.ride && S.ride.on ? " · riding Clover" : ""}${BOT.on ? " · speed run on" : ""}`,
+      // (0.0.118; Matthew, on 0.0.116's report of Clover stuck: "it doesn't seem like that text has enough game details") the
+      // world's seed and who plays, the gnome whole, what is ridden and each ride's own state, and the tiles round the gnome
+      `world: seed ${S.seed} · playing ${S.hero} · frame ${S.frame} · riding ${rideOn() || "nothing"} (last used ${S.use})`,
+      `the gnome: ${JSON.stringify(S.g)}`,
+      `rides: Clover ${JSON.stringify(S.mount ? { x: S.mount.x, y: S.mount.y, tame: S.mount.tame, face: S.mount.face } : null)} · riding her ${JSON.stringify(S.ride)} · carrots ${S.carrots || 0} · the carpet ${JSON.stringify(S.carpet ? { have: S.carpet.have, on: S.carpet.on, vx: S.carpet.vx, vy: S.carpet.vy } : null)} · the cat tail ${JSON.stringify(S.tail)}`,
+      ...(() => { const gc = Math.floor((g.x || 0) / 1000), gr = Math.floor(((g.y || 1) - 1) / 1000), out = [`round the gnome, columns ${gc - 5} to ${gc + 5}, rows ${gr - 6} to ${gr + 3} (@ the gnome's feet; A soil, B clay, C sand, D sandstone, E shale, F limestone, G granite, M masonry, T timber; space open, . dug, ~ water, o a boulder, H a ladder or stair, = a platform or bridge, ^ a hatch):`];
+        for (let r = gr - 6; r <= gr + 3; r++) { let line = String(r).padStart(4) + " ";
+          for (let c = gc - 5; c <= gc + 5; c++) { if (c === gc && r === gr) { line += "@"; continue; } if (!inside(c, r)) { line += "#"; continue; } const i = at(c, r), m = mat[i];
+            line += m !== AIR ? "ABCDEFGMT"[m - 1] || "?" : boulderAt(c, r) ? "o" : wat[i] >= 0.5 ? "~" : fix[i] === F_LADDER || fix[i] === F_STAIR ? "H" : fix[i] === F_PLAT || fix[i] === F_BRIDGE ? "=" : fix[i] === F_HATCH ? "^" : bg[i] === B_DUG ? "." : " "; }
+          out.push(line); }
+        return out; })(),
       `keys held: ${held.join(", ") || "none"} · pad buttons held: ${pads.join(", ") || "none"} · map ${S.map ? "on" : "off"} · R rides ${S.use} (next: ${nextRide()})`,
       `game controller: ${PAD.name ? `${PAD.id} · ${PAD.mapping || "its own numbers"} · held ${[...PAD.down].join(", ") || "none"}` : "none"} · its buttons ${PAD_ACTIONS.map(([a]) => `${a} ${PAD.buttons[a]}`).join(", ")}`,
       `touches: at most ${WATCH.touchMax} at once · ${WATCH.multi} starts with two or more · pinch gestures ${WATCH.gestures} (stopped ${WATCH.gesturesBlocked}) · pointers ${JSON.stringify(WATCH.pointers)} · the last touch ${WATCH.lastTouch ? `${WATCH.lastTouch.n} at ${WATCH.lastTouch.x},${WATCH.lastTouch.y}, ${ago(WATCH.lastTouch.at)}` : "none"}`,

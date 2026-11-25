@@ -2,6 +2,11 @@
 
 Each version lists what the apps do as of that version. The newest version is first.
 
+## 0.0.118 (2026-11-25)
+
+- **Gnome world: Clover climbs out of a hole with water in it** (Matthew: "clover got stuck in the ground for me", with his 🐞 from the Linux laptop, Firefox, 0.0.116: riding her at the bottom of a hole dug five tiles deep). Its bottom tile had water seeped into it. Clover won't swim without her diving kit: in the water she is put back at her last safe place; and that place was the wet bottom of the hole, and climbing up out of it counts as being in the water, so every step put her back, whatever was pressed. Now climbing (dug earth, the only thing she climbs) is not swimming: ↑ climbs her out, ↑ and → or ← steps her off at the top. Rivers stay as they were: no swimming for her without the kit. Checked in the page with the same hole in the same world (seed 7): stuck before, out in 68 steps now.
+- **🐞 says more of the game** (Matthew: "it doesn't seem like that text has enough game details"): the world's seed and who plays; the gnome, all of it; what is ridden, and Clover's, the carpet's and the cat tail's own state; and a map of the tiles round the gnome, ten rows by eleven columns: the kinds of ground, open, dug, water, boulders, ladders and stairs, platforms and bridges, hatches, the gnome's feet. With this one the hole and its water would have been there to see.
+
 ## 0.0.117 (2026-11-25)
 
 - **Gnome world: choosing a ride by a button combo, and a ride screen that works** (Matthew, playing with N on the Linux laptop in Firefox: the 🎒 screen "doesn't work. it's pretty broken and frustrating. Instead of this screen, N wants to use a button combo: dpad Left + ride/on/off button = get on rabbit (get off carpet, off tail); dpad Right + ride/on/off button = get on carpet (get off rabbit, off tail); dpad Down + ride/on/off button = use tail, and get off carpet/rabit"; and "when the user is not riding anything, but presses the 'ride' button, it's okay to pop up a screen, but it should work"). 0.0.113's 🎒 screen only chose the ride for later and shut, so a choice did nothing you could see; and a tap that opened it could land on a choice. Now:
