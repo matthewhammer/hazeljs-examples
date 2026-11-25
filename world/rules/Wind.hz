@@ -1,0 +1,10 @@
+# The wind (piece 5 of ^report(64)'s plan; Gnome world 0.0.137, the page's JavaScript of 0.0.84 moved into Hazel): its strength and its way, -1 to 1, east the more the higher, a step at a time. The wind (w): how strong it blows now (v), the strength it is turning toward (aim), the step at which it picks a new aim (next), and a gust on top (gust). Each new aim comes every 6 to 16 seconds (360 to 960 steps), one time in five or so a strong one; the wind comes round to its aim slowly (0.4% of the way a step); a gust comes now and then, more often the stronger the wind, its way the aim's, and dies away (2.5% a step). The page gives the step (frame) and five random numbers from its own random stream (r), so the same world blows the same either way: a, whether a new aim is strong; b, the aim; c, how long until the next; d, whether a gust comes; e, its size. The answer: the wind, and how strong it blows this step (now, the wind and its gust, -1.4 to 1.4), for the leaves, the trees, the grass, the waves, the smoke, the rain, the clouds and the birds #
+let step : ((v = Float, aim = Float, next = Int, gust = Float), Int, (a = Float, b = Float, c = Float, d = Float, e = Float)) -> (wind = (v = Float, aim = Float, next = Int, gust = Float), now = Float) = fun (w, frame, r) ->
+  let clamp : (Float, Float) -> Float = fun (x, m) -> (if x <. 0. -. m then 0. -. m else if x >. m then m else x) in
+  let turn = frame >= w.next in
+  let aim = (if turn then clamp((r.b -. 0.38) *. (if r.a <. 0.22 then 2.4 else 1.1), 1.) else w.aim) in
+  let next = (if turn then frame + int_of_float(60. *. (6. +. r.c *. 10.)) else w.next) in
+  let strength = (if w.v <. 0. then 0. -. w.v else w.v) in
+  let gust = (if r.d <. 0.0035 +. 0.006 *. strength then (0.35 +. r.e *. 0.45) *. (if aim >=. 0. then 1. else 0. -. 1.) else w.gust) *. 0.975 in
+  let v = w.v +. (aim -. w.v) *. 0.004 in
+  (wind = (v = v, aim = aim, next = next, gust = gust), now = clamp(v +. gust, 1.4))

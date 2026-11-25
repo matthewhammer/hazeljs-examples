@@ -13,8 +13,8 @@ const BUILD_ONLY = process.argv.includes("--build-only"), NO_FLY = process.argv.
 await import(pathToFileURL(lib).href);
 const Hazel = globalThis.Hazel;
 const read = f => readFileSync(new URL("../world/rules/" + f, import.meta.url), "utf8").replace(/\s+$/, "");
-const modules = NO_FLY ? ["World"] : ["World", "Fly", "Tail", "Ride", "Boulder", "Pickup"];   // (0.0.116: and the cat tail's flight, Tail.hz; 0.0.134: Clover's ride, Ride.hz)
-const tail = "(plan = World.plan, step = World.step" + (NO_FLY ? "" : ", fly = Fly.step, tail = Tail.step, ride_pre = Ride.pre, ride_post = Ride.post, boulder = Boulder.step, pickup = Pickup.step") + ")";
+const modules = NO_FLY ? ["World"] : ["World", "Fly", "Tail", "Ride", "Boulder", "Pickup", "Wind"];   // (0.0.116: and the cat tail's flight, Tail.hz; 0.0.134: Clover's ride, Ride.hz)
+const tail = "(plan = World.plan, step = World.step" + (NO_FLY ? "" : ", fly = Fly.step, tail = Tail.step, ride_pre = Ride.pre, ride_post = Ride.post, boulder = Boulder.step, pickup = Pickup.step, wind = Wind.step") + ")";
 const spec = { preamble: read("preamble.hz"), modules: modules.map(name => ({ name, text: read(name + ".hz") })), tail };
 const t0 = performance.now();
 const built = Hazel.jitProgram(spec);
@@ -151,5 +151,21 @@ ptime(pickupJS); ptime(pickupH); const pjs = ptime(pickupJS), phz = ptime(pickup
 console.log(`picking things up: Pickup.step the same as the page's pickupJS at ${pSame} of ${N} made-up steps close by${pFirst ? "; first differs: " + JSON.stringify(pFirst) : ""} (things taken ${pseen.things}, hearts ${pseen.hearts}, at ${pseen.steps} steps), and at ${pRealSame} of ${N} as in a world (twelve things, twenty-six hearts, over 900 tiles; something taken at ${pRealTook})`);
 console.log(`a step of picking up, as in a world: the page's JavaScript ${pjs.toFixed(3)} µs, Hazel's Pickup.step through the jit ${phz.toFixed(3)} µs (${(phz / pjs).toFixed(1)}×); of a 16.7 ms frame, ${(phz / 16670 * 100).toFixed(4)}%`);
 result.pickup = { steps: N, same: pSame, realSame: pRealSame, first: pFirst, seen: pseen, jsUs: pjs, hazelUs: phz };
+// (0.0.137) the wind, piece 5: Hazel's Wind.step against the page's windJS, on a wind blowing 20,000 steps from the page's first
+// wind, five random numbers a step as the page gives them; each step's answer compared, the JavaScript's carried on
+const wsrc = app.slice(app.indexOf("  const windJS = (w, frame, r) => {"), app.indexOf("  function windStep(h) {"));
+const windJS = new Function(wsrc + "; return windJS;")(), windH = built.value.wind;
+const wcanon = a => JSON.stringify([a.wind.v, a.wind.aim, a.wind.next, a.wind.gust, a.now]);
+let wind = { v: 0.25, aim: 0.3, next: 0, gust: 0 }, wSame = 0, wFirst = null; const win = [], wseen = { turns: 0, strong: 0, gusts: 0, top: 0 };
+for (let i = 0; i < N * 3; i++) { const r = { a: rnd(), b: rnd(), c: rnd(), d: rnd(), e: rnd() }; win.push([wind, i, r]);
+  const a1 = windH(wind, i, r), a2 = windJS(wind, i, r);
+  if (wcanon(a1) === wcanon(a2)) wSame++; else if (!wFirst) wFirst = { step: i, wind, r, hazel: wcanon(a1), js: wcanon(a2) };
+  if (a2.wind.next !== wind.next) { wseen.turns++; if (Math.abs(a2.wind.aim) > 0.62 * 1.1) wseen.strong++; } if (Math.abs(a2.wind.gust) > Math.abs(wind.gust) * 0.975 + 1e-12) wseen.gusts++; wseen.top = Math.max(wseen.top, Math.abs(a2.now));
+  wind = a2.wind; }
+const wtime = f => { const ts = []; for (let k = 0; k < 7; k++) { const t = performance.now(); for (const [w, i, r] of win) f(w, i, r); ts.push((performance.now() - t) * 1000 / win.length); } ts.sort((x, y) => x - y); return ts[3]; };
+wtime(windJS); wtime(windH); const wjs = wtime(windJS), whz = wtime(windH);
+console.log(`the wind: Wind.step the same as the page's windJS at ${wSame} of ${N * 3} steps of a wind blowing${wFirst ? "; first differs: " + JSON.stringify(wFirst) : ""} (new aims ${wseen.turns}, strong ones ${wseen.strong}, gusts ${wseen.gusts}, strongest ${wseen.top.toFixed(2)})`);
+console.log(`a step of the wind: the page's JavaScript ${wjs.toFixed(3)} µs, Hazel's Wind.step through the jit ${whz.toFixed(3)} µs (${(whz / wjs).toFixed(1)}×); of a 16.7 ms frame, ${(whz / 16670 * 100).toFixed(4)}%`);
+result.wind = { steps: N * 3, same: wSame, first: wFirst, seen: wseen, jsUs: wjs, hazelUs: whz };
 if (out) writeFileSync(out, JSON.stringify(result, null, 1));
-process.exit(same === N && tSame === N && rSame === N && bSame === N && pSame === N && pRealSame === N ? 0 : 1);
+process.exit(same === N && tSame === N && rSame === N && bSame === N && pSame === N && pRealSame === N && wSame === N * 3 ? 0 : 1);

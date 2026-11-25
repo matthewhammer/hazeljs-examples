@@ -35,8 +35,8 @@
   if (window.visualViewport) { const vz = () => { const z = visualViewport.scale; WATCH.zoomMin = Math.min(WATCH.zoomMin, z); WATCH.zoomMax = Math.max(WATCH.zoomMax, z); if (Math.abs(z - 1) > 0.01) WATCH.zoomAt = performance.now(); };
     visualViewport.addEventListener("resize", vz); visualViewport.addEventListener("scroll", vz); }
   const LIB_JIT = "https://build.hazel.org/hazeljs/hazel-lib.js", LIB_NPM = "https://cdn.jsdelivr.net/npm/hazeljs@0.0.4/hazel-lib.js";
-  const PROGRAM = "world", MODULES = ["World", "Fly", "Tail", "Ride", "Boulder", "Pickup"];
-  const TAIL = "(plan = World.plan, ground = World.ground, village = World.village, furnish = World.furnish, limbs = World.limbs, styles = World.styles, beaver = World.beaver, water_row = World.water_row, step = World.step, roots = World.roots, threads = World.threads, greet = World.greet, dig_steps = World.dig_steps, fly = Fly.step, tail = Tail.step, ride_pre = Ride.pre, ride_post = Ride.post, boulder = Boulder.step, pickup = Pickup.step)";
+  const PROGRAM = "world", MODULES = ["World", "Fly", "Tail", "Ride", "Boulder", "Pickup", "Wind"];
+  const TAIL = "(plan = World.plan, ground = World.ground, village = World.village, furnish = World.furnish, limbs = World.limbs, styles = World.styles, beaver = World.beaver, water_row = World.water_row, step = World.step, roots = World.roots, threads = World.threads, greet = World.greet, dig_steps = World.dig_steps, fly = Fly.step, tail = Tail.step, ride_pre = Ride.pre, ride_post = Ride.post, boulder = Boulder.step, pickup = Pickup.step, wind = Wind.step)";
   const KEY = "hazeljs-examples/world/";
   const Q = new URLSearchParams(location.search);
   const $ = id => document.getElementById(id);
@@ -117,7 +117,7 @@
   // once (the world's plan, its villages and trees); off unless chosen; kept on this device, and in a save made with it on
   let plainView = null, plainOf = null;
   const H = () => { if (!(S.built && S.built.ok)) return null; const v = S.built.value; if (S.rules !== "plain" || !window.WorldPlain) return v;
-    if (plainOf !== v) { plainOf = v; plainView = { ...v, step: window.WorldPlain.step, beaver: window.WorldPlain.beaver, water_row: window.WorldPlain.water_row, fly: undefined, tail: undefined, ride_pre: undefined, ride_post: undefined, boulder: undefined, pickup: undefined }; }
+    if (plainOf !== v) { plainOf = v; plainView = { ...v, step: window.WorldPlain.step, beaver: window.WorldPlain.beaver, water_row: window.WorldPlain.water_row, fly: undefined, tail: undefined, ride_pre: undefined, ride_post: undefined, boulder: undefined, pickup: undefined, wind: undefined }; }
     return plainView; };
   function setRules(r) { S.rules = r === "plain" ? "plain" : "hazel"; keep("rules", S.rules); plainOf = null; const box = document.getElementById("rules-plain"); if (box) box.checked = S.rules === "plain"; if (typeof drawStatus === "function") drawStatus(); }
   let seedRand = 1;
@@ -992,13 +992,21 @@
   // ---- (Matthew: "let's have wind effects that are variable": "they affect hanging willow branches", "and waves on water
   // surface", "and grass/other light veg moving", "and trees moving") The wind: its strength and its way (-1 to 1, east the
   // positive way), wandering toward a new aim every six to sixteen seconds (now and then a strong one), with gusts on top of
-  // it that die away; and in a gust, leaves blown off the trees
-  function windStep() {
+  // it that die away; and in a gust, leaves blown off the trees. (0.0.137; piece 5 of ^report(64)'s plan) The wind's step is
+  // Hazel's, Wind.step; here its twin in JavaScript, the same answers, for ⚡ and the check in Node. The page draws its five random
+  // numbers each step, whether or not the wind uses them (before 0.0.137 it drew them only as it needed them), and gives them in;
+  // the leaves stay the page's
+  const windJS = (w, frame, r) => {
+    let aim = w.aim, next = w.next;
+    if (frame >= w.next) { aim = Math.max(-1, Math.min(1, (r.b - 0.38) * (r.a < 0.22 ? 2.4 : 1.1))); next = frame + Math.floor(60 * (6 + r.c * 10)); }
+    const gust = (r.d < 0.0035 + 0.006 * Math.abs(w.v) ? (0.35 + r.e * 0.45) * (aim >= 0 ? 1 : -1) : w.gust) * 0.975, v = w.v + (aim - w.v) * 0.004;
+    return { wind: { v, aim, next, gust }, now: Math.max(-1.4, Math.min(1.4, v + gust)) };
+  };
+  function windStep(h) {
     const W0 = S.wind || (S.wind = { v: 0.25, aim: 0.3, next: 0, gust: 0 });
-    if (S.frame >= W0.next) { const strong = rand() < 0.22; W0.aim = Math.max(-1, Math.min(1, (rand() - 0.38) * (strong ? 2.4 : 1.1))); W0.next = S.frame + Math.floor(60 * (6 + rand() * 10)); }
-    if (rand() < 0.0035 + 0.006 * Math.abs(W0.v)) W0.gust = (0.35 + rand() * 0.45) * (W0.aim >= 0 ? 1 : -1);
-    W0.gust *= 0.975; W0.v += (W0.aim - W0.v) * 0.004;
-    S.windNow = Math.max(-1.4, Math.min(1.4, W0.v + W0.gust));
+    const r = { a: rand(), b: rand(), c: rand(), d: rand(), e: rand() }, byHazel = !!(h && h.wind) && !Q.has("jswind");
+    const a = byHazel ? h.wind({ v: W0.v, aim: W0.aim, next: W0.next | 0, gust: W0.gust }, S.frame, r) : windJS(W0, S.frame, r);
+    W0.v = a.wind.v; W0.aim = a.wind.aim; W0.next = a.wind.next; W0.gust = a.wind.gust; S.windNow = a.now;
     if (Math.abs(S.windNow) > 0.75 && rand() < 0.25 && S.g) { const t = S.trees[Math.floor(rand() * S.trees.length)];
       if (t && t.alive && Math.abs(t.x - S.g.x / 1000) < 30) S.leaves.push({ x: t.x + (rand() - 0.5) * t.h * 0.6, y: surf0[t.x] - t.h * (0.6 + 0.3 * rand()), vy: 0.004, a: rand() * 6, life: 0, col: ["#5a8f2a", "#86a92e", "#c2a83a", "#2f7d32"][Math.floor(rand() * 4)] }); }
     for (const l of S.leaves) { l.x += S.windNow * 0.06 + Math.sin(l.a) * 0.01; l.y += l.vy + Math.cos(l.a * 0.7) * 0.004; l.a += 0.08; l.life++; }
@@ -1047,7 +1055,7 @@
     for (const B of S.beavers) B.px += (B.b.x / 100 - B.px) * 0.18;
     if (S.frame % 9 === 0) for (const d of S.ducts) if (d.kind === 3) S.smoke.push({ x: d.x + 0.5 + (rand() - 0.5) * 0.2, y: d.y0 - 2.2, r: 0.18, life: 0, drift: 0.004 + rand() * 0.006 });
     tmark("trees, hearts, smoke");
-    windStep(); houseSmoke(); tmark("wind and smoke"); squirrelsStep(); tmark("squirrels"); pebblesStep(); tmark("pebbles"); villagersStep(h); tmark("villagers"); wildStep(); tmark("birds, frogs, bugs"); bunniesStep(); tmark("rabbits");
+    windStep(h); houseSmoke(); tmark("wind and smoke"); squirrelsStep(); tmark("squirrels"); pebblesStep(); tmark("pebbles"); villagersStep(h); tmark("villagers"); wildStep(); tmark("birds, frogs, bugs"); bunniesStep(); tmark("rabbits");
     if (S.frame % 15 === 0) musicStep();
     for (const s of S.smoke) { s.y -= 0.012; s.x += s.drift + S.windNow * 0.02; s.r += 0.006; s.life++; }
     S.smoke = S.smoke.filter(s => s.life < 200);
@@ -4637,6 +4645,22 @@
   }
   if (!HEROES[S.hero]) S.hero = "dad";
   heroPicker();
+  // (0.0.137; Matthew: "when we are 'building the rules', post reload from an update, we should have something on the game
+  // screen, turning (the 4 gnome heads rotating, each sticking out in a different direction?)") While Hazel loads and the rules
+  // build, the four gnomes' heads on a wheel over the game, each looking out its own way, turning (world.css). The build holds
+  // the page's thread for seconds, so nothing the page drew could move then: the wheel turns by a CSS animation, which the
+  // browser runs apart from the page, and a build waits a frame or two after the wheel is shown, so it is turning when the page
+  // stops. Each head is the game's own gnome, drawn front on, its head (cap to beard: 37 units of dad's 40-unit frame, a smaller
+  // gnome scaled about its feet) filling a round portrait
+  function buildHeads() {
+    for (const pc of document.querySelectorAll("#building canvas[data-head]")) {
+      const who = pc.dataset.head, sz = (HEROES[who] || HEROES.dad).size, c = pc.getContext("2d"), W = pc.width, R = W / 2;
+      const u = W * 0.8 * 40 / (37 * sz), yc = 19 + (-16 - 19) * sz;
+      c.clearRect(0, 0, W, W); c.save(); c.beginPath(); c.arc(R, R, R - 2, 0, 7); c.fillStyle = "#e0f2fe"; c.fill(); c.clip();
+      gnome(c, R, R - yc * u / 40, u, 2, true, false, 0, false, false, false, false, null, who);
+      c.restore(); c.lineWidth = 3; c.strokeStyle = "#fff"; c.beginPath(); c.arc(R, R, R - 2.5, 0, 7); c.stroke(); }
+  }
+  buildHeads();
   $("new").addEventListener("click", () => { const h = H(); if (!h) return; S.seed = 1 + Math.floor(Math.random() * 100000); keep("seed", S.seed); build(h, S.seed); $("new").blur(); });
 
   // ---- (0.0.101; Matthew, 2026-11-24: "M wants a save/load feature, so that the game world state is preserved in a file"; "and
@@ -4802,7 +4826,10 @@
   }
   setInterval(() => { if (S.built && S.built.ok) drawStatus(); }, 3000);
   let L = null, timer = 0;
-  function buildRules() {
+  const building = (on, say) => { const b = $("building"); if (b) b.hidden = !on; if (say) $("building-say").textContent = say; };
+  const buildSoon = then => { building(true, "🔨 Building the rules…"); requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(then, 0))); };
+  function buildRules() { try { buildRulesNow(); } finally { building(false); } }
+  function buildRulesNow() {
     if (!window.Hazel || !L) return;
     const sp = L.spec(PROGRAM, TAIL), key = JSON.stringify(sp);
     if (S.built && S.built.key === key) return;
@@ -4818,9 +4845,9 @@
   function loadLib() {
     drawStatus();
     const want = Q.get("lib") === "npm" ? [LIB_NPM] : [LIB_JIT, LIB_NPM];
-    const next = i => { if (i >= want.length) { S.libFailed = true; drawStatus(); return; }
+    const next = i => { if (i >= want.length) { S.libFailed = true; drawStatus(); building(false); return; }
       const s = document.createElement("script"); s.src = want[i]; s.async = true;
-      s.onload = () => { S.lib = want[i]; drawStatus(); setTimeout(buildRules, 30); }; s.onerror = () => { s.remove(); next(i + 1); };
+      s.onload = () => { S.lib = want[i]; drawStatus(); buildSoon(buildRules); }; s.onerror = () => { s.remove(); next(i + 1); };
       document.head.append(s); };
     next(0);
   }
@@ -4831,9 +4858,10 @@
     window.HazelListingsOptions = { start: "request" };
     await load("../shared/hazel-listings.js?v=0.0.24");
     L = window.HazelListings; L.tail(PROGRAM, TAIL);
-    L.onChange(PROGRAM, () => { clearTimeout(timer); timer = setTimeout(buildRules, 350); });
+    L.onChange(PROGRAM, () => { clearTimeout(timer); timer = setTimeout(() => buildSoon(buildRules), 350); });
     loadLib();
   } catch (e) {
+    building(false);
     $("status").textContent = "Could not start: " + (e && e.message || e) + ". Serve this folder over http (python3 -m http.server) and open it from localhost.";
   }
   $("reset-rules").addEventListener("click", () => { if (L) L.reset(PROGRAM); });
@@ -4991,7 +5019,7 @@
   if (Q.has("test")) Object.assign(window.WorldTest, { SKYC, skyClouds, cloudArt, storminess });   // (0.0.125: the sky)
   if (Q.has("test")) Object.assign(window.WorldTest, { GEMAIM, gemAim, hasFinder, gemCompass });   // (0.0.126: the gem finder)
   if (Q.has("test")) Object.assign(window.WorldTest, { CAVE, CAVEFX, caveLife });   // (0.0.127: the caverns)
-  if (Q.has("test")) Object.assign(window.WorldTest, { botItemOrder, timeSpeedRun, TP, wakeTill, wakeAll, waterStep, setRules, H, rideJS, rideStep, boulderJS, bouldersStep, pickupJS, pickups });   // (0.0.130: the speed run's order of the things; ⏱)
+  if (Q.has("test")) Object.assign(window.WorldTest, { botItemOrder, timeSpeedRun, TP, wakeTill, wakeAll, waterStep, setRules, H, rideJS, rideStep, boulderJS, bouldersStep, pickupJS, pickups, windJS, windStep });   // (0.0.130: the speed run's order of the things; ⏱)
   // (^ticket(873): the speed run's steps alone, timed, no drawing: up to n, while the run is on and not yet at its dig)
   if (Q.has("test")) Object.assign(window.WorldTest, { steps: (n, any) => { const h = H(); const t0 = performance.now(); let k = 0; for (; k < n && (any || (BOT.on && BOT.phase !== "dig")); k++) tick(h); return { k, ms: performance.now() - t0 }; } });   // (any: steps with or without the speed run)   // (0.0.115: the canvases kept, ^ticket(852))   // (0.0.112: the 🎮 controller, driven by hand where frames do not come)
   if (Q.has("test")) Object.assign(window.WorldTest, { snapshot, saveText, readSave, loadText, restartNow: () => restartNow(H()), askRestart, stopBot, digest, bot: on => { if (on !== BOT.on) $("run").click(); return BOT.on; }, carpetToggle, carpetHits, carpetTop, flyJS });

@@ -13,6 +13,20 @@
 .gw-wrap { position: relative; }
 .gw-wrap canvas { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; border-radius: 14px; touch-action: none; background: #8cc4ec;
   box-shadow: 0 2px 12px rgb(0 0 0 / 0.25); -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+/* (0.0.137) while the rules build: the four gnomes' heads on a wheel over the game, each looking out its own way, turning. The
+   build holds the page's thread for seconds, so the wheel turns by a CSS animation of its transform alone, which the browser runs
+   apart from the page */
+.gw-building { position: absolute; inset: 0; z-index: 2; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3%;
+  border-radius: 14px; background: rgb(140 196 236 / 0.6); pointer-events: none; }
+.gw-building[hidden] { display: none; }
+.gw-wheel { position: relative; width: min(34%, 34vh); aspect-ratio: 1; animation: gw-turn 3s linear infinite; will-change: transform; }
+#building canvas { position: absolute; left: 31%; top: 31%; width: 38%; height: 38%; aspect-ratio: auto; border-radius: 50%; background: none;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.25); transform: rotate(var(--a)) translateY(-82%); }
+#building canvas:nth-child(2) { --a: 90deg; } #building canvas:nth-child(3) { --a: 180deg; } #building canvas:nth-child(4) { --a: 270deg; }
+#building canvas:nth-child(1) { --a: 0deg; }
+.gw-building p { margin: 0; padding: 4px 14px; border-radius: 999px; background: rgb(255 255 255 / 0.85); color: #1e293b; font-weight: 600; }
+@keyframes gw-turn { to { transform: rotate(1turn); } }
+@media (prefers-reduced-motion: reduce) { .gw-wheel { animation: none; } }
 .gw-pad { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 8px; max-width: 440px; margin: 10px auto 0; }
 .gw-pad button { font: inherit; font-size: 1.5em; padding: 10px 0; border-radius: 12px; border: 1px solid var(--line); background: var(--paper); color: var(--ink);
   touch-action: none; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }

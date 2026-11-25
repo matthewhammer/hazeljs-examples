@@ -7,7 +7,7 @@
 <meta name="description" content="Gnome world: a gnome running, jumping, climbing and digging through a world thirty-two screens across and thirteen down, from the deep rock to the tops of great trees: rivers and the beavers' dams, the gnomes' village deep under a hill, tree houses in sixteen styles, and ground water seeping through soil, sand and stone. The world's plan, its villages and tree houses and the beavers' minds are Hazel.">
 <link rel="stylesheet" href="../shared/style.css?v=0.0.14">
 <link rel="stylesheet" href="../shared/oracles.css?v=0.0.121">
-<link rel="stylesheet" href="world.css?v=0.0.117">
+<link rel="stylesheet" href="world.css?v=0.0.137">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
 <link rel="icon" href="icons/icon-32.png" sizes="32x32" type="image/png">
@@ -49,6 +49,7 @@
   <div class="status wait" id="status">⏳ Loading the rules…</div>
   <div class="gw-bar"><span id="gems">💎 0</span><span id="hearts"></span><span id="where" class="muted"></span></div>
   <div class="gw-wrap"><canvas id="world" width="960" height="540" aria-label="The world"></canvas>
+    <div class="gw-building" id="building" aria-hidden="true"><div class="gw-wheel"><canvas data-head="dad" width="96" height="96"></canvas><canvas data-head="mom" width="96" height="96"></canvas><canvas data-head="girl" width="96" height="96"></canvas><canvas data-head="boy" width="96" height="96"></canvas></div><p id="building-say">⏳ Loading Hazel…</p></div>
     <div class="gw-pad" aria-label="Moving">
       <button type="button" data-k="left" aria-label="Left" title="Left (← or A)">⬅️</button>
       <button type="button" data-k="up" aria-label="Jump or climb" title="Jump, or climb (↑ or W)">⬆️</button>
@@ -64,7 +65,7 @@
   <p class="nojs muted">This app needs JavaScript, and a page served over http (python3 -m http.server, then localhost).</p>
 </section>
 <section class="oracle-code" aria-label="The rules, in Hazel">
-  <p class="muted" style="margin-top:0">The rules, in Hazel: its words (<code>preamble.hz</code>), the world (<code>World.hz</code>), the magic carpet's flight (<code>Fly.hz</code>), the cat tail's (<code>Tail.hz</code>), Clover's ride (<code>Ride.hz</code>), the boulders' (<code>Boulder.hz</code>) and picking things up (<code>Pickup.hz</code>). <b>Edit in Hazel</b> to change them.</p>
+  <p class="muted" style="margin-top:0">The rules, in Hazel: its words (<code>preamble.hz</code>), the world (<code>World.hz</code>), the magic carpet's flight (<code>Fly.hz</code>), the cat tail's (<code>Tail.hz</code>), Clover's ride (<code>Ride.hz</code>), the boulders' (<code>Boulder.hz</code>), picking things up (<code>Pickup.hz</code>) and the wind (<code>Wind.hz</code>). <b>Edit in Hazel</b> to change them.</p>
   <pre class="code hazel" data-program="world">loading preamble.hz…</pre>
   <div class="ed"><div class="ed-head"><b>World</b> <span class="muted">the plan, the ground, the villages, the trees, the beavers, the villagers and the gnome's step</span></div>
   <pre class="code hazel" data-program="world" data-module="World">loading World.hz…</pre></div>
@@ -78,6 +79,8 @@
   <pre class="code hazel" data-program="world" data-module="Boulder">loading Boulder.hz…</pre></div>
   <div class="ed"><div class="ed-head"><b>Pickup</b> <span class="muted">what the gnome takes as it goes, things and hearts, moved from the page's JavaScript (^report(64)'s piece 4)</span></div>
   <pre class="code hazel" data-program="world" data-module="Pickup">loading Pickup.hz…</pre></div>
+  <div class="ed"><div class="ed-head"><b>Wind</b> <span class="muted">the wind's wandering aim and its gusts, moved from the page's JavaScript (^report(64)'s piece 5)</span></div>
+  <pre class="code hazel" data-program="world" data-module="Wind">loading Wind.hz…</pre></div>
   <p><button type="button" id="reset-rules">Put the program back as it was</button></p>
 </section>
 </div>
@@ -101,6 +104,6 @@
 <script src="../dig/sound.js?v=0.0.128"></script>
 <script src="../shared/volume.js?v=0.0.56"></script>
 <script src="plain.js?v=0.0.133"></script>
-<script src="app.js?v=0.0.136"></script>
+<script src="app.js?v=0.0.137"></script>
 </body>
 </html>
