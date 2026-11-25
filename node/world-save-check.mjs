@@ -40,10 +40,10 @@ const fail = [];
 try {
   C = await chrome();
   // ---- 1. the tour
-  const A = await C.open(BASE + "world/?test=1&ios=1", "page 1");
+  const A = await C.open(BASE + "world/?test=ios", "page 1");   // (the test hooks and the iPad's budgets, in one parameter: cdp.mjs's /json/new lost a second one, after an &)
   await A.until(READY, "the rules built and the world made");
   const lib = await A.eval("({ compiled: !!WorldTest.S.built.compiled, ms: Math.round(WorldTest.S.built.ms), seed: WorldTest.S.seed })");
-  log(`page 1: the world made (seed ${lib.seed}); the rules ${lib.compiled ? "compiled by hazel-jit" : "interpreted"}, built in ${lib.ms} ms`);
+  log(`page 1: the world made (seed ${lib.seed}); the rules ${lib.compiled ? "compiled by hazel-jit" : "interpreted"}, built in ${lib.ms} ms; at ${await A.eval("location.href")}`);
   await A.eval(`(() => { const T = WorldTest; T.S.asking = true; document.querySelector('#heroes button[data-hero="girl"]').click();
     T.restartNow(); T.S.asking = true; T.S.tileFix = 56; T.S.hearts = 3; let d = 0; for (let i = 0; i < T.bg.length; i++) if (T.bg[i] === 1) d++; window.__dug0 = d; window.__fresh = T.digest(); T.bot(true); return true; })()`);
   let P = null, steps = 0, skipTrees = false; const t0 = Date.now();
@@ -74,9 +74,10 @@ try {
   log(`💾 saved: ${(text.length / 1024).toFixed(0)} KB (the tiles ${(saved.tiles.bytes / 1024).toFixed(0)} KB, ${saved.tiles.gzip ? "gzip" : "not packed"}, ${(saved.tiles.data.length / 1024).toFixed(0)} KB in base64)`);
   // ---- 3. restart
   const after = await A.eval(`(() => { WorldTest.restartNow(); WorldTest.S.asking = true; return { d: WorldTest.digest(), fresh: window.__fresh }; })()`);
+  const failsBefore = fail.length;
   for (const k of ["ground", "gems", "water", "built", "slopes", "stones"]) if (after.d[k] !== after.fresh[k]) fail.push(`🔄 restart: ${k} not as the world was made`);
   for (const k of ["ground", "gnome"]) if (after.d[k] === before[k]) fail.push(`🔄 restart: ${k} the same as before it (the tour changed nothing there?)`);
-  log(`🔄 restarted: ${fail.length ? "NOT as made" : "the world as it was made"}`);
+  log(`🔄 restarted: ${fail.length > failsBefore ? "NOT as made" : "the world as it was made"}`);
   // ---- 4. load the file into the same page; save again
   // (read and saved again at once, as it was loaded: drawing, between, grows the roots the view comes to, as it would have before)
   const L1 = await A.eval(`(async () => { const T = WorldTest; await T.loadText(window.__save, "the check's save"); T.S.asking = true; const d = T.digest(), snap = T.snapshot(); return { d, again: await T.saveText(snap) }; })()`), loaded = L1.d;

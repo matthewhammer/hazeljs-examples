@@ -54,7 +54,7 @@
   // cannot be made frees every picture kept, once a frame, and tries again, else gives a 1×1 blank one, drawn as nothing, so a
   // frame never stops half way. What happened is kept for 🐞 (and in this browser, for the next visit). ?canvasCap=MB imitates
   // Safari's cap, for trying it on a computer
-  const IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1) || new URLSearchParams(location.search).has("ios");   // (?ios=1: its budgets, on a computer)
+  const IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1) || (q => q.has("ios") || q.get("test") === "ios")(new URLSearchParams(location.search));   // (?ios=1, or ?test=ios with the test hooks: its budgets, on a computer; one parameter, for the GitHub check, whose way of opening a page loses a second)
   const CANVAS = { px: 0, peak: 0, made: 0, freed: 0, fails: 0, failPx: 0, firstFail: null, lastFail: null, purges: 0, lastPurge: null, purgeFrame: -1,
                    cap: (() => { const q = new URLSearchParams(location.search).get("canvasCap"); return q ? Number(q) * 1e6 / 4 : Infinity; })(),
                    hard: IOS ? 64e6 : Infinity };   // (pixels: the page's own limit, 256 MB on iOS, past which the caches let go first)
