@@ -544,7 +544,7 @@
     good: { icon: "⛏️", label: "⛏️ good digger", what: "⛏️ the good digger", banner: "⛏️ The good digger: tough ground goes faster, and limestone and granite give way" },
     super: { icon: "⚒️", label: "⚒️ super digger", what: "⚒️ the super digger", banner: "⚒️ The super digger: three times as fast, through anything, even the bedrock" },
     carrot: { icon: "🥕", label: "🥕 carrot", what: "🥕 a carrot", banner: "🥕 A carrot! Clover the rabbit 🐇 would love it: go and see her, and press R" },
-    carpet: { icon: "🧞", label: "🧞 magic carpet", what: "🧞 the magic carpet", banner: "🧞 The magic carpet! Press R (or 🧞) to fly it: the arrows steer, and let go, it floats. 🎒 (I) chooses it or Clover" },
+    carpet: { icon: "🧞", label: "🧞 magic carpet", what: "🧞 the magic carpet", banner: "🧞 The magic carpet! Hold → and press R to fly it: the arrows steer, and let go, it floats" },
     // (0.0.114; Matthew: "more power up items, which are used by default (no need to turn them 'off')")
     flippers: { icon: "🏊", label: "🏊 swim flippers", what: "🏊 the swim flippers", banner: "🏊 The swim flippers: swim three times as fast, across, up and down (on by themselves in the water)" },
     tail: { icon: "🐈", label: "🐈 cat tail", what: "🐈 the cat tail", banner: "🐈 The cat tail! Hold ↑ and press R to put it on: jump, and keep pressing jump in the air to fly up" },
@@ -729,6 +729,25 @@
     else if (g.ev === 5 && SND) SND.low();
     pickups();
   }
+  // (0.0.121; Matthew: "lots of the power up text is too long -- need line wraps. and it goes by too fast -- let's have the game
+  // pause while we read it, also please present a 'read aloud' button for it. unpause clears the text; or clicking on it.") A
+  // thing found: the game paused, its words on the pause card, wrapped, with 🔊 Read aloud (L, or the controller's listen button,
+  // reads them too); going on (the space bar, ▶️ Go on, a tap on the card, the controller's pause) clears them. The speed run
+  // is not paused: its banner, as before
+  function powerNote(kind) {
+    const I = ITEM[kind], PZ = pauser();
+    if (BOT.on || !PZ || !PZ.say) { S.banner = { text: I.banner, t: performance.now() }; return; }
+    S.note = I.banner; S.banner = null; for (const k in S.keys) S.keys[k] = false;
+    PZ.say({ title: I.label, text: I.banner, read: readNote, close: () => { S.note = null; hushTalk(); } });
+  }
+  function readNote() {
+    if (!SPEECH || !S.note) return;
+    // (the arrows as words, and the dash button's 💨 too; the other emoji not read out, nor the brackets they leave empty)
+    const text = spoken(S.note.replace(/[↑▲]/g, " up ").replace(/[↓▼]/g, " down ").replace(/[←◀]/g, " left ").replace(/[→▶]/g, " right ").replace(/💨/g, "the dash button")).replace(/\(\s+/g, "(").replace(/\s+\)/g, ")").replace(/\((or)?\)/g, "").replace(/\s+([,.:;!?])/g, "$1").replace(/\s+/g, " ").trim(); if (!text) return;
+    SPEECH.cancel(); const u = new SpeechSynthesisUtterance(text), all = SPEECH.getVoices(), v = all.find(x => /^en/i.test(x.lang) && x.default) || all.find(x => /^en/i.test(x.lang));
+    if (v) { u.voice = v; u.lang = v.lang; } else u.lang = "en-US";
+    u.rate = 0.86; u.pitch = 1; saying++; SPEECH.speak(u);   // (slow, for a child learning to read, as the villagers speak)
+  }
   function pickups() {
     const g = S.g;
     // (a gem lying loose in an open tile, as some came to: picked up as the gnome goes through it)
@@ -743,7 +762,7 @@
       else if (it.kind === "tail") { S.tail.have = true; useRide("tail"); }
       else if (it.kind === "shoes" || it.kind === "flippers" || it.kind === "climber") S.g = { ...S.g, kit: (S.g.kit | 0) | KIT[it.kind] };
       else S.g = { ...S.g, tool: Math.max(S.g.tool || 0, it.kind === "super" ? 2 : 1) };
-      S.banner = { text: ITEM[it.kind].banner, t: performance.now() }; }
+      powerNote(it.kind); }
     // a heart, walked into, gives back one heart (not with all five: it stays for later)
     if (S.hearts < 5) for (const hh of S.heartItems || []) if (!hh.taken && Math.abs(hh.x - g.x / 1000) < 0.8 && Math.abs(hh.y - (g.y / 1000 - 0.5)) < 1) {
       hh.taken = true; S.hearts++; popWord("❤️", hh.x, hh.y - 0.7); if (SND) SND.gem(); if (S.hearts >= 5) break; }
@@ -4012,7 +4031,7 @@
     else if (e.key === "b" || e.key === "B") { e.preventDefault(); buildHere(); }
     else if (e.key === "r" || e.key === "R" || e.key === "e" || e.key === "E") { e.preventDefault(); mountToggle(); }
     else if (e.key === "c" || e.key === "C") { e.preventDefault(); mountToggle("carpet"); }   // (the booklet's key for the carpet)
-    else if (e.key === "l" || e.key === "L") { e.preventDefault(); listen(); }
+    else if (e.key === "l" || e.key === "L") { e.preventDefault(); if (S.note) readNote(); else listen(); }
   });
   // (0.0.104) a tap or a click on the listen button in a villager's bubble
   cv.addEventListener("pointerdown", e => { const B = S.talkBtn; if (!B || B.talk !== S.talk) return; const r = cv.getBoundingClientRect();
@@ -4094,7 +4113,7 @@
     } else if (padOpen() || S.asking || BOT.on) { padLetGo(); if (lit) padSync(); }
     else {
       const btn = a => (PAD.buttons[a] >= 0 ? PAD.buttons[a] : -2), hit = a => fresh.includes(btn(a));
-      if (PZ && PZ.paused()) { padLetGo(); if (hit("pause")) PZ.set(false); }
+      if (PZ && PZ.paused()) { padLetGo(); if (hit("pause")) PZ.set(false); else if (hit("listen") && S.note) readNote(); }
       else {
         const stick = v => (Math.abs(v || 0) > 0.5 ? Math.sign(v) : 0), sx = stick(g.axes[0]), sy = stick(g.axes[1]);
         const want = { left: (std && now.has(14)) || sx < 0, right: (std && now.has(15)) || sx > 0, up: (std && now.has(12)) || sy < 0 || now.has(btn("jump")),

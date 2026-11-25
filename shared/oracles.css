@@ -514,3 +514,10 @@ html.oracle-fs.fs-hud-on .oracle-ui > .fs-cast:not([hidden]) { position: absolut
 .pause-card b { font-size: 1.8em; }
 .pause-card span { font-size: 0.95em; opacity: 0.9; }
 .pause-btn { font: inherit; }
+/* (0.0.121) words on the card (P.say: a power-up's), their lines wrapped, and 🔊 to read them aloud */
+.pause-card.pause-says { overflow-y: auto; justify-content: safe center; }
+.pause-card.pause-says b { font-size: 1.6em; }
+.pause-card .pause-words { margin: 2px 0 4px; max-width: min(32em, 92%); font-size: 1.25em; line-height: 1.4; white-space: normal; overflow-wrap: break-word; text-wrap: pretty; }
+.pause-card .pause-read { font: inherit; font-size: 1.05em; padding: 7px 16px; border-radius: 999px; border: 2px solid #ffffff; background: rgba(255, 255, 255, 0.16); color: #ffffff; cursor: pointer; }
+.pause-card .pause-read:hover, .pause-card .pause-read:focus-visible { background: rgba(255, 255, 255, 0.3); }
+.pause-card .pause-read[hidden], .pause-card .pause-words[hidden] { display: none; }
