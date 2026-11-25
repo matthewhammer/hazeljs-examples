@@ -1,0 +1,36 @@
+# (^report(65), ^ticket(873); Matthew, 2026-11-25: "please time a speedrun for a 3 way comparison: interpreter (to some limit;
+# no more than 5 minutes total), hazel jit, as of today, plain JS") Gnome world's 🏃 speed run, from a fresh world to its end,
+# three ways on one GitHub runner, in headless Chrome (never on the laptop): the rules compiled by hazel-jit as the page loads,
+# the same rules in plain JavaScript (world/plain.js), and the interpreter for four minutes at most (node/world-speedrun.mjs).
+# The artifact world-speedrun: the log, result.json (each way's steps, times, rule calls, fingerprints; the replay) and the
+# sampled World.step calls.
+name: world speed run, three ways
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ["node/world-speedrun.mjs", "world/plain.js", ".github/workflows/world-speedrun.yml"]
+jobs:
+  time:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: The machine
+        run: |
+          mkdir -p world-speedrun
+          { nproc; grep -m1 'model name' /proc/cpuinfo; node --version; google-chrome --version; } | tee world-speedrun/machine.txt
+      - name: Serve the site
+        run: |
+          python3 -m http.server 8000 --bind 127.0.0.1 > server.log 2>&1 &
+          sleep 1
+      - name: The speed run, three ways
+        run: node node/world-speedrun.mjs http://127.0.0.1:8000/ world-speedrun
+      - uses: actions/upload-artifact@v4
+        if: ${{ always() }}
+        with:
+          name: world-speedrun
+          path: world-speedrun/

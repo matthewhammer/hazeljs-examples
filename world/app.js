@@ -4631,7 +4631,9 @@
   if (Q.has("test")) Object.assign(window.WorldTest, { listen, voiceOf, spoken, hushTalk });
   if (Q.has("test")) Object.assign(window.WorldTest, { PAD, padPoll, padTaught, PAD_USUAL, mountToggle, rideOn, nextRide, tailJS, tailToggle, ridePop, ridePopOpen, ridePick, RIDEPOP });
   if (Q.has("test")) Object.assign(window.WorldTest, { CANVAS, newCanvas, dropCanvas, purgePictures, WATCH, bugReport, IOS });
-  if (Q.has("test")) Object.assign(window.WorldTest, { SKYC, skyClouds, cloudArt, storminess });   // (0.0.125: the sky)   // (0.0.115: the canvases kept, ^ticket(852))   // (0.0.112: the 🎮 controller, driven by hand where frames do not come)
+  if (Q.has("test")) Object.assign(window.WorldTest, { SKYC, skyClouds, cloudArt, storminess });   // (0.0.125: the sky)
+  // (^ticket(873): the speed run's steps alone, timed, no drawing: up to n, while the run is on and not yet at its dig)
+  if (Q.has("test")) Object.assign(window.WorldTest, { steps: n => { const h = H(); const t0 = performance.now(); let k = 0; for (; k < n && BOT.on && BOT.phase !== "dig"; k++) tick(h); return { k, ms: performance.now() - t0 }; } });   // (0.0.115: the canvases kept, ^ticket(852))   // (0.0.112: the 🎮 controller, driven by hand where frames do not come)
   if (Q.has("test")) Object.assign(window.WorldTest, { snapshot, saveText, readSave, loadText, restartNow: () => restartNow(H()), askRestart, stopBot, digest, bot: on => { if (on !== BOT.on) $("run").click(); return BOT.on; }, carpetToggle, carpetHits, carpetTop, flyJS });
   document.body.classList.add("js");
   // (0.0.108) a screen that can be touched, whatever else points at it (an iPad with its trackpad on): full screen keeps the pad (world.css)
