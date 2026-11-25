@@ -82,6 +82,7 @@
   const WW = 896, WH = 208, NN = WW * WH, SKY = 80;
   const AIR = 0, SOIL = 1, CLAY = 2, SAND = 3, SSTONE = 4, SHALE = 5, LIME = 6, GRANITE = 7, MASON = 8, TIMBER = 9;
   const B_NONE = 0, B_DUG = 1, B_PLASTER = 2, B_WOOD = 3, B_STAIR = 4, B_CAVE = 5;
+  const CAVE = new Uint8Array(NN);   // (0.0.127: 1, a tile of one of the caverns, as the world was made)
   const F_LADDER = 1, F_PLAT = 2, F_STAIR = 3, F_BRIDGE = 4, F_HATCH = 5, F_DOOR = 6;
   const mat = new Uint8Array(NN), wat = new Float32Array(NN), bg = new Uint8Array(NN), fix = new Uint8Array(NN), gem = new Uint8Array(NN), root = new Uint8Array(NN), stone = new Uint8Array(NN), shape = new Uint8Array(NN), treeMask = new Uint8Array(NN);
   const surf0 = new Int16Array(WW), top = new Int16Array(WW);   // (the land's surface as made; the highest solid tile now)
@@ -181,6 +182,26 @@
     if (!(S.built && S.built.compiled)) for (const t of [...S.trees, ...S.greats.map(g => ({ x: g.x, h: g.h * 0.7 }))]) { const deep = Math.min(14, Math.round(t.h * 0.3)), s = surf0[t.x];
       for (let r = s; r < s + deep && r < WH - 4; r++) { const spread = 1 + Math.floor((r - s) / 3);
         for (let c = t.x - spread; c <= t.x + spread; c++) if (inside(c, r) && PORES[mat[at(c, r)]] > 0) root[at(c, r)] = Math.min(3, root[at(c, r)] + (Math.abs(c - t.x) <= 1 ? 2 : 1)); } }
+    // (0.0.127; Matthew: "let's introduce more 'cave areas' under the ground") caverns: sixteen or so, ten to twenty-five tiles
+    // across and five to nine high, with a smaller chamber off one side, deep in the rock (fourteen tiles under the land at least,
+    // ten over the bedrock), not by a village, a river or a great tree, nor near each other; carved by a chance of their own (the
+    // rest of the world comes out as it did, but for the gems that would have lain where they are), before the gems; marked, so
+    // the super digger's cave is still the limestone's
+    CAVE.fill(0); S.caves = [];
+    { const cr = seededR(S.seed * 101 + 7); let j = 0; const q = () => cr(j++);
+      const busy = x => S.villages.some(v => x > v.x0 - 8 && x < v.x1 + 8) || S.rivers.some(R => x > R.x - 8 && x < R.x + R.w + 8) || S.greats.some(G => Math.abs(G.x - x) < 6);
+      for (let tries = 0; S.caves.length < 16 && tries < 400; tries++) {
+        const w = 10 + Math.floor(q() * 16), h = 5 + Math.floor(q() * 5), x = 8 + Math.floor(q() * (WW - 16 - w)), mid = x + (w >> 1);
+        if (busy(x) || busy(x + w) || busy(mid)) continue;
+        const top0 = surf0[mid] + 14, bot = WH - 10 - h; if (bot <= top0) continue;
+        const y = top0 + Math.floor(q() * (bot - top0));
+        if (S.caves.some(C => x < C.x + C.w + 10 && x + w + 10 > C.x && y < C.y + C.h + 6 && y + h + 6 > C.y)) continue;
+        const C = { x, y, w, h, n: 0, pond: q() < 0.6, id: S.caves.length, cells: [] };   // (cells: its own tiles)
+        const cut = (c, r) => { const i = at(c, r); if (mat[i] >= SOIL && mat[i] <= GRANITE && bg[i] === B_NONE) { mat[i] = AIR; bg[i] = B_CAVE; CAVE[i] = 1; C.n++; C.cells.push(i); } };
+        blob(C, 0, cut);
+        const sw = 5 + Math.floor(q() * 6), sh = 3 + Math.floor(q() * 3), side = q() < 0.5 ? -1 : 1;
+        blob({ x: side < 0 ? x - sw + 3 : x + w - 3, y: y + h - sh - 1 + Math.floor(q() * 2), w: sw, h: sh }, 0, cut);
+        if (C.n >= 24) S.caves.push(C); } }
     // gems in veins, and boulders, each in the ground (never in a room's walls)
     const diggable = i => mat[i] >= SOIL && mat[i] <= SHALE;
     for (const q of byKind(44)) for (let k = 0; k < q.v; k++) { const c = q.x + Math.floor(rand() * (q.w + 2)) - 1, r = q.y + Math.floor(rand() * (q.h + 2)) - 1;
@@ -200,9 +221,13 @@
         if (m === AIR) { if (r >= t && r > surf0[c]) wat[i] = 1; continue; }
         if (PORES[m] > 0 && wat[i] === 0) wat[i] = r >= t ? 1 : r < surf0[c] + 1 ? 0.3 : m === SAND ? 0.15 : 0.3; }
     }
+    // (0.0.127) the caverns' water: most a pond in their lowest row, the rest dry
+    for (const C of S.caves) { let low = 0; for (const i of C.cells) low = Math.max(low, (i / WW) | 0);
+      C.low = low; C.pondTop = C.pond ? low : low + 1;   // (a pond in its lowest row: its banks dry, for stalagmites and mushrooms)
+      for (const i of C.cells) wat[i] = ((i / WW) | 0) >= C.pondTop ? 1 : 0; }
     // (0.0.95) the super digger, deep: on the floor of the deepest cave in the limestone, which the good digger digs into; with no
     // cave, in a pocket in a body of granite near the bedrock
-    { let best = -1; for (let i = 0; i + WW < NN; i++) if (bg[i] === B_CAVE && mat[i] === AIR && mat[i + WW] !== AIR) best = i;
+    { let best = -1; for (let i = 0; i + WW < NN; i++) if (bg[i] === B_CAVE && mat[i] === AIR && mat[i + WW] !== AIR && !CAVE[i]) best = i;   // (0.0.127: the limestone's, not a cavern's)
       if (best < 0) { const c0 = Math.floor(WW * 0.62), r0 = WH - 11;
         for (let c = c0 - 4; c <= c0 + 4; c++) for (let r = r0 - 3; r <= r0 + 3; r++) { const i = at(c, r); mat[i] = GRANITE; bg[i] = B_NONE; wat[i] = 0; gem[i] = 0; stone[i] = 0; root[i] = 0; shape[i] = 0; }
         for (let c = c0 - 1; c <= c0 + 1; c++) for (let r = r0 - 1; r <= r0; r++) { const i = at(c, r); mat[i] = AIR; bg[i] = B_CAVE; }
@@ -3691,6 +3716,109 @@
   }
   const skyFlash = (now, W, Hh) => { const B = SKYC.bolt; if (!B) return; const age = now - B.at, a = age < 90 ? 0.32 : age < 420 ? 0.32 * (1 - (age - 90) / 330) : 0; if (a <= 0) return;
     ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = `rgba(235,240,255,${a.toFixed(3)})`; ctx.fillRect(0, 0, W, Hh); ctx.restore(); };
+  // ---- (0.0.127; Matthew: "special tiles that indicate cave features (stalagtites/mites) bats fish in the cave ponds that are
+  // bright white, from being underground animals mushrooms that live in caves?") In the caverns, drawn tile by tile as they come
+  // into view, each tile's by the world's own chance (the same each time): stalactites hanging where there is rock over a tile,
+  // now and then a drop falling from a tip; stalagmites rising from the dry floor; and clusters of cave mushrooms, their caps
+  // glowing cyan, mint or violet, each a little light in the dark. And their life, made as a cavern first comes near the view:
+  // bats hanging from its ceiling, that take flight round the cavern as the gnome comes near, flit about it, and go back to hang;
+  // and in its pond, cave fish, blind and bright white, swimming to and fro. Only drawn: not the world's state, not in a save
+  const CAVEFX = { lights: [], at: 0 };
+  const caveHash = (i, k) => { let x = (i * 374761393 + k * 668265263) >>> 0; x = Math.imul(x ^ (x >>> 13), 1274126177) >>> 0; return ((x ^ (x >>> 16)) >>> 0) / 4294967296; };
+  const rockAt = i => i >= 0 && i < NN && mat[i] >= SOIL && mat[i] <= GRANITE;
+  function stalactite(c, r, s, i, now) {
+    const n = caveHash(i, 3) < 0.4 ? 2 : 1;
+    for (let k = 0; k < n; k++) { const cx = (c + 0.25 + 0.5 * (n === 1 ? 0.5 : k) + (caveHash(i, 4 + k) - 0.5) * 0.25) * s, top = r * s, L = s * (0.55 + 0.85 * caveHash(i, 6 + k)), W = s * (0.17 + 0.16 * caveHash(i, 8 + k));
+      const gr = ctx.createLinearGradient(cx - W, 0, cx + W, 0); gr.addColorStop(0, "#8d7f68"); gr.addColorStop(0.45, "#cbbd9f"); gr.addColorStop(1, "#6e624f");
+      ctx.fillStyle = gr; ctx.beginPath(); ctx.moveTo(cx - W, top); ctx.quadraticCurveTo(cx - W * 0.45, top + L * 0.55, cx, top + L); ctx.quadraticCurveTo(cx + W * 0.45, top + L * 0.55, cx + W, top); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = "rgba(255,248,230,0.35)"; ctx.lineWidth = Math.max(1, s / 40); ctx.beginPath(); ctx.moveTo(cx - W * 0.3, top + 1); ctx.lineTo(cx - W * 0.08, top + L * 0.75); ctx.stroke();
+      // (a drop, now and then, falling from the tip)
+      const per = 2600 + caveHash(i, 10 + k) * 3000, t = ((now + caveHash(i, 12 + k) * per) % per) / per;
+      if (t < 0.3) { const dy = t < 0.12 ? 0 : (t - 0.12) / 0.18 * s * 1.4; ctx.fillStyle = "rgba(190,225,255,0.85)"; ctx.beginPath(); ctx.ellipse(cx, top + L + s * 0.04 + dy, s * 0.03, s * 0.05, 0, 0, 7); ctx.fill(); } }
+  }
+  function stalagmite(c, r, s, i) {
+    const n = caveHash(i, 13) < 0.35 ? 2 : 1;
+    for (let k = 0; k < n; k++) { const cx = (c + 0.25 + 0.5 * (n === 1 ? 0.5 : k) + (caveHash(i, 14 + k) - 0.5) * 0.25) * s, foot = (r + 1) * s, L = s * (0.45 + 0.65 * caveHash(i, 16 + k)), W = s * (0.22 + 0.16 * caveHash(i, 18 + k));
+      const gr = ctx.createLinearGradient(cx - W, 0, cx + W, 0); gr.addColorStop(0, "#857760"); gr.addColorStop(0.4, "#c4b596"); gr.addColorStop(1, "#665a48");
+      ctx.fillStyle = gr; ctx.beginPath(); ctx.moveTo(cx - W, foot); ctx.quadraticCurveTo(cx - W * 0.55, foot - L * 0.6, cx - W * 0.12, foot - L); ctx.quadraticCurveTo(cx, foot - L * 1.06, cx + W * 0.12, foot - L);
+      ctx.quadraticCurveTo(cx + W * 0.55, foot - L * 0.6, cx + W, foot); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = "rgba(60,50,38,0.45)"; ctx.lineWidth = Math.max(1, s / 45); ctx.beginPath(); for (let b = 1; b <= 2; b++) { const y = foot - L * b / 3, hw = W * (1 - b / 3 * 0.8); ctx.moveTo(cx - hw, y); ctx.quadraticCurveTo(cx, y + s * 0.03, cx + hw, y); } ctx.stroke(); }
+  }
+  const SHROOM_GLOW = ["#67e8f9", "#86efac", "#c4b5fd", "#5eead4"];
+  function caveShrooms(c, r, s, i, now) {
+    const col = SHROOM_GLOW[Math.floor(caveHash(i, 20) * SHROOM_GLOW.length)], n = 2 + Math.floor(caveHash(i, 21) * 3), foot = (r + 1) * s, pulse = 0.85 + 0.15 * Math.sin(now / 900 + i);
+    const gx = (c + 0.5) * s, glow = ctx.createRadialGradient(gx, foot - s * 0.2, 0, gx, foot - s * 0.2, s * 0.9 * pulse); glow.addColorStop(0, col + "66"); glow.addColorStop(1, col + "00");
+    ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(gx, foot - s * 0.2, s * 0.9 * pulse, 0, 7); ctx.fill();
+    for (let k = 0; k < n; k++) { const x = (c + 0.18 + 0.64 * (k + caveHash(i, 22 + k) * 0.6) / n) * s, hgt = s * (0.14 + 0.22 * caveHash(i, 26 + k)), cap = s * (0.07 + 0.08 * caveHash(i, 30 + k));
+      ctx.strokeStyle = "#e7e5e4"; ctx.lineWidth = Math.max(1, s * 0.035); ctx.beginPath(); ctx.moveTo(x, foot); ctx.quadraticCurveTo(x + s * 0.03, foot - hgt * 0.5, x, foot - hgt); ctx.stroke();
+      ctx.fillStyle = col; ctx.beginPath(); ctx.ellipse(x, foot - hgt, cap, cap * 0.62, 0, Math.PI, 0); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = "rgba(255,255,255,0.7)"; ctx.beginPath(); ctx.arc(x - cap * 0.35, foot - hgt - cap * 0.3, cap * 0.16, 0, 7); ctx.fill(); }
+    CAVEFX.lights.push({ x: c + 0.5, y: r + 0.7, r: 3.2 });
+  }
+  // (a cavern's life, made as it first comes near: its roosts, ceiling tiles with no stalactite, four to eight bats on them; its
+  // pond's fish, two to four)
+  function caveLife(C) {
+    if (C.life) return C.life;
+    const roosts = [], ponds = [];
+    for (const i of C.cells) { const c = i % WW, r = (i - c) / WW; if (mat[i] !== AIR || bg[i] !== B_CAVE) continue;
+      if (rockAt(i - WW) && caveHash(i, 1) >= 0.5) roosts.push([c, r]);
+      if (wat[i] >= 0.5 && !(r > 0 && wat[i - WW] >= 0.5)) ponds.push([c, r]); }
+    const bats = [], fish = [], nb = Math.min(roosts.length, 4 + (C.id % 5));
+    for (let k = 0; k < nb; k++) { const [c, r] = roosts[Math.floor(caveHash(C.id * 31 + k, 40) * roosts.length)]; bats.push({ hx: c + 0.5, hy: r + 0.02, x: c + 0.5, y: r + 0.02, vx: 0, vy: 0, mode: "hang", t: 0, ph: k * 1.3 }); }
+    if (ponds.length) for (let k = 0; k < 2 + (C.id % 3); k++) { const [c, r] = ponds[Math.floor(caveHash(C.id * 17 + k, 41) * ponds.length)]; fish.push({ x: c + 0.5, y: r + 0.55 + 0.25 * caveHash(k, 42), vx: (k % 2 ? 1 : -1) * (0.6 + 0.5 * caveHash(C.id + k, 43)), ph: k * 2.1 }); }
+    return (C.life = { bats, fish });
+  }
+  function drawBat(b, s, now) {
+    const x = b.x * s, y = b.y * s, u = s * 0.62; ctx.save(); ctx.translate(x, y);
+    if (b.mode === "hang") { ctx.fillStyle = "#2b2230"; ctx.beginPath(); ctx.ellipse(0, u * 0.42, u * 0.2, u * 0.4, 0, 0, 7); ctx.fill();   // (hanging, its wings wrapped round it, upside down)
+      ctx.beginPath(); ctx.moveTo(-u * 0.1, 0); ctx.lineTo(-u * 0.06, u * 0.06); ctx.moveTo(u * 0.1, 0); ctx.lineTo(u * 0.06, u * 0.06); ctx.strokeStyle = "#2b2230"; ctx.lineWidth = Math.max(1, u * 0.05); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-u * 0.13, u * 0.78); ctx.lineTo(-u * 0.2, u * 0.95); ctx.lineTo(-u * 0.03, u * 0.82); ctx.moveTo(u * 0.13, u * 0.78); ctx.lineTo(u * 0.2, u * 0.95); ctx.lineTo(u * 0.03, u * 0.82); ctx.fill();
+      ctx.fillStyle = "#f87171"; ctx.beginPath(); ctx.arc(-u * 0.07, u * 0.7, u * 0.03, 0, 7); ctx.arc(u * 0.07, u * 0.7, u * 0.03, 0, 7); ctx.fill(); ctx.restore(); return; }
+    const flap = Math.sin(now / 45 + b.ph), face = b.vx < 0 ? -1 : 1; ctx.scale(face, 1);
+    ctx.fillStyle = "#5e4b72";   // (its wings a little lighter than the dark, so it is seen flitting)
+    for (const side of [-1, 1]) { const tipY = -u * 0.55 * flap; ctx.beginPath(); ctx.moveTo(0, -u * 0.05);   // (each wing: its finger bones fanned, the skin between scalloped)
+      ctx.lineTo(side * u * 0.45, tipY - u * 0.12); ctx.lineTo(side * u * 0.95, tipY + u * 0.05);
+      ctx.quadraticCurveTo(side * u * 0.78, tipY + u * 0.2, side * u * 0.62, tipY + u * 0.22); ctx.quadraticCurveTo(side * u * 0.48, tipY + u * 0.1, side * u * 0.35, tipY + u * 0.26);
+      ctx.quadraticCurveTo(side * u * 0.2, tipY * 0.4 + u * 0.12, 0, u * 0.12); ctx.closePath(); ctx.fill(); }
+    ctx.fillStyle = "#3a2d44"; ctx.beginPath(); ctx.ellipse(0, u * 0.02, u * 0.16, u * 0.22, 0, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.arc(u * 0.05, -u * 0.2, u * 0.12, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(-u * 0.02, -u * 0.28); ctx.lineTo(-u * 0.04, -u * 0.44); ctx.lineTo(u * 0.06, -u * 0.3); ctx.moveTo(u * 0.08, -u * 0.29); ctx.lineTo(u * 0.14, -u * 0.44); ctx.lineTo(u * 0.17, -u * 0.25); ctx.fill();
+    ctx.fillStyle = "#f87171"; ctx.beginPath(); ctx.arc(u * 0.11, -u * 0.22, u * 0.028, 0, 7); ctx.fill();
+    ctx.restore();
+  }
+  function drawCaveFish(f, s, now) {
+    const x = f.x * s, y = (f.y + 0.04 * Math.sin(now / 500 + f.ph)) * s, u = s * 0.52, face = f.vx < 0 ? -1 : 1, wag = Math.sin(now / 160 + f.ph) * 0.35;
+    ctx.save(); ctx.translate(x, y); ctx.scale(face, 1);
+    const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, u * 1.1); glow.addColorStop(0, "rgba(255,255,255,0.35)"); glow.addColorStop(1, "rgba(255,255,255,0)"); ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(0, 0, u * 1.1, 0, 7); ctx.fill();
+    ctx.fillStyle = "rgba(255,240,245,0.75)"; ctx.beginPath(); ctx.moveTo(-u * 0.45, 0); ctx.lineTo(-u * 0.85, -u * 0.28 + wag * u * 0.3); ctx.lineTo(-u * 0.78, wag * u * 0.2); ctx.lineTo(-u * 0.85, u * 0.28 + wag * u * 0.3); ctx.closePath(); ctx.fill();   // (the tail)
+    ctx.fillStyle = "#fbfbff"; ctx.beginPath(); ctx.ellipse(0, 0, u * 0.55, u * 0.2, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = "rgba(255,228,236,0.8)"; ctx.beginPath(); ctx.moveTo(-u * 0.1, -u * 0.17); ctx.quadraticCurveTo(-u * 0.25, -u * 0.36, -u * 0.38, -u * 0.12); ctx.fill();   // (the fin on its back)
+    ctx.strokeStyle = "#f9a8d4"; ctx.lineWidth = Math.max(1, u * 0.05); ctx.beginPath(); ctx.arc(u * 0.25, 0, u * 0.12, -1.1, 1.1); ctx.stroke();   // (pink gills: blind, no eyes)
+    ctx.restore();
+  }
+  function drawCaves(c0, c1, r0, r1, s, now) {
+    CAVEFX.lights.length = 0;
+    const dt = Math.min(0.05, Math.max(0, (now - (CAVEFX.at || now)) / 1000)); CAVEFX.at = now;
+    for (let r = Math.max(1, r0); r <= Math.min(WH - 2, r1); r++) for (let c = c0; c <= c1; c++) { const i = at(c, r); if (!CAVE[i] || mat[i] !== AIR || bg[i] !== B_CAVE) continue;
+      if (rockAt(i - WW) && caveHash(i, 1) < 0.5) stalactite(c, r, s, i, now);
+      if (rockAt(i + WW) && wat[i] < 0.5) { const h2 = caveHash(i, 2); if (h2 < 0.3) stalagmite(c, r, s, i); else if (h2 < 0.48) caveShrooms(c, r, s, i, now); } }
+    const g = S.g; if (!g || !S.caves) return; const gx = g.x / 1000, gy = g.y / 1000 - 0.5;
+    for (const C of S.caves) { if (C.x + C.w + 12 < c0 - 4 || C.x - 12 > c1 + 4 || C.y + C.h + 6 < r0 - 4 || C.y - 3 > r1 + 4) continue;
+      const L = caveLife(C), open = (x, y) => { const c = Math.floor(x), r = Math.floor(y); return inside(c, r) && mat[at(c, r)] === AIR && !rockAt(at(c, r)); };
+      for (const b of L.bats) {
+        const near = Math.hypot(b.x - gx, b.y - gy) < 6;
+        if (b.mode === "hang" && near) { b.mode = "fly"; b.t = 6 + Math.random() * 5; b.vx = (Math.random() - 0.5) * 6; b.vy = 2 + Math.random() * 2; }
+        if (b.mode === "fly") { b.t -= dt; b.vx += (Math.random() - 0.5) * 30 * dt; b.vy += (Math.random() - 0.5) * 30 * dt; const sp = Math.hypot(b.vx, b.vy), mx = 5; if (sp > mx) { b.vx *= mx / sp; b.vy *= mx / sp; }
+          if (b.t <= 0 && !near) b.mode = "home";
+          const nx = b.x + b.vx * dt, ny = b.y + b.vy * dt; if (open(nx, b.y)) b.x = nx; else b.vx = -b.vx; if (open(b.x, ny)) b.y = ny; else b.vy = -b.vy; }
+        else if (b.mode === "home") { const dx = b.hx - b.x, dy = b.hy - b.y, d = Math.hypot(dx, dy); if (d < 0.15) { b.mode = "hang"; b.x = b.hx; b.y = b.hy; }
+          else { const sp = Math.min(4, d * 3); b.vx = dx / d * sp + Math.sin(now / 90 + b.ph) * 0.8; b.vy = dy / d * sp; b.x += b.vx * dt; b.y += b.vy * dt; if (near) { b.mode = "fly"; b.t = 4; } } }
+        if (b.x > c0 - 2 && b.x < c1 + 2 && b.y > r0 - 2 && b.y < r1 + 2) drawBat(b, s, now); }
+      for (const f of L.fish) { const nx = f.x + f.vx * dt, c = Math.floor(nx + Math.sign(f.vx) * 0.35), r = Math.floor(f.y), i = inside(c, r) ? at(c, r) : -1;
+        if (i < 0 || mat[i] !== AIR || wat[i] < 0.5 || Math.random() < 0.002) f.vx = -f.vx; else f.x = nx;
+        const here = inside(Math.floor(f.x), Math.floor(f.y)) ? at(Math.floor(f.x), Math.floor(f.y)) : -1; if (here < 0 || wat[here] < 0.5) continue;   // (its water gone: not seen)
+        if (f.x > c0 - 2 && f.x < c1 + 2 && f.y > r0 - 2 && f.y < r1 + 2) { drawCaveFish(f, s, now); CAVEFX.lights.push({ x: f.x, y: f.y, r: 1.4 }); } } }   // (bright white: they show in the dark)
+  }
   function draw() {
     fit();
     const now = performance.now(), W = cv.width, Hh = cv.height, s = T, g = S.g;
@@ -3818,6 +3946,7 @@
         if (!open(c, r + 1)) { ctx.fillStyle = "rgba(255,228,196,0.07)"; ctx.fillRect(c * s, r * s + s * 0.9, s + 0.5, s * 0.1); } }
       drawWorks(c0, c1, r0, r1, s); }
     drawPebbles(false, c0, c1, r0, r1);
+    if (!LINE) drawCaves(c0, c1, r0, r1, s, now);   // (0.0.127: the caverns' stalactites, stalagmites, mushrooms, bats and fish)
     pmark("surface");
     // on the ground: grass along the land, the water in it (blue, darker the fuller), gems, a digging's cracks
     const dc = g.dt > 0 ? g.dc : -1, dr = g.dr;
@@ -4032,7 +4161,7 @@
     // shafts; drawn as a tiny picture, a pixel a tile, stretched smooth over the view
     if (!LINE) {
       const lw = c1 - c0 + 3, lh = r1 - r0 + 3, img = darkImg(lw, lh), d = img.data;
-      const lights = [{ x: gx, y: gy, r: 6.5 }, ...S.lamps.filter(l => l.x > c0 - 8 && l.x < c1 + 8 && l.y > r0 - 8 && l.y < r1 + 8), ...S.items.filter(it => !it.taken).map(it => ({ x: it.x, y: it.y, r: 3.5 }))];
+      const lights = [{ x: gx, y: gy, r: 6.5 }, ...S.lamps.filter(l => l.x > c0 - 8 && l.x < c1 + 8 && l.y > r0 - 8 && l.y < r1 + 8), ...S.items.filter(it => !it.taken).map(it => ({ x: it.x, y: it.y, r: 3.5 })), ...CAVEFX.lights];   // (0.0.127: and the cave mushrooms' glow)
       for (let j = 0; j < lh; j++) for (let k = 0; k < lw; k++) { const c = c0 - 1 + k, r = r0 - 1 + j; let a = 0;
         if (c >= 0 && c < WW && r >= 0 && r < WH) { const sky = Math.min(top[c], surf0[c]); a = r <= sky ? 0 : Math.min(0.9, (r - sky) / 6);
           if (a > 0) { let L = 0; for (const l of lights) { const dx = c + 0.5 - l.x, dy = r + 0.5 - l.y, q = 1 - Math.sqrt(dx * dx + dy * dy) / l.r; if (q > L) L = q; } a *= 1 - Math.min(1, L * 1.3); } }
@@ -4691,6 +4820,7 @@
   if (Q.has("test")) Object.assign(window.WorldTest, { CANVAS, newCanvas, dropCanvas, purgePictures, WATCH, bugReport, IOS });
   if (Q.has("test")) Object.assign(window.WorldTest, { SKYC, skyClouds, cloudArt, storminess });   // (0.0.125: the sky)
   if (Q.has("test")) Object.assign(window.WorldTest, { GEMAIM, gemAim, hasFinder, gemCompass });   // (0.0.126: the gem finder)
+  if (Q.has("test")) Object.assign(window.WorldTest, { CAVE, CAVEFX, caveLife });   // (0.0.127: the caverns)
   // (^ticket(873): the speed run's steps alone, timed, no drawing: up to n, while the run is on and not yet at its dig)
   if (Q.has("test")) Object.assign(window.WorldTest, { steps: n => { const h = H(); const t0 = performance.now(); let k = 0; for (; k < n && BOT.on && BOT.phase !== "dig"; k++) tick(h); return { k, ms: performance.now() - t0 }; } });   // (0.0.115: the canvases kept, ^ticket(852))   // (0.0.112: the 🎮 controller, driven by hand where frames do not come)
   if (Q.has("test")) Object.assign(window.WorldTest, { snapshot, saveText, readSave, loadText, restartNow: () => restartNow(H()), askRestart, stopBot, digest, bot: on => { if (on !== BOT.on) $("run").click(); return BOT.on; }, carpetToggle, carpetHits, carpetTop, flyJS });

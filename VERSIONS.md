@@ -2,6 +2,16 @@
 
 Each version lists what the apps do as of that version. The newest version is first.
 
+## 0.0.127 (2026-11-25)
+
+- **Gnome world: caverns under the ground, with stalactites, stalagmites, bats, blind white cave fish and glowing cave mushrooms** (Matthew: "let's introduce more 'cave areas' under the ground. special tiles that indicate cave features (stalagtites/mites) bats fish in the cave ponds that are bright white, from being underground animals mushrooms that live in caves?"). Till now there were only the small caves in the limestone shelves, two or three tiles high. Now:
+  - **Sixteen or so caverns**, 10 to 25 tiles across and 5 to 9 high, each with a smaller chamber off one side, deep in the rock (14 tiles under the land at least), away from the villages, the rivers and the great trees; most with a pond along their lowest row, the rest dry. The super digger's cave is still the limestone's.
+  - **Stalactites** hang wherever a cavern has rock over it, one or two, now and then a drop falling from a tip; **stalagmites** rise from its dry floor. Each tile's by the world's own chance, so the same each time; only drawn, never in the way.
+  - **Cave mushrooms** in clusters on the floors, their caps glowing cyan, mint or violet, each a little light in the dark.
+  - **Bats** hang from the ceilings; come near and they take flight, flitting round the cavern, and go back to hang when you've gone.
+  - **Cave fish**, blind and bright white, pink gills and no eyes, swim to and fro in the ponds, showing in the dark.
+  - Seed 7's world has 336 gems now, not 346 (ten would have lain where the caverns are). A save from before has its own ground (no caverns) and loads as it was. Checked in the page, full screen, in a cavern by its pond: all of it seen, lit by the gnome's lamp and the mushrooms; the bats flew as the gnome came up under them; a frame with all of it costs no more than without, within the noise.
+
 ## 0.0.126 (2026-11-25)
 
 - **Gnome world: the gem finder 🧭** (Matthew: "let's have a new item, gem finder -- it looks like a compass, but it's a bit magical too. Once we have this item, the gnome has an on-screen indicator pointing towards the nearest unfound gem. Also, that same gem shows up as a large gem icon on the overview map. When we get that gem, the gem finder indicators update to the next nearest gem. The gem finder is initially placed near a patch of gems, not too far down. Perhaps on the left part of the world."). A brass compass with a deep blue face full of twinkling stars, a soft violet glow round it, and a red needle with a spark at its tip. It lies in the left quarter of the world, a little way down (4 to 12 tiles under the land), in ground you can dig with no digger, beside the richest patch of gems there, nearer home the better: in seed 7, 11 tiles under the land at column 29, five gems round it. Once you have it:
