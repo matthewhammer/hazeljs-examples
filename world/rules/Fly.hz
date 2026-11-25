@@ -24,5 +24,5 @@ let step : (Gnome, Near, Pad, (vx = Int, vy = Int, face = Int)) -> (gnome = Gnom
   let y = (if vy == 0 || meets(x, g.y + vy) then g.y else g.y + vy) in
   let vy2 = (if y == g.y then 0 else vy) in
   let face = (if p.dx != 0 then p.dx else c.face) in
-  (gnome = (x = x, y = y, vx = 0, vy = 0, face = face, ground = false, climb = false, swim = false, under = false, air = (if g.air > 600 then g.air else 600), gear = g.gear, tool = g.tool, dc = 0 - 1, dr = 0 - 1, dt = 0, ev = 0),
+  (gnome = (x = x, y = y, vx = 0, vy = 0, face = face, ground = false, climb = false, swim = false, under = false, air = (if g.air > 600 then g.air else 600), gear = g.gear, tool = g.tool, shoes = g.shoes, dc = 0 - 1, dr = 0 - 1, dt = 0, ev = 0),
    carpet = (vx = vx2, vy = vy2, face = face))

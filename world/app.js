@@ -67,7 +67,7 @@
   const digSteps = (m, r, tool) => m > 9 ? 0 : DIGT[((Math.min(2, Math.max(0, tool | 0)) * 10 + m) * 3) + (r >= WH - 1 ? 2 : r >= WH - 4 ? 1 : 0)];
   const S = { built: null, lib: "", libFailed: false, plan: null, seed: kept("seed", 7), rivers: [], dams: [], lodges: [], beavers: [], rooms: [], villages: [],
     greats: [], trees: [], bushes: [], shrooms: [], flowers: [], rootSets: [], threadSets: [], rootPlan: [], boulders: [], ducts: [], lamps: [], items: [], houses: [], bridges: [], smoke: [], parts: [], drops: [], rain: 0, rainAt: 0,
-    styles: [], dry: [], works: new Map(), windNow: 0.2, leaves: [], g: null, hero: kept("hero", "dad"), hearts: 5, gems: kept("gems", 0), hurtAt: -1e9, faintAt: 0, start: { x: 12500, y: 0 }, keys: { left: false, right: false, up: false, down: false, dig: false },
+    styles: [], dry: [], works: new Map(), windNow: 0.2, leaves: [], g: null, hero: kept("hero", "dad"), hearts: 5, gems: kept("gems", 0), hurtAt: -1e9, faintAt: 0, start: { x: 12500, y: 0 }, keys: { left: false, right: false, up: false, down: false, dig: false, dash: false },
     jumpQueued: false, cam: { x: 0, y: 0, set: false }, frame: 0, map: kept("map", true), banner: null, places: [], stepMs: [], beaverAt: 0, damAt: 0, minimapAt: -1e9, dirty: true };
   const H = () => S.built && S.built.ok ? S.built.value : null;
   let seedRand = 1;
@@ -186,6 +186,13 @@
     { const v = [...S.villages].sort((a, b) => b.x1 - a.x1)[0], mine = v ? S.rooms.filter(R => R.x >= v.x0 && R.x < v.x1) : [];
       const R = mine.sort((a, b) => (b.x + b.w) - (a.x + a.w) || b.y - a.y)[0];
       if (R) S.items.push({ kind: "carpet", x: R.x + R.w - 1.4, y: R.y + 3.35, taken: false }); }
+    // (0.0.109; Matthew: "a button on the RHS on the screen for dashing ... quicker with the running shoes (another item in the left
+    // underground gnome house)") the running shoes, in the nearest room of the gnome village farthest left, toward its near wall,
+    // clear of anything else there: now the last of the things (a save from before them has one fewer; restore lets it in)
+    { const v = [...S.villages].sort((a, b) => a.x0 - b.x0)[0], mine = v ? S.rooms.filter(R => R.x >= v.x0 && R.x < v.x1) : [];
+      const R = mine.sort((a, b) => a.x - b.x || b.y - a.y)[0];
+      if (R) { const y = R.y + 3.35; let x = R.x + 1.4; while (x < R.x + R.w - 1 && S.items.some(it => Math.abs(it.x - x) < 1.2 && Math.abs(it.y - y) < 1.5)) x += 1.3;
+        S.items.push({ kind: "shoes", x, y, taken: false }); } }
     for (const R of S.rivers) holdRiver(R);
     for (let c = 0; c < WW; c++) top[c] = topOf(c);
     S.dry = []; for (let i = 0; i < NN; i++) if (mat[i] === AIR && (bg[i] === B_PLASTER || bg[i] === B_WOOD || bg[i] === B_STAIR)) S.dry.push(i);
@@ -197,7 +204,7 @@
     ];
     const g0 = { x: 12500, y: top[12] * 1000 };
     S.start = g0;
-    S.g = { x: g0.x, y: g0.y, vx: 0, vy: 0, face: 1, ground: true, climb: false, swim: false, under: false, air: 600, gear: false, tool: 0, dc: -1, dr: -1, dt: 0, ev: 0 };
+    S.g = { x: g0.x, y: g0.y, vx: 0, vy: 0, face: 1, ground: true, climb: false, swim: false, under: false, air: 600, gear: false, tool: 0, shoes: false, dc: -1, dr: -1, dt: 0, ev: 0 };
     // (Matthew: "let's have the upper left HUD show the total gems X / Y") this world's gems: how many there are, and found so far
     S.gemTotal = 0; for (let i = 0; i < NN; i++) if (gem[i]) S.gemTotal++; S.found = 0; S.party = null; S.confetti = [];
     // (0.0.101; Matthew: "let's put hearts in the world that re-generate --- maybe in one room per gnome house"; "each heart
@@ -492,6 +499,7 @@
     super: { icon: "⚒️", label: "⚒️ super digger", what: "⚒️ the super digger", banner: "⚒️ The super digger: three times as fast, through anything, even the bedrock" },
     carrot: { icon: "🥕", label: "🥕 carrot", what: "🥕 a carrot", banner: "🥕 A carrot! Clover the rabbit 🐇 would love it: go and see her, and press R" },
     carpet: { icon: "🧞", label: "🧞 magic carpet", what: "🧞 the magic carpet", banner: "🧞 The magic carpet! Press C (or 🧞) to fly it: the arrows steer, and let go, it floats" },
+    shoes: { icon: "👟", label: "👟 running shoes", what: "👟 the running shoes", banner: "👟 The running shoes: hold 💨 (or Shift) to dash, up to full speed in a flash" },
   };
   const BOT = { on: false, phase: "", queue: [], cur: null, path: [], k: 0, lastCell: -1, still: 0, tries: 0, skipped: [], frames: 0, t0: 0, items: 0, parts: 0, partsAll: 0, gems: 0, gemsAll: 0, report: null };
   const dist = new Float64Array(NN), prev = new Int32Array(NN), heapI = new Int32Array(NN * 8), heapD = new Float64Array(NN * 8);   // (64-bit: in 32, a cost a hair lower rounded back to the same, and two tiles went on "improving" each other until the search's limit)
@@ -598,7 +606,7 @@
   function gnomeStep(h) {
     if (S.carpet && S.carpet.on) { carpetStep(h); return; }
     if (S.ride && S.ride.on) { rideStep(h); return; }
-    const k = S.keys, pad = { dx: (k.right ? 1 : 0) - (k.left ? 1 : 0), up: k.up, down: k.down, jump: S.jumpQueued, dig: !!k.dig };
+    const k = S.keys, pad = { dx: (k.right ? 1 : 0) - (k.left ? 1 : 0), up: k.up, down: k.down, jump: S.jumpQueued, dig: !!k.dig, dash: !!k.dash };
     S.jumpQueued = false;
     const t0 = performance.now();
     const g = h.step(S.g, near(S.g), pad); if (S.g.climbPack) g.climbPack = true;
@@ -621,6 +629,7 @@
       else if (it.kind === "gear") S.g = { ...S.g, gear: true };
       else if (it.kind === "carrot") S.carrots = (S.carrots || 0) + 1;
       else if (it.kind === "carpet") S.carpet.have = true;
+      else if (it.kind === "shoes") S.g = { ...S.g, shoes: true };
       else S.g = { ...S.g, tool: Math.max(S.g.tool || 0, it.kind === "super" ? 2 : 1) };
       S.banner = { text: ITEM[it.kind].banner, t: performance.now() }; }
     // a heart, walked into, gives back one heart (not with all five: it stays for later)
@@ -950,10 +959,12 @@
     const tail = (x0, y0, x1, y1, w, sw) => { const mx = (x0 + x1) / 2 + sw, my = (y0 + y1) / 2; c.fillStyle = L.hair2; c.beginPath(); c.moveTo(x0 - w, y0); c.quadraticCurveTo(mx - w * 1.1, my, x1, y1); c.quadraticCurveTo(mx + w * 1.1, my, x0 + w, y0); c.closePath(); c.fill();
       c.strokeStyle = L.hairDk; c.lineWidth = 0.5; c.beginPath(); for (const k of [-0.5, 0, 0.5]) { c.moveTo(x0 + k * w, y0 + 0.5); c.quadraticCurveTo(mx + k * w * 0.8, my, x1 + k * 0.4, y1 - 1); } c.stroke(); };
     if (L.ponytail && !back) tail(side ? 6.5 : 7, -10, side ? 10.5 : 9.5, 3.5, 2.6, 1.5);   // (the boy's ponytail, behind him, showing past his shoulder)
+    const shod = !who && !!(S.g && S.g.shoes);   // (0.0.109: the hero in the running shoes, red, white-soled, a white stripe)
     for (const s2 of [-1, 1]) {   // (boots, a step at a time, with fur at the top)
-      const lift = s2 * step > 0 ? -2 * Math.abs(step) : 0;
-      c.fillStyle = "#5a3a22"; c.beginPath(); c.roundRect(s2 * 6 - 4 + (s2 > 0 ? 1 : -1), 13 + lift, 9, 6, 2.5); c.fill();
-      c.fillStyle = "#7a5636"; c.beginPath(); c.roundRect(s2 * 6 - 4, 11.5 + lift, 8, 3, 1.5); c.fill();
+      const lift = s2 * step > 0 ? -2 * Math.abs(step) : 0, bx = s2 * 6 - 4 + (s2 > 0 ? 1 : -1);
+      c.fillStyle = shod ? "#dc2626" : "#5a3a22"; c.beginPath(); c.roundRect(bx, 13 + lift, 9, 6, 2.5); c.fill();
+      c.fillStyle = shod ? "#f8fafc" : "#7a5636"; c.beginPath(); c.roundRect(s2 * 6 - 4, 11.5 + lift, 8, 3, 1.5); c.fill();
+      if (shod) { c.beginPath(); c.roundRect(bx - 0.3, 17.3 + lift, 9.6, 1.9, 0.9); c.fill(); c.fillRect(bx + 2.2, 15 + lift, 4.6, 1); }
     }
     const tank = () => { c.fillStyle = "#facc15"; c.beginPath(); c.roundRect(back ? -5 : -15, -7, back ? 10 : 7, 17, 3.5); c.fill();
       c.fillStyle = "#a16207"; c.fillRect(back ? -1.5 : -13, -9.5, 3, 3); };
@@ -1099,10 +1110,12 @@
     else if (run) { c.translate(0, 18); c.rotate(0.08); c.translate(0, -18); }   // (leaning into the run)
     if (!swim && ground && !ride) E(0, 19 - bob, 12, 3.2, "rgba(0, 0, 0, 0.3)");
     // (the legs: a stride running; tucked in the air; kicking in the water; the far one darker, behind)
+    const shod = !who && !!(S.g && S.g.shoes);   // (0.0.109: the hero in the running shoes)
     const leg = (a, near) => { const hx = near ? 1.5 : -1.5, hy = 10, fx = hx + Math.sin(a) * 8, fy = hy + Math.cos(a) * 8;
       c.strokeStyle = near ? L.coatDk : L.legFar; c.lineWidth = 5; c.lineCap = "round"; c.beginPath(); c.moveTo(hx, hy); c.lineTo(fx, fy); c.stroke();
-      c.fillStyle = near ? "#5a3a22" : "#47301c"; c.beginPath(); c.roundRect(fx - 3.2, fy - 1.5, 9, 5, 2.4); c.fill();
-      c.fillStyle = near ? "#7a5636" : "#64462c"; c.beginPath(); c.roundRect(fx - 3, fy - 2.8, 6, 2.6, 1.2); c.fill(); };
+      c.fillStyle = shod ? (near ? "#dc2626" : "#991b1b") : near ? "#5a3a22" : "#47301c"; c.beginPath(); c.roundRect(fx - 3.2, fy - 1.5, 9, 5, 2.4); c.fill();
+      c.fillStyle = shod ? (near ? "#f8fafc" : "#cbd5e1") : near ? "#7a5636" : "#64462c"; c.beginPath(); c.roundRect(fx - 3, fy - 2.8, 6, 2.6, 1.2); c.fill();
+      if (shod) { c.beginPath(); c.roundRect(fx - 3.4, fy + 2.4, 9.6, 1.8, 0.9); c.fill(); c.fillRect(fx - 0.6, fy + 0.4, 4.4, 0.9); } };
     const kick = stroke ? Math.sin(p * 2.2) * 0.45 : 0;
     const aNear = ride ? 0.6 : swim ? kick : !ground ? 0.75 : run ? Math.sin(p) * 1.0 : 0, aFar = ride ? 0.4 : swim ? -kick : !ground ? -0.55 : run ? -Math.sin(p) * 1.0 : 0;   // (riding: astride the saddle)
     // (the far arm, behind him: swinging opposite the near leg, or windmilling)
@@ -2274,7 +2287,7 @@
     if (S.jumpQueued) R.want = 40; else if (R.want > 0) R.want--;
     const leap = (R.want > 0 || (k.up && R.leapt)) && g0.ground && !g0.climb && !wet, hop = !leap && g0.ground && dx !== 0 && !k.dig && !k.down && !g0.climb && !wet;
     // (rising in a hop or a leap, World.step is told up is held, so that it does not cut the jump short)
-    const pad = { dx: k.dig ? dx : dx * 2, up: k.up || ((R.hop || R.leap) && !g0.ground && g0.vy < 0), down: k.down, jump: leap || hop || (S.jumpQueued && (g0.climb || wet)), dig: !!k.dig };
+    const pad = { dx: k.dig ? dx : dx * 2, up: k.up || ((R.hop || R.leap) && !g0.ground && g0.vy < 0), down: k.down, jump: leap || hop || (S.jumpQueued && (g0.climb || wet)), dig: !!k.dig, dash: false };
     if (leap) R.want = 0;
     S.jumpQueued = false;
     const t0 = performance.now();
@@ -2340,10 +2353,10 @@
     const x = vx === 0 || meets(g.x + vx, g.y) ? g.x : g.x + vx, vx2 = x === g.x ? 0 : vx;
     const y = vy === 0 || meets(x, g.y + vy) ? g.y : g.y + vy, vy2 = y === g.y ? 0 : vy;
     const face = p.dx !== 0 ? p.dx : c.face;
-    return { gnome: { x, y, vx: 0, vy: 0, face, ground: false, climb: false, swim: false, under: false, air: g.air > 600 ? g.air : 600, gear: g.gear, tool: g.tool, dc: -1, dr: -1, dt: 0, ev: 0 }, carpet: { vx: vx2, vy: vy2, face } };
+    return { gnome: { x, y, vx: 0, vy: 0, face, ground: false, climb: false, swim: false, under: false, air: g.air > 600 ? g.air : 600, gear: g.gear, tool: g.tool, shoes: g.shoes, dc: -1, dr: -1, dt: 0, ev: 0 }, carpet: { vx: vx2, vy: vy2, face } };
   }
   function carpetStep(h) {
-    const C = S.carpet, k = S.keys, g0 = S.g, pad = { dx: (k.right ? 1 : 0) - (k.left ? 1 : 0), up: !!k.up, down: !!k.down, jump: false, dig: false };
+    const C = S.carpet, k = S.keys, g0 = S.g, pad = { dx: (k.right ? 1 : 0) - (k.left ? 1 : 0), up: !!k.up, down: !!k.down, jump: false, dig: false, dash: false };
     S.jumpQueued = false;
     const cr = { vx: C.vx | 0, vy: C.vy | 0, face: C.face < 0 ? -1 : 1 }, byHazel = !!(h && h.fly) && !Q.has("jsfly"), t0 = performance.now();
     const f = byHazel ? h.fly(g0, near(g0), pad, cr) : flyJS(g0, near(g0), pad, cr);
@@ -3409,6 +3422,14 @@
       else if (it.kind === "carrot") { ctx.rotate(0.35); ctx.fillStyle = "#4d7c0f"; for (const a of [-0.5, -0.15, 0.2, 0.5]) { ctx.save(); ctx.translate(0, -0.18 * s); ctx.rotate(a); ctx.beginPath(); ctx.ellipse(0, -0.2 * s, 0.05 * s, 0.2 * s, 0, 0, 7); ctx.fill(); ctx.restore(); }
         ctx.fillStyle = "#f97316"; ctx.beginPath(); ctx.moveTo(-0.13 * s, -0.2 * s); ctx.quadraticCurveTo(0, -0.26 * s, 0.13 * s, -0.2 * s); ctx.quadraticCurveTo(0.08 * s, 0.1 * s, 0, 0.38 * s); ctx.quadraticCurveTo(-0.08 * s, 0.1 * s, -0.13 * s, -0.2 * s); ctx.fill(); ctx.stroke();
         ctx.strokeStyle = "rgba(124,45,18,0.6)"; ctx.beginPath(); for (const yy of [-0.08, 0.04, 0.16]) { ctx.moveTo(-0.07 * s, yy * s); ctx.lineTo(0.02 * s, (yy + 0.02) * s); } ctx.stroke(); }
+      else if (it.kind === "shoes") for (const [ox, oy, col] of [[-0.1, -0.1, "#b91c1c"], [0.06, 0.06, "#dc2626"]]) {   // (0.0.109: the running shoes, a pair, red, white-soled, a white stripe, laced)
+        const X = v => (ox + v) * s, Y = v => (oy + v) * s;
+        ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(X(-0.32), Y(0.12)); ctx.lineTo(X(-0.31), Y(-0.1)); ctx.quadraticCurveTo(X(-0.24), Y(-0.19), X(-0.12), Y(-0.15)); ctx.lineTo(X(0.04), Y(-0.06));
+        ctx.quadraticCurveTo(X(0.24), Y(-0.05), X(0.33), Y(0.06)); ctx.lineTo(X(0.34), Y(0.12)); ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = "#f8fafc"; ctx.beginPath(); ctx.roundRect(X(-0.35), Y(0.09), 0.71 * s, 0.09 * s, 0.04 * s); ctx.fill(); ctx.stroke();
+        ctx.strokeStyle = "#f8fafc"; ctx.lineWidth = Math.max(1, s / 18); ctx.beginPath(); ctx.moveTo(X(-0.22), Y(0.04)); ctx.quadraticCurveTo(X(-0.02), Y(0.03), X(0.14), Y(-0.03)); ctx.stroke();
+        ctx.lineWidth = Math.max(1, s / 30); ctx.beginPath(); for (const k of [0, 1, 2]) { ctx.moveTo(X(-0.11 + k * 0.05), Y(-0.15 + k * 0.035)); ctx.lineTo(X(-0.06 + k * 0.05), Y(-0.1 + k * 0.035)); } ctx.stroke();
+        ctx.strokeStyle = "rgba(40,25,10,0.8)"; ctx.lineWidth = Math.max(1, s / 22); }
       else if (it.kind === "carpet") { const art = carpetTop(s), w = s * 0.95, hh = w * art.H / art.W;   // (the magic carpet, flat, its tassels at both ends)
         if (LINE) ctx.strokeRect(-w / 2, -hh / 2, w, hh); else ctx.drawImage(art.cv, -w / 2, -hh / 2, w, hh);
         ctx.strokeStyle = "#fbbf24"; ctx.lineWidth = Math.max(1, s / 34); ctx.beginPath();
@@ -3443,7 +3464,16 @@
       if (sliding) { const dir = Math.sign(g.vx); ctx.save(); ctx.translate((gx + lp) * s, (g.y / 1000) * s); ctx.rotate(-dir * 0.32); ctx.scale(1, 0.8);
         gnomeProfile(ctx, 0, -0.48 * s, s * 0.98, dir, false, true, 0, now, g.gear, null); ctx.restore();
         if (S.frame % 2 === 0) S.parts.push({ x: gx - dir * 0.25, y: g.y / 1000 - 0.05, vx: -dir * (0.01 + 0.03 * rand()), vy: -0.02 - 0.03 * rand(), life: 18 + rand() * 10, col: "#c8b48a" }); }
-      else if (lateral) gnomeProfile(ctx, (gx + lp) * s, (g.y / 1000) * s - 0.48 * s, s * 0.98, g.face, Math.abs(g.vx) > 10, g.ground || g.climb, g.vy, now, g.gear, swimPose);
+      else if (lateral) {
+        // (0.0.109; Matthew: "a button ... for dashing (instead of walking) --- 3x the speed") past a walk, dashing: the stride
+        // quickens with the speed (a clock of its own, run faster), the gnome leans further into it, dust kicks up from its heels
+        const fast = g.ground && !g.climb && !swimPose ? Math.max(0, Math.min(1, (Math.abs(g.vx) - 100) / 176)) : 0, dts = Math.min(100, Math.max(0, now - (S.strideAt ?? now)));
+        S.strideAt = now; S.stride = (S.stride ?? now) + dts * (1 + 1.4 * fast);
+        const fx = (gx + lp) * s, fy = (g.y / 1000) * s;
+        if (fast > 0) { ctx.save(); ctx.translate(fx, fy); ctx.rotate(g.face * 0.18 * fast); ctx.translate(-fx, -fy); }
+        gnomeProfile(ctx, fx, fy - 0.48 * s, s * 0.98, g.face, Math.abs(g.vx) > 10, g.ground || g.climb, g.vy, S.stride, g.gear, swimPose);
+        if (fast > 0) ctx.restore();
+        if (fast > 0.2 && !LINE && S.frame % 3 === 0) { const dir = Math.sign(g.vx); S.parts.push({ x: gx - dir * 0.3, y: g.y / 1000 - 0.05, vx: -dir * (0.01 + 0.025 * Math.random()), vy: -0.015 - 0.025 * Math.random(), life: 14 + Math.random() * 10, col: "#c8b48a" }); } }
       else gnome(ctx, (gx + lp) * s, (g.y / 1000) * s - 0.48 * s, s * 0.98, d, true, moving, now, g.gear, false, true, !!(S.party && now - S.party.t < 6000 && !swimPose), swimPose);
       if (g.under && !g.gear) { for (let j = 0; j < Math.ceil(g.air / 120); j++) { ctx.strokeStyle = g.air < 150 && Math.floor(now / 150) % 2 ? "#ef4444" : "rgba(220,240,255,0.9)"; ctx.lineWidth = Math.max(1, s / 20); ctx.beginPath(); ctx.arc((gx - 0.5 + j * 0.25) * s, (g.y / 1000 - 1.25 - (j % 2) * 0.12) * s, 0.09 * s, 0, 7); ctx.stroke(); } }
       if (g.swim && !g.under) { ctx.strokeStyle = "rgba(255,255,255,0.8)"; ctx.lineWidth = Math.max(1, s / 16); const wl = Math.floor((g.y / 1000 - 0.45)) ; const sx = gx * s, sy = (wl) * s;
@@ -3669,7 +3699,7 @@
   requestAnimationFrame(frame);
 
   // ---- the keys and the buttons
-  const KEYS = { ArrowLeft: "left", a: "left", A: "left", ArrowRight: "right", d: "right", D: "right", ArrowUp: "up", w: "up", W: "up", z: "up", Z: "up", ArrowDown: "down", s: "down", S: "down", x: "dig", X: "dig" };
+  const KEYS = { ArrowLeft: "left", a: "left", A: "left", ArrowRight: "right", d: "right", D: "right", ArrowUp: "up", w: "up", W: "up", z: "up", Z: "up", ArrowDown: "down", s: "down", S: "down", x: "dig", X: "dig", Shift: "dash" };
   const typing = e => /^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName) && e.target.type !== "checkbox";
   addEventListener("keydown", e => {
     if (typing(e)) return;
@@ -3726,7 +3756,7 @@
   // its gusts, the rain and when it comes next). 📂 Load makes the world from its seed again, then puts all that back. The birds,
   // frogs, insects and squirrels, the villagers' strolls and the dust and smoke start afresh. The tiles go packed (gzip, then
   // base64) where the browser can pack them: a world's tiles are 0.7 MB as they are.
-  const SAVE_KIND = "hazeljs-examples/gnome-world", SAVE_V = 3;   // (2, 0.0.102: the bigger world, Clover, the carrots; 3, 0.0.106: the magic carpet)
+  const SAVE_KIND = "hazeljs-examples/gnome-world", SAVE_V = 4;   // (2, 0.0.102: the bigger world, Clover, the carrots; 3, 0.0.106: the magic carpet; 4, 0.0.109: the running shoes)
   const TILES = [mat, bg, fix, gem, stone, shape, root, top, wat];
   const bytesOf = A => new Uint8Array(A.buffer, A.byteOffset, A.byteLength);
   const TILE_BYTES = TILES.reduce((n, A) => n + A.byteLength, 0);
@@ -3753,7 +3783,7 @@
   }
   async function saveText(snap) {
     const gz = typeof CompressionStream === "function", packed = gz ? await squeeze(snap.tiles, new CompressionStream("gzip")) : snap.tiles;
-    return JSON.stringify({ ...snap, page: "0.0.106", saved: new Date().toISOString(), tiles: { gzip: gz, bytes: snap.tiles.length, data: b64(packed) } });
+    return JSON.stringify({ ...snap, page: "0.0.109", saved: new Date().toISOString(), tiles: { gzip: gz, bytes: snap.tiles.length, data: b64(packed) } });
   }
   async function readSave(text) {
     let d; try { d = JSON.parse(text); } catch (e) { d = null; }
@@ -3769,14 +3799,15 @@
   // as it was is put back instead)
   function restore(h, d) {
     S.frame = d.frame; S.seed = d.seed; build(h, S.seed);
-    // (a save from before the magic carpet, 0.0.106, has one thing fewer: the carpet, the last, lies where it was put)
-    const have = shapeOf(), older = k => k === "items" && d.shape.items === have.items - 1 && S.items[S.items.length - 1].kind === "carpet";
+    // (a save from before the magic carpet, 0.0.106, or the running shoes, 0.0.109, has a thing or two fewer: those, the last, lie
+    // where they were put)
+    const have = shapeOf(), older = k => k === "items" && d.shape.items < have.items && S.items.slice(d.shape.items).every(it => it.kind === "carpet" || it.kind === "shoes");
     for (const k in d.shape) if (d.shape[k] !== have[k] && !older(k)) throw new Error("its world was planned by other rules (were they edited?)");
     for (const k of d.roots) { const t = S.rootPlan[k]; if (t && !t.done) { t.done = true; if (h.roots && S.built.compiled) rootSet(h, t, false); } }
     setTileBytes(d.tiles);
     seedRand = d.rand; S.damAt = d.damAt;
     const w = d.weather; S.wind = w.wind ? { ...w.wind } : undefined; S.windNow = w.windNow; S.rain = w.rain; S.rainAt = w.rainAt; S.leaves = (w.leaves || []).map(l => ({ ...l }));
-    S.g = { ...d.gnome }; S.hearts = d.hearts > 0 ? d.hearts : 5; S.faintAt = 0; S.found = d.found; S.gemTotal = d.gemTotal;
+    S.g = { shoes: false, ...d.gnome }; S.hearts = d.hearts > 0 ? d.hearts : 5; S.faintAt = 0; S.found = d.found; S.gemTotal = d.gemTotal;
     S.works = new Map(d.works);
     d.items.forEach((t, k) => { S.items[k].taken = !!t; });
     (d.heartItems || []).forEach((t, k) => { S.heartItems[k].taken = !!t; });

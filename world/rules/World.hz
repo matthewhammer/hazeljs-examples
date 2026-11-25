@@ -233,16 +233,16 @@ let tile : (Near, Int, Int) -> Int = fun (n, dc, dr) ->
   if dc < 0 - 1 || dc > 1 || dr < 0 - 3 || dr > 1 then 0 else
   (let row = (if dr == 0 - 3 then n.r0 else if dr == 0 - 2 then n.r1 else if dr == 0 - 1 then n.r2 else if dr == 0 then n.r3 else n.r4) in
    md(row / (if dc == 0 - 1 then 1 else if dc == 0 then 512 else 262144), 512));
-# (Matthew: "let's also do sloped banks, like Mario 3", "more realisitic, especially for creek and stream banks") Where the gnome's middle (x) is over a sloped tile, in the row its feet would be in (y) or the one below, the diagonal there is the ground: it comes down onto it (y below it, the gnome above it the step before), and walking down it stays on it; off the top of a slope, onto the ground beside it, it steps up onto that, its top being within 450 of its feet. The ground's height there, or -1 (climbing, or rising) #
+# (Matthew: "let's also do sloped banks, like Mario 3", "more realisitic, especially for creek and stream banks") Where the gnome's middle (x) is over a sloped tile, in the row its feet would be in (y) or the one below, the diagonal there is the ground: it comes down onto it (y below it, the gnome above it the step before), and walking down it stays on it (dashing too: 276 a step, the slope dropping as much under it, so within 300); going up it fast, from one sloped tile into the next one up, it comes onto that too, and off the low end of a slope onto level ground less than 300 below its feet, it steps down onto that (0.0.109); off the top of a slope, onto the ground beside it, it steps up onto that, its top being within 450 of its feet. The ground's height there, or -1 (climbing, or rising) #
 let slope_at : (Near, Gnome, Int, Int, Int, Bool, Bool) -> Int = fun (n, g, x, y, vy, climbing, midw) ->
   let at : (Int, Int) -> Int = fun (c, r) -> tile(n, c - n.cx, r - n.cy) in
   let shape : (Int, Int) -> Int = fun (c, r) -> md(at(c, r) / 64, 4) in
   let c = x / 1000 in let f = (y - 1) / 1000 in
-  let r = (if shape(c, f) > 0 then f else if shape(c, f + 1) > 0 then f + 1 else 0 - 1) in
+  let r = (if shape(c, f) > 0 then f else if shape(c, f + 1) > 0 then f + 1 else if g.ground && shape(c, f - 1) > 0 then f - 1 else 0 - 1) in
   if climbing || vy < 0 then 0 - 1
   else if r >= 0 then (let sy = (r + 1) * 1000 - (if shape(c, r) == 1 then x - c * 1000 else 1000 - (x - c * 1000)) in
-    if (y > sy && g.y <= sy + 300) || (g.ground && !midw && y < sy && sy - y < 240) then sy else 0 - 1)
-  else (let w = md(at(c, f), 16) in if g.ground && w >= 1 && w <= 10 && y - f * 1000 <= 450 then f * 1000 else 0 - 1);
+    if (y > sy && g.y <= sy + 300) || (g.ground && !midw && y < sy && sy - y < 300) then sy else 0 - 1)
+  else (let w = md(at(c, f), 16) in if g.ground && w >= 1 && w <= 10 && y - f * 1000 <= 450 then f * 1000 else if g.ground && !midw && (f + 1) * 1000 - y < 300 && md(at(c, f + 1), 16) >= 1 && md(at(c, f + 1), 16) <= 10 then (f + 1) * 1000 else 0 - 1);
 # (Matthew: "down on a slope shouldn't dig --- it should do a slide animation that accelerates, like mario 3") Down held, standing on a slope: the gnome slides down it, faster every step (14 more, up to 190, twice its run); off the slope, still down held, it coasts on, slowing (a sixteenth a step), while it is still faster than it can run. Its speed across, or -100000: not sliding #
 let slide_vx : (Near, Gnome, Pad, Bool, Bool) -> Int = fun (n, g, p, climbing, midw) ->
   let shape : (Int, Int) -> Int = fun (c, r) -> md(tile(n, c - n.cx, r - n.cy) / 64, 4) in
@@ -286,7 +286,7 @@ let finish : (Gnome, Near, Pad, Moved) -> Gnome = fun (g, n, p, m) ->
   let air = (if headw && !g.gear then g.air - 1 else (let a = g.air + 5 in if a < 600 then a else 600)) in
   let ev = (if dug then 1 else if air <= 0 then 4 else if m.jumped then 2 else if midw && !g.swim && !g.under && g.vy > 30 then 3 else if p.down && g.swim && !g.gear then 5 else 0) in
   (x = m.x, y = m.y, vx = m.vx, vy = m.vy, face = (if p.dx != 0 then p.dx else g.face),
-   ground = m.ground, climb = climbing, swim = m.floating || (midw && !headw), under = headw, air = (if air <= 0 then 600 else air), gear = g.gear, tool = g.tool,
+   ground = m.ground, climb = climbing, swim = m.floating || (midw && !headw), under = headw, air = (if air <= 0 then 600 else air), gear = g.gear, tool = g.tool, shoes = g.shoes,
    dc = tc, dr = tr, dt = (if dug then 0 else dt), ev = ev);
 # The gnome's step (Matthew, 2026-11-23: "move the gnome in a sub-tile way, so it's not tied to one tile at a time"; "the feel of a platform NES/SNES game"): running (92 thousandths of a tile a step, eased), falling (11 more a step, 267 at most), a jump of two tiles (let go of up and it is cut short), climbing a ladder, the stair or any tunnel dug (70 a step, any way); a box 0.66 of a tile wide and 0.88 tall, stopped by solid tiles, and by a platform only from above (down held: through it). Pushing across into ground that can be dug, standing or climbing, digs it; so does down, standing, into the ground underfoot, and up into the ground just over its head; a tile takes as many steps as its ground and the gnome's digger say (dig_steps). (Matthew: "when the gnome doesn't have the diving suit, we should permit them to swim on the surface. pressing down forces them to start to go under the surface, and starts the air timer") In the water without the diving gear it floats, its head out, and swims across; down held, it dives, slowly; let go, it rises again; up pressed at the surface, a hop out onto the bank. Its head under the water, its breath runs down (600 steps, ten seconds), and comes back five times as fast out of it. With the gear it swims any way, as long as it likes #
 let step : (Gnome, Near, Pad) -> Gnome = fun (g, n, p) ->
@@ -315,7 +315,8 @@ let step : (Gnome, Near, Pad) -> Gnome = fun (g, n, p) ->
   let surface = top_wet((g.y - 450) / 1000) * 1000 in
   let up_tile = (g.y - hh - 1) / 1000 in
   let dig_up = p.up && (g.ground || climbing || midw) && digs(cx, up_tile) > 0 && g.y - hh - (up_tile + 1) * 1000 < 150 in
-  let run = (if p.dig then 0 else g.vx + (p.dx * 92 - g.vx) / 4) in
+  # (Matthew: "a button ... for dashing (instead of walking) --- 3x the speed, where we accelerate up to that speed, but quicker with the running shoes") Dash held (💨, or Shift), already going the way held at a walk (80 or more): on the ground, faster every step, up to three times a walk (276): 5 more a step, or 16 with the running shoes; in the air, its speed kept. Let go of it, and the gnome eases back to a walk #
+  let run = (if p.dig then 0 else if p.dash && p.dx != 0 && g.vx * p.dx >= 80 then (if g.ground then p.dx * mini(absi(g.vx) + (if g.shoes then 16 else 5), 276) else g.vx) else g.vx + (p.dx * 92 - g.vx) / 4) in
   # (climbing, or down held standing, with no way across held: eased to the middle of its column, so it fits a shaft one tile wide) #
   let snap = (cx * 1000 + 500 - g.x) / 3 in
   let sv = slide_vx(n, g, p, climbing, midw) in
@@ -332,9 +333,9 @@ let step : (Gnome, Near, Pad) -> Gnome = fun (g, n, p) ->
     else (let v = g.vy + 11 in mini((if !p.up && v < 0 - 70 then 0 - 70 else v), 267))) in
   # across: stopped by a solid tile in the rows the gnome is in #
   let nx0 = g.x + vx in
-  # (on a slope, the ground at its top is no wall: within 450 of the gnome's feet, it walks on up onto it) #
+  # (on a slope, the ground at its top is no wall: within 450 of the gnome's feet, it walks on up onto it; and on a slope rising the way it goes, the ground beyond its high end is level with that, however fast the gnome comes, 0.0.109, for the dash) #
   let sloping = shape(cx, feet) > 0 || shape(cx, feet + 1) > 0 in
-  let blocked : Int -> Bool = fun c -> solid(c, head) || (solid(c, feet) && !(sloping && g.y - feet * 1000 <= 450)) in
+  let blocked : Int -> Bool = fun c -> solid(c, head) || (solid(c, feet) && !((shape(cx, feet) == 1 && vx > 0) || (shape(cx, feet) == 2 && vx < 0)) && !(sloping && g.y - feet * 1000 <= 450)) in
   let hc = (if vx > 0 && blocked((nx0 + hw) / 1000) then (nx0 + hw) / 1000 else if vx < 0 && nx0 - hw >= 0 && blocked((nx0 - hw) / 1000) then (nx0 - hw) / 1000 else none) in
   let nx1 = (if hc < 0 then nx0 else if vx > 0 then hc * 1000 - hw - 1 else (hc + 1) * 1000 + hw) in
   let nx = maxi(hw, mini(nx1, 896 * 1000 - hw)) in
