@@ -2,6 +2,10 @@
 
 Each version lists what the apps do as of that version. The newest version is first.
 
+## 0.0.111 (2026-11-25)
+
+- **Gnome world: a save loaded and saved again is the same file again.** 0.0.109's load gave a gnome from an older save its running shoes (none) by putting the new field first, so a loaded gnome's fields came out in another order than the saved one's, and the save check's fingerprint of the gnome (and the file saved again) differed. Now the field goes last, and only for a save from before the shoes. (The save check on GitHub caught it: run 45660588802.)
+
 ## 0.0.110 (2026-11-25)
 
 - **Gnome world: the pines' low branches reach their needles** (Matthew: "pine tree branches don't connect to pads of needles above them"; "add some branching, and extra length"). Under a pine's lowest tier there were three short dead stubs, ending in the air below the needles. Now four limbs, about twice as long, curve out and up from the trunk into that tier's needles, where their ends are lost; each forks partway (a twig rising more steeply into the bough above it, and a lesser one near its end), and now and then a short dead twig hangs under one. Each end is placed at the middle of the front bough over it, by the same formulas that draw the bough, so it goes into its needles whatever the tree's chance gave it.

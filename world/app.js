@@ -3830,7 +3830,7 @@
     setTileBytes(d.tiles);
     seedRand = d.rand; S.damAt = d.damAt;
     const w = d.weather; S.wind = w.wind ? { ...w.wind } : undefined; S.windNow = w.windNow; S.rain = w.rain; S.rainAt = w.rainAt; S.leaves = (w.leaves || []).map(l => ({ ...l }));
-    S.g = { shoes: false, ...d.gnome }; S.hearts = d.hearts > 0 ? d.hearts : 5; S.faintAt = 0; S.found = d.found; S.gemTotal = d.gemTotal;
+    S.g = { ...d.gnome }; if (S.g.shoes === undefined) S.g.shoes = false;   /* (0.0.111: a save from before the shoes; the gnome's fields in their saved order, so a save loaded and saved again is the same file) */ S.hearts = d.hearts > 0 ? d.hearts : 5; S.faintAt = 0; S.found = d.found; S.gemTotal = d.gemTotal;
     S.works = new Map(d.works);
     d.items.forEach((t, k) => { S.items[k].taken = !!t; });
     (d.heartItems || []).forEach((t, k) => { S.heartItems[k].taken = !!t; });
