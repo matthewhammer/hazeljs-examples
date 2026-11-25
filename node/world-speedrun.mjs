@@ -35,10 +35,14 @@ const SETUP = way => `(() => {
   // dam's next washing away, the wind and the falling leaves go on from the frames this page ran before the run was set up,
   // a different number for each page; and the beavers, the rain and the dam keep time by frames)
   Object.assign(S, { frame: 0, damAt: 0, rain: 0, rainAt: 0, windNow: 0.2, leaves: [] }); S.wind = undefined; Object.assign(S.cam, { x: 0, y: 0, set: false });
+  // (and the page's clock kept by the steps, a sixtieth of a second each: what the page times by the clock (a hurt's grace, a
+  // faint, a villager's greeting) comes at the same step in all three ways, however fast each runs; the timing below by the
+  // real clock, kept aside first)
+  const realNow = window.__realNow = performance.now.bind(performance); performance.now = () => S.frame * (1000 / 60);
   const V = S.built.value, R = window.__R = { way: ${JSON.stringify(way)}, calls: {}, ms: {}, samples: [], swapped: [] };
   if (R.way === "plain") for (const k of ["step", "beaver", "water_row"]) { V[k] = WorldPlain[k]; R.swapped.push(k); }
   for (const k of Object.keys(V)) { const f = V[k]; if (typeof f !== "function") continue; R.calls[k] = 0; R.ms[k] = 0;
-    V[k] = function (...a) { const t = performance.now(); const r = f.apply(this, a); R.ms[k] += performance.now() - t; R.calls[k]++; return r; }; }
+    V[k] = function (...a) { const t = realNow(); const r = f.apply(this, a); R.ms[k] += realNow() - t; R.calls[k]++; return r; }; }
   window.__pickG = g => (${JSON.stringify(GN)}).map(k => (typeof g[k] === "boolean" ? (g[k] ? 1 : 0) : g[k]));
   if (R.way === "jit") { const st = V.step; let n = 0; V.step = (g, nn, p) => { const r = st(g, nn, p); if (++n % ${SAMPLE} === 0) R.samples.push([{ ...g }, { ...nn }, { ...p }, __pickG(r)]); return r; }; }
   T.bot(true); return { seed: S.seed, hero: S.hero, compiled: !!S.built.compiled, buildMs: Math.round(S.built.ms || 0), swapped: R.swapped }; })()`;
@@ -60,7 +64,7 @@ async function run(C, way, capMs) {
   log(`${way}: seed ${info.seed}, ${info.hero}; the rules ${info.compiled ? "compiled by hazel-jit" : "interpreted"}${info.swapped.length ? `, then ${info.swapped.join(", ")} put in plain JavaScript` : ""}; built in ${info.buildMs} ms`);
   const chunks = [], prints = []; let steps = 0, ms = 0; const wall0 = Date.now();
   while (steps < STEPS_MAX) {
-    const r = await p.eval(`WorldTest.steps(${CHUNK})`); steps += r.k; ms += r.ms; chunks.push([steps, +r.ms.toFixed(2)]); prints.push([steps, await p.eval(PRINT)]);
+    const r = await p.eval(`(() => { const t = __realNow(); const r = WorldTest.steps(${CHUNK}); r.ms = __realNow() - t; return r; })()`); steps += r.k; ms += r.ms; chunks.push([steps, +r.ms.toFixed(2)]); prints.push([steps, await p.eval(PRINT)]);
     if (steps % 20000 < CHUNK || r.k < CHUNK) { const st = await p.eval(STATE); log(`  ${steps} steps, ${(ms / 1000).toFixed(1)} s: ${st.phase}, things ${st.items}, tree parts ${st.parts}, gems ${st.gems}`); }
     if (r.k < CHUNK) break;
     if (capMs && Date.now() - wall0 > capMs) { log(`  stopped at ${capMs / 1000} s (its limit), ${steps} steps in`); break; }
