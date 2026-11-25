@@ -2979,6 +2979,12 @@
       const y = H ? H.y0 + (H.y1 - H.y0) * Math.min(1, H.t) - Math.sin(Math.PI * Math.min(1, H.t)) * H.h : landY(Math.max(0, Math.min(WW - 1, Math.floor(b.x))));
       const gy = H ? H.y0 + (H.y1 - H.y0) * Math.min(1, H.t) : y;
       drawRabbit(ctx, b.x * s, y * s, s, { face: b.face, k: 0.78, pose: H ? "hop" : b.nib > 0 ? "nibble" : "sit", t: H ? Math.min(1, H.t) : 0, fur: b.fur, ear: b.ear, gy: gy * s, now }); }
+  }
+  // (0.0.122; Matthew: "clover disappears when we dismount") Clover waiting, where you left her, drawn with the gnome, after the
+  // ground: she was drawn with the wild rabbits, before the great trees, the ground and the back walls of tunnels dug, so that,
+  // left in a tunnel or by a great tree, she was painted over (ridden, she is drawn with the gnome, and was seen)
+  function drawClover(c0, c1, now) {
+    const s = T, M = S.mount;
     if (M && !S.ride.on && M.x / 1000 > c0 - 2 && M.x / 1000 < c1 + 2) { const x = M.x / 1000 * s, y = M.y / 1000 * s;
       drawRabbit(ctx, x, y, s, { face: M.face, k: 1.15, pose: M.nib > 0 ? "nibble" : "sit", saddle: true, fur: RABBIT_FUR[0], ear: M.ear, now });
       if (nearClover() && !LINE) { const word = M.tame ? "🐇 R: ride Clover" : S.carrots > 0 ? "🥕 R: give Clover a carrot" : "🐇 Clover would like a carrot 🥕";
@@ -3754,6 +3760,7 @@
       ctx.font = `bold ${Math.round(0.36 * s)}px sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; const tw = ctx.measureText(label).width;
       ctx.fillStyle = "rgba(30,20,8,0.72)"; ctx.beginPath(); ctx.roundRect(x - tw / 2 - s * 0.18, ly - s * 0.26, tw + s * 0.36, s * 0.52, s * 0.18); ctx.fill(); ctx.strokeStyle = "#fde68a"; ctx.lineWidth = Math.max(1, s / 24); ctx.stroke();
       ctx.fillStyle = "#fff8d0"; ctx.fillText(label, x, ly); ctx.textAlign = "left"; ctx.textBaseline = "alphabetic"; }
+    drawClover(c0, c1, now);   // (0.0.122: with the gnome, not behind the ground)
     const blink = performance.now() - S.hurtAt < 1500 && Math.floor(now / 100) % 2 === 0;
     const flying = !!(S.carpet && S.carpet.on && !S.faintAt);
     if (flying) drawCarpet(g, now, s);

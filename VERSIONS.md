@@ -2,6 +2,10 @@
 
 Each version lists what the apps do as of that version. The newest version is first.
 
+## 0.0.122 (2026-11-25)
+
+- **Gnome world: Clover no longer vanishes in a hole or a tunnel** (Matthew: "clover disappears when we dismount"; "if clover falls into a hole we dig under her, she disappears"). She was there all along, but painted over: waiting, she was drawn with the wild rabbits, early in the picture, before the great trees, the ground and the back walls of the tunnels and holes dug, which were drawn over her; ridden, she is drawn with the gnome, late, so she showed. Left in a tunnel, or dropped into a hole dug under her, or in front of a great tree, she was hidden behind it. Now, waiting, she is drawn with the gnome too, in front of all that. Checked in the page, a hole four deep dug under her where she sat (seed 7): on 0.0.121 she made no pixel on the screen in it, now 133 (on the land, 142).
+
 ## 0.0.121 (2026-11-25)
 
 - **Gnome world: a thing found pauses the game, its words on a card, with 🔊 Read aloud** (Matthew: "lots of the power up text is too long -- need line wraps. and it goes by too fast -- let's have the game pause while we read it, also please present a 'read aloud' button for it. unpause clears the text; or clicking on it."). Picking up a power-up (the diving gear, the climbing pack, the diggers, a carrot, the magic carpet, the flippers, the cat tail, the climbing gear, the shoes) no longer flashes its words for three and a half seconds in one long line over the world: the game pauses, and the pause card says what was found, its words wrapped to the card. 🔊 Read aloud reads them, slowly, as the villagers speak (L, or the controller's listen button, too; the arrows read as words, the emoji not read out); it does not go on. Going on, any way, clears the card: a tap or a click on it, ▶️ Go on, the space bar, the controller's pause. The 🏃 speed run is not paused: its banners as before. The shared pause (`shared/pause.js`) has this as `say`; the other games' pause card is as it was.
