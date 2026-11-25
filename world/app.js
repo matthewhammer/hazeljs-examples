@@ -83,6 +83,17 @@
   const AIR = 0, SOIL = 1, CLAY = 2, SAND = 3, SSTONE = 4, SHALE = 5, LIME = 6, GRANITE = 7, MASON = 8, TIMBER = 9;
   const B_NONE = 0, B_DUG = 1, B_PLASTER = 2, B_WOOD = 3, B_STAIR = 4, B_CAVE = 5;
   const CAVE = new Uint8Array(NN);   // (0.0.127: 1, a tile of one of the caverns, as the world was made)
+  // (0.0.131; ⏱ on this laptop: the water 1.61 ms of a step's 1.68, 96%; and the speed run's crawl on N's laptop) The water in
+  // blocks of 8 tiles square, each stepped only while awake: while water moves in it (more than a ten-thousandth of a tile's in
+  // a step), and for a second and a half after. Water moving wakes its block, and the one beside, over or under it when the tile
+  // is at the block's edge (they may follow); a tile dug, the rain, a river's level changing, the pumps wake theirs; all of them
+  // as the world is made or loaded. Asleep, a block's water stays as it is: still, or moving less than that. Where it never
+  // stops (a river's water seeping down through sand toward the village's pumps, which draw it off), its blocks stay awake
+  const WAKE_FOR = 90, QEPS = 1e-4, WSH = 3, WM = 7, WBC = Math.ceil(WW / 8), wakeTill = new Int32Array(WBC * Math.ceil(WH / 8));
+  const wakeNear = (c, r, t = S.frame + WAKE_FOR) => { if (c < 0 || c >= WW || r < 0 || r >= WH) return; const k = (r >> WSH) * WBC + (c >> WSH), cm = c & WM, rm = r & WM; wakeTill[k] = t;
+    if (cm === 0) { if (c > 0) wakeTill[k - 1] = t; } else if (cm === WM && c + 1 < WW) wakeTill[k + 1] = t;
+    if (rm === 0) { if (r > 0) wakeTill[k - WBC] = t; } else if (rm === WM && r + 1 < WH) wakeTill[k + WBC] = t; };
+  const wakeAll = () => wakeTill.fill(S.frame + 300);
   const F_LADDER = 1, F_PLAT = 2, F_STAIR = 3, F_BRIDGE = 4, F_HATCH = 5, F_DOOR = 6;
   const mat = new Uint8Array(NN), wat = new Float32Array(NN), bg = new Uint8Array(NN), fix = new Uint8Array(NN), gem = new Uint8Array(NN), root = new Uint8Array(NN), stone = new Uint8Array(NN), shape = new Uint8Array(NN), treeMask = new Uint8Array(NN);
   const surf0 = new Int16Array(WW), top = new Int16Array(WW);   // (the land's surface as made; the highest solid tile now)
@@ -274,6 +285,7 @@
       if (best) S.items.push({ kind: "finder", x: best.c + 0.5, y: best.r + 0.5, taken: false }); }
     for (const R of S.rivers) holdRiver(R);
     for (let c = 0; c < WW; c++) top[c] = topOf(c);
+    wakeAll();   // (0.0.131: all the water's blocks awake, to settle)
     S.dry = []; for (let i = 0; i < NN; i++) if (mat[i] === AIR && (bg[i] === B_PLASTER || bg[i] === B_WOOD || bg[i] === B_STAIR)) S.dry.push(i);
     // where things are, for the words at the top of the picture
     S.places = [
@@ -302,7 +314,7 @@
   function setLevel(h, R) { R.level = R.dam ? h.water_row(R.natural, R.bank, R.dam.logs) : R.natural; }
   function holdRiver(R) {
     for (let k = 0; k < R.w; k++) { const c = R.x + k; for (let r = Math.min(R.level, R.natural) - 4; r < R.bed[k]; r++) { if (r < 0) continue; const i = at(c, r);
-      if (mat[i] === AIR && bg[i] === B_NONE) wat[i] = r >= R.level ? 1 : 0; } }
+      if (mat[i] === AIR && bg[i] === B_NONE) { const w = r >= R.level ? 1 : 0; if (Math.abs(wat[i] - w) > QEPS) { wat[i] = w; wakeNear(c, r); } } } }
   }
   // a village: its rooms (World.village), walls of masonry round each, a timber floor, doorways between, the stair down from a
   // door on the hill, the things in each room (World.furnish), a lamp in each, and its chimneys and shafts up to the meadow
@@ -371,18 +383,21 @@
   function waterStep() {
     // (0.0.102: no water lies higher than a row over the land's highest tile, where the rain falls: the rows of sky above skipped)
     if (S.frame % 60 === 0 || !wetFrom) { let m = WH; for (let c = 0; c < WW; c++) if (top[c] < m) m = top[c]; wetFrom = Math.max(0, m - 3); }
-    for (let r = WH - 2; r >= wetFrom; r--) { const base = r * WW;
-      for (let c = 0; c < WW; c++) { const a = base + c, wa = wat[a]; if (wa <= 0.0005) continue;
+    const fr = S.frame, wt = fr + WAKE_FOR;
+    for (let r = WH - 2; r >= wetFrom; r--) { const base = r * WW, rb = (r >> WSH) * WBC;
+      for (let bc = 0; bc < WBC; bc++) { if (wakeTill[rb + bc] < fr) continue; const cEnd = Math.min(WW, (bc << WSH) + 8);
+      for (let c = bc << WSH; c < cEnd; c++) { const a = base + c, wa = wat[a]; if (wa <= 0.0005) continue;
         const ma = mat[a], pa = PORES[ma]; if (pa === 0) continue;
         const b = a + WW, mb = mat[b], pb = PORES[mb]; if (pb === 0) continue;
         const free = (wa - CLING[ma]) * pa; if (free <= 0) continue;
         const room = (1 - wat[b]) * pb; if (room <= 0.0001) continue;
         const k = Math.min(1, Math.min(FLOW[ma], FLOW[mb]) * (root[a] ? 1 + root[a] * 1.5 : 1));
         const qv = Math.min(free * k, room);
-        wat[a] -= qv / pa; wat[b] += qv / pb; } }
+        wat[a] -= qv / pa; wat[b] += qv / pb; if (qv > QEPS) { wakeNear(c, r, wt); if ((r & WM) === WM) wakeNear(c, r + 1, wt); } } } }
     sweep = -sweep;
-    for (let r = wetFrom; r < WH - 1; r++) { const base = r * WW;
-      for (let n = 0; n < WW; n++) { const c = sweep > 0 ? n : WW - 1 - n, a = base + c, wa = wat[a]; if (wa <= 0.002) continue;
+    for (let r = wetFrom; r < WH - 1; r++) { const base = r * WW, rb = (r >> WSH) * WBC;
+      for (let nb = 0; nb < WBC; nb++) { const bc = sweep > 0 ? nb : WBC - 1 - nb; if (wakeTill[rb + bc] < fr) continue; const cA = bc << WSH, cB = Math.min(WW, cA + 8);
+      for (let n = 0; n < cB - cA; n++) { const c = sweep > 0 ? cA + n : cB - 1 - n, a = base + c, wa = wat[a]; if (wa <= 0.002) continue;
         const ma = mat[a], pa = PORES[ma]; if (pa === 0) continue;
         const b = a + WW; if (PORES[mat[b]] > 0 && wat[b] < 0.98) continue;
         for (let side = 0; side < 2; side++) { const d = side ? -sweep : sweep, c2 = c + d; if (c2 < 0 || c2 >= WW) continue;   // (0.0.102: no array made for each tile: 80,000 a step in the bigger world)
@@ -391,16 +406,16 @@
           if (mn === AIR && ma !== AIR && wat[a] < 0.9) continue;
           const k = Math.min(1, Math.min(FLOW[ma], FLOW[mn]) * 0.5 * (root[a] ? 2 : 1));
           const qv = (wat[a] - sn) * Math.min(pa, pn) * 0.5 * k;
-          wat[a] -= qv / pa; wat[n2] += qv / pn; } } }
+          wat[a] -= qv / pa; wat[n2] += qv / pn; if (qv > QEPS) wakeNear(c, r, wt); } } } }
     for (const R of S.rivers) holdRiver(R);
     // (Matthew: "The gnome's basement levels are flooded!") the villages' pumps: every room's and the stair's water drawn down a
     // little each step, as the gnomes' hand pumps at the stair's foot lift it up and out to the meadow
-    for (const i of S.dry) if (wat[i] > 0) wat[i] = Math.max(0, wat[i] - 0.004);
+    for (const i of S.dry) if (wat[i] > 0) { wat[i] = Math.max(0, wat[i] - 0.004); wakeNear(i % WW, (i / WW) | 0); }
     // a shower now and then (fourteen seconds, every two minutes or so), and drying at the surface
     const now = S.frame;
     if (!S.rain && now > S.rainAt) { S.rain = 14 * 60; S.rainAt = now + (100 + Math.floor(rand() * 80)) * 60; }
     if (S.rain) { S.rain--; for (let n = 0; n < 24; n++) { const c = Math.floor(rand() * WW), r = top[c]; if (r >= WH || r > surf0[c] + 2) continue; const i = at(c, r);
-      if (PORES[mat[i]] > 0) wat[i] = Math.min(1, wat[i] + 0.06); else if (r > 0 && mat[at(c, r - 1)] === AIR) wat[at(c, r - 1)] = Math.min(1, wat[at(c, r - 1)] + 0.03); } }
+      if (PORES[mat[i]] > 0) { wat[i] = Math.min(1, wat[i] + 0.06); wakeNear(c, r); } else if (r > 0 && mat[at(c, r - 1)] === AIR) { wat[at(c, r - 1)] = Math.min(1, wat[at(c, r - 1)] + 0.03); wakeNear(c, r - 1); } } }
     if (now % 30 === 0) for (let c = 0; c < WW; c++) { const r = top[c]; if (r >= WH) continue; const i = at(c, r); if (PORES[mat[i]] > 0 && wat[i] > 0.25) wat[i] -= 0.004;
       if (r > 0) { const j = at(c, r - 1); if (wat[j] > 0 && wat[j] < 0.2 && !riverAt(c)) wat[j] = Math.max(0, wat[j] - 0.01); } }
   }
@@ -453,7 +468,7 @@
       if (up) { S.works.set(i, "ladder"); if (here >= 0 && bg[here] === B_DUG) S.works.set(here, "ladder"); }
       else { if (!S.works.has(i)) S.works.set(i, "frame"); if (here >= 0 && bg[here] === B_DUG && !S.works.has(here)) S.works.set(here, "frame"); } }
     const water = wat[i] * PORES[m];
-    mat[i] = AIR; bg[i] = B_DUG; wat[i] = water; shape[i] = 0; dirtyRootsAt(c, r);
+    mat[i] = AIR; bg[i] = B_DUG; wat[i] = water; shape[i] = 0; dirtyRootsAt(c, r); wakeNear(c, r);
     if (stone[i]) { dropStones(c, r, stone[i]); stone[i] = 0; }
     if (gem[i]) { S.gems++; keep("gems", S.gems); gemFound(); popWord("💎", c + 0.5, r + 0.3); if (SND) SND.gem(); gem[i] = 0; }
     else if (SND && S.frame - (S.digSndAt || 0) > 2) { S.lastFill = SND.digFill ? SND.digFill() : (SND.dig(), null); S.digSndAt = S.frame; }   // (0.0.128: a drum fill on the beat)
@@ -4588,7 +4603,7 @@
   const bytesOf = A => new Uint8Array(A.buffer, A.byteOffset, A.byteLength);
   const TILE_BYTES = TILES.reduce((n, A) => n + A.byteLength, 0);
   function tileBytes() { const out = new Uint8Array(TILE_BYTES); let o = 0; for (const A of TILES) { out.set(bytesOf(A), o); o += A.byteLength; } return out; }
-  function setTileBytes(u8) { let o = 0; for (const A of TILES) { bytesOf(A).set(u8.subarray(o, o + A.byteLength)); o += A.byteLength; } }
+  function setTileBytes(u8) { let o = 0; for (const A of TILES) { bytesOf(A).set(u8.subarray(o, o + A.byteLength)); o += A.byteLength; } wakeAll(); }
   const b64 = u8 => { let s = ""; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s); };
   const unb64 = s => { const t = atob(s), u8 = new Uint8Array(t.length); for (let i = 0; i < t.length; i++) u8[i] = t.charCodeAt(i); return u8; };
   const squeeze = async (u8, how) => new Uint8Array(await new Response(new Blob([u8]).stream().pipeThrough(how)).arrayBuffer());
@@ -4908,7 +4923,7 @@
   if (Q.has("test")) Object.assign(window.WorldTest, { SKYC, skyClouds, cloudArt, storminess });   // (0.0.125: the sky)
   if (Q.has("test")) Object.assign(window.WorldTest, { GEMAIM, gemAim, hasFinder, gemCompass });   // (0.0.126: the gem finder)
   if (Q.has("test")) Object.assign(window.WorldTest, { CAVE, CAVEFX, caveLife });   // (0.0.127: the caverns)
-  if (Q.has("test")) Object.assign(window.WorldTest, { botItemOrder, timeSpeedRun, TP });   // (0.0.130: the speed run's order of the things; ⏱)
+  if (Q.has("test")) Object.assign(window.WorldTest, { botItemOrder, timeSpeedRun, TP, wakeTill, wakeAll, waterStep });   // (0.0.130: the speed run's order of the things; ⏱)
   // (^ticket(873): the speed run's steps alone, timed, no drawing: up to n, while the run is on and not yet at its dig)
   if (Q.has("test")) Object.assign(window.WorldTest, { steps: n => { const h = H(); const t0 = performance.now(); let k = 0; for (; k < n && BOT.on && BOT.phase !== "dig"; k++) tick(h); return { k, ms: performance.now() - t0 }; } });   // (0.0.115: the canvases kept, ^ticket(852))   // (0.0.112: the 🎮 controller, driven by hand where frames do not come)
   if (Q.has("test")) Object.assign(window.WorldTest, { snapshot, saveText, readSave, loadText, restartNow: () => restartNow(H()), askRestart, stopBot, digest, bot: on => { if (on !== BOT.on) $("run").click(); return BOT.on; }, carpetToggle, carpetHits, carpetTop, flyJS });
