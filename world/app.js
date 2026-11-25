@@ -35,8 +35,8 @@
   if (window.visualViewport) { const vz = () => { const z = visualViewport.scale; WATCH.zoomMin = Math.min(WATCH.zoomMin, z); WATCH.zoomMax = Math.max(WATCH.zoomMax, z); if (Math.abs(z - 1) > 0.01) WATCH.zoomAt = performance.now(); };
     visualViewport.addEventListener("resize", vz); visualViewport.addEventListener("scroll", vz); }
   const LIB_JIT = "https://build.hazel.org/hazeljs/hazel-lib.js", LIB_NPM = "https://cdn.jsdelivr.net/npm/hazeljs@0.0.4/hazel-lib.js";
-  const PROGRAM = "world", MODULES = ["World", "Fly", "Tail", "Ride"];
-  const TAIL = "(plan = World.plan, ground = World.ground, village = World.village, furnish = World.furnish, limbs = World.limbs, styles = World.styles, beaver = World.beaver, water_row = World.water_row, step = World.step, roots = World.roots, threads = World.threads, greet = World.greet, dig_steps = World.dig_steps, fly = Fly.step, tail = Tail.step, ride_pre = Ride.pre, ride_post = Ride.post)";
+  const PROGRAM = "world", MODULES = ["World", "Fly", "Tail", "Ride", "Boulder"];
+  const TAIL = "(plan = World.plan, ground = World.ground, village = World.village, furnish = World.furnish, limbs = World.limbs, styles = World.styles, beaver = World.beaver, water_row = World.water_row, step = World.step, roots = World.roots, threads = World.threads, greet = World.greet, dig_steps = World.dig_steps, fly = Fly.step, tail = Tail.step, ride_pre = Ride.pre, ride_post = Ride.post, boulder = Boulder.step)";
   const KEY = "hazeljs-examples/world/";
   const Q = new URLSearchParams(location.search);
   const $ = id => document.getElementById(id);
@@ -117,7 +117,7 @@
   // once (the world's plan, its villages and trees); off unless chosen; kept on this device, and in a save made with it on
   let plainView = null, plainOf = null;
   const H = () => { if (!(S.built && S.built.ok)) return null; const v = S.built.value; if (S.rules !== "plain" || !window.WorldPlain) return v;
-    if (plainOf !== v) { plainOf = v; plainView = { ...v, step: window.WorldPlain.step, beaver: window.WorldPlain.beaver, water_row: window.WorldPlain.water_row, fly: undefined, tail: undefined, ride_pre: undefined, ride_post: undefined }; }
+    if (plainOf !== v) { plainOf = v; plainView = { ...v, step: window.WorldPlain.step, beaver: window.WorldPlain.beaver, water_row: window.WorldPlain.water_row, fly: undefined, tail: undefined, ride_pre: undefined, ride_post: undefined, boulder: undefined }; }
     return plainView; };
   function setRules(r) { S.rules = r === "plain" ? "plain" : "hazel"; keep("rules", S.rules); plainOf = null; const box = document.getElementById("rules-plain"); if (box) box.checked = S.rules === "plain"; if (typeof drawStatus === "function") drawStatus(); }
   let seedRand = 1;
@@ -316,7 +316,7 @@
     for (const v of S.villages) { const mine = S.rooms.filter(R => R.x >= v.x0 && R.x < v.x1), R = mine.find(R => R.kind === 1) || mine[0];
       if (R) S.heartItems.push({ x: R.x + R.w * 0.5, y: R.y + 3.3, taken: false }); }
     for (const hs of S.houses) if (!hs.small) S.heartItems.push({ x: hs.x + 0.5 + hs.side * 0.6, y: hs.row - 0.55, taken: false });
-    S.works = new Map(); S.hearts = 5; S.cam.set = false; S.smoke = []; S.parts = []; S.pebbles = []; S.piles = []; S.fallen = []; S.talk = null; hushTalk(); rootChunks.clear(); S.minimapAt = -1e9; S.rain = 0; S.rainAt = S.frame + 60 * 60; S.banner = { text: "🌍 Gnome world", t: performance.now() };
+    S.works = new Map(); S.hearts = 5; S.hurtAt = -1e9; S.faintAt = 0; S.cam.set = false; S.smoke = []; S.parts = []; S.pebbles = []; S.piles = []; S.fallen = []; S.talk = null; hushTalk(); rootChunks.clear(); S.minimapAt = -1e9; S.rain = 0; S.rainAt = S.frame + 60 * 60; S.banner = { text: "🌍 Gnome world", t: performance.now() };
   }
   const riverAt = x => S.rivers.find(R => x >= R.x - 0.5 && x < R.x + R.w + 0.5) || null;
   const topOf = c => { for (let r = 0; r < WH; r++) if (mat[at(c, r)] !== AIR) return r; return WH; };
@@ -921,17 +921,31 @@
     S.confetti = keep;
   }
   // ---- the boulders: one with open air under it wobbles, then falls (slower in the water), landing where it can fall no further;
-  // falling on the gnome, a heart
-  function bouldersStep() {
+  // falling on the gnome, a heart. (0.0.135; piece 3 of ^report(64)'s plan) A boulder's step is Hazel's, Boulder.step; here its
+  // twin in JavaScript, the same answers, for ⚡ and the check in Node. The page gives it what it sees round the boulder: the two
+  // tiles under it open or not (no ground, no plank, no other boulder), whether it is in water, the gnome's feet; and it asks
+  // only about a boulder that may move: one lying still with ground under it stays so (its answer would be just that)
+  const boulderJS = (b, s) => {
+    if (!b.falling) {
+      if (!s.below) return { boulder: { c: b.c, r: b.r, oy: b.oy, wob: -1, falling: false }, wobble: false, landed: false, hit: false };
+      if (b.wob < 0) return { boulder: { c: b.c, r: b.r, oy: b.oy, wob: 45, falling: false }, wobble: true, landed: false, hit: false };
+      if (b.wob - 1 <= 0) return { boulder: { c: b.c, r: b.r, oy: 0, wob: b.wob - 1, falling: true }, wobble: false, landed: false, hit: false };
+      return { boulder: { c: b.c, r: b.r, oy: b.oy, wob: b.wob - 1, falling: false }, wobble: false, landed: false, hit: false };
+    }
+    const oy1 = b.oy + (s.wet ? 0.04 : 0.11), moved = oy1 >= 1, r = moved ? b.r + 1 : b.r, landed = moved && !s.below2, oy = landed ? 0 : moved ? oy1 - 1 : oy1, top = r + oy, dx = s.gx - (b.c + 0.5);
+    const hit = !landed && Math.abs(dx) < 0.8 && s.gy > top + 0.2 && s.gy - 0.9 < top + 1;
+    return { boulder: { c: b.c, r, oy, wob: landed ? -1 : b.wob, falling: !landed }, wobble: false, landed, hit };
+  };
+  function bouldersStep(h) {
+    const byHazel = !!(h && h.boulder) && !Q.has("jsboulder");
     for (const b of S.boulders) {
       const open = (c, r) => inside(c, r) && mat[at(c, r)] === AIR && !fix[at(c, r)] && !S.boulders.some(o => o !== b && o.c === c && o.r === r);
-      if (!b.falling) { if (!open(b.c, b.r + 1)) { b.wob = -1; continue; }
-        if (b.wob < 0) { b.wob = 45; if (SND) SND.wobble(); } else if (--b.wob <= 0) { b.falling = true; b.oy = 0; } continue; }
-      const wet = wat[at(b.c, b.r)] > 0.5;
-      b.oy += wet ? 0.04 : 0.11;
-      while (b.oy >= 1) { b.r++; b.oy -= 1; if (!open(b.c, b.r + 1)) { b.oy = 0; b.falling = false; b.wob = -1; if (SND) SND.land(); break; } }
-      const gx = S.g.x / 1000, gy = S.g.y / 1000;
-      if (b.falling && Math.abs(gx - (b.c + 0.5)) < 0.8 && gy > b.r + b.oy + 0.2 && gy - 0.9 < b.r + b.oy + 1) hurt("💥 a boulder");
+      const below = open(b.c, b.r + 1);
+      if (!b.falling && !below && b.wob === -1) continue;   // (still, with ground under it: nothing to ask)
+      const sees = { below, below2: open(b.c, b.r + 2), wet: inside(b.c, b.r) && wat[at(b.c, b.r)] > 0.5, gx: S.g.x / 1000, gy: S.g.y / 1000 };
+      const a = byHazel ? h.boulder({ c: b.c, r: b.r, oy: b.oy, wob: b.wob, falling: !!b.falling }, sees) : boulderJS(b, sees);
+      b.c = a.boulder.c; b.r = a.boulder.r; b.oy = a.boulder.oy; b.wob = a.boulder.wob; b.falling = a.boulder.falling;
+      if (a.wobble && SND) SND.wobble(); if (a.landed && SND) SND.land(); if (a.hit) hurt("💥 a boulder");
     }
   }
   // ---- the beavers (World.beaver, ten times a second): the trees standing near each's lodge, given; a tree it fells falls, and
@@ -1005,7 +1019,7 @@
     if (S.faintAt && S.tail && S.tail.on) Object.assign(S.tail, { fly: 0, lift: 0, flut: 0, meter: 0, rep: 0 });
     if (S.faintAt) { if (performance.now() - S.faintAt > 1800) { S.faintAt = 0; S.hearts = 5; S.g = { ...S.g, x: S.start.x, y: top[Math.floor(S.start.x / 1000)] * 1000, vx: 0, vy: 0, air: 600 }; S.cam.set = false; } }
     else { if (BOT.on) { BOT.frames++; botStep(); tmark("the speed run's way"); } gnomeStep(h); tmark("the gnome"); }
-    bouldersStep(); tmark("boulders");
+    bouldersStep(h); tmark("boulders");
     waterStep(); tmark("water");
     if (S.frame % 6 === 0) beaversStep(h); tmark("beavers");
     for (const t of S.trees) if (t.alive && t.grow < 1) t.grow = Math.min(1, t.grow + 1 / (60 * 60));
@@ -4958,7 +4972,7 @@
   if (Q.has("test")) Object.assign(window.WorldTest, { SKYC, skyClouds, cloudArt, storminess });   // (0.0.125: the sky)
   if (Q.has("test")) Object.assign(window.WorldTest, { GEMAIM, gemAim, hasFinder, gemCompass });   // (0.0.126: the gem finder)
   if (Q.has("test")) Object.assign(window.WorldTest, { CAVE, CAVEFX, caveLife });   // (0.0.127: the caverns)
-  if (Q.has("test")) Object.assign(window.WorldTest, { botItemOrder, timeSpeedRun, TP, wakeTill, wakeAll, waterStep, setRules, H, rideJS, rideStep });   // (0.0.130: the speed run's order of the things; ⏱)
+  if (Q.has("test")) Object.assign(window.WorldTest, { botItemOrder, timeSpeedRun, TP, wakeTill, wakeAll, waterStep, setRules, H, rideJS, rideStep, boulderJS, bouldersStep });   // (0.0.130: the speed run's order of the things; ⏱)
   // (^ticket(873): the speed run's steps alone, timed, no drawing: up to n, while the run is on and not yet at its dig)
   if (Q.has("test")) Object.assign(window.WorldTest, { steps: (n, any) => { const h = H(); const t0 = performance.now(); let k = 0; for (; k < n && (any || (BOT.on && BOT.phase !== "dig")); k++) tick(h); return { k, ms: performance.now() - t0 }; } });   // (any: steps with or without the speed run)   // (0.0.115: the canvases kept, ^ticket(852))   // (0.0.112: the 🎮 controller, driven by hand where frames do not come)
   if (Q.has("test")) Object.assign(window.WorldTest, { snapshot, saveText, readSave, loadText, restartNow: () => restartNow(H()), askRestart, stopBot, digest, bot: on => { if (on !== BOT.on) $("run").click(); return BOT.on; }, carpetToggle, carpetHits, carpetTop, flyJS });

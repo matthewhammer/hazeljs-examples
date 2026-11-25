@@ -1,0 +1,17 @@
+# A boulder's step (piece 3 of ^report(64)'s plan; Gnome world 0.0.135, the page's JavaScript of 0.0.95 moved into Hazel): one with open air under it wobbles three quarters of a second (45 steps), then falls, slower in the water (0.04 of a tile a step, 0.11 in the air), and lands where it can fall no further; falling on the gnome, it hits it. The boulder: its tile (c, r), how far it has fallen into the tile below (oy, a part of a tile), its wobble's steps left (wob, -1 when still), whether it falls. What the page sees round it (the world's tiles and the other boulders are the page's): below, the tile under it open (no ground, no plank, no other boulder there); below2, the one under that; wet, it in water; gx and gy, the gnome's feet, in tiles. The answer: the boulder after the step, and whether it began to wobble, landed, or hit the gnome, for the page to sound and to hurt #
+let step : ((c = Int, r = Int, oy = Float, wob = Int, falling = Bool), (below = Bool, below2 = Bool, wet = Bool, gx = Float, gy = Float)) -> (boulder = (c = Int, r = Int, oy = Float, wob = Int, falling = Bool), wobble = Bool, landed = Bool, hit = Bool) = fun (b, s) ->
+  if !b.falling then
+    (if !s.below then (boulder = (c = b.c, r = b.r, oy = b.oy, wob = 0 - 1, falling = false), wobble = false, landed = false, hit = false)
+     else if b.wob < 0 then (boulder = (c = b.c, r = b.r, oy = b.oy, wob = 45, falling = false), wobble = true, landed = false, hit = false)
+     else if b.wob - 1 <= 0 then (boulder = (c = b.c, r = b.r, oy = 0., wob = b.wob - 1, falling = true), wobble = false, landed = false, hit = false)
+     else (boulder = (c = b.c, r = b.r, oy = b.oy, wob = b.wob - 1, falling = false), wobble = false, landed = false, hit = false))
+  else
+    let oy1 = b.oy +. (if s.wet then 0.04 else 0.11) in
+    let moved = oy1 >=. 1. in
+    let r = (if moved then b.r + 1 else b.r) in
+    let landed = moved && !s.below2 in
+    let oy = (if landed then 0. else if moved then oy1 -. 1. else oy1) in
+    let top = float_of_int(r) +. oy in
+    let dx = s.gx -. (float_of_int(b.c) +. 0.5) in
+    let hit = !landed && (if dx <. 0. then 0. -. dx else dx) <. 0.8 && s.gy >. top +. 0.2 && s.gy -. 0.9 <. top +. 1. in
+    (boulder = (c = b.c, r = r, oy = oy, wob = (if landed then 0 - 1 else b.wob), falling = !landed), wobble = false, landed = landed, hit = hit)
