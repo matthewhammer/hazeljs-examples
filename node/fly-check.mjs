@@ -39,7 +39,7 @@ const code = (c, r) => c < 0 || r < 0 || c >= WW || r >= WH ? 8 : grid[r * WW + 
 const near = g => { const cx = Math.floor(g.x / 1000), cy = Math.floor((g.y - 1) / 1000), row = r => code(cx - 1, r) + 512 * code(cx, r) + 262144 * code(cx + 1, r);
   return { cx, cy, r0: row(cy - 3), r1: row(cy - 2), r2: row(cy - 1), r3: row(cy), r4: row(cy + 1) }; };
 const fly = built.value.fly;
-const gnome0 = { x: 40500, y: 20000, vx: 0, vy: 0, face: 1, ground: false, climb: false, swim: false, under: false, air: 600, gear: false, tool: 0, shoes: false, dc: -1, dr: -1, dt: 0, ev: 0 };
+const gnome0 = { x: 40500, y: 20000, vx: 0, vy: 0, face: 1, ground: false, climb: false, swim: false, under: false, air: 600, gear: false, tool: 0, kit: 0, dc: -1, dr: -1, dt: 0, ev: 0 };
 const N = 20000, pads = [], states = [];
 for (let i = 0; i < N; i++) { const ph = Math.floor(i / (20 + Math.floor(rnd() * 40))) % 9;
   pads.push({ dx: [1, 1, 0, -1, -1, 0, 1, -1, 0][ph] * (rnd() < 0.9 ? 1 : 0), up: ph === 2 || ph === 5, down: ph === 6 || ph === 8, jump: false, dig: false, dash: false }); }

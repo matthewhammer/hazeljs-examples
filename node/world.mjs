@@ -81,7 +81,7 @@ if (G.water_row(40, 36, 0) !== 40 || G.water_row(40, 36, 9) !== 37 || G.water_ro
 const T = (c, r) => { if (c >= 20 && c <= 27) return r >= 50 ? 1 : r >= 47 ? 16 : 0; if (c === 12 && r >= 40 && r < 50) return 32; return r >= 50 ? 1 : (c >= 19 && c <= 28 && r >= 47 ? 1 : 0); };
 const near = g => { const cx = Math.floor(g.x / 1000), cy = Math.floor((g.y - 1) / 1000), row = r => T(cx - 1, r) + 512 * T(cx, r) + 262144 * T(cx + 1, r);
   return { cx, cy, r0: row(cy - 3), r1: row(cy - 2), r2: row(cy - 1), r3: row(cy), r4: row(cy + 1) }; };
-const gnome0 = { x: 5500, y: 50000, vx: 0, vy: 0, face: 1, ground: true, climb: false, swim: false, under: false, air: 600, gear: false, tool: 0, shoes: false, dc: -1, dr: -1, dt: 0, ev: 0 };
+const gnome0 = { x: 5500, y: 50000, vx: 0, vy: 0, face: 1, ground: true, climb: false, swim: false, under: false, air: 600, gear: false, tool: 0, kit: 0, dc: -1, dr: -1, dt: 0, ev: 0 };
 const pad = (dx = 0, up = false, down = false, jump = false, dig = false, dash = false) => ({ dx, up, down, jump, dig, dash });
 const run = (S, g, n, p, each) => { for (let i = 0; i < n; i++) { g = S(g, near(g), typeof p === "function" ? p(i) : p); if (each) each(g, i); } return g; };
 const checkGnome = (S, who) => {
@@ -110,6 +110,19 @@ const checkGnome = (S, who) => {
   let c = run(S, { ...gnome0, x: 12500 }, 120, pad(0, true));
   console.log(`${who}: up the ladder: y ${c.y}, climbing ${c.climb}`);
   if (c.y > 42000) bad(`${who}: climbing the ladder only got to ${c.y}`);
+  // (0.0.114; Matthew: "super climbing gear --- like climbing gear but 3x faster"; "swim flippers ... let's the gnome traverse
+  // water 3x faster") the ladder climbed with and without the super climbing gear: the steps to row 41, a third as many with it;
+  // and in the pool, with and without the flippers: swimming across and diving, three times as fast with them
+  { const upTo = climber => { let q = { ...gnome0, x: 12500, kit: climber ? 4 : 0 }, n = 0; while (q.y > 41000 && n < 400) { q = S(q, near(q), pad(0, true)); n++; } return n; };
+    const plain = upTo(false), fast = upTo(true);
+    console.log(`${who}: up the ladder to row 41: ${plain} steps, ${fast} with the super climbing gear`);
+    if (fast < 1 || plain >= 400 || Math.abs(plain / fast - 3) > 0.6) bad(`${who}: the super climbing gear: ${plain} steps against ${fast}`);
+    const swimIn = flippers => { let q = run(S, { ...gnome0, x: 19500, y: 47000, kit: flippers ? 2 : 0 }, 90, pad(1)), across = 0, deep = 0;
+      q = run(S, { ...q, x: 21500 }, 3, pad(1), z => { across = Math.max(across, Math.abs(z.vx)); });
+      q = run(S, q, 40, pad(0, false, true), z => { deep = Math.max(deep, z.vy); }); return [across, deep, q.under]; };
+    const [a0, d0] = swimIn(false), [a1, d1, u1] = swimIn(true);
+    console.log(`${who}: swimming across ${a0}, ${a1} with the flippers; diving at most ${d0}, ${d1} with them (under ${u1})`);
+    if (a1 !== 3 * a0 || d1 !== 3 * d0 || !u1) bad(`${who}: the flippers: across ${a0} / ${a1}, diving ${d0} / ${d1}`); }
   // a shaft one tile wide at column 30, dug up from a tunnel (row 49, columns 29 to 31): from x 30.9 (straddling 30 and 31), up
   // held: eased into column 30, it climbs, digging the soil over its head
   { const T0 = T; let dugUp = 0;
@@ -134,12 +147,12 @@ const checkGnome = (S, who) => {
     // quicker with the running shoes") on the flat, dash held: up to three times a walk (276), sooner with the shoes; let go, back
     // to a walk; and over the hill at a dash, on the ground all the way
     for (const shoes of [false, true]) {
-      let d = { ...gnome0, x: 1500, y: 50000, shoes }, full = -1;
+      let d = { ...gnome0, x: 1500, y: 50000, kit: shoes ? 1 : 0 }, full = -1;
       for (let i = 0; i < 80; i++) { d = S(d, near3(d), pad(1, false, false, false, false, true)); if (full < 0 && d.vx === 276) full = i + 1; }
       for (let i = 0; i < 20; i++) d = S(d, near3(d), pad(1));
       console.log(`${who}: dashing${shoes ? " in the running shoes" : ""}: full speed (276) after ${full} steps; let go, ${d.vx} after 20`);
       if (full < 0 || (shoes ? full > 30 : full < 40 || full > 60) || d.vx > 95 || d.vx < 88 || d.y !== 50000) bad(`${who}: dashing${shoes ? " (shoes)" : ""}: full at ${full}, after ${d.vx}`);
-      let h = { ...gnome0, x: 30500, y: 50000, vx: 276, shoes }, hi2 = 1e9, off2 = 0, stuck2 = 0;
+      let h = { ...gnome0, x: 30500, y: 50000, vx: 276, kit: shoes ? 1 : 0 }, hi2 = 1e9, off2 = 0, stuck2 = 0;
       for (let i = 0; i < 120; i++) { const x0 = h.x; h = S(h, near3(h), pad(1, false, false, false, false, true)); hi2 = Math.min(hi2, h.y); if (!h.ground) off2++; if (h.x === x0) stuck2++; }
       console.log(`${who}: over the hill at a dash${shoes ? " (shoes)" : ""}: x ${h.x} y ${h.y}, highest ${hi2}, steps off the ground ${off2}, stuck ${stuck2}, speed ${h.vx}`);
       if (h.x < 56000 || h.y !== 50000 || hi2 > 46100 || hi2 < 45900 || off2 > 3 || stuck2 > 0) bad(`${who}: over the hill at a dash`); }

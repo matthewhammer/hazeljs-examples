@@ -193,6 +193,15 @@
       const R = mine.sort((a, b) => a.x - b.x || b.y - a.y)[0];
       if (R) { const y = R.y + 3.35; let x = R.x + 1.4; while (x < R.x + R.w - 1 && S.items.some(it => Math.abs(it.x - x) < 1.2 && Math.abs(it.y - y) < 1.5)) x += 1.3;
         S.items.push({ kind: "shoes", x, y, taken: false }); } }
+    // (0.0.114; Matthew: "swim flippers, shown only (1) as an item power up, in a right-hand tree house, somewhere"; "super climbing
+    // gear --- like climbing gear but 3x faster") the swim flippers in the tree house farthest right, and the super climbing gear in
+    // the highest tree house (neither the climbing pack's): now the last two of the things (a save from before them has two fewer;
+    // restore lets them in)
+    { const big = S.houses.filter(hs => !hs.small), pack = [...big].sort((a, b) => b.row - a.row)[0];
+      const fl = big.filter(hs => hs !== pack).sort((a, b) => b.x - a.x)[0];
+      if (fl) S.items.push({ kind: "flippers", x: fl.x + 0.5 - fl.side * 1.1, y: fl.row - 0.55, taken: false });
+      const hi = big.filter(hs => hs !== pack && hs !== fl).sort((a, b) => a.row - b.row)[0];
+      if (hi) S.items.push({ kind: "climber", x: hi.x + 0.5 - hi.side * 1.1, y: hi.row - 0.55, taken: false }); }
     for (const R of S.rivers) holdRiver(R);
     for (let c = 0; c < WW; c++) top[c] = topOf(c);
     S.dry = []; for (let i = 0; i < NN; i++) if (mat[i] === AIR && (bg[i] === B_PLASTER || bg[i] === B_WOOD || bg[i] === B_STAIR)) S.dry.push(i);
@@ -204,7 +213,7 @@
     ];
     const g0 = { x: 12500, y: top[12] * 1000 };
     S.start = g0;
-    S.g = { x: g0.x, y: g0.y, vx: 0, vy: 0, face: 1, ground: true, climb: false, swim: false, under: false, air: 600, gear: false, tool: 0, shoes: false, dc: -1, dr: -1, dt: 0, ev: 0 };
+    S.g = { x: g0.x, y: g0.y, vx: 0, vy: 0, face: 1, ground: true, climb: false, swim: false, under: false, air: 600, gear: false, tool: 0, kit: 0, dc: -1, dr: -1, dt: 0, ev: 0 };
     // (Matthew: "let's have the upper left HUD show the total gems X / Y") this world's gems: how many there are, and found so far
     S.gemTotal = 0; for (let i = 0; i < NN; i++) if (gem[i]) S.gemTotal++; S.found = 0; S.party = null; S.confetti = [];
     // (0.0.101; Matthew: "let's put hearts in the world that re-generate --- maybe in one room per gnome house"; "each heart
@@ -357,7 +366,7 @@
     // (what is there, its water and whether it can be climbed, each worked out apart and then added: a platform across a tree's
     // trunk stays climbable with the pack; it had lost its climbing to the platform, and the gnome stuck under it)
     const what = boulderAt(c, r) ? 10 : fix[i] === F_PLAT || fix[i] === F_BRIDGE || fix[i] === F_HATCH ? 11 : 0;
-    const climb = fix[i] === F_LADDER || fix[i] === F_STAIR || fix[i] === F_HATCH || bg[i] === B_DUG || (!!S.g && !!S.g.climbPack && what !== 10 && treeAt(c, r));
+    const climb = fix[i] === F_LADDER || fix[i] === F_STAIR || fix[i] === F_HATCH || bg[i] === B_DUG || (!!S.g && (!!S.g.climbPack || kitHas(S.g, "climber")) && what !== 10 && treeAt(c, r));
     return what + (wat[i] >= 0.5 ? 16 : 0) + (climb ? 32 : 0);
   }
   function near(g) {
@@ -492,6 +501,8 @@
   // tiles (a cheapest-path search, each move's cost the steps it takes); a target it cannot get to, after four tries, is left
   // and reported. (The search wants Hazel too: over the world's 57,344 tiles it waits on arrays, ticket 846)
   // (0.0.95) the things to find: each one's sign, its label over it, its name in the speed run, its banner when found
+  // (0.0.114) the things that work by themselves, as the rules hold them: the gnome's kit, a bit for each
+  const KIT = { shoes: 1, flippers: 2, climber: 4 }, kitHas = (g, k) => !!g && (((g.kit | 0) & KIT[k]) !== 0);
   const ITEM = {
     climb: { icon: "🧗", label: "🧗 tree-climbing pack", what: "🧗 the climbing pack", banner: "🧗 The tree-climbing pack: climb any tree, like a squirrel (↑)" },
     gear: { icon: "🤿", label: "🤿 diving gear", what: "🤿 the diving gear", banner: "🤿 The diving gear: breathe under the water as long as you like" },
@@ -499,11 +510,14 @@
     super: { icon: "⚒️", label: "⚒️ super digger", what: "⚒️ the super digger", banner: "⚒️ The super digger: three times as fast, through anything, even the bedrock" },
     carrot: { icon: "🥕", label: "🥕 carrot", what: "🥕 a carrot", banner: "🥕 A carrot! Clover the rabbit 🐇 would love it: go and see her, and press R" },
     carpet: { icon: "🧞", label: "🧞 magic carpet", what: "🧞 the magic carpet", banner: "🧞 The magic carpet! Press R (or 🧞) to fly it: the arrows steer, and let go, it floats. 🎒 (I) chooses it or Clover" },
+    // (0.0.114; Matthew: "more power up items, which are used by default (no need to turn them 'off')")
+    flippers: { icon: "🏊", label: "🏊 swim flippers", what: "🏊 the swim flippers", banner: "🏊 The swim flippers: swim three times as fast, across, up and down (on by themselves in the water)" },
+    climber: { icon: "🪝", label: "🪝 super climbing gear", what: "🪝 the super climbing gear", banner: "🪝 The super climbing gear: climb three times as fast, trees, ladders, stairs and tunnels" },
     shoes: { icon: "👟", label: "👟 running shoes", what: "👟 the running shoes", banner: "👟 The running shoes: hold 💨 (or Shift) to dash, up to full speed in a flash" },
   };
   const BOT = { on: false, phase: "", queue: [], cur: null, path: [], k: 0, lastCell: -1, still: 0, tries: 0, skipped: [], frames: 0, t0: 0, items: 0, parts: 0, partsAll: 0, gems: 0, gemsAll: 0, report: null };
   const dist = new Float64Array(NN), prev = new Int32Array(NN), heapI = new Int32Array(NN * 8), heapD = new Float64Array(NN * 8);   // (64-bit: in 32, a cost a hair lower rounded back to the same, and two tiles went on "improving" each other until the search's limit)
-  function botClimb(c, r) { const i = at(c, r); return fix[i] === F_LADDER || fix[i] === F_STAIR || fix[i] === F_HATCH || bg[i] === B_DUG || wat[i] >= 0.5 || (!!S.g.climbPack && treeAt(c, r)); }
+  function botClimb(c, r) { const i = at(c, r); return fix[i] === F_LADDER || fix[i] === F_STAIR || fix[i] === F_HATCH || bg[i] === B_DUG || wat[i] >= 0.5 || ((!!S.g.climbPack || kitHas(S.g, "climber")) && treeAt(c, r)); }
   function botStand(c, r) { if (r + 1 >= WH) return true; const b = at(c, r + 1); return mat[b] !== AIR || fix[b] === F_PLAT || fix[b] === F_BRIDGE || fix[b] === F_HATCH || boulderAt(c, r + 1); }
   // (a tile's cost to go into: open, a step; ground that can be dug, its digging too; rock that cannot, a boulder: no way)
   function botEnter(c, r) { if (!inside(c, r)) return Infinity; const i = at(c, r), m = mat[i];
@@ -629,7 +643,7 @@
       else if (it.kind === "gear") S.g = { ...S.g, gear: true };
       else if (it.kind === "carrot") S.carrots = (S.carrots || 0) + 1;
       else if (it.kind === "carpet") { S.carpet.have = true; useRide("carpet"); }
-      else if (it.kind === "shoes") S.g = { ...S.g, shoes: true };
+      else if (it.kind === "shoes" || it.kind === "flippers" || it.kind === "climber") S.g = { ...S.g, kit: (S.g.kit | 0) | KIT[it.kind] };
       else S.g = { ...S.g, tool: Math.max(S.g.tool || 0, it.kind === "super" ? 2 : 1) };
       S.banner = { text: ITEM[it.kind].banner, t: performance.now() }; }
     // a heart, walked into, gives back one heart (not with all five: it stays for later)
@@ -959,12 +973,15 @@
     const tail = (x0, y0, x1, y1, w, sw) => { const mx = (x0 + x1) / 2 + sw, my = (y0 + y1) / 2; c.fillStyle = L.hair2; c.beginPath(); c.moveTo(x0 - w, y0); c.quadraticCurveTo(mx - w * 1.1, my, x1, y1); c.quadraticCurveTo(mx + w * 1.1, my, x0 + w, y0); c.closePath(); c.fill();
       c.strokeStyle = L.hairDk; c.lineWidth = 0.5; c.beginPath(); for (const k of [-0.5, 0, 0.5]) { c.moveTo(x0 + k * w, y0 + 0.5); c.quadraticCurveTo(mx + k * w * 0.8, my, x1 + k * 0.4, y1 - 1); } c.stroke(); };
     if (L.ponytail && !back) tail(side ? 6.5 : 7, -10, side ? 10.5 : 9.5, 3.5, 2.6, 1.5);   // (the boy's ponytail, behind him, showing past his shoulder)
-    const shod = !who && !!(S.g && S.g.shoes);   // (0.0.109: the hero in the running shoes, red, white-soled, a white stripe)
+    const shod = !who && kitHas(S.g, "shoes");   // (0.0.109: the hero in the running shoes, red, white-soled, a white stripe)
+    const finned = !who && kitHas(S.g, "flippers") && (S.g.swim || S.g.under);   // (0.0.114: the swim flippers, seen only in the water)
     for (const s2 of [-1, 1]) {   // (boots, a step at a time, with fur at the top)
       const lift = s2 * step > 0 ? -2 * Math.abs(step) : 0, bx = s2 * 6 - 4 + (s2 > 0 ? 1 : -1);
       c.fillStyle = shod ? "#dc2626" : "#5a3a22"; c.beginPath(); c.roundRect(bx, 13 + lift, 9, 6, 2.5); c.fill();
       c.fillStyle = shod ? "#f8fafc" : "#7a5636"; c.beginPath(); c.roundRect(s2 * 6 - 4, 11.5 + lift, 8, 3, 1.5); c.fill();
       if (shod) { c.beginPath(); c.roundRect(bx - 0.3, 17.3 + lift, 9.6, 1.9, 0.9); c.fill(); c.fillRect(bx + 2.2, 15 + lift, 4.6, 1); }
+      if (finned) { c.fillStyle = "#14b8a6"; c.beginPath(); c.moveTo(bx - 0.5, 16.5 + lift); c.lineTo(bx + 9.5, 16.5 + lift); c.lineTo(bx + 13, 25 + lift); c.quadraticCurveTo(bx + 4.5, 27 + lift, bx - 4, 25 + lift); c.closePath(); c.fill();
+        c.strokeStyle = "rgba(255, 255, 255, 0.55)"; c.lineWidth = 0.7; c.beginPath(); for (const k of [-0.6, 0, 0.6]) { c.moveTo(bx + 4.5, 17.5 + lift); c.lineTo(bx + 4.5 + k * 8, 25.5 + lift); } c.stroke(); }
     }
     const tank = () => { c.fillStyle = "#facc15"; c.beginPath(); c.roundRect(back ? -5 : -15, -7, back ? 10 : 7, 17, 3.5); c.fill();
       c.fillStyle = "#a16207"; c.fillRect(back ? -1.5 : -13, -9.5, 3, 3); };
@@ -1110,12 +1127,15 @@
     else if (run) { c.translate(0, 18); c.rotate(0.08); c.translate(0, -18); }   // (leaning into the run)
     if (!swim && ground && !ride) E(0, 19 - bob, 12, 3.2, "rgba(0, 0, 0, 0.3)");
     // (the legs: a stride running; tucked in the air; kicking in the water; the far one darker, behind)
-    const shod = !who && !!(S.g && S.g.shoes);   // (0.0.109: the hero in the running shoes)
+    const shod = !who && kitHas(S.g, "shoes");   // (0.0.109: the hero in the running shoes)
+    const finned = !who && kitHas(S.g, "flippers") && (S.g.swim || S.g.under);   // (0.0.114: the swim flippers, seen only in the water)
     const leg = (a, near) => { const hx = near ? 1.5 : -1.5, hy = 10, fx = hx + Math.sin(a) * 8, fy = hy + Math.cos(a) * 8;
       c.strokeStyle = near ? L.coatDk : L.legFar; c.lineWidth = 5; c.lineCap = "round"; c.beginPath(); c.moveTo(hx, hy); c.lineTo(fx, fy); c.stroke();
       c.fillStyle = shod ? (near ? "#dc2626" : "#991b1b") : near ? "#5a3a22" : "#47301c"; c.beginPath(); c.roundRect(fx - 3.2, fy - 1.5, 9, 5, 2.4); c.fill();
       c.fillStyle = shod ? (near ? "#f8fafc" : "#cbd5e1") : near ? "#7a5636" : "#64462c"; c.beginPath(); c.roundRect(fx - 3, fy - 2.8, 6, 2.6, 1.2); c.fill();
-      if (shod) { c.beginPath(); c.roundRect(fx - 3.4, fy + 2.4, 9.6, 1.8, 0.9); c.fill(); c.fillRect(fx - 0.6, fy + 0.4, 4.4, 0.9); } };
+      if (shod) { c.beginPath(); c.roundRect(fx - 3.4, fy + 2.4, 9.6, 1.8, 0.9); c.fill(); c.fillRect(fx - 0.6, fy + 0.4, 4.4, 0.9); }
+      if (finned) { c.fillStyle = near ? "#14b8a6" : "#0f766e"; c.beginPath(); c.moveTo(fx + 1, fy - 2); c.lineTo(fx + 15, fy - 4); c.quadraticCurveTo(fx + 18, fy + 1, fx + 15, fy + 6); c.lineTo(fx + 1, fy + 3.5); c.closePath(); c.fill();
+        c.strokeStyle = "rgba(255, 255, 255, 0.5)"; c.lineWidth = 0.7; c.beginPath(); for (const k of [-2.5, 0.5, 3.5]) { c.moveTo(fx + 3, fy + 0.6); c.lineTo(fx + 15, fy + k); } c.stroke(); } };
     const kick = stroke ? Math.sin(p * 2.2) * 0.45 : 0;
     const aNear = ride ? 0.6 : swim ? kick : !ground ? 0.75 : run ? Math.sin(p) * 1.0 : 0, aFar = ride ? 0.4 : swim ? -kick : !ground ? -0.55 : run ? -Math.sin(p) * 1.0 : 0;   // (riding: astride the saddle)
     // (the far arm, behind him: swinging opposite the near leg, or windmilling)
@@ -2376,7 +2396,7 @@
     const x = vx === 0 || meets(g.x + vx, g.y) ? g.x : g.x + vx, vx2 = x === g.x ? 0 : vx;
     const y = vy === 0 || meets(x, g.y + vy) ? g.y : g.y + vy, vy2 = y === g.y ? 0 : vy;
     const face = p.dx !== 0 ? p.dx : c.face;
-    return { gnome: { x, y, vx: 0, vy: 0, face, ground: false, climb: false, swim: false, under: false, air: g.air > 600 ? g.air : 600, gear: g.gear, tool: g.tool, shoes: g.shoes, dc: -1, dr: -1, dt: 0, ev: 0 }, carpet: { vx: vx2, vy: vy2, face } };
+    return { gnome: { x, y, vx: 0, vy: 0, face, ground: false, climb: false, swim: false, under: false, air: g.air > 600 ? g.air : 600, gear: g.gear, tool: g.tool, kit: g.kit, dc: -1, dr: -1, dt: 0, ev: 0 }, carpet: { vx: vx2, vy: vy2, face } };
   }
   function carpetStep(h) {
     const C = S.carpet, k = S.keys, g0 = S.g, pad = { dx: (k.right ? 1 : 0) - (k.left ? 1 : 0), up: !!k.up, down: !!k.down, jump: false, dig: false, dash: false };
@@ -2736,7 +2756,7 @@
     const pose = g.climb && !onFloor && !wet ? "climb" : wet ? "swim" : (!g.ground && !g.climb) || moving ? "hop" : "sit";
     const t = pose === "climb" ? g.y / 1000 * 9 : !g.ground && !g.climb && !wet ? Math.max(0, Math.min(1, 0.5 + g.vy / 400)) : moving ? 0.95 : 0;
     const low = (() => { const c = Math.floor(gx), r = Math.floor((g.y - 1) / 1000) - 1; return inside(c, r) && mat[at(c, r)] !== AIR; })();
-    const mouth = drawRabbit(ctx, x, y, s, { face: g.face, k: 1.15, pose, t, saddle: true, rider: true, kit: g.gear, pack: g.climbPack, fur: RABBIT_FUR[0], gy: fr * s, now });
+    const mouth = drawRabbit(ctx, x, y, s, { face: g.face, k: 1.15, pose, t, saddle: true, rider: true, kit: g.gear, pack: g.climbPack || kitHas(g, "climber"), fur: RABBIT_FUR[0], gy: fr * s, now });
     const climb = pose === "climb", lean = climb ? -Math.PI / 2 : (low ? 0.9 : 0) + (pose === "hop" ? (t - 0.5) * 0.3 : 0);
     const ox = x - g.face * (climb ? 0.76 : 0.05) * s, oy = y - (climb ? 0.46 : low ? 0.78 : 1.08) * s;
     ctx.save(); ctx.translate(ox, oy); ctx.rotate(g.face * lean); gnomeProfile(ctx, 0, 0, s * 0.98, g.face, false, true, 0, now, g.gear, { ride: true }); ctx.restore();
@@ -3468,6 +3488,17 @@
         ctx.strokeStyle = "#f8fafc"; ctx.lineWidth = Math.max(1, s / 18); ctx.beginPath(); ctx.moveTo(X(-0.22), Y(0.04)); ctx.quadraticCurveTo(X(-0.02), Y(0.03), X(0.14), Y(-0.03)); ctx.stroke();
         ctx.lineWidth = Math.max(1, s / 30); ctx.beginPath(); for (const k of [0, 1, 2]) { ctx.moveTo(X(-0.11 + k * 0.05), Y(-0.15 + k * 0.035)); ctx.lineTo(X(-0.06 + k * 0.05), Y(-0.1 + k * 0.035)); } ctx.stroke();
         ctx.strokeStyle = "rgba(40,25,10,0.8)"; ctx.lineWidth = Math.max(1, s / 22); }
+      else if (it.kind === "flippers") for (const [ox, rot] of [[-0.15, -0.28], [0.15, 0.28]]) {   // (0.0.114: the swim flippers, a pair, teal, ribbed)
+        ctx.save(); ctx.translate(ox * s, 0); ctx.rotate(rot);
+        ctx.fillStyle = "#14b8a6"; ctx.beginPath(); ctx.moveTo(-0.08 * s, -0.24 * s); ctx.lineTo(0.08 * s, -0.24 * s); ctx.lineTo(0.17 * s, 0.32 * s); ctx.quadraticCurveTo(0, 0.4 * s, -0.17 * s, 0.32 * s); ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = "#0f766e"; ctx.beginPath(); ctx.roundRect(-0.09 * s, -0.36 * s, 0.18 * s, 0.2 * s, 0.07 * s); ctx.fill(); ctx.stroke();
+        ctx.strokeStyle = "rgba(255,255,255,0.6)"; ctx.lineWidth = Math.max(1, s / 40); ctx.beginPath(); for (const k of [-0.1, 0, 0.1]) { ctx.moveTo(0, -0.12 * s); ctx.lineTo(k * s, 0.33 * s); } ctx.stroke();
+        ctx.restore(); ctx.strokeStyle = "rgba(40,25,10,0.8)"; ctx.lineWidth = Math.max(1, s / 22); }
+      else if (it.kind === "climber") {   // (0.0.114: the super climbing gear: a blue pack, a golden hook, steel claws)
+        ctx.fillStyle = "#1d4ed8"; ctx.beginPath(); ctx.roundRect(-0.25 * s, -0.3 * s, 0.5 * s, 0.6 * s, 0.12 * s); ctx.fill(); ctx.stroke(); ctx.fillStyle = "#60a5fa"; ctx.fillRect(-0.18 * s, -0.05 * s, 0.36 * s, 0.18 * s);
+        ctx.strokeStyle = "#fbbf24"; ctx.lineWidth = Math.max(1, s / 13); ctx.lineCap = "round"; ctx.beginPath(); ctx.moveTo(0.36 * s, -0.4 * s); ctx.lineTo(0.36 * s, 0.06 * s); ctx.arc(0.27 * s, 0.06 * s, 0.09 * s, 0, Math.PI); ctx.stroke();
+        ctx.strokeStyle = "#e5e7eb"; ctx.lineWidth = Math.max(1, s / 20); ctx.beginPath(); for (const k of [0, 1, 2]) { ctx.moveTo((-0.3 + k * 0.07) * s, 0.22 * s); ctx.lineTo((-0.37 + k * 0.07) * s, 0.4 * s); } ctx.stroke();
+        ctx.lineCap = "butt"; ctx.strokeStyle = "rgba(40,25,10,0.8)"; ctx.lineWidth = Math.max(1, s / 22); }
       else if (it.kind === "carpet") { const art = carpetTop(s), w = s * 0.95, hh = w * art.H / art.W;   // (the magic carpet, flat, its tassels at both ends)
         if (LINE) ctx.strokeRect(-w / 2, -hh / 2, w, hh); else ctx.drawImage(art.cv, -w / 2, -hh / 2, w, hh);
         ctx.strokeStyle = "#fbbf24"; ctx.lineWidth = Math.max(1, s / 34); ctx.beginPath();
@@ -3816,7 +3847,7 @@
         note.textContent = !have ? (id === "carpet" ? "not found yet" : S.carrots > 0 ? "give her a carrot 🥕 (R, near her)" : "find a carrot 🥕 for her")
           : (S.ride && S.ride.on && id === "clover") || (S.carpet && S.carpet.on && id === "carpet") ? "on it now" : chosen ? "R puts you on" : "tap to choose"; }
       const g = S.g || {};
-      const list = [["🤿", "the diving gear", !!g.gear], ["🧗", "the climbing pack", !!g.climbPack], ["👟", "the running shoes", !!g.shoes],
+      const list = [["🤿", "the diving gear", !!g.gear], ["🧗", "the climbing pack", !!g.climbPack], ["👟", "the running shoes", kitHas(g, "shoes")], ["🏊", "the swim flippers", kitHas(g, "flippers")], ["🪝", "the super climbing gear", kitHas(g, "climber")],
                     ["⛏️", "the good digger", (g.tool || 0) >= 1], ["⚒️", "the super digger", (g.tool || 0) >= 2], ["🥕", S.carrots > 1 ? `${S.carrots} carrots` : "a carrot", S.carrots > 0]];
       things.replaceChildren(...list.map(([icon, name, have]) => mk("span", { class: "gw-items-thing" + (have ? "" : " missing"), title: have ? name : name + ": not found yet" },
         [mk("span", { "aria-hidden": "true" }, icon), " " + name])));
@@ -3987,7 +4018,7 @@
   // its gusts, the rain and when it comes next). 📂 Load makes the world from its seed again, then puts all that back. The birds,
   // frogs, insects and squirrels, the villagers' strolls and the dust and smoke start afresh. The tiles go packed (gzip, then
   // base64) where the browser can pack them: a world's tiles are 0.7 MB as they are.
-  const SAVE_KIND = "hazeljs-examples/gnome-world", SAVE_V = 4;   // (2, 0.0.102: the bigger world, Clover, the carrots; 3, 0.0.106: the magic carpet; 4, 0.0.109: the running shoes)
+  const SAVE_KIND = "hazeljs-examples/gnome-world", SAVE_V = 5;   // (2, 0.0.102: the bigger world, Clover, the carrots; 3, 0.0.106: the magic carpet; 4, 0.0.109: the running shoes; 5, 0.0.114: the swim flippers and the super climbing gear)
   const TILES = [mat, bg, fix, gem, stone, shape, root, top, wat];
   const bytesOf = A => new Uint8Array(A.buffer, A.byteOffset, A.byteLength);
   const TILE_BYTES = TILES.reduce((n, A) => n + A.byteLength, 0);
@@ -4032,13 +4063,13 @@
     S.frame = d.frame; S.seed = d.seed; build(h, S.seed);
     // (a save from before the magic carpet, 0.0.106, or the running shoes, 0.0.109, has a thing or two fewer: those, the last, lie
     // where they were put)
-    const have = shapeOf(), older = k => k === "items" && d.shape.items < have.items && S.items.slice(d.shape.items).every(it => it.kind === "carpet" || it.kind === "shoes");
+    const have = shapeOf(), older = k => k === "items" && d.shape.items < have.items && S.items.slice(d.shape.items).every(it => it.kind === "carpet" || it.kind === "shoes" || it.kind === "flippers" || it.kind === "climber");
     for (const k in d.shape) if (d.shape[k] !== have[k] && !older(k)) throw new Error("its world was planned by other rules (were they edited?)");
     for (const k of d.roots) { const t = S.rootPlan[k]; if (t && !t.done) { t.done = true; if (h.roots && S.built.compiled) rootSet(h, t, false); } }
     setTileBytes(d.tiles);
     seedRand = d.rand; S.damAt = d.damAt;
     const w = d.weather; S.wind = w.wind ? { ...w.wind } : undefined; S.windNow = w.windNow; S.rain = w.rain; S.rainAt = w.rainAt; S.leaves = (w.leaves || []).map(l => ({ ...l }));
-    S.g = { ...d.gnome }; if (S.g.shoes === undefined) S.g.shoes = false;   /* (0.0.111: a save from before the shoes; the gnome's fields in their saved order, so a save loaded and saved again is the same file) */ S.hearts = d.hearts > 0 ? d.hearts : 5; S.faintAt = 0; S.found = d.found; S.gemTotal = d.gemTotal;
+    S.g = Object.fromEntries(Object.entries(d.gnome).map(([k, v]) => (k === "shoes" ? ["kit", v ? KIT.shoes : 0] : [k, v]))); if (S.g.kit === undefined) S.g.kit = 0;   /* (0.0.111: a save from before the shoes; the gnome's fields in their saved order, so a save loaded and saved again is the same file. 0.0.114: a save from 0.0.109 to 0.0.113 has the shoes as a field of their own: the kit, in its place) */ S.hearts = d.hearts > 0 ? d.hearts : 5; S.faintAt = 0; S.found = d.found; S.gemTotal = d.gemTotal;
     S.works = new Map(d.works);
     d.items.forEach((t, k) => { S.items[k].taken = !!t; });
     (d.heartItems || []).forEach((t, k) => { S.heartItems[k].taken = !!t; });
