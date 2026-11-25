@@ -35,8 +35,8 @@
   if (window.visualViewport) { const vz = () => { const z = visualViewport.scale; WATCH.zoomMin = Math.min(WATCH.zoomMin, z); WATCH.zoomMax = Math.max(WATCH.zoomMax, z); if (Math.abs(z - 1) > 0.01) WATCH.zoomAt = performance.now(); };
     visualViewport.addEventListener("resize", vz); visualViewport.addEventListener("scroll", vz); }
   const LIB_JIT = "https://build.hazel.org/hazeljs/hazel-lib.js", LIB_NPM = "https://cdn.jsdelivr.net/npm/hazeljs@0.0.4/hazel-lib.js";
-  const PROGRAM = "world", MODULES = ["World"];
-  const TAIL = "(plan = World.plan, ground = World.ground, village = World.village, furnish = World.furnish, limbs = World.limbs, styles = World.styles, beaver = World.beaver, water_row = World.water_row, step = World.step, roots = World.roots, threads = World.threads, greet = World.greet, dig_steps = World.dig_steps)";
+  const PROGRAM = "world", MODULES = ["World", "Fly"];
+  const TAIL = "(plan = World.plan, ground = World.ground, village = World.village, furnish = World.furnish, limbs = World.limbs, styles = World.styles, beaver = World.beaver, water_row = World.water_row, step = World.step, roots = World.roots, threads = World.threads, greet = World.greet, dig_steps = World.dig_steps, fly = Fly.step)";
   const KEY = "hazeljs-examples/world/";
   const Q = new URLSearchParams(location.search);
   const $ = id => document.getElementById(id);
@@ -596,7 +596,7 @@
     else if (wc !== gc && Math.abs(g.vx) < 15) { if (ex > 0) S.keys.right = true; else S.keys.left = true; }
   }
   function gnomeStep(h) {
-    if (S.carpet && S.carpet.on) { carpetStep(); return; }
+    if (S.carpet && S.carpet.on) { carpetStep(h); return; }
     if (S.ride && S.ride.on) { rideStep(h); return; }
     const k = S.keys, pad = { dx: (k.right ? 1 : 0) - (k.left ? 1 : 0), up: k.up, down: k.down, jump: S.jumpQueued, dig: !!k.dig };
     S.jumpQueued = false;
@@ -2316,21 +2316,41 @@
   // anywhere (the gnome falls as ever). On it, this step moves the gnome, not World.step: its speed eases to the arrows' in a
   // few frames and to a stop as quickly, so it goes where it is sent and stays there; through open air, not ground, rock, a
   // boulder or into the water (it skims the top)
-  const CARPET = { fast: 14 / 60, up: 9 / 60 };   // (tiles a frame: across, up or down)
+  const CARPET = { fast: 233, up: 150 };   // (thousandths of a tile a step: across, up or down; Fly.step's)
+  // (the lift's check when the carpet is unrolled, in tiles)
   const carpetHits = (x, y) => { const rb = Math.floor(y + 0.28);
     for (let c = Math.floor(x - 0.38); c <= Math.floor(x + 0.38); c++) for (let r = Math.floor(y - 0.92); r <= rb; r++) {
       if (!inside(c, r)) return true; const i = at(c, r); if (mat[i] !== AIR || boulderAt(c, r) || (r === rb && wat[i] >= 0.5)) return true; }
     return false; };
-  function carpetStep() {
-    const C = S.carpet, k = S.keys, g0 = S.g, dx = (k.right ? 1 : 0) - (k.left ? 1 : 0), dy = (k.down ? 1 : 0) - (k.up ? 1 : 0);
+  // (0.0.107; ^ticket(861), Matthew: "More and more of gnome world's game logic into hazel, from JS") the carpet's flight is
+  // Hazel's now (rules/Fly.hz, Fly.step), from the same window of tiles World.step reads. This is the same step in JavaScript,
+  // as it was before the move and kept beside it: the page's own answer while the rules build or when they cannot (an edit
+  // that breaks them), ?jsfly=1 to fly by it, and the measure the move is timed against (node/fly-check.mjs: the same answer
+  // at every step)
+  function flyJS(g, n, p, c) {
+    const md = (a, b) => a - Math.trunc(a / b) * b, q = (a, b) => Math.trunc(a / b);
+    const tile = (col, row) => { const k = col - n.cx + 1, j = row - n.cy + 3; if (k < 0 || k > 2 || j < 0 || j > 4) return 8;
+      const rv = j === 0 ? n.r0 : j === 1 ? n.r1 : j === 2 ? n.r2 : j === 3 ? n.r3 : n.r4; return md(k === 0 ? rv : k === 1 ? q(rv, 512) : q(rv, 262144), 512); };
+    const stops = (v, under) => { const w = md(v, 16); return v >= 64 || (w >= 1 && w <= 10) || (under && md(q(v, 16), 2) === 1); };
+    const meets = (x, y) => { if (x < 380 || y < 920) return true; const c0 = q(x - 380, 1000), c1 = q(x + 380, 1000), r0 = q(y - 920, 1000), rb = q(y + 280, 1000);
+      const down = col => { for (let r = r0; r <= rb; r++) if (stops(tile(col, r), r === rb)) return true; return false; };
+      return down(c0) || (c1 !== c0 && down(c1)); };
+    const ease = (v, t, a) => t - v > a ? v + a : v - t > a ? v - a : t;
+    const dy = (p.down ? 1 : 0) - (p.up ? 1 : 0), vx = ease(c.vx, p.dx * 233, 47), vy = ease(c.vy, dy * 150, 38);
+    const x = vx === 0 || meets(g.x + vx, g.y) ? g.x : g.x + vx, vx2 = x === g.x ? 0 : vx;
+    const y = vy === 0 || meets(x, g.y + vy) ? g.y : g.y + vy, vy2 = y === g.y ? 0 : vy;
+    const face = p.dx !== 0 ? p.dx : c.face;
+    return { gnome: { x, y, vx: 0, vy: 0, face, ground: false, climb: false, swim: false, under: false, air: g.air > 600 ? g.air : 600, gear: g.gear, tool: g.tool, dc: -1, dr: -1, dt: 0, ev: 0 }, carpet: { vx: vx2, vy: vy2, face } };
+  }
+  function carpetStep(h) {
+    const C = S.carpet, k = S.keys, g0 = S.g, pad = { dx: (k.right ? 1 : 0) - (k.left ? 1 : 0), up: !!k.up, down: !!k.down, jump: false, dig: false };
     S.jumpQueued = false;
-    const ease = (v, t, a) => v + Math.max(-a, Math.min(a, t - v));
-    C.vx = ease(C.vx || 0, dx * CARPET.fast, CARPET.fast / 5); C.vy = ease(C.vy || 0, dy * CARPET.up, CARPET.up / 4);
-    let x = g0.x / 1000, y = g0.y / 1000;
-    if (C.vx) { const nx = x + C.vx; if (!carpetHits(nx, y)) x = nx; else C.vx = 0; }
-    if (C.vy) { const ny = y + C.vy; if (!carpetHits(x, ny)) y = ny; else C.vy = 0; }
-    if (dx) C.face = dx;
-    S.g = { ...g0, x: Math.round(x * 1000), y: Math.round(y * 1000), vx: 0, vy: 0, face: C.face, ground: false, climb: false, swim: false, under: false, air: Math.max(g0.air || 0, 600), ev: 0, dc: -1, dr: -1, dt: 0 };
+    const cr = { vx: C.vx | 0, vy: C.vy | 0, face: C.face < 0 ? -1 : 1 }, byHazel = !!(h && h.fly) && !Q.has("jsfly"), t0 = performance.now();
+    const f = byHazel ? h.fly(g0, near(g0), pad, cr) : flyJS(g0, near(g0), pad, cr);
+    (S.flyMs || (S.flyMs = [])).push(performance.now() - t0); if (S.flyMs.length > 120) S.flyMs.shift(); S.flyBy = byHazel ? "Hazel" : "JS";
+    const g = { ...f.gnome }; if (g0.climbPack) g.climbPack = true;   // (a plain copy, the pack kept: World.step's way, gnomeStep)
+    C.vx = f.carpet.vx; C.vy = f.carpet.vy; C.face = f.carpet.face;
+    S.g = g;
     pickups();
   }
   function carpetToggle() {
@@ -3406,7 +3426,7 @@
     if (flying) drawCarpet(g, now, s);
     if (!S.faintAt && !blink && S.ride && S.ride.on) drawRider(g, now);
     else if (!blink && flying) { const C = S.carpet, gy0 = (g.y / 1000 + carpetBob(now)) * s - 0.48 * s;   // (standing on it: in profile going across, facing us still)
-      if (Math.abs(C.vx) > 0.02) gnomeProfile(ctx, gx * s, gy0, s * 0.98, C.face, false, true, 0, now, g.gear, null);
+      if (Math.abs(C.vx) > 20) gnomeProfile(ctx, gx * s, gy0, s * 0.98, C.face, false, true, 0, now, g.gear, null);
       else gnome(ctx, gx * s, gy0, s * 0.98, 2, true, false, now, g.gear, false, true, false, null); }
     else if (!S.faintAt && !blink) {
       const moving = Math.abs(g.vx) > 10 || (g.climb && (S.keys.up || S.keys.down)), d = g.climb && !g.ground ? 0 : g.face > 0 ? 1 : 3;
@@ -3842,7 +3862,8 @@
     if (!window.Hazel) { st.className = "status wait"; st.textContent = S.libFailed ? "Hazel did not load: check the connection, then reload." : "⏳ Loading Hazel, whose rules plan the world and move the gnome…"; return; }
     if (!b) { st.className = "status wait"; st.textContent = "⏳ Building the rules…"; return; }
     if (b.ok) { const ms = S.stepMs.length ? (S.stepMs.reduce((a, v) => a + v, 0) / S.stepMs.length).toFixed(3) : "…";
-      st.className = "status ok"; st.textContent = b.compiled ? `✓ Hazel's rules, compiled by hazel-jit as the page loaded (${(b.ms / 1000).toFixed(1)} s, the hazeljs branch's build): the gnome's step about ${ms} ms.`
+      const fly = S.flyMs && S.flyMs.length ? `; the carpet's step (${S.flyBy === "JS" ? "the page's JavaScript" : "Hazel's Fly.step"}) about ${(S.flyMs.reduce((a, v) => a + v, 0) / S.flyMs.length).toFixed(3)} ms` : "";
+      st.className = "status ok"; st.textContent = b.compiled ? `✓ Hazel's rules, compiled by hazel-jit as the page loaded (${(b.ms / 1000).toFixed(1)} s, the hazeljs branch's build): the gnome's step about ${ms} ms${fly}.`
         : `✓ Hazel's rules, built by hazeljs ${S.lib === LIB_NPM ? "0.0.4" : ""} in ${(b.ms / 1000).toFixed(1)} s and interpreted${b.reason ? " (not compiled: " + b.reason + ")" : ""}: the gnome's step about ${ms} ms, so the world may go slowly.`; return; }
     st.className = "status no";
     st.textContent = "The rules have an error, so the world cannot be made: " + (b.threw || (b.errors || []).map(e => (e.module ? e.module + ": " : "") + String(e.message || e).replace(/\s+/g, " ")).join("; ") || "they did not build");
@@ -3961,7 +3982,7 @@
   });
   if (Q.has("test")) window.WorldTest = { gemFound, gem, spriteCache, SPRITES, birdBody, BIRD, bushSprite, drawSprite, strips, drawRabbit, gnomeProfile, RABBIT_FUR, cellWords, digSteps, ITEM, mat, wat, at, WH, WW, BOT, botPlan, dist, botEnter, botStand, botClimb, profile: gnomeProfile, front: gnome, map: () => { minimap(); return map2Cv; }, look: (x, y) => { S.camFix = x == null ? null : { x, y }; draw(); }, paintHouse, paintSmallHouse, squirrelBody, drawVillager, drawVillagerProfile, drawBusy, S, tick: n => { const h = H(); for (let i = 0; i < n; i++) tick(h); draw(); }, draw, near, code, at, mat, wat, fix, bg, stone, shape, surf0, treeMask, digOut, tile: () => T, drawPebbles, PERF, timedDraw: () => timedDraw(), lineCtx, lineScene, paintTall, leafyTree, drawLodge };
   if (Q.has("test")) Object.assign(window.WorldTest, { listen, voiceOf, spoken, hushTalk });
-  if (Q.has("test")) Object.assign(window.WorldTest, { snapshot, saveText, readSave, loadText, restartNow: () => restartNow(H()), askRestart, stopBot, digest, bot: on => { if (on !== BOT.on) $("run").click(); return BOT.on; }, carpetToggle, carpetHits, carpetTop });
+  if (Q.has("test")) Object.assign(window.WorldTest, { snapshot, saveText, readSave, loadText, restartNow: () => restartNow(H()), askRestart, stopBot, digest, bot: on => { if (on !== BOT.on) $("run").click(); return BOT.on; }, carpetToggle, carpetHits, carpetTop, flyJS });
   document.body.classList.add("js");
   draw();
 })();

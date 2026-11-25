@@ -30,6 +30,7 @@
     "dig": "node node/dig.mjs",
     "world": "node node/world.mjs",
     "world-save-check": "node node/world-save-check.mjs",
+    "fly-check": "node --stack-size=8000 node/fly-check.mjs",
     "zine-check": "node node/zine-check.mjs"
   },
   "dependencies": {

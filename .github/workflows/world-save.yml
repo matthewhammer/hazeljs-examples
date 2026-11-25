@@ -24,6 +24,10 @@ jobs:
           sleep 1
       - name: Tour, save, restart, load, compare
         run: node node/world-save-check.mjs http://127.0.0.1:8000/ world-save
+      - name: The magic carpet's flight, Hazel's Fly.step against the page's JavaScript (ticket 861)
+        run: |
+          curl -sfL -A "Mozilla/5.0" https://build.hazel.org/hazeljs/hazel-lib.js -o "$RUNNER_TEMP/hazel-lib.js"
+          node --stack-size=8000 node/fly-check.mjs "$RUNNER_TEMP/hazel-lib.js" "$RUNNER_TEMP/fly-check.json"
       - name: The booklet, printed
         if: ${{ always() }}
         run: node node/zine-check.mjs http://127.0.0.1:8000/ zine world/manual/

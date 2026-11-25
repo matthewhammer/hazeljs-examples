@@ -1,0 +1,28 @@
+# The magic carpet's flight (0.0.107; ^ticket(861), the first of Gnome world's logic moved from the page's JavaScript into Hazel; N's carpet, 0.0.106): the gnome on it, a step at a time (sixty a second). It floats where it is until an arrow is held; its speed comes up to the arrows' in a few steps and down to a stop as quickly: 233 thousandths of a tile a step across (14 tiles a second), 150 up or down. It goes through open air, a platform or a hatch, not ground, rock, masonry, timber or a boulder, and not down into water (it skims the top). Calls nothing in World: it reads the same window of tiles World.step does #
+# The carpet under the gnome (c): its speed across and up or down (thousandths of a tile a step), and the way it faces (-1, 1); the answer, the gnome and its carpet after the step. (The record types are written out here, not named in the preamble: Gnome world's program is at the browser's limit for definitions, World.hz's note) #
+let step : (Gnome, Near, Pad, (vx = Int, vy = Int, face = Int)) -> (gnome = Gnome, carpet = (vx = Int, vy = Int, face = Int)) = fun (g, n, p, c) ->
+  let md : (Int, Int) -> Int = fun (a, b) -> a - (a / b) * b in
+  # a tile of the window by its column and row in the world (outside the window, masonry: nothing to fly through); each row of the window one number, its three tiles 512 apart #
+  let tile : (Int, Int) -> Int = fun (col, row) ->
+    let k = col - n.cx + 1 in let j = row - n.cy + 3 in
+    if k < 0 || k > 2 || j < 0 || j > 4 then 8
+    else (let rv = (if j == 0 then n.r0 else if j == 1 then n.r1 else if j == 2 then n.r2 else if j == 3 then n.r3 else n.r4) in
+      md((if k == 0 then rv else if k == 1 then rv / 512 else rv / 262144), 512)) in
+  # what stops the carpet: ground of any kind or shape, masonry, timber, a boulder; and water, under it #
+  let stops : (Int, Bool) -> Bool = fun (v, under) -> (let w = md(v, 16) in v >= 64 || (w >= 1 && w <= 10) || (under && md(v / 16, 2) == 1)) in
+  # whether the gnome and its carpet would meet something with its feet at (x, y): a box 0.76 tiles across, from 0.92 above its feet to the carpet's underside, 0.28 below them #
+  let meets : (Int, Int) -> Bool = fun (x, y) ->
+    if x < 380 || y < 920 then true
+    else (let c0 = (x - 380) / 1000 in let c1 = (x + 380) / 1000 in let r0 = (y - 920) / 1000 in let rb = (y + 280) / 1000 in
+      let down : (Int, Int) -> Bool = fun (col, r) -> if r > rb then false else stops(tile(col, r), r == rb) || down(col, r + 1) in
+      down(c0, r0) || (c1 != c0 && down(c1, r0))) in
+  let ease : (Int, Int, Int) -> Int = fun (v, t, a) -> if t - v > a then v + a else if v - t > a then v - a else t in
+  let dy = (if p.down then 1 else 0) - (if p.up then 1 else 0) in
+  let vx = ease(c.vx, p.dx * 233, 47) in let vy = ease(c.vy, dy * 150, 38) in
+  let x = (if vx == 0 || meets(g.x + vx, g.y) then g.x else g.x + vx) in
+  let vx2 = (if x == g.x then 0 else vx) in
+  let y = (if vy == 0 || meets(x, g.y + vy) then g.y else g.y + vy) in
+  let vy2 = (if y == g.y then 0 else vy) in
+  let face = (if p.dx != 0 then p.dx else c.face) in
+  (gnome = (x = x, y = y, vx = 0, vy = 0, face = face, ground = false, climb = false, swim = false, under = false, air = (if g.air > 600 then g.air else 600), gear = g.gear, tool = g.tool, dc = 0 - 1, dr = 0 - 1, dt = 0, ev = 0),
+   carpet = (vx = vx2, vy = vy2, face = face))
