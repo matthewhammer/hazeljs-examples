@@ -2446,9 +2446,32 @@
     { let cc = c + 2; while (cc < c + 10 && !open(cc)) cc++; S.items.push({ kind: "carrot", x: cc + 0.5, y: surf0[cc] - 0.5, taken: false }); }
     const pantry = S.rooms.find(R => R.kind === 3); if (pantry) S.items.push({ kind: "carrot", x: pantry.x + pantry.w * 0.7, y: pantry.y + 3.3, taken: false });
   }
+  // (0.0.124; Matthew: "we should permit getting off clover in these situations; post dismount, clover automatically jumps to the
+  // nearest dry land") The nearest dry land from her feet: the first open tile, dry, with ground (or a plank) under it, found
+  // going out through the open tiles round her, within some thousands of them; and the way there, tile by tile (her feet's
+  // place in each), which she hops along: never through a wall
+  function dryLand(x, y) {
+    const c0 = Math.floor(x / 1000), r0 = Math.floor((y - 1) / 1000), open = (c, r) => inside(c, r) && mat[at(c, r)] === AIR && !boulderAt(c, r);
+    if (!inside(c0, r0)) return null;
+    const from = new Map([[at(c0, r0), -1]]), q = [at(c0, r0)];
+    for (let k = 0; k < q.length && k < 6000; k++) { const i = q[k], c = i % WW, r = (i - c) / WW;
+      if (open(c, r) && wat[i] < 0.5 && floorAt(c, r + 1)) { const way = []; for (let j = i; j >= 0; j = from.get(j)) { const cj = j % WW; way.push([(cj + 0.5) * 1000, ((j - cj) / WW + 1) * 1000]); } way.reverse(); way[0] = [x, y]; return way; }
+      for (const [dc, dr] of [[0, -1], [-1, 0], [1, 0], [0, 1]]) { const c2 = c + dc, r2 = r + dr; if (!open(c2, r2)) continue; const j = at(c2, r2); if (from.has(j)) continue; from.set(j, i); q.push(j); } }
+    return null;
+  }
+  let cloverLook = 0;   // (steps till she looks for dry land again, none found)
   function bunniesStep() {
     const g = S.g; if (!g || !S.bunnies) return; const gx = g.x / 1000, gy = g.y / 1000, riding = S.ride.on, M = S.mount;
-    if (M && !riding) { const c = Math.floor(M.x / 1000); let r = Math.ceil(M.y / 1000 - 0.001); while (r < WH && !floorAt(c, r)) r++;   // (if the ground under her went, she drops onto what is under it)
+    // (her hops to dry land: a tile a hop, seven steps each, along the way; drawn up along each hop's arc, drawClover)
+    if (M && !riding && M.hop) { const J = M.hop, a = J.way[J.k], b = J.way[J.k + 1];
+      J.t = Math.min(1, J.t + 1 / 7); M.x = Math.round(a[0] + (b[0] - a[0]) * J.t); M.y = Math.round(a[1] + (b[1] - a[1]) * J.t); if (b[0] !== a[0]) M.face = b[0] > a[0] ? 1 : -1;
+      if (J.t >= 1) { J.k++; J.t = 0; if (J.k >= J.way.length - 1) M.hop = null; } }
+    // (in the water, waiting: off to the nearest dry land, as soon as she is left there, or the water comes up to her)
+    else if (M && !riding && --cloverLook <= 0) { const mc = Math.floor(M.x / 1000), mr = Math.floor((M.y - 450) / 1000);
+      if (inside(mc, mr) && wat[at(mc, mr)] >= 0.5) { const way = dryLand(M.x, M.y);
+        if (way && way.length >= 2) { M.hop = { way, k: 0, t: 0 }; M.nib = 0; if (SND) SND.splash(); S.banner = { text: "🐇 Clover hops out of the water, to dry land", t: performance.now() }; }
+        else cloverLook = 60; } }
+    if (M && !riding && !M.hop) { const c = Math.floor(M.x / 1000); let r = Math.ceil(M.y / 1000 - 0.001); while (r < WH && !floorAt(c, r)) r++;   // (if the ground under her went, she drops onto what is under it)
       if (r * 1000 > M.y) M.y = Math.min(r * 1000, M.y + 200);
       if (M.nib > 0) M.nib--; else if (--M.wait <= 0) { M.wait = 90 + Math.floor(rand() * 240); if (rand() < 0.55) M.nib = 50 + Math.floor(rand() * 70); else M.face = g.x > M.x ? 1 : -1; }
       M.ear = Math.max(0, M.ear - 0.03); if (rand() < 0.008) M.ear = 0.45; }
@@ -2472,7 +2495,10 @@
   function rideNear(g) {
     const cx = Math.floor(g.x / 1000), cy = Math.floor((g.y - 1) / 1000), R = S.ride, wall = [false, false, false];
     if (!g.gear && !R.leap && !g.swim && !g.under) for (const d of [-1, 1]) for (let r = cy - 1; r <= cy + 12; r++) { const v = code(cx + d, r); if (v & 16 && v < 64) { wall[d + 1] = true; break; } if (r > cy && (v & 15) >= 1 && (v & 15) <= 10) break; }
-    const t = (c, r) => { if (wall[c - cx + 1] && r <= cy) return 10; const v = code(c, r); return v < 64 && (v & 32) && !(inside(c, r) && bg[at(c, r)] === B_DUG) ? v - 32 : v; };
+    // (what she climbs: dug earth, and (0.0.124; Matthew: "clover wont' climb up a ladder that we created earlier without her?")
+    // ladders, stairs and hatches; not trees)
+    const t = (c, r) => { if (wall[c - cx + 1] && r <= cy) return 10; const v = code(c, r), i = inside(c, r) ? at(c, r) : -1;
+      return v < 64 && (v & 32) && !(i >= 0 && (bg[i] === B_DUG || fix[i] === F_LADDER || fix[i] === F_STAIR || fix[i] === F_HATCH)) ? v - 32 : v; };
     const row = r => t(cx - 1, r) + 512 * t(cx, r) + 262144 * t(cx + 1, r);
     return { cx, cy, r0: row(cy - 3), r1: row(cy - 2), r2: row(cy - 1), r3: row(cy), r4: row(cy + 1) };
   }
@@ -2496,6 +2522,10 @@
     // (no swimming without the diving gear: back onto the bank. 0.0.118; Matthew: "clover got stuck in the ground for me", his 🐞:
     // riding at the bottom of a hole dug five deep, its last tile with water seeped into it; there her last safe place was that
     // tile, and climbing up out of it counts as in the water too, so every step put her back: climbing, she is not swimming)
+    // (0.0.124; Matthew, stuck again: a room dug with a pool on its clay floor, her last safe place under its water now, so that
+    // every step put her back into it, whatever was pressed: a safe place the water has reached is none; she wades, as the gnome
+    // does, to a ladder or the bank)
+    if (R.safe) { const sc = Math.floor(R.safe.x / 1000), sr = Math.floor((R.safe.y - 450) / 1000); if (inside(sc, sr) && wat[at(sc, sr)] >= 0.5) R.safe = null; }
     if (!g.gear && (g.swim || g.under) && !g.climb && R.safe) {
       g = { ...g, x: R.safe.x, y: R.safe.y, vx: 0, vy: 0, swim: false, under: false, ground: true, climb: false, air: 600, ev: 0, dc: -1, dr: -1, dt: 0 }; R.hop = R.leap = false;
       if (SND) SND.splash(); S.banner = { text: "🐇 Clover won't swim without her diving kit 🤿", t: performance.now() }; }
@@ -2510,11 +2540,13 @@
   function rideToggle() {
     const g = S.g, R = S.ride, M = S.mount; if (!g || !M || S.faintAt || BOT.on) return;
     const say = text => { S.banner = { text, t: performance.now() }; };
-    if (R.on) { if (!g.ground || g.swim || g.under || g.climb) { say("🐇 Get off on solid ground"); return; }
+    // (0.0.124; Matthew: "stuck state with clover. cannot dismount -- not on solid ground ... we cannot get out": off anywhere but
+    // in the air, in the water or on a ladder too; she stays where you leave her, sitting on what is under her)
+    if (R.on) { if (!g.ground && !g.swim && !g.under && !g.climb) { say("🐇 Wait till she lands"); return; }
       R.on = false; M.x = g.x; M.y = g.y; M.face = g.face; M.wait = 120; M.nib = 0;
       const c = Math.floor((g.x - g.face * 700) / 1000), r = Math.floor((g.y - 1) / 1000), free = inside(c, r) && mat[at(c, r)] === AIR && inside(c, r - 1) && mat[at(c, r - 1)] === AIR && floorAt(c, r + 1);
       S.g = { ...g, x: free ? g.x - g.face * 700 : g.x, vx: 0, vy: 0, dc: -1, dr: -1, dt: 0 }; say("🐇 Off you hop: Clover waits here"); return; }
-    if (!nearClover()) return;
+    if (!nearClover() || M.hop) return;
     if (!M.tame) { if (!(S.carrots > 0)) { say("🐇 Clover would like a carrot 🥕"); return; }
       S.carrots--; M.tame = true; useRide("clover"); if (SND) SND.gem(); say("🥕 Clover munches the carrot, and lets you ride! (R to get off)"); }
     R.on = true; R.hop = R.leap = false; R.safe = { x: M.x, y: M.y };
@@ -2987,8 +3019,8 @@
   // left in a tunnel or by a great tree, she was painted over (ridden, she is drawn with the gnome, and was seen)
   function drawClover(c0, c1, now) {
     const s = T, M = S.mount;
-    if (M && !S.ride.on && M.x / 1000 > c0 - 2 && M.x / 1000 < c1 + 2) { const x = M.x / 1000 * s, y = M.y / 1000 * s;
-      drawRabbit(ctx, x, y, s, { face: M.face, k: 1.15, pose: M.nib > 0 ? "nibble" : "sit", saddle: true, fur: RABBIT_FUR[0], ear: M.ear, now });
+    if (M && !S.ride.on && M.x / 1000 > c0 - 2 && M.x / 1000 < c1 + 2) { const J = M.hop, x = M.x / 1000 * s, y = (M.y / 1000 - (J ? Math.sin(Math.PI * J.t) * 0.45 : 0)) * s;   // (0.0.124: in a hop, up along its arc)
+      drawRabbit(ctx, x, y, s, { face: M.face, k: 1.15, pose: J ? "hop" : M.nib > 0 ? "nibble" : "sit", t: J ? J.t : 0, gy: M.y / 1000 * s, saddle: true, fur: RABBIT_FUR[0], ear: M.ear, now });
       if (nearClover() && !LINE) { const word = M.tame ? "🐇 R: ride Clover" : S.carrots > 0 ? "🥕 R: give Clover a carrot" : "🐇 Clover would like a carrot 🥕";
         ctx.font = `bold ${Math.round(0.34 * s)}px sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; const tw = ctx.measureText(word).width, ly = y - 1.75 * s;
         ctx.fillStyle = "rgba(30,20,8,0.72)"; ctx.beginPath(); ctx.roundRect(x - tw / 2 - s * 0.16, ly - s * 0.24, tw + s * 0.32, s * 0.48, s * 0.16); ctx.fill();

@@ -2,6 +2,15 @@
 
 Each version lists what the apps do as of that version. The newest version is first.
 
+## 0.0.124 (2026-11-25)
+
+- **Gnome world: Clover can't trap you in water any more** (Matthew, with a picture: a room dug three under the land, a pool on its clay floor, riding Clover in it: "stuck state with clover. cannot dismount -- not on solid ground. clover wont' climb up a ladder that we created earlier without her? we cannot get out."; then "we should permit getting off clover in these situations; post dismount, clover automatically jumps to the nearest dry land"). Four changes:
+  - **Get off her anywhere but in the air**: in the water, or on a ladder, too ("🐇 Wait till she lands" only in the air).
+  - **Left in the water, she hops to the nearest dry land** by herself, a tile at a hop, along the open way there (across the room, up the shaft, onto the land; never through the ground), as soon as she is left there, or as soon as water comes up round her as she waits.
+  - **No more being put back into the pool**: she is put back on the bank when she walks into water, but her last safe place had gone under the pool's water, so every step put her back into it, whatever was pressed. A safe place the water has reached is none now: she wades, as the gnome does, to a ladder or the bank.
+  - **She climbs ladders, stairs and hatches anywhere**, as well as dug earth (not trees).
+  - Checked in the page, a room like the picture's with its pool kept full: in the pool, no more "won't swim" over and over; → and ← wade her across; off her there, she hops out in 16 hops (121 steps) to the land by the shaft, never inside the ground; R beside her, on again; a ladder in the open air, ↑ climbs her up it.
+
 ## 0.0.123 (2026-11-25)
 
 - **Gnome world: hold jump with the cat tail and it keeps flapping, faster with the running shoes** (Matthew: "if we hold up (jump) while using cat tail, let's do an auto-repeat that's faster when the running shoes"). In the air with the tail on, ↑ held (the jump button held, on a controller) flaps by itself again and again: every 24 steps without the shoes (a flap's lift, then a little float), every 12 with them (lift after lift). Pressing jump still flaps at once, as before. In Hazel, `Tail.hz` (the tail's state counts the steps to the next flap), its JavaScript twin the same at 20,000 made-up steps, gnomes with and without shoes among them. Checked in the page: ↑ held four seconds, 14.96 tiles up without the shoes (10 flaps, 3.74 tiles a second), 17.74 with them (19 flaps, 4.43 a second).
