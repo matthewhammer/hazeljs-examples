@@ -2527,11 +2527,75 @@
     if (ok.clover && !M.tame) return "clover";   // (her carrot first)
     if (ok[S.use]) return S.use;
     return ok.clover ? "clover" : ok.carpet ? "carpet" : ok.tail ? "tail" : "clover"; };
-  function mountToggle() {
-    if (S.ride && S.ride.on) { rideToggle(); return; }
-    if (S.carpet && S.carpet.on) { carpetToggle(); return; }
-    if (S.tail && S.tail.on) { tailToggle(); return; }
-    const n = nextRide(); if (n === "carpet") carpetToggle(); else if (n === "tail") tailToggle(); else rideToggle();
+  // (0.0.117; Matthew, playing with N: the 🎒 screen "doesn't work. it's pretty broken and frustrating. Instead of this screen, N
+  // wants to use a button combo: dpad Left + ride/on/off button = get on rabbit (get off carpet, off tail); dpad Right +
+  // ride/on/off button = get on carpet (get off rabbit, off tail); dpad Down + ride/on/off button = use tail, and get off
+  // carpet/rabit") The ride button (R, the 🐇/🧞/🐈 on the pad, L on a controller) with a way held, the arrows of the keyboard,
+  // the pad or the controller: ◀ Clover, ▶ the carpet, ▼ the cat tail: off whatever else you are on, then on that one (the same
+  // again: off it). Alone: off what you are on, or else on the one used last (or whichever you can)
+  const rideHave = which => (which === "carpet" ? !!(S.carpet && S.carpet.have) : which === "tail" ? !!(S.tail && S.tail.have) : !!(S.mount && S.mount.tame));
+  const rideOn = () => (S.ride && S.ride.on ? "clover" : S.carpet && S.carpet.on ? "carpet" : S.tail && S.tail.on ? "tail" : null);
+  const RIDE_TOGGLE = { clover: () => rideToggle(), carpet: () => carpetToggle(), tail: () => tailToggle() };
+  const rideWanted = () => { const k = S.keys; return k.left && !k.right ? "clover" : k.right && !k.left ? "carpet" : k.down ? "tail" : null; };
+  function rideOnto(which) {
+    const say = text => { S.banner = { text, t: performance.now() }; };
+    if (which === "carpet" && !rideHave("carpet")) { say("🧞 No magic carpet yet: it lies in the farthest room of the hamlet, far right, underground"); return; }
+    if (which === "tail" && !rideHave("tail")) { say("🐈 No cat tail yet: it lies in the tree house farthest left"); return; }
+    if (which === "clover" && !nearClover()) { say("🐇 Clover isn't near: she waits where you left her (◀ and R, beside her)"); return; }
+    RIDE_TOGGLE[which]();   // (its own on or off: on, as nothing is on now)
+    if (rideOn() === which) useRide(which);
+  }
+  // (Matthew: "when the user is not riding anything, but presses the 'ride' button, it's okay to pop up a screen, but it should
+  // work") The ride button alone, on nothing, with two or three rides at hand: a screen to choose, laid out as the combos are, ◀
+  // Clover, ▶ the carpet, ▼ the cat tail; a tap on one (begun on it: not the tap that opened the screen, which the 0.0.113 screen
+  // took as a choice), or that way on the keyboard or a controller, gets on it at once; the ride button again, B, start or
+  // Escape shuts it. With one at hand, the button gets on it; with none, says why
+  const RIDES = { clover: ["🐇", "Clover", "◀"], carpet: ["🧞", "the magic carpet", "▶"], tail: ["🐈", "the cat tail", "▼"] };
+  const ridesCan = () => { const M = S.mount; return { clover: nearClover() && !!M && (M.tame || S.carrots > 0), carpet: rideHave("carpet"), tail: rideHave("tail") }; };
+  const RIDEPOP = { dlg: null, at: 0, down: null, btns: {} };
+  const ridePopOpen = () => !!(RIDEPOP.dlg && RIDEPOP.dlg.open);
+  function ridePick(which) {
+    if (!ridePopOpen()) return;
+    if (!ridesCan()[which]) { rideOnto(which); return; }   // (not at hand: its banner says why; the screen stays)
+    ridePop(false); rideOnto(which);
+  }
+  function ridePop(on) {
+    if (!on) { if (ridePopOpen()) RIDEPOP.dlg.close(); S.asking = false; RIDEPOP.down = null; return; }
+    if (!RIDEPOP.dlg) {
+      const el = (tag, cls, kids) => { const e = document.createElement(tag); if (cls) e.className = cls; for (const k of [].concat(kids || [])) e.append(k); return e; };
+      const dlg = el("dialog", "gw-ask gw-rides"); dlg.setAttribute("aria-label", "Which one to ride");
+      const grid = el("div", "gw-rides-grid");
+      const tap = (b, act) => {   // (a press begun on this button, let go of on it, and not the one that opened the screen)
+        b.addEventListener("pointerdown", e => { e.preventDefault(); RIDEPOP.down = b; });
+        b.addEventListener("pointerup", e => { e.preventDefault(); const mine = RIDEPOP.down === b; RIDEPOP.down = null; if (mine && performance.now() - RIDEPOP.at > 250) act(); });
+        b.addEventListener("click", e => { e.preventDefault(); if (e.detail === 0) act(); }); };   // (Enter or space on it)
+      for (const [id, [icon, name, way]] of Object.entries(RIDES)) {
+        const note = el("span", "gw-rides-note"), b = el("button", "gw-rides-pick gw-rides-" + id, [el("span", "gw-rides-icon", icon), el("span", "gw-rides-name", name), el("span", "gw-rides-way", way), note]);
+        b.type = "button"; tap(b, () => ridePick(id)); grid.append(b); RIDEPOP.btns[id] = { b, note }; }
+      const none = el("button", "gw-rides-none", "✕ none"); none.type = "button"; tap(none, () => ridePop(false));
+      dlg.append(el("p", "gw-ask-q", "Which one?"), grid, el("p", "muted gw-rides-how", "Tap one, or press its way: ◀ ▶ ▼. Next time: hold that way and press the ride button."), none);
+      dlg.addEventListener("keydown", e => { e.stopPropagation();
+        const k = e.key, pick = k === "ArrowLeft" || k === "a" || k === "A" ? "clover" : k === "ArrowRight" || k === "d" || k === "D" ? "carpet" : k === "ArrowDown" || k === "s" || k === "S" ? "tail" : null;
+        if (pick) { e.preventDefault(); ridePick(pick); } else if (k === "r" || k === "R" || k === "e" || k === "E") { e.preventDefault(); ridePop(false); } });
+      const after = () => { S.asking = false; RIDEPOP.down = null; };
+      dlg.addEventListener("cancel", after); dlg.addEventListener("close", after);
+      document.body.append(dlg); RIDEPOP.dlg = dlg;
+    }
+    const can = ridesCan();
+    for (const [id, { b, note }] of Object.entries(RIDEPOP.btns)) { b.disabled = false; b.classList.toggle("off", !can[id]);
+      note.textContent = can[id] ? (id === "clover" && !S.mount.tame ? "her carrot first 🥕" : "") : id === "carpet" ? "not found yet" : id === "tail" ? "not found yet" : rideHave("clover") ? "not near" : "find her a carrot 🥕"; }
+    for (const k in S.keys) S.keys[k] = false;
+    S.asking = true; RIDEPOP.at = performance.now(); RIDEPOP.down = null; RIDEPOP.dlg.showModal();
+  }
+  function mountToggle(want = rideWanted()) {
+    const on = rideOn();
+    if (!want) { if (on) { RIDE_TOGGLE[on](); return; }
+      const can = ridesCan(), n = Object.keys(can).filter(k => can[k]);
+      if (n.length >= 2) ridePop(true); else rideOnto(n.length === 1 ? n[0] : nextRide());
+      return; }
+    if (on === want) { RIDE_TOGGLE[on](); return; }
+    if (on) { RIDE_TOGGLE[on](); if (rideOn()) return; }   // (off the other first; off Clover only on solid ground: else she stays, and her banner says so)
+    rideOnto(want);
   }
   // (still, it bobs a little in the air; going, it holds steady and the cloth ripples instead)
   const carpetBob = now => { const C = S.carpet, sp = Math.min(1, Math.hypot(C.vx || 0, C.vy || 0) / CARPET.fast); return (1 - sp) * Math.sin(now / 380) * 0.05; };
@@ -3811,8 +3875,7 @@
     { const mb = $("mount"), riding = !!(S.ride && S.ride.on), flying = !!(S.carpet && S.carpet.on), tailed = !!(S.tail && S.tail.on), show = riding || flying || tailed || nearClover() || !!(S.carpet && S.carpet.have) || !!(S.tail && S.tail.have);
       if (mb) { if (mb.hidden === show) mb.hidden = !show; const which = riding ? "clover" : flying ? "carpet" : tailed ? "tail" : nextRide(), icon = which === "carpet" ? "🧞" : which === "tail" ? "🐈" : "🐇", on = String(riding || flying || tailed);
         if (mb.textContent !== icon) { mb.textContent = icon; mb.title = which === "carpet" ? "The magic carpet: on or off (R)" : which === "tail" ? "The cat tail: on or off (R)" : "Ride Clover the rabbit: on or off (R); a carrot first"; }
-        if (mb.getAttribute("aria-pressed") !== on) mb.setAttribute("aria-pressed", on); }
-      const ib = $("items"), two = ["clover", "carpet", "tail"].filter(rideHave).length >= 2; if (ib && ib.hidden === two) ib.hidden = !two; }
+        if (mb.getAttribute("aria-pressed") !== on) mb.setAttribute("aria-pressed", on); } }
     const line = `${runWord}${hearts}  💎 ${S.found || 0} / ${S.gemTotal || 0}${S.carrots ? "  🥕 " + S.carrots : ""}${S.ride && S.ride.on ? "  🐇" : ""}${S.carpet && S.carpet.have ? (S.carpet.on ? "  🧞 flying" : "  🧞") : ""}${S.tail && S.tail.on ? (S.tail.fly > 0 ? "  🐈 flying" : S.tail.meter >= 50 ? "  🐈 ready to fly" : "  🐈") : ""}  🍃 ${windWord} ${arrows}  ${where}${g && g.gear ? "  🤿" : ""}${g && g.climbPack ? "  🧗" : ""}${g && g.tool ? (g.tool >= 2 ? "  ⚒️" : "  ⛏️") : ""}${place ? "  ·  " + place : ""}`;
     const tw = ctx.measureText(line).width;
     pill(10 * k, 10 * k, tw + 20 * k, 30 * k); ctx.fillStyle = "#fff"; ctx.fillText(line, 20 * k, 15 * k);
@@ -3888,8 +3951,8 @@
     else if (e.key === "m" || e.key === "M") toggleMap();
     else if (e.key === "f" || e.key === "F") PERF.on = !PERF.on;
     else if (e.key === "b" || e.key === "B") { e.preventDefault(); buildHere(); }
-    else if (e.key === "r" || e.key === "R" || e.key === "e" || e.key === "E" || e.key === "c" || e.key === "C") { e.preventDefault(); mountToggle(); }
-    else if (e.key === "i" || e.key === "I") { e.preventDefault(); itemsShow(true); }
+    else if (e.key === "r" || e.key === "R" || e.key === "e" || e.key === "E") { e.preventDefault(); mountToggle(); }
+    else if (e.key === "c" || e.key === "C") { e.preventDefault(); mountToggle("carpet"); }   // (the booklet's key for the carpet)
     else if (e.key === "l" || e.key === "L") { e.preventDefault(); listen(); }
   });
   // (0.0.104) a tap or a click on the listen button in a villager's bubble
@@ -3906,74 +3969,9 @@
   }
   { const b = $("build"); if (b) b.addEventListener("pointerdown", e => { e.preventDefault(); buildHere(); }); }
   { const b = $("mount"); if (b) b.addEventListener("pointerdown", e => { e.preventDefault(); mountToggle(); }); }
-  { const b = $("items"); if (b) b.addEventListener("pointerdown", e => { e.preventDefault(); itemsShow(true); }); }
   { const b = $("run"); if (b) b.addEventListener("click", () => { BOT.on = !BOT.on; b.setAttribute("aria-pressed", String(BOT.on));
       if (BOT.on) { Object.assign(BOT, { phase: "", queue: [], cur: null, path: [], k: 0, skipped: [], frames: 0, t0: performance.now(), items: 0, parts: 0, partsAll: 0, gems: 0, gemsAll: 0, report: null }); S.banner = { text: "🏃 Speed run: every thing, every part of every big tree, every gem", t: performance.now() }; }
       else for (const k in S.keys) S.keys[k] = false; b.blur(); }); }
-  // ---- 🎒 your things (0.0.113; Matthew: "when we have access to both, there should be an inventory system (pop up box like
-  // messed up dress up) that selects if it's clover or the magic carpet that we are using during the 'on' action"), as Dress
-  // Up's 🎒 Your items: a box over the game, which waits under it. I, the 🎒 button (on the pad once you have both rides) or R on
-  // a controller opens it. On it the two rides, Clover 🐇 (yours once she has had a carrot) and the magic carpet 🧞 (once found),
-  // the one R puts you on marked; a tap on the other chooses it (← → and Enter, or a controller's arrows and A, as well). Below
-  // them, the other things you have found, and the ones still to find, dim. I, Escape, Done (or R, start or B on a controller) shut it
-  const mk = (tag, attrs, kids) => { const e = document.createElement(tag); for (const [k, v] of Object.entries(attrs || {})) if (k === "on") e.addEventListener("click", v); else e.setAttribute(k, v);
-    for (const c of [].concat(kids || [])) e.append(c); return e; };
-  const ITEMS = { ui: null };
-  const itemsOpen = () => !!(ITEMS.ui && ITEMS.ui.dlg.open);
-  const rideHave = which => (which === "carpet" ? !!(S.carpet && S.carpet.have) : which === "tail" ? !!(S.tail && S.tail.have) : !!(S.mount && S.mount.tame));
-  const rideOn = () => (S.ride && S.ride.on ? "clover" : S.carpet && S.carpet.on ? "carpet" : S.tail && S.tail.on ? "tail" : null);
-  const RIDE_NAME = { clover: "🐇 Clover", carpet: "🧞 the magic carpet", tail: "🐈 the cat tail" };
-  function itemsChoose(which) {
-    if (!rideHave(which)) return;
-    useRide(which);
-    const now = rideOn();
-    S.banner = { text: now && now !== which ? `Next time on: ${RIDE_NAME[which]} (R to get off ${RIDE_NAME[now]} first)` : which === "carpet" ? "🧞 R puts you on the magic carpet" : which === "tail" ? "🐈 R puts on the cat tail" : "🐇 R puts you on Clover, when she's near", t: performance.now() };
-    itemsShow(false);
-  }
-  function itemsBuild() {
-    const dlg = mk("dialog", { class: "gw-ask gw-items", "aria-labelledby": "items-q" });
-    const how = mk("p", { class: "muted" }, "R (or 🐇/🧞/🐈) puts you on the one chosen, and takes you off. Tap another to choose it.");
-    const rides = [["clover", "🐇", "Clover the rabbit"], ["carpet", "🧞", "the magic carpet"], ["tail", "🐈", "the cat tail"]].map(([id, icon, name]) => {
-      const note = mk("span", { class: "gw-items-note" }), b = mk("button", { type: "button", class: "gw-items-ride", "data-ride": id, on: () => itemsChoose(id) },
-        [mk("span", { class: "gw-items-icon", "aria-hidden": "true" }, icon), mk("span", { class: "gw-items-name" }, name), note]);
-      return [id, b, note]; });
-    const things = mk("div", { class: "gw-items-things" });
-    const done = mk("button", { type: "button", class: "gw-ask-yes", on: () => itemsShow(false) }, "Done");
-    dlg.append(mk("p", { id: "items-q", class: "gw-ask-q" }, "🎒 Your things"), how, mk("div", { class: "gw-items-rides", role: "radiogroup", "aria-label": "R puts you on" }, rides.map(r => r[1])),
-               mk("p", { class: "gw-items-cap" }, "Found on the way"), things, mk("div", { class: "gw-ask-buttons" }, [done]));
-    dlg.addEventListener("keydown", e => {
-      e.stopPropagation();   // (its keys are its own, not the gnome's)
-      if (e.key === "i" || e.key === "I") { e.preventDefault(); itemsShow(false); }
-      else if (e.key === "ArrowLeft" || e.key === "ArrowRight") { e.preventDefault(); itemsMove(e.key === "ArrowLeft" ? -1 : 1); }
-    });
-    const after = () => { S.asking = false; };
-    dlg.addEventListener("cancel", after); dlg.addEventListener("close", after);
-    document.body.append(dlg);
-    ITEMS.ui = { dlg, rides, sync() {
-      const which = rideOn() || (rideHave(S.use) ? S.use : ["clover", "carpet", "tail"].find(rideHave) || "clover");
-      for (const [id, b, note] of rides) { const have = rideHave(id), chosen = have && (which === id || !rideHave(which));
-        b.disabled = !have; b.setAttribute("aria-checked", String(chosen)); b.setAttribute("role", "radio");
-        note.textContent = !have ? (id !== "clover" ? "not found yet" : S.carrots > 0 ? "give her a carrot 🥕 (R, near her)" : "find a carrot 🥕 for her")
-          : rideOn() === id ? "on it now" : chosen ? "R puts you on" : "tap to choose"; }
-      const g = S.g || {};
-      const list = [["🤿", "the diving gear", !!g.gear], ["🧗", "the climbing pack", !!g.climbPack], ["👟", "the running shoes", kitHas(g, "shoes")], ["🏊", "the swim flippers", kitHas(g, "flippers")], ["🪝", "the super climbing gear", kitHas(g, "climber")],
-                    ["⛏️", "the good digger", (g.tool || 0) >= 1], ["⚒️", "the super digger", (g.tool || 0) >= 2], ["🥕", S.carrots > 1 ? `${S.carrots} carrots` : "a carrot", S.carrots > 0]];
-      things.replaceChildren(...list.map(([icon, name, have]) => mk("span", { class: "gw-items-thing" + (have ? "" : " missing"), title: have ? name : name + ": not found yet" },
-        [mk("span", { "aria-hidden": "true" }, icon), " " + name])));
-    } };
-  }
-  // ← → on the screen, a controller's arrows: the other ride, if you have it
-  function itemsMove(d) { const ids = ["clover", "carpet", "tail"].filter(rideHave); if (ids.length < 2) return;
-    const at = Math.max(0, ids.indexOf(S.use)), to = ids[(at + d + ids.length) % ids.length]; useRide(to); ITEMS.ui.sync();
-    const b = ITEMS.ui.rides.find(r => r[0] === to); if (b) b[1].focus(); }
-  function itemsShow(on) {
-    if (!on) { if (itemsOpen()) ITEMS.ui.dlg.close(); S.asking = false; return; }
-    if (!S.g || S.asking || itemsOpen()) return;
-    if (!ITEMS.ui) itemsBuild();
-    for (const k in S.keys) S.keys[k] = false;
-    S.asking = true; ITEMS.ui.sync(); ITEMS.ui.dlg.showModal();
-    const b = ITEMS.ui.rides.find(r => r[0] === S.use); if (b && !b[1].disabled) b[1].focus();
-  }
   // ---- 🎮 a game controller (0.0.112; Matthew, 2026-11-25: "We have a Linux laptop that N often uses. Let's add game controller
   // support ... for the buttons, and a configure controller feature -- see messed up dress up for the game controller configure
   // support.") Through the browser's Gamepad API, as Dress Up does it: the controller's arrows (buttons 12 to 15 on a pad with the
@@ -3984,20 +3982,19 @@
   // its buttons its own way), or 🎯 set one action's button (the next one pressed). Each pad's layout is kept by its name and put
   // back whenever it connects. Polled each frame while one is connected, never without one.
   const PAD_ACTIONS = [["jump", "⬆️ jump (as ↑)"], ["dash", "💨 dash, held (as Shift)"], ["dig", "⛏️ dig (as X)"], ["build", "🪵 build (as B)"],
-                       ["ride", "🐇🧞 on or off: Clover or the magic carpet (as R)"], ["items", "🎒 your things: which one R rides (as I)"],
+                       ["ride", "🐇🧞🐈 on or off; with ◀ Clover, ▶ the carpet, ▼ the cat tail (as R)"],
                        ["listen", "🔊 a villager's words aloud (as L)"], ["pause", "⏸ pause, or go on (as the space bar)"], ["map", "🗺️ the map, shown or hidden (as M)"]];
-  const PAD_USUAL = { jump: 0, dash: 2, dig: 1, build: 3, ride: 4, items: 5, listen: 8, pause: 9, map: -1 };
+  const PAD_USUAL = { jump: 0, dash: 2, dig: 1, build: 3, ride: 4, listen: 8, pause: 9, map: -1 };
   const PAD_TEACH = [["B", "B, the bottom button"], ["A", "A, the right one"], ["X", "X, the top one"], ["Y", "Y, the left one"],
                      ["L", "L, the left shoulder"], ["R", "R, the right shoulder"], ["select", "select"], ["start", "start"]];
-  const PAD_FROM_TEACH = { jump: "B", dig: "A", build: "X", dash: "Y", ride: "L", items: "R", listen: "select", pause: "start" };
+  const PAD_FROM_TEACH = { jump: "B", dig: "A", build: "X", dash: "Y", ride: "L", listen: "select", pause: "start" };
   const PAD_PLACES = ["bottom", "right", "left", "top", "left shoulder", "right shoulder", "left trigger", "right trigger", "select", "start", "left stick", "right stick", "up", "down", "left", "right", "home"];
   const PAD = { id: "", name: "", mapping: "", down: new Set(), held: {}, learn: null, teach: null, loop: 0, buttons: { ...PAD_USUAL }, ui: null, lastSx: 0, was14: false, was15: false };
   const padButtonName = i => !(i >= 0) ? "—" : PAD.mapping === "standard" && PAD_PLACES[i] ? `${PAD_PLACES[i]} (button ${i})` : `button ${i}`;
   const padLayouts = () => { const all = kept("pads", {}); return all && typeof all === "object" ? all : {}; };
   function padKeepLayout() { if (!PAD.id) return; const all = padLayouts(); all[PAD.id] = { ...PAD.buttons }; keep("pads", all); }
   function padUse(id) { const k = padLayouts()[id]; PAD.buttons = { ...PAD_USUAL, ...(k && typeof k === "object" ? k : {}) }; PAD.id = id;
-    if (k && !("items" in k) && Number.isInteger(k.carpet)) PAD.buttons.items = k.carpet;   // (a layout from 0.0.112: its 🧞 button is 🎒's now)
-    delete PAD.buttons.carpet; }
+    delete PAD.buttons.carpet; delete PAD.buttons.items; }   // (a layout from 0.0.112 or 0.0.113: their 🧞 and 🎒 buttons are gone)
   function padTaught() {
     const G = PAD.teach.got, at = k => (Number.isInteger(G[k]) ? G[k] : -1);
     for (const [a, k] of Object.entries(PAD_FROM_TEACH)) PAD.buttons[a] = at(k);
@@ -4020,7 +4017,7 @@
     const std = PAD.mapping === "standard", arrows = std ? [12, 13, 14, 15] : [];
     const fresh = [...now].filter(i => !PAD.down.has(i) && !arrows.includes(i));
     const lit = now.size !== PAD.down.size || fresh.length > 0;
-    PAD.was14 = PAD.down.has(14); PAD.was15 = PAD.down.has(15);
+    PAD.was13 = PAD.down.has(13); PAD.was14 = PAD.down.has(14); PAD.was15 = PAD.down.has(15);
     PAD.down = now;
     const PZ = pauser();
     if (PAD.learn && fresh.length) {   // 🎯: the next button pressed is this action's, and no other's
@@ -4028,14 +4025,13 @@
       PAD.buttons[PAD.learn] = fresh[0]; PAD.learn = null; padKeepLayout(); padSync();
     } else if (PAD.teach && !PAD.teach.done && fresh.length) {   // 🎓: each button pressed is the next one asked for
       PAD.teach.got[PAD_TEACH[PAD.teach.step][0]] = fresh[0]; if (++PAD.teach.step >= PAD_TEACH.length) padTaught(); padSync();
-    } else if (itemsOpen()) {   // (🎒 open: the arrows choose a ride, A or the ride button takes it, R, start or B shuts it)
+    } else if (ridePopOpen()) {   // (0.0.117: the ride screen open: ◀ ▶ ▼ choose, as the combos do; the ride button, B or start shut it)
       padLetGo();
-      const btn = a => (PAD.buttons[a] >= 0 ? PAD.buttons[a] : -2), sx = Math.abs(g.axes[0] || 0) > 0.5 ? Math.sign(g.axes[0]) : 0;
-      const moveBy = (std && now.has(14) && !PAD.was14) || (sx < 0 && PAD.lastSx >= 0) ? -1 : (std && now.has(15) && !PAD.was15) || (sx > 0 && PAD.lastSx <= 0) ? 1 : 0;
-      if (moveBy) itemsMove(moveBy);
-      if (fresh.includes(btn("dig")) || fresh.includes(btn("ride"))) itemsChoose(S.use);
-      else if (fresh.includes(btn("items")) || fresh.includes(btn("pause")) || fresh.includes(btn("jump"))) itemsShow(false);
-      PAD.lastSx = sx;
+      const btn = a => (PAD.buttons[a] >= 0 ? PAD.buttons[a] : -2), sx = Math.abs(g.axes[0] || 0) > 0.5 ? Math.sign(g.axes[0]) : 0, sy = Math.abs(g.axes[1] || 0) > 0.5 ? Math.sign(g.axes[1]) : 0;
+      const left = (std && now.has(14) && !PAD.was14) || (sx < 0 && PAD.lastSx >= 0), right = (std && now.has(15) && !PAD.was15) || (sx > 0 && PAD.lastSx <= 0), down = (std && now.has(13) && !PAD.was13) || (sy > 0 && (PAD.lastSy || 0) <= 0);
+      PAD.lastSx = sx; PAD.lastSy = sy;
+      if (left) ridePick("clover"); else if (right) ridePick("carpet"); else if (down) ridePick("tail");
+      else if (fresh.includes(btn("ride")) || fresh.includes(btn("jump")) || fresh.includes(btn("pause"))) ridePop(false);
     } else if (padOpen() || S.asking || BOT.on) { padLetGo(); if (lit) padSync(); }
     else {
       const btn = a => (PAD.buttons[a] >= 0 ? PAD.buttons[a] : -2), hit = a => fresh.includes(btn(a));
@@ -4047,7 +4043,6 @@
         for (const k in want) if (want[k] !== !!PAD.held[k]) { PAD.held[k] = want[k]; if (want[k] && k === "up" && !S.keys.up) S.jumpQueued = true; S.keys[k] = want[k]; }
         if (hit("build")) buildHere();
         if (hit("ride")) mountToggle();
-        if (hit("items")) { padLetGo(); itemsShow(true); }
         if (hit("listen")) listen();
         if (hit("map")) toggleMap();
         if (hit("pause") && PZ) { padLetGo(); PZ.set(true); }
@@ -4391,7 +4386,7 @@
   });
   if (Q.has("test")) window.WorldTest = { gemFound, gem, spriteCache, SPRITES, birdBody, BIRD, bushSprite, drawSprite, strips, drawRabbit, gnomeProfile, RABBIT_FUR, cellWords, digSteps, ITEM, mat, wat, at, WH, WW, BOT, botPlan, dist, botEnter, botStand, botClimb, profile: gnomeProfile, front: gnome, map: () => { minimap(); return map2Cv; }, look: (x, y) => { S.camFix = x == null ? null : { x, y }; draw(); }, paintHouse, paintSmallHouse, squirrelBody, drawVillager, drawVillagerProfile, drawBusy, S, tick: n => { const h = H(); for (let i = 0; i < n; i++) tick(h); draw(); }, draw, near, code, at, mat, wat, fix, bg, stone, shape, surf0, treeMask, digOut, tile: () => T, drawPebbles, PERF, timedDraw: () => timedDraw(), lineCtx, lineScene, paintTall, leafyTree, drawLodge };
   if (Q.has("test")) Object.assign(window.WorldTest, { listen, voiceOf, spoken, hushTalk });
-  if (Q.has("test")) Object.assign(window.WorldTest, { PAD, padPoll, padTaught, PAD_USUAL, mountToggle, itemsShow, itemsOpen, itemsChoose, nextRide, tailJS, tailToggle });
+  if (Q.has("test")) Object.assign(window.WorldTest, { PAD, padPoll, padTaught, PAD_USUAL, mountToggle, rideOn, nextRide, tailJS, tailToggle, ridePop, ridePopOpen, ridePick, RIDEPOP });
   if (Q.has("test")) Object.assign(window.WorldTest, { CANVAS, newCanvas, dropCanvas, purgePictures, WATCH, bugReport, IOS });   // (0.0.115: the canvases kept, ^ticket(852))   // (0.0.112: the 🎮 controller, driven by hand where frames do not come)
   if (Q.has("test")) Object.assign(window.WorldTest, { snapshot, saveText, readSave, loadText, restartNow: () => restartNow(H()), askRestart, stopBot, digest, bot: on => { if (on !== BOT.on) $("run").click(); return BOT.on; }, carpetToggle, carpetHits, carpetTop, flyJS });
   document.body.classList.add("js");

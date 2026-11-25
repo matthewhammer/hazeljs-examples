@@ -70,16 +70,14 @@ textarea.bug-report { width: 100%; box-sizing: border-box; font: 12px/1.4 ui-mon
 .gw-pad-held { min-height: 1.4em; }
 @media (max-width: 480px) { .gw-pad-row { grid-template-columns: 1fr auto; } .gw-pad-row > span:first-child { grid-column: 1 / -1; } }
 
-/* (0.0.113) 🎒 your things: the two rides to choose between (the chosen one marked), and the other things found */
-.gw-items { max-width: min(94vw, 560px); }
-.gw-items-rides { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 12px 0; }   /* (0.0.116: three rides) */
-.gw-items-ride { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 12px 8px; min-height: 120px; font: inherit; border-radius: 14px;
-  border: 2px solid var(--line); background: var(--paper); color: var(--ink); cursor: pointer; }
-.gw-items-ride[aria-checked="true"] { border-color: var(--warn); background: color-mix(in srgb, var(--warn) 16%, var(--paper)); }
-.gw-items-ride:disabled { opacity: 0.45; cursor: default; }
-.gw-items-icon { font-size: 2.6em; line-height: 1.1; }
-.gw-items-name { font-weight: 700; }
-.gw-items-note { font-size: 0.85em; color: var(--muted, inherit); }
-.gw-items-cap { margin: 8px 0 4px; font-weight: 700; }
-.gw-items-things { display: flex; flex-wrap: wrap; gap: 6px 14px; }
-.gw-items-thing.missing { opacity: 0.4; }
+/* (0.0.117) the ride screen: as the combos lie, ◀ Clover and ▶ the carpet side by side, ▼ the cat tail under them */
+.gw-rides { max-width: min(94vw, 460px); }
+.gw-rides-grid { display: grid; grid-template-columns: 1fr 1fr; grid-template-areas: "clover carpet" "tail tail"; gap: 12px; margin: 12px 0; }
+.gw-rides-clover { grid-area: clover; } .gw-rides-carpet { grid-area: carpet; } .gw-rides-tail { grid-area: tail; justify-self: center; width: calc(50% - 6px); }
+.gw-rides-pick { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 14px 8px; min-height: 130px; font: inherit; border-radius: 16px; touch-action: manipulation;
+  border: 2px solid var(--line); background: var(--paper); color: var(--ink); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.gw-rides-pick:active, .gw-rides-pick:focus-visible { border-color: var(--warn); background: color-mix(in srgb, var(--warn) 16%, var(--paper)); }
+.gw-rides-pick.off { opacity: 0.45; }
+.gw-rides-icon { font-size: 2.8em; line-height: 1.1; } .gw-rides-name { font-weight: 700; } .gw-rides-way { font-size: 1.3em; color: var(--muted, inherit); }
+.gw-rides-note { font-size: 0.85em; color: var(--muted, inherit); min-height: 1.2em; }
+.gw-rides-none { display: block; margin: 4px 0 0 auto; font: inherit; padding: 10px 16px; min-height: 44px; border-radius: 10px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); touch-action: manipulation; }
