@@ -30,7 +30,11 @@ const GN = ["x", "y", "vx", "vy", "face", "ground", "climb", "swim", "under", "a
 // (in the page: a fresh world, the rules as this way has them, each rule's calls counted and timed, World.step's calls sampled
 // (hazel-jit's run), the run started)
 const SETUP = way => `(() => {
-  const T = WorldTest, S = T.S; S.asking = true; T.restartNow(); S.asking = true;
+  const T = WorldTest, S = T.S; S.asking = true;
+  // (the view the same size in every page, 25 tiles by 14: the villagers and the creatures step only near the view, taking the
+  // world's chances as they do, so pages whose canvases came out a few pixels apart parted for good; the third run's did)
+  const cv = document.getElementById("world"); cv.style.width = "800px"; cv.style.height = "450px"; S.tileFix = 32; dispatchEvent(new Event("resize")); T.draw();
+  T.restartNow(); S.asking = true;
   // (as a page fresh from loading: restarting makes the world again from its seed, but the frame count, the next rain, the
   // dam's next washing away, the wind and the falling leaves go on from the frames this page ran before the run was set up,
   // a different number for each page; and the beavers, the rain and the dam keep time by frames)
@@ -45,7 +49,7 @@ const SETUP = way => `(() => {
     V[k] = function (...a) { const t = realNow(); const r = f.apply(this, a); R.ms[k] += realNow() - t; R.calls[k]++; return r; }; }
   window.__pickG = g => (${JSON.stringify(GN)}).map(k => (typeof g[k] === "boolean" ? (g[k] ? 1 : 0) : g[k]));
   if (R.way === "jit") { const st = V.step; let n = 0; V.step = (g, nn, p) => { const r = st(g, nn, p); if (++n % ${SAMPLE} === 0) R.samples.push([{ ...g }, { ...nn }, { ...p }, __pickG(r)]); return r; }; }
-  T.bot(true); return { seed: S.seed, hero: S.hero, compiled: !!S.built.compiled, buildMs: Math.round(S.built.ms || 0), swapped: R.swapped }; })()`;
+  T.bot(true); return { seed: S.seed, hero: S.hero, compiled: !!S.built.compiled, buildMs: Math.round(S.built.ms || 0), swapped: R.swapped, view: (cv.width / T.tile()).toFixed(3) + " by " + (cv.height / T.tile()).toFixed(3) + " tiles, " + cv.width + "×" + cv.height + " px" }; })()`;
 // (the world's fingerprint: FNV-1a over what the run changes)
 const PRINT = `(() => { const S = WorldTest.S; const t = JSON.stringify([S.frame, __pickG(S.g), S.beavers.map(B => B.b), S.found || 0, S.items.map(i => i.taken ? 1 : 0), WorldTest.BOT.phase]);
   let h = 2166136261; for (let i = 0; i < t.length; i++) { h ^= t.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; } return h.toString(16); })()`;
@@ -61,7 +65,7 @@ async function openWay(C, way) {
 }
 async function run(C, way, capMs) {
   const p = await openWay(C, way), info = await p.eval(SETUP(way));
-  log(`${way}: seed ${info.seed}, ${info.hero}; the rules ${info.compiled ? "compiled by hazel-jit" : "interpreted"}${info.swapped.length ? `, then ${info.swapped.join(", ")} put in plain JavaScript` : ""}; built in ${info.buildMs} ms`);
+  log(`${way}: seed ${info.seed}, ${info.hero}, the view ${info.view}; the rules ${info.compiled ? "compiled by hazel-jit" : "interpreted"}${info.swapped.length ? `, then ${info.swapped.join(", ")} put in plain JavaScript` : ""}; built in ${info.buildMs} ms`);
   const chunks = [], prints = []; let steps = 0, ms = 0; const wall0 = Date.now();
   while (steps < STEPS_MAX) {
     const r = await p.eval(`(() => { const t = __realNow(); const r = WorldTest.steps(${CHUNK}); r.ms = __realNow() - t; return r; })()`); steps += r.k; ms += r.ms; chunks.push([steps, +r.ms.toFixed(2)]); prints.push([steps, await p.eval(PRINT)]);
