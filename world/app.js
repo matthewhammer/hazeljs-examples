@@ -4756,6 +4756,69 @@
     keep("seed", S.seed);
     rootChunks.clear(); S.minimapAt = -1e9; S.cam.set = false; S.party = null; S.confetti = []; S.talk = null; hushTalk(); S.parts = []; S.smoke = [];
   }
+  // ---- 🧩 Load-merge (0.0.139; Matthew: "N has a save state from 12:40 and we want to load it with the current game world"; "he got
+  // 333 / 333 gems, and all power ups, at the time. we want to retain that, but offer the new gems, and the new game world, overlaid
+  // with the digging he's already done (including all gems)"; "Can we offer that as another load feature: 'load-merge'?"; "there's
+  // now 336 gems. he wants to load-merge his state into the current game world, and get the new 3 gems"). A save from an older
+  // version, into this version's world: the world made from the save's seed by today's rules (its caves, its gems, its trees,
+  // dams and animals), then over it what the save's player did. Every tile the save shows dug (its background B_DUG, which only
+  // digging gives) is dug here too, unless today's world has a building there; the gnome's ladders and timbers in it come too. A
+  // gem of today's world counts as found where the save's tile is open and holds no gem: a gem not found would still be in the
+  // save, so a gem today's world put where the save has ground (a new cave's, say) is new. The gems found stay as the save counts
+  // them, and the total is those and the gems still in the ground. The gnome comes as it was (where it was, its hearts, what it
+  // has), with the things it took: by their places in the save's list (things new since were put at its end), and by what the
+  // gnome has, whatever the order. Clover, the carpet, the cat tail, the carrots and the hero too
+  const TILE_NAMES = ["mat", "bg", "fix", "gem", "stone", "shape", "root", "top", "wat"];
+  const savedTiles = u8 => { const o = {}; let off = 0; TILES.forEach((A, k) => { o[TILE_NAMES[k]] = new A.constructor(u8.slice(off, off + A.byteLength).buffer); off += A.byteLength; }); return o; };
+  function mergeSave(h, d) {
+    S.frame = 0; S.seed = d.seed; build(h, S.seed);
+    if (d.rules === "plain") setRules("plain");
+    if ((d.v | 0) < 7 && Array.isArray(d.items)) { const k0 = S.items.findIndex(it => it.kind === "carrot");
+      if (k0 >= 0) d = { ...d, items: [...d.items.slice(0, k0 + 1), ...d.items.slice(k0 + 3)] }; }
+    const O = savedTiles(d.tiles); let dug = 0, found = 0;
+    // the gems: as many of today's stay to be found as today's world has more than the save found (N: 333 found, today 336: 3);
+    // which, those farthest from anything open in the save (what its player dug, or found in the open), since a newer version
+    // may put a patch's gems a tile or two from where an older one did (0.0.127's caverns moved 203 of 336 so, in world 7); a
+    // gem the save still holds, not found, stays
+    const gi = []; for (let i = 0; i < NN; i++) if (gem[i]) gi.push(i);
+    const leave = Math.max(0, gi.length - (d.found || 0));
+    const far = i => { if (O.gem[i]) return 1e9; const c = i % WW, r = (i - c) / WW;
+      for (let R = 0; R <= 12; R++) for (let dr = -R; dr <= R; dr++) for (let dc = -R; dc <= R; dc++) {
+        if (Math.max(Math.abs(dr), Math.abs(dc)) !== R) continue; const cc = c + dc, rr = r + dr;
+        if (cc >= 0 && rr >= 0 && cc < WW && rr < WH && O.mat[rr * WW + cc] === AIR && !O.gem[rr * WW + cc]) return R; }
+      return 13; };
+    const ranked = gi.map(i => [far(i), i]).sort((a, b) => b[0] - a[0] || a[1] - b[1]);
+    for (const [, i] of ranked.slice(leave)) { gem[i] = 0; found++; }
+    for (let i = 0; i < NN; i++) if (O.bg[i] === B_DUG && mat[i] >= 1 && mat[i] <= 7) { mat[i] = AIR; bg[i] = B_DUG; wat[i] = 0; shape[i] = 0; dug++; }
+    for (let c = 0; c < WW; c++) top[c] = topOf(c);
+    for (const [i, k] of d.works || []) if (bg[i] === B_DUG) S.works.set(i, k);
+    S.g = Object.fromEntries(Object.entries(d.gnome).map(([k, v]) => (k === "shoes" ? ["kit", v ? KIT.shoes : 0] : [k, v]))); if (S.g.kit === undefined) S.g.kit = 0;
+    S.hearts = d.hearts > 0 ? d.hearts : 5;
+    const n = Math.min((d.items || []).length, S.items.length); for (let k = 0; k < n; k++) if (d.items[k]) S.items[k].taken = true;
+    const g = S.g, tool = g.tool | 0, has = { gear: !!g.gear, climb: !!g.climbPack, shoes: kitHas(g, "shoes"), flippers: kitHas(g, "flippers"), climber: kitHas(g, "climber"),
+      super: tool >= 2, good: (tool & 1) === 1, carpet: !!(d.carpet && d.carpet.have), tail: !!(d.tail && d.tail.have) };
+    for (const it of S.items) if (has[it.kind]) it.taken = true;
+    if (tool < 3 && S.items.some(it => it.kind === "good" && it.taken) && S.items.some(it => it.kind === "super" && it.taken)) S.g = { ...S.g, tool: 3 };
+    if (d.heartItems && d.heartItems.length === (S.heartItems || []).length) d.heartItems.forEach((t, k) => { S.heartItems[k].taken = !!t; });
+    if (d.ride) S.ride = { ...d.ride, safe: null }; if (d.mount) S.mount = { ...d.mount }; S.carrots = d.carrots || 0;
+    S.carpet = { have: !!(d.carpet && d.carpet.have), on: !!(d.carpet && d.carpet.on), vx: 0, vy: 0, face: d.carpet && d.carpet.face < 0 ? -1 : 1, ph: 0, wisps: null };
+    S.tail = { have: !!(d.tail && d.tail.have), on: !!(d.tail && d.tail.on), meter: 0, fly: 0, lift: 0, flut: 0, rep: 0 };
+    let left = 0; for (let i = 0; i < NN; i++) if (gem[i]) left++;
+    S.found = d.found || 0; S.gemTotal = S.found + left;
+    const newGems = ranked.slice(0, leave).map(([R, i]) => ({ c: i % WW, r: Math.floor(i / WW), far: R }));
+    if (HEROES[d.hero]) { S.hero = d.hero; keep("hero", S.hero); heroPicker(); }
+    keep("seed", S.seed); wakeAll();
+    rootChunks.clear(); S.minimapAt = -1e9; S.cam.set = false; S.party = null; S.confetti = []; S.talk = null; hushTalk(); S.parts = []; S.smoke = [];
+    return { dug, found, left, newGems, things: S.items.filter(it => it.taken).length, of: S.items.length };
+  }
+  async function mergeText(text, name) {
+    const h = H(); if (!h || !S.g) throw new Error("the world is not made yet");
+    const d = await readSave(text), back = snapshot(); let r;
+    try { r = mergeSave(h, d); } catch (e) { restore(h, back); throw e; }
+    stopBot(); keepWorld();
+    S.banner = { text: `🧩 ${name || "The save"}, in today's world: 💎 ${S.found} found, ${r.left} new to find · ${r.dug} tiles dug · ${r.things} of ${r.of} things`, t: performance.now() };
+    return r;
+  }
   function stopBot() { BOT.on = false; $("run").setAttribute("aria-pressed", "false"); const d = $("digall"); if (d) d.setAttribute("aria-pressed", "false"); for (const k in S.keys) S.keys[k] = false; }
   const stamp = () => { const d = new Date(), p = n => String(n).padStart(2, "0"); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}`; };
   async function saveFile() {
@@ -4774,6 +4837,10 @@
   }
   $("save").addEventListener("click", () => { saveFile(); $("save").blur(); });
   $("load").addEventListener("click", () => { $("load-file").click(); $("load").blur(); });
+  { const b = $("merge"), f = $("merge-file"); if (b && f) { b.addEventListener("click", () => { f.click(); b.blur(); });
+    f.addEventListener("change", async e => { const inp = e.target, file = inp.files && inp.files[0]; if (!file) return;
+      try { const text = await file.text(); inp.value = ""; await mergeText(text, file.name); }
+      catch (err) { inp.value = ""; S.banner = { text: "🧩 Could not merge it: " + (err && err.message || err), t: performance.now() }; console.error(err); } }); } }
   $("load-file").addEventListener("change", async e => { const inp = e.target, f = inp.files && inp.files[0]; if (!f) return;
     try { const text = await f.text(); inp.value = ""; await loadText(text, f.name); }
     catch (err) { inp.value = ""; S.banner = { text: "📂 Could not load it: " + (err && err.message || err), t: performance.now() }; console.error(err); } });
@@ -5085,7 +5152,7 @@
   if (Q.has("test")) Object.assign(window.WorldTest, { PAD, padPoll, padTaught, PAD_USUAL, mountToggle, rideOn, nextRide, tailJS, tailToggle, ridePop, ridePopOpen, ridePick, RIDEPOP });
   if (Q.has("test")) Object.assign(window.WorldTest, { CANVAS, newCanvas, dropCanvas, purgePictures, WATCH, bugReport, IOS });
   if (Q.has("test")) Object.assign(window.WorldTest, { SKYC, skyClouds, cloudArt, storminess });   // (0.0.125: the sky)
-  if (Q.has("test")) Object.assign(window.WorldTest, { GEMAIM, gemAim, hasFinder, gemCompass, HEADTOP, draw, keepWorldNow });   // (0.0.126: the gem finder)
+  if (Q.has("test")) Object.assign(window.WorldTest, { GEMAIM, gemAim, hasFinder, gemCompass, HEADTOP, draw, keepWorldNow, mergeText, saveText, snapshot });   // (0.0.126: the gem finder)
   if (Q.has("test")) Object.assign(window.WorldTest, { CAVE, CAVEFX, caveLife });   // (0.0.127: the caverns)
   if (Q.has("test")) Object.assign(window.WorldTest, { botItemOrder, timeSpeedRun, TP, wakeTill, wakeAll, waterStep, setRules, H, rideJS, rideStep, boulderJS, bouldersStep, pickupJS, pickups, windJS, windStep, keepWorld });   // (0.0.130: the speed run's order of the things; ⏱)
   // (^ticket(873): the speed run's steps alone, timed, no drawing: up to n, while the run is on and not yet at its dig)
