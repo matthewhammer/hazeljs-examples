@@ -1,0 +1,20 @@
+# The cat tail's flight (0.0.116; N's ask, through Matthew: "a power up like magic carpet, but appears like a tail on the gnome person. it's an animal tail, like in mario 3, except it's a orange/red/yellow stripped cat tail, not a raccoon tail. When we have it, we can turn it on like with the carpet, and we can fly into the air by pressing jump repeatedly -- similar gameplay to mario 3 with dash and jump and raccoon tail"), written in Hazel from the start (^ticket(861)'s way). Before the gnome's own step, World.step: the run fills a meter, standing on the ground at the dash's full speed (270 thousandths of a tile a step and more), a step at a time, to 50 (most of a second), and empties three times as fast at less; full, a jump takes off, and the gnome flies for four seconds (240 steps), each press of jump in the air lifting it for 18 steps at 70 a step (as fast as the gnome's step lets it rise without up held); landing ends the flight, and so does its time, emptying the meter. Not flying, a press of jump in the air, falling, flutters it: for 16 steps it falls no faster than 30 a step. Climbing or in the water, the tail does nothing. The answer, for World.step: the gnome (its speed down set, so that the step's gravity leaves it at the lift's or the flutter's), the keys (in flight neither up nor down: a ladder or a stair flown past is not caught, as it would be with up held), and the tail's state after. (The record type is written out here, as Fly.hz's is: Gnome world's program is at the browser's limit for definitions) #
+let step : (Gnome, Pad, (meter = Int, fly = Int, lift = Int, flut = Int)) -> (gnome = Gnome, pad = Pad, tail = (meter = Int, fly = Int, lift = Int, flut = Int)) = fun (g, p, t) ->
+  let wet = g.climb || g.swim || g.under in
+  let full = t.meter >= 50 in
+  let takeoff = p.jump && g.ground && full && !wet in
+  let speed = (if g.vx < 0 then 0 - g.vx else g.vx) in
+  let meter0 = (if g.ground then (if speed >= 270 then (if t.meter + 1 > 50 then 50 else t.meter + 1) else (if t.meter - 3 < 0 then 0 else t.meter - 3)) else t.meter) in
+  let air = !g.ground && !wet in
+  let fly0 = (if takeoff then 240 else if g.ground || wet then 0 else (if t.fly > 0 then t.fly - 1 else 0)) in
+  let ended = t.fly == 1 && fly0 == 0 in
+  let meter = (if ended || (t.fly > 0 && g.ground) then 0 else meter0) in
+  let lift0 = (if air && p.jump && fly0 > 0 then 18 else if air && fly0 > 0 then t.lift else 0) in
+  let flut0 = (if air && p.jump && fly0 == 0 then 16 else if air && fly0 == 0 then t.flut else 0) in
+  let flying = air && fly0 > 0 in
+  let lifting = lift0 > 0 in
+  let fluttering = !lifting && flut0 > 0 && g.vy > 30 in
+  let vy = (if lifting then 0 - 81 else if fluttering then 19 else g.vy) in
+  (gnome = (x = g.x, y = g.y, vx = g.vx, vy = vy, face = g.face, ground = g.ground, climb = g.climb, swim = g.swim, under = g.under, air = g.air, gear = g.gear, tool = g.tool, kit = g.kit, dc = g.dc, dr = g.dr, dt = g.dt, ev = g.ev),
+   pad = (dx = p.dx, up = p.up && !flying, down = p.down && !flying, jump = p.jump, dig = p.dig, dash = p.dash),
+   tail = (meter = meter, fly = fly0, lift = (if lift0 > 0 then lift0 - 1 else 0), flut = (if flut0 > 0 then flut0 - 1 else 0)))

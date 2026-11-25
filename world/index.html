@@ -7,7 +7,7 @@
 <meta name="description" content="Gnome world: a gnome running, jumping, climbing and digging through a world thirty-two screens across and thirteen down, from the deep rock to the tops of great trees: rivers and the beavers' dams, the gnomes' village deep under a hill, tree houses in sixteen styles, and ground water seeping through soil, sand and stone. The world's plan, its villages and tree houses and the beavers' minds are Hazel.">
 <link rel="stylesheet" href="../shared/style.css?v=0.0.14">
 <link rel="stylesheet" href="../shared/oracles.css?v=0.0.70">
-<link rel="stylesheet" href="world.css?v=0.0.113">
+<link rel="stylesheet" href="world.css?v=0.0.116">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
 <link rel="icon" href="icons/icon-32.png" sizes="32x32" type="image/png">
@@ -22,8 +22,8 @@
 <h1>Gnome world, planned in Hazel</h1>
 <span class="app-links"><a href="../">Hazel activities</a> › <a href="../#games">One-player games</a> · <a href="https://github.com/matthewhammer/hazeljs-examples">source on GitHub</a> · <a href="https://www.npmjs.com/package/hazeljs">hazeljs on npm</a></span>
 </div>
-<p class="sub">A gnome in a world thirty-two screens wide, from deep rock to the tops of great trees: Dad, Mom, the girl or the boy. <b>← →</b> run · <b>💨 Shift</b> held, dash · <b>↑</b> jump, climb · <b>↓</b> dig down, or slide down a slope · <b>⛏️ X</b> dig the way you face · <b>🪵 B</b> plank, bridge, ladder · <b>🐇🧞 R</b> on or off: Clover or the magic carpet · <b>🎒 I</b> your things: which of the two · <b>space</b> pause · <b>F</b> frame times · <b>🎮</b> a game controller: its arrows run, jump and climb, its buttons the rest.</p>
-<p class="sub">Find the diving gear 🤿, the climbing pack 🧗, the running shoes 👟, the swim flippers 🏊, the super climbing gear 🪝 and the diggers ⛏️ ⚒️; dig for gems 💎; say hello to the villagers. <b>💾 Save</b> keeps the world as it is in a file, and <b>📂 Load</b> brings it back; <b>🔄 Restart</b> begins this world again. <a href="manual/">📖 The instruction booklet</a>, to print as a zine. The world, its water, its beavers and every step of the gnome are Hazel. Pictures after Rien Poortvliet's <i>Gnomes</i> (1976), our own drawings.</p>
+<p class="sub">A gnome in a world thirty-two screens wide, from deep rock to the tops of great trees: Dad, Mom, the girl or the boy. <b>← →</b> run · <b>💨 Shift</b> held, dash · <b>↑</b> jump, climb · <b>↓</b> dig down, or slide down a slope · <b>⛏️ X</b> dig the way you face · <b>🪵 B</b> plank, bridge, ladder · <b>🐇🧞🐈 R</b> on or off: Clover, the magic carpet or the cat tail (dash, jump, then keep pressing jump to fly) · <b>🎒 I</b> your things: which one · <b>space</b> pause · <b>F</b> frame times · <b>🎮</b> a game controller: its arrows run, jump and climb, its buttons the rest.</p>
+<p class="sub">Find the diving gear 🤿, the climbing pack 🧗, the running shoes 👟, the swim flippers 🏊, the super climbing gear 🪝, the cat tail 🐈 and the diggers ⛏️ ⚒️; dig for gems 💎; say hello to the villagers. <b>💾 Save</b> keeps the world as it is in a file, and <b>📂 Load</b> brings it back; <b>🔄 Restart</b> begins this world again. <a href="manual/">📖 The instruction booklet</a>, to print as a zine. The world, its water, its beavers and every step of the gnome are Hazel. Pictures after Rien Poortvliet's <i>Gnomes</i> (1976), our own drawings.</p>
 
 <div class="oracle-grid">
 <section class="oracle-ui gw-ui" aria-label="The world">
@@ -64,12 +64,14 @@
   <p class="nojs muted">This app needs JavaScript, and a page served over http (python3 -m http.server, then localhost).</p>
 </section>
 <section class="oracle-code" aria-label="The rules, in Hazel">
-  <p class="muted" style="margin-top:0">The rules, in Hazel: its words (<code>preamble.hz</code>), the world (<code>World.hz</code>) and the magic carpet's flight (<code>Fly.hz</code>). <b>Edit in Hazel</b> to change them.</p>
+  <p class="muted" style="margin-top:0">The rules, in Hazel: its words (<code>preamble.hz</code>), the world (<code>World.hz</code>), the magic carpet's flight (<code>Fly.hz</code>) and the cat tail's (<code>Tail.hz</code>). <b>Edit in Hazel</b> to change them.</p>
   <pre class="code hazel" data-program="world">loading preamble.hz…</pre>
   <div class="ed"><div class="ed-head"><b>World</b> <span class="muted">the plan, the ground, the villages, the trees, the beavers, the villagers and the gnome's step</span></div>
   <pre class="code hazel" data-program="world" data-module="World">loading World.hz…</pre></div>
   <div class="ed"><div class="ed-head"><b>Fly</b> <span class="muted">the magic carpet's flight, moved here from the page's JavaScript</span></div>
   <pre class="code hazel" data-program="world" data-module="Fly">loading Fly.hz…</pre></div>
+  <div class="ed"><div class="ed-head"><b>Tail</b> <span class="muted">the cat tail's flight, written in Hazel from the start (N's ask)</span></div>
+  <pre class="code hazel" data-program="world" data-module="Tail">loading Tail.hz…</pre></div>
   <p><button type="button" id="reset-rules">Put the program back as it was</button></p>
 </section>
 </div>
@@ -92,6 +94,6 @@
 <script src="../shared/chip.js?v=0.0.104"></script>
 <script src="../dig/sound.js?v=0.0.104"></script>
 <script src="../shared/volume.js?v=0.0.56"></script>
-<script src="app.js?v=0.0.115"></script>
+<script src="app.js?v=0.0.116"></script>
 </body>
 </html>

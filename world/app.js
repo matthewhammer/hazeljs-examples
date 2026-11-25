@@ -35,8 +35,8 @@
   if (window.visualViewport) { const vz = () => { const z = visualViewport.scale; WATCH.zoomMin = Math.min(WATCH.zoomMin, z); WATCH.zoomMax = Math.max(WATCH.zoomMax, z); if (Math.abs(z - 1) > 0.01) WATCH.zoomAt = performance.now(); };
     visualViewport.addEventListener("resize", vz); visualViewport.addEventListener("scroll", vz); }
   const LIB_JIT = "https://build.hazel.org/hazeljs/hazel-lib.js", LIB_NPM = "https://cdn.jsdelivr.net/npm/hazeljs@0.0.4/hazel-lib.js";
-  const PROGRAM = "world", MODULES = ["World", "Fly"];
-  const TAIL = "(plan = World.plan, ground = World.ground, village = World.village, furnish = World.furnish, limbs = World.limbs, styles = World.styles, beaver = World.beaver, water_row = World.water_row, step = World.step, roots = World.roots, threads = World.threads, greet = World.greet, dig_steps = World.dig_steps, fly = Fly.step)";
+  const PROGRAM = "world", MODULES = ["World", "Fly", "Tail"];
+  const TAIL = "(plan = World.plan, ground = World.ground, village = World.village, furnish = World.furnish, limbs = World.limbs, styles = World.styles, beaver = World.beaver, water_row = World.water_row, step = World.step, roots = World.roots, threads = World.threads, greet = World.greet, dig_steps = World.dig_steps, fly = Fly.step, tail = Tail.step)";
   const KEY = "hazeljs-examples/world/";
   const Q = new URLSearchParams(location.search);
   const $ = id => document.getElementById(id);
@@ -212,6 +212,7 @@
     // carpet, in the farthest room of the gnome village farthest right, toward its far wall: the last of the things, so a save
     // made before it had one fewer (restore lets it in); after the super digger, the last before it
     S.carpet = { have: false, on: false, vx: 0, vy: 0, face: 1, ph: 0, wisps: null };
+    S.tail = { have: false, on: false, meter: 0, fly: 0, lift: 0, flut: 0 };   // (0.0.116: the cat tail, N's)
     { const v = [...S.villages].sort((a, b) => b.x1 - a.x1)[0], mine = v ? S.rooms.filter(R => R.x >= v.x0 && R.x < v.x1) : [];
       const R = mine.sort((a, b) => (b.x + b.w) - (a.x + a.w) || b.y - a.y)[0];
       if (R) S.items.push({ kind: "carpet", x: R.x + R.w - 1.4, y: R.y + 3.35, taken: false }); }
@@ -230,7 +231,12 @@
       const fl = big.filter(hs => hs !== pack).sort((a, b) => b.x - a.x)[0];
       if (fl) S.items.push({ kind: "flippers", x: fl.x + 0.5 - fl.side * 1.1, y: fl.row - 0.55, taken: false });
       const hi = big.filter(hs => hs !== pack && hs !== fl).sort((a, b) => a.row - b.row)[0];
-      if (hi) S.items.push({ kind: "climber", x: hi.x + 0.5 - hi.side * 1.1, y: hi.row - 0.55, taken: false }); }
+      if (hi) S.items.push({ kind: "climber", x: hi.x + 0.5 - hi.side * 1.1, y: hi.row - 0.55, taken: false });
+      // (0.0.116; N's ask, through Matthew: "a power up like magic carpet, but appears like a tail on the gnome person ... a
+      // orange/red/yellow stripped cat tail") the cat tail, in the tree house farthest left (none of the three above): now the
+      // last of the things (a save from before it has one fewer; restore lets it in)
+      const lf = big.filter(hs => hs !== pack && hs !== fl && hs !== hi).sort((a, b) => a.x - b.x)[0];
+      if (lf) S.items.push({ kind: "tail", x: lf.x + 0.5 - lf.side * 1.1, y: lf.row - 0.55, taken: false }); }
     for (const R of S.rivers) holdRiver(R);
     for (let c = 0; c < WW; c++) top[c] = topOf(c);
     S.dry = []; for (let i = 0; i < NN; i++) if (mat[i] === AIR && (bg[i] === B_PLASTER || bg[i] === B_WOOD || bg[i] === B_STAIR)) S.dry.push(i);
@@ -541,6 +547,7 @@
     carpet: { icon: "🧞", label: "🧞 magic carpet", what: "🧞 the magic carpet", banner: "🧞 The magic carpet! Press R (or 🧞) to fly it: the arrows steer, and let go, it floats. 🎒 (I) chooses it or Clover" },
     // (0.0.114; Matthew: "more power up items, which are used by default (no need to turn them 'off')")
     flippers: { icon: "🏊", label: "🏊 swim flippers", what: "🏊 the swim flippers", banner: "🏊 The swim flippers: swim three times as fast, across, up and down (on by themselves in the water)" },
+    tail: { icon: "🐈", label: "🐈 cat tail", what: "🐈 the cat tail", banner: "🐈 The cat tail! R puts it on: dash (💨) to full speed, jump, and keep pressing jump to fly" },
     climber: { icon: "🪝", label: "🪝 super climbing gear", what: "🪝 the super climbing gear", banner: "🪝 The super climbing gear: climb three times as fast, trees, ladders, stairs and tunnels" },
     shoes: { icon: "👟", label: "👟 running shoes", what: "👟 the running shoes", banner: "👟 The running shoes: hold 💨 (or Shift) to dash, up to full speed in a flash" },
   };
@@ -616,6 +623,7 @@
   // the way again round where it stuck, four times, then on to the next)
   function botStep() {
     if (S.ride && S.ride.on) { const M = S.mount; S.ride.on = false; M.x = S.g.x; M.y = S.g.y; }   // (0.0.102: the speed run is on foot)
+    if (S.tail && S.tail.on) Object.assign(S.tail, { on: false, meter: 0, fly: 0, lift: 0, flut: 0 });   // (0.0.116: and without the tail)
     if (S.carpet && S.carpet.on) S.carpet.on = false;
     const g = S.g, gc = Math.floor(g.x / 1000), gr0 = Math.floor((g.y - 1) / 1000), gr = inside(gc, gr0) && shape[at(gc, gr0)] ? gr0 - 1 : gr0, here = at(gc, gr);
     for (const k in S.keys) S.keys[k] = false;
@@ -649,10 +657,16 @@
   function gnomeStep(h) {
     if (S.carpet && S.carpet.on) { carpetStep(h); return; }
     if (S.ride && S.ride.on) { rideStep(h); return; }
-    const k = S.keys, pad = { dx: (k.right ? 1 : 0) - (k.left ? 1 : 0), up: k.up, down: k.down, jump: S.jumpQueued, dig: !!k.dig, dash: !!k.dash };
+    const k = S.keys; let pad = { dx: (k.right ? 1 : 0) - (k.left ? 1 : 0), up: k.up, down: k.down, jump: S.jumpQueued, dig: !!k.dig, dash: !!k.dash };
     S.jumpQueued = false;
     const t0 = performance.now();
-    const g = h.step(S.g, near(S.g), pad); if (S.g.climbPack) g.climbPack = true;
+    let g0 = S.g;
+    if (S.tail && S.tail.on) {   // (0.0.116: the cat tail's flight, Hazel's Tail.step, before the gnome's own step; tailJS where the rules are not built)
+      const T = S.tail, tt = { meter: T.meter | 0, fly: T.fly | 0, lift: T.lift | 0, flut: T.flut | 0 }, byHazel = !!(h && h.tail) && !Q.has("jstail");
+      const r = byHazel ? h.tail(S.g, pad, tt) : tailJS(S.g, pad, tt);
+      g0 = { ...r.gnome }; if (S.g.climbPack) g0.climbPack = true; pad = { ...r.pad }; Object.assign(T, r.tail); S.tailBy = byHazel ? "Hazel" : "JS";
+      if (r.tail.lift === 17) T.wagAt = performance.now(); }
+    const g = h.step(g0, near(g0), pad); if (S.g.climbPack) g.climbPack = true;
     S.stepMs.push(performance.now() - t0); if (S.stepMs.length > 120) S.stepMs.shift();
     S.g = g;
     if (g.ev === 1 && g.dc >= 0) digOut(g.dc, g.dr);
@@ -672,6 +686,7 @@
       else if (it.kind === "gear") S.g = { ...S.g, gear: true };
       else if (it.kind === "carrot") S.carrots = (S.carrots || 0) + 1;
       else if (it.kind === "carpet") { S.carpet.have = true; useRide("carpet"); }
+      else if (it.kind === "tail") { S.tail.have = true; useRide("tail"); }
       else if (it.kind === "shoes" || it.kind === "flippers" || it.kind === "climber") S.g = { ...S.g, kit: (S.g.kit | 0) | KIT[it.kind] };
       else S.g = { ...S.g, tool: Math.max(S.g.tool || 0, it.kind === "super" ? 2 : 1) };
       S.banner = { text: ITEM[it.kind].banner, t: performance.now() }; }
@@ -790,6 +805,7 @@
     S.frame++;
     if (S.faintAt && S.ride && S.ride.on) { const M = S.mount; S.ride.on = false; M.x = S.g.x; M.y = S.g.y; M.face = S.g.face; }
     if (S.faintAt && S.carpet && S.carpet.on) S.carpet.on = false;
+    if (S.faintAt && S.tail && S.tail.on) Object.assign(S.tail, { fly: 0, lift: 0, flut: 0, meter: 0 });
     if (S.faintAt) { if (performance.now() - S.faintAt > 1800) { S.faintAt = 0; S.hearts = 5; S.g = { ...S.g, x: S.start.x, y: top[Math.floor(S.start.x / 1000)] * 1000, vx: 0, vy: 0, air: 600 }; S.cam.set = false; } }
     else { if (BOT.on) { BOT.frames++; botStep(); } gnomeStep(h); }
     bouldersStep();
@@ -804,7 +820,7 @@
     if (S.frame % 15 === 0) musicStep();
     for (const s of S.smoke) { s.y -= 0.012; s.x += s.drift + S.windNow * 0.02; s.r += 0.006; s.life++; }
     S.smoke = S.smoke.filter(s => s.life < 200);
-    for (const p of S.parts) { p.x += p.vx; p.y += p.vy; p.vy += 0.01; p.life--; }
+    for (const p of S.parts) { p.x += p.vx; p.y += p.vy; p.vy += p.fire ? -0.002 : 0.01; p.life--; }
     S.parts = S.parts.filter(p => p.life > 0);
   }
 
@@ -992,6 +1008,20 @@
   const heroLook = who => HEROES[who || S.hero] || HEROES.dad;
   // (the gnome, Gnome dig's own, copied from dig/app.js: its cap, beard and lantern; and, for the water, a swimmer's arms and a tilt)
   const loverAt = () => {};
+  // (0.0.116; N: "an animal tail, like in mario 3, except it's a orange/red/yellow stripped cat tail, not a raccoon tail") the
+  // cat tail, in a gnome's units: from (x0, y0) out the way dir and up, curling at its end, in bands of orange, red and yellow,
+  // thicker at the root; turned at its root by wag (radians)
+  const TAIL_BANDS = ["#f97316", "#dc2626", "#facc15"];
+  function catTail(c, x0, y0, dir, wag) {
+    c.save(); c.translate(x0, y0); c.rotate(dir * wag);
+    const P = [[0, 0], [dir * 11, 5], [dir * 21, -3], [dir * 18, -17]], at = t => { const m = 1 - t; return [0, 1].map(k => m * m * m * P[0][k] + 3 * m * m * t * P[1][k] + 3 * m * t * t * P[2][k] + t * t * t * P[3][k]); };
+    c.lineCap = "round"; const n = 12;
+    for (let i = 0; i < n; i++) { const [ax, ay] = at(i / n), [bx, by] = at((i + 1) / n); c.strokeStyle = "rgba(60, 20, 0, 0.55)"; c.lineWidth = 6.4 - i * 0.26; c.beginPath(); c.moveTo(ax, ay); c.lineTo(bx, by); c.stroke(); }
+    for (let i = 0; i < n; i++) { const [ax, ay] = at(i / n), [bx, by] = at((i + 1) / n); c.strokeStyle = i === n - 1 ? "#fef3c7" : TAIL_BANDS[i % 3]; c.lineWidth = 5 - i * 0.24; c.beginPath(); c.moveTo(ax, ay); c.lineTo(bx, by); c.stroke(); }
+    c.lineCap = "butt"; c.restore();
+  }
+  const tailWag = now => { const T = S.tail; if (!T) return 0; const flap = now - (T.wagAt || -1e9) < 260;
+    return flap ? Math.sin(now / 32) * 0.85 : T.fly > 0 ? Math.sin(now / 90) * 0.35 : T.meter >= 50 ? Math.sin(now / 55) * 0.2 : Math.sin(now / 420) * 0.12; };
   function gnome(c, x, y, u, d, ready, moving, now, diving, loves, lamp = true, cheer = false, pose = null, who = null) {
     if (cheer) { d = 2; moving = false; }
     const L = heroLook(who);
@@ -1003,6 +1033,7 @@
     if (pose && pose.swim && pose.stroke) { c.translate(0, 6); c.rotate(1.0); c.translate(0, -6); }
     const E = (cx, cy, rx, ry, col, rot = 0) => { c.fillStyle = col; c.beginPath(); c.ellipse(cx, cy, rx, ry, rot, 0, 7); c.fill(); };
     if (!pose) E(0, 19 - bob, 13, 3.4, "rgba(0, 0, 0, 0.32)");   // (his shadow)
+    if (!who && S.tail && S.tail.on) catTail(c, 4, 9, 1, tailWag(now));   // (0.0.116: the cat tail, out to one side and up, behind him)
     const tail = (x0, y0, x1, y1, w, sw) => { const mx = (x0 + x1) / 2 + sw, my = (y0 + y1) / 2; c.fillStyle = L.hair2; c.beginPath(); c.moveTo(x0 - w, y0); c.quadraticCurveTo(mx - w * 1.1, my, x1, y1); c.quadraticCurveTo(mx + w * 1.1, my, x0 + w, y0); c.closePath(); c.fill();
       c.strokeStyle = L.hairDk; c.lineWidth = 0.5; c.beginPath(); for (const k of [-0.5, 0, 0.5]) { c.moveTo(x0 + k * w, y0 + 0.5); c.quadraticCurveTo(mx + k * w * 0.8, my, x1 + k * 0.4, y1 - 1); } c.stroke(); };
     if (L.ponytail && !back) tail(side ? 6.5 : 7, -10, side ? 10.5 : 9.5, 3.5, 2.6, 1.5);   // (the boy's ponytail, behind him, showing past his shoulder)
@@ -1159,6 +1190,7 @@
     else if (!ground && !swim) c.rotate(vy < 0 ? -0.08 : 0.06);
     else if (run) { c.translate(0, 18); c.rotate(0.08); c.translate(0, -18); }   // (leaning into the run)
     if (!swim && ground && !ride) E(0, 19 - bob, 12, 3.2, "rgba(0, 0, 0, 0.3)");
+    if (!who && S.tail && S.tail.on && !ride) catTail(c, -5, 7, -1, tailWag(now));   // (0.0.116: the cat tail, out behind and up)
     // (the legs: a stride running; tucked in the air; kicking in the water; the far one darker, behind)
     const shod = !who && kitHas(S.g, "shoes");   // (0.0.109: the hero in the running shoes)
     const finned = !who && kitHas(S.g, "flippers") && (S.g.swim || S.g.under);   // (0.0.114: the swim flippers, seen only in the water)
@@ -2472,13 +2504,34 @@
   // both can be had (the carpet found, and Clover near); else the one that can. The choice follows the ride got last (the carpet
   // found, Clover won over with a carrot), and is kept for the next visit
   function useRide(which) { S.use = which; keep("use", which); }
+  // (0.0.116) the cat tail: the same step, the tail's flight before it (Tail.hz); this is that rule in JavaScript, the page's own
+  // answer while the rules build or when they cannot, and checked against Tail.step at every step (node/fly-check.mjs)
+  function tailJS(g, p, t) {
+    const wet = g.climb || g.swim || g.under, full = t.meter >= 50, takeoff = p.jump && g.ground && full && !wet, speed = Math.abs(g.vx);
+    const meter0 = g.ground ? (speed >= 270 ? Math.min(t.meter + 1, 50) : Math.max(t.meter - 3, 0)) : t.meter;
+    const air = !g.ground && !wet, fly0 = takeoff ? 240 : g.ground || wet ? 0 : Math.max(t.fly - 1, 0), ended = t.fly === 1 && fly0 === 0;
+    const meter = ended || (t.fly > 0 && g.ground) ? 0 : meter0;
+    const lift0 = air && p.jump && fly0 > 0 ? 18 : air && fly0 > 0 ? t.lift : 0, flut0 = air && p.jump && fly0 === 0 ? 16 : air && fly0 === 0 ? t.flut : 0;
+    const flying = air && fly0 > 0, lifting = lift0 > 0, fluttering = !lifting && flut0 > 0 && g.vy > 30;
+    return { gnome: { x: g.x, y: g.y, vx: g.vx, vy: lifting ? -81 : fluttering ? 19 : g.vy, face: g.face, ground: g.ground, climb: g.climb, swim: g.swim, under: g.under, air: g.air, gear: g.gear, tool: g.tool, kit: g.kit, dc: g.dc, dr: g.dr, dt: g.dt, ev: g.ev },
+             pad: { dx: p.dx, up: p.up && !flying, down: p.down && !flying, jump: p.jump, dig: p.dig, dash: p.dash }, tail: { meter, fly: fly0, lift: Math.max(lift0 - 1, 0), flut: Math.max(flut0 - 1, 0) } };
+  }
+  function tailToggle() {
+    const T = S.tail, g = S.g; if (!T || !T.have || !g || S.faintAt || BOT.on) return;
+    const say = text => { S.banner = { text, t: performance.now() }; };
+    if (T.on) { Object.assign(T, { on: false, meter: 0, fly: 0, lift: 0, flut: 0 }); say("🐈 The cat tail, off: tucked away in your pack"); return; }
+    Object.assign(T, { on: true, meter: 0, fly: 0, lift: 0, flut: 0 }); say("🐈 The cat tail! Dash (💨) to full speed, jump, then keep pressing jump to fly (R to take it off)");
+  }
   // (Clover not yet won over, near, with a carrot in hand: R gives it to her, whatever is chosen, as 🎒 cannot choose her till then)
-  const nextRide = () => { const M = S.mount, carpet = !!(S.carpet && S.carpet.have), clover = nearClover() && !!M && (M.tame || S.carrots > 0);
-    return clover && carpet ? (!M.tame || S.use !== "carpet" ? "clover" : "carpet") : carpet ? "carpet" : "clover"; };
+  const nextRide = () => { const M = S.mount, ok = { clover: nearClover() && !!M && (M.tame || S.carrots > 0), carpet: !!(S.carpet && S.carpet.have), tail: !!(S.tail && S.tail.have) };
+    if (ok.clover && !M.tame) return "clover";   // (her carrot first)
+    if (ok[S.use]) return S.use;
+    return ok.clover ? "clover" : ok.carpet ? "carpet" : ok.tail ? "tail" : "clover"; };
   function mountToggle() {
     if (S.ride && S.ride.on) { rideToggle(); return; }
     if (S.carpet && S.carpet.on) { carpetToggle(); return; }
-    if (nextRide() === "carpet") carpetToggle(); else rideToggle();
+    if (S.tail && S.tail.on) { tailToggle(); return; }
+    const n = nextRide(); if (n === "carpet") carpetToggle(); else if (n === "tail") tailToggle(); else rideToggle();
   }
   // (still, it bobs a little in the air; going, it holds steady and the cloth ripples instead)
   const carpetBob = now => { const C = S.carpet, sp = Math.min(1, Math.hypot(C.vx || 0, C.vy || 0) / CARPET.fast); return (1 - sp) * Math.sin(now / 380) * 0.05; };
@@ -3536,6 +3589,7 @@
         ctx.strokeStyle = "#f8fafc"; ctx.lineWidth = Math.max(1, s / 18); ctx.beginPath(); ctx.moveTo(X(-0.22), Y(0.04)); ctx.quadraticCurveTo(X(-0.02), Y(0.03), X(0.14), Y(-0.03)); ctx.stroke();
         ctx.lineWidth = Math.max(1, s / 30); ctx.beginPath(); for (const k of [0, 1, 2]) { ctx.moveTo(X(-0.11 + k * 0.05), Y(-0.15 + k * 0.035)); ctx.lineTo(X(-0.06 + k * 0.05), Y(-0.1 + k * 0.035)); } ctx.stroke();
         ctx.strokeStyle = "rgba(40,25,10,0.8)"; ctx.lineWidth = Math.max(1, s / 22); }
+      else if (it.kind === "tail") { ctx.save(); ctx.scale(s / 34, s / 34); catTail(ctx, -9, 8, 1, Math.sin(now / 300) * 0.2); ctx.restore(); }   // (0.0.116: the cat tail, curled)
       else if (it.kind === "flippers") for (const [ox, rot] of [[-0.15, -0.28], [0.15, 0.28]]) {   // (0.0.114: the swim flippers, a pair, teal, ribbed)
         ctx.save(); ctx.translate(ox * s, 0); ctx.rotate(rot);
         ctx.fillStyle = "#14b8a6"; ctx.beginPath(); ctx.moveTo(-0.08 * s, -0.24 * s); ctx.lineTo(0.08 * s, -0.24 * s); ctx.lineTo(0.17 * s, 0.32 * s); ctx.quadraticCurveTo(0, 0.4 * s, -0.17 * s, 0.32 * s); ctx.closePath(); ctx.fill(); ctx.stroke();
@@ -3568,6 +3622,10 @@
       else gnome(ctx, gx * s, gy0, s * 0.98, 2, true, false, now, g.gear, false, true, false, null); }
     else if (!S.faintAt && !blink) {
       const moving = Math.abs(g.vx) > 10 || (g.climb && (S.keys.up || S.keys.down)), d = g.climb && !g.ground ? 0 : g.face > 0 ? 1 : 3;
+      if (S.tail && S.tail.on && S.tail.fly > 0 && !g.ground && !LINE && !S.faintAt) {   // (0.0.116; N: "fire to come out of the tail when we are flying -- as it waves in the air")
+        const w = tailWag(now), tx = g.x / 1000 - g.face * (0.42 + 0.1 * Math.cos(w)), ty = g.y / 1000 - 0.78 + 0.12 * Math.sin(w);
+        for (let j = 0; j < 2; j++) S.parts.push({ x: tx + (Math.random() - 0.5) * 0.12, y: ty + (Math.random() - 0.5) * 0.1, vx: -g.face * (0.01 + 0.02 * Math.random()) - g.vx / 4000, vy: -0.01 - 0.02 * Math.random(),
+          life: 16 + Math.random() * 12, life0: 28, fire: true, col: "#fde047" }); }
       const swimPose = g.swim && !g.gear ? { swim: true, stroke: Math.abs(g.vx) > 10, t: now } : g.under ? { swim: true, stroke: true, under: true, t: now } : null;
       // (Matthew: "when the gnome is moving laterally, let's draw them in profile, like mario 3 as inspiration") running,
       // jumping, falling or swimming along, the gnome in profile; standing still or climbing, facing us, as before. (Matthew:
@@ -3598,7 +3656,9 @@
     }
     drawPebbles(true, c0, c1, r0, r1);
     drawTalk(s);
-    for (const p of S.parts) { ctx.fillStyle = p.col; ctx.fillRect(p.x * s, p.y * s, s * 0.1, s * 0.1); }
+    for (const p of S.parts) { if (p.fire) { const k = Math.max(0, p.life / p.life0); ctx.fillStyle = k > 0.65 ? "#fde047" : k > 0.35 ? "#fb923c" : "#ef4444"; ctx.globalAlpha = Math.min(1, 0.35 + k);
+        ctx.beginPath(); ctx.arc(p.x * s, p.y * s, s * (0.04 + 0.1 * k), 0, 7); ctx.fill(); ctx.globalAlpha = 1; continue; }
+      ctx.fillStyle = p.col; ctx.fillRect(p.x * s, p.y * s, s * 0.1, s * 0.1); }
     // (Gnome dig's front layer: the roots that ran through a tunnel still crossing it, as wood, its shadow on the wall behind, its
     // bark, its top lit; the gnome goes behind them)
     if (dugN) drawRootChunks(c0, c1, r0, r1, s, "front");
@@ -3748,12 +3808,12 @@
     const gx = g ? g.x / 1000 : 0, place = (S.places.find(p => gx >= p.x0 && gx <= p.x1 && (!p.under || depth > 3)) || { name: "" }).name;
     const wv = S.windNow || 0, wa = Math.abs(wv), windWord = wa < 0.15 ? "calm" : wa < 0.45 ? "a breeze" : wa < 0.8 ? "windy" : "a gale", arrows = wa < 0.15 ? "" : (wv > 0 ? "→" : "←").repeat(wa < 0.45 ? 1 : wa < 0.8 ? 2 : 3);
     const runWord = BOT.on ? `🏃 ${Math.floor(BOT.frames / 3600)}:${String(Math.floor(BOT.frames / 60) % 60).padStart(2, "0")} · ${BOT.phase} · ${BOT.items + S.items.filter(i => i.taken).length - BOT.items}/${S.items.length} · 🌳 ${BOT.parts}/${BOT.partsAll || "?"} · 💎 ${BOT.gems}/${BOT.gemsAll || "?"}  ` : "";
-    { const mb = $("mount"), riding = !!(S.ride && S.ride.on), flying = !!(S.carpet && S.carpet.on), show = riding || flying || nearClover() || !!(S.carpet && S.carpet.have);
-      if (mb) { if (mb.hidden === show) mb.hidden = !show; const which = riding ? "clover" : flying ? "carpet" : nextRide(), icon = which === "carpet" ? "🧞" : "🐇", on = String(riding || flying);
-        if (mb.textContent !== icon) { mb.textContent = icon; mb.title = which === "carpet" ? "The magic carpet: on or off (R)" : "Ride Clover the rabbit: on or off (R); a carrot first"; }
+    { const mb = $("mount"), riding = !!(S.ride && S.ride.on), flying = !!(S.carpet && S.carpet.on), tailed = !!(S.tail && S.tail.on), show = riding || flying || tailed || nearClover() || !!(S.carpet && S.carpet.have) || !!(S.tail && S.tail.have);
+      if (mb) { if (mb.hidden === show) mb.hidden = !show; const which = riding ? "clover" : flying ? "carpet" : tailed ? "tail" : nextRide(), icon = which === "carpet" ? "🧞" : which === "tail" ? "🐈" : "🐇", on = String(riding || flying || tailed);
+        if (mb.textContent !== icon) { mb.textContent = icon; mb.title = which === "carpet" ? "The magic carpet: on or off (R)" : which === "tail" ? "The cat tail: on or off (R)" : "Ride Clover the rabbit: on or off (R); a carrot first"; }
         if (mb.getAttribute("aria-pressed") !== on) mb.setAttribute("aria-pressed", on); }
-      const ib = $("items"), two = !!(S.carpet && S.carpet.have && S.mount && S.mount.tame); if (ib && ib.hidden === two) ib.hidden = !two; }
-    const line = `${runWord}${hearts}  💎 ${S.found || 0} / ${S.gemTotal || 0}${S.carrots ? "  🥕 " + S.carrots : ""}${S.ride && S.ride.on ? "  🐇" : ""}${S.carpet && S.carpet.have ? (S.carpet.on ? "  🧞 flying" : "  🧞") : ""}  🍃 ${windWord} ${arrows}  ${where}${g && g.gear ? "  🤿" : ""}${g && g.climbPack ? "  🧗" : ""}${g && g.tool ? (g.tool >= 2 ? "  ⚒️" : "  ⛏️") : ""}${place ? "  ·  " + place : ""}`;
+      const ib = $("items"), two = ["clover", "carpet", "tail"].filter(rideHave).length >= 2; if (ib && ib.hidden === two) ib.hidden = !two; }
+    const line = `${runWord}${hearts}  💎 ${S.found || 0} / ${S.gemTotal || 0}${S.carrots ? "  🥕 " + S.carrots : ""}${S.ride && S.ride.on ? "  🐇" : ""}${S.carpet && S.carpet.have ? (S.carpet.on ? "  🧞 flying" : "  🧞") : ""}${S.tail && S.tail.on ? (S.tail.fly > 0 ? "  🐈 flying" : S.tail.meter >= 50 ? "  🐈 ready to fly" : "  🐈") : ""}  🍃 ${windWord} ${arrows}  ${where}${g && g.gear ? "  🤿" : ""}${g && g.climbPack ? "  🧗" : ""}${g && g.tool ? (g.tool >= 2 ? "  ⚒️" : "  ⛏️") : ""}${place ? "  ·  " + place : ""}`;
     const tw = ctx.measureText(line).width;
     pill(10 * k, 10 * k, tw + 20 * k, 30 * k); ctx.fillStyle = "#fff"; ctx.fillText(line, 20 * k, 15 * k);
     let below = 46 * k;
@@ -3860,19 +3920,20 @@
     for (const c of [].concat(kids || [])) e.append(c); return e; };
   const ITEMS = { ui: null };
   const itemsOpen = () => !!(ITEMS.ui && ITEMS.ui.dlg.open);
-  const rideHave = which => (which === "carpet" ? !!(S.carpet && S.carpet.have) : !!(S.mount && S.mount.tame));
+  const rideHave = which => (which === "carpet" ? !!(S.carpet && S.carpet.have) : which === "tail" ? !!(S.tail && S.tail.have) : !!(S.mount && S.mount.tame));
+  const rideOn = () => (S.ride && S.ride.on ? "clover" : S.carpet && S.carpet.on ? "carpet" : S.tail && S.tail.on ? "tail" : null);
+  const RIDE_NAME = { clover: "🐇 Clover", carpet: "🧞 the magic carpet", tail: "🐈 the cat tail" };
   function itemsChoose(which) {
     if (!rideHave(which)) return;
     useRide(which);
-    const now = S.ride && S.ride.on ? "clover" : S.carpet && S.carpet.on ? "carpet" : null;
-    S.banner = { text: which === "carpet" ? (now === "clover" ? "🧞 Next time on: the magic carpet (R to hop off Clover first)" : "🧞 R puts you on the magic carpet")
-                                          : (now === "carpet" ? "🐇 Next time on: Clover (R to roll the carpet up first)" : "🐇 R puts you on Clover, when she's near"), t: performance.now() };
+    const now = rideOn();
+    S.banner = { text: now && now !== which ? `Next time on: ${RIDE_NAME[which]} (R to get off ${RIDE_NAME[now]} first)` : which === "carpet" ? "🧞 R puts you on the magic carpet" : which === "tail" ? "🐈 R puts on the cat tail" : "🐇 R puts you on Clover, when she's near", t: performance.now() };
     itemsShow(false);
   }
   function itemsBuild() {
     const dlg = mk("dialog", { class: "gw-ask gw-items", "aria-labelledby": "items-q" });
-    const how = mk("p", { class: "muted" }, "R (or 🐇/🧞) puts you on the one chosen, and takes you off. Tap the other to choose it.");
-    const rides = [["clover", "🐇", "Clover the rabbit"], ["carpet", "🧞", "the magic carpet"]].map(([id, icon, name]) => {
+    const how = mk("p", { class: "muted" }, "R (or 🐇/🧞/🐈) puts you on the one chosen, and takes you off. Tap another to choose it.");
+    const rides = [["clover", "🐇", "Clover the rabbit"], ["carpet", "🧞", "the magic carpet"], ["tail", "🐈", "the cat tail"]].map(([id, icon, name]) => {
       const note = mk("span", { class: "gw-items-note" }), b = mk("button", { type: "button", class: "gw-items-ride", "data-ride": id, on: () => itemsChoose(id) },
         [mk("span", { class: "gw-items-icon", "aria-hidden": "true" }, icon), mk("span", { class: "gw-items-name" }, name), note]);
       return [id, b, note]; });
@@ -3889,11 +3950,11 @@
     dlg.addEventListener("cancel", after); dlg.addEventListener("close", after);
     document.body.append(dlg);
     ITEMS.ui = { dlg, rides, sync() {
-      const which = S.ride && S.ride.on ? "clover" : S.carpet && S.carpet.on ? "carpet" : S.use === "carpet" ? "carpet" : "clover";
+      const which = rideOn() || (rideHave(S.use) ? S.use : ["clover", "carpet", "tail"].find(rideHave) || "clover");
       for (const [id, b, note] of rides) { const have = rideHave(id), chosen = have && (which === id || !rideHave(which));
         b.disabled = !have; b.setAttribute("aria-checked", String(chosen)); b.setAttribute("role", "radio");
-        note.textContent = !have ? (id === "carpet" ? "not found yet" : S.carrots > 0 ? "give her a carrot 🥕 (R, near her)" : "find a carrot 🥕 for her")
-          : (S.ride && S.ride.on && id === "clover") || (S.carpet && S.carpet.on && id === "carpet") ? "on it now" : chosen ? "R puts you on" : "tap to choose"; }
+        note.textContent = !have ? (id !== "clover" ? "not found yet" : S.carrots > 0 ? "give her a carrot 🥕 (R, near her)" : "find a carrot 🥕 for her")
+          : rideOn() === id ? "on it now" : chosen ? "R puts you on" : "tap to choose"; }
       const g = S.g || {};
       const list = [["🤿", "the diving gear", !!g.gear], ["🧗", "the climbing pack", !!g.climbPack], ["👟", "the running shoes", kitHas(g, "shoes")], ["🏊", "the swim flippers", kitHas(g, "flippers")], ["🪝", "the super climbing gear", kitHas(g, "climber")],
                     ["⛏️", "the good digger", (g.tool || 0) >= 1], ["⚒️", "the super digger", (g.tool || 0) >= 2], ["🥕", S.carrots > 1 ? `${S.carrots} carrots` : "a carrot", S.carrots > 0]];
@@ -3902,8 +3963,8 @@
     } };
   }
   // ← → on the screen, a controller's arrows: the other ride, if you have it
-  function itemsMove(d) { const ids = ["clover", "carpet"].filter(rideHave); if (ids.length < 2) return;
-    const at = ids.indexOf(S.use === "carpet" ? "carpet" : "clover"), to = ids[(at + d + ids.length) % ids.length]; useRide(to); ITEMS.ui.sync();
+  function itemsMove(d) { const ids = ["clover", "carpet", "tail"].filter(rideHave); if (ids.length < 2) return;
+    const at = Math.max(0, ids.indexOf(S.use)), to = ids[(at + d + ids.length) % ids.length]; useRide(to); ITEMS.ui.sync();
     const b = ITEMS.ui.rides.find(r => r[0] === to); if (b) b[1].focus(); }
   function itemsShow(on) {
     if (!on) { if (itemsOpen()) ITEMS.ui.dlg.close(); S.asking = false; return; }
@@ -3911,7 +3972,7 @@
     if (!ITEMS.ui) itemsBuild();
     for (const k in S.keys) S.keys[k] = false;
     S.asking = true; ITEMS.ui.sync(); ITEMS.ui.dlg.showModal();
-    const b = ITEMS.ui.rides.find(r => r[0] === (S.use === "carpet" ? "carpet" : "clover")); if (b && !b[1].disabled) b[1].focus();
+    const b = ITEMS.ui.rides.find(r => r[0] === S.use); if (b && !b[1].disabled) b[1].focus();
   }
   // ---- 🎮 a game controller (0.0.112; Matthew, 2026-11-25: "We have a Linux laptop that N often uses. Let's add game controller
   // support ... for the buttons, and a configure controller feature -- see messed up dress up for the game controller configure
@@ -3972,7 +4033,7 @@
       const btn = a => (PAD.buttons[a] >= 0 ? PAD.buttons[a] : -2), sx = Math.abs(g.axes[0] || 0) > 0.5 ? Math.sign(g.axes[0]) : 0;
       const moveBy = (std && now.has(14) && !PAD.was14) || (sx < 0 && PAD.lastSx >= 0) ? -1 : (std && now.has(15) && !PAD.was15) || (sx > 0 && PAD.lastSx <= 0) ? 1 : 0;
       if (moveBy) itemsMove(moveBy);
-      if (fresh.includes(btn("dig")) || fresh.includes(btn("ride"))) itemsChoose(S.use === "carpet" ? "carpet" : "clover");
+      if (fresh.includes(btn("dig")) || fresh.includes(btn("ride"))) itemsChoose(S.use);
       else if (fresh.includes(btn("items")) || fresh.includes(btn("pause")) || fresh.includes(btn("jump"))) itemsShow(false);
       PAD.lastSx = sx;
     } else if (padOpen() || S.asking || BOT.on) { padLetGo(); if (lit) padSync(); }
@@ -4066,7 +4127,7 @@
   // its gusts, the rain and when it comes next). 📂 Load makes the world from its seed again, then puts all that back. The birds,
   // frogs, insects and squirrels, the villagers' strolls and the dust and smoke start afresh. The tiles go packed (gzip, then
   // base64) where the browser can pack them: a world's tiles are 0.7 MB as they are.
-  const SAVE_KIND = "hazeljs-examples/gnome-world", SAVE_V = 5;   // (2, 0.0.102: the bigger world, Clover, the carrots; 3, 0.0.106: the magic carpet; 4, 0.0.109: the running shoes; 5, 0.0.114: the swim flippers and the super climbing gear)
+  const SAVE_KIND = "hazeljs-examples/gnome-world", SAVE_V = 6;   // (2, 0.0.102: the bigger world, Clover, the carrots; 3, 0.0.106: the magic carpet; 4, 0.0.109: the running shoes; 5, 0.0.114: the swim flippers and the super climbing gear; 6, 0.0.116: the cat tail)
   const TILES = [mat, bg, fix, gem, stone, shape, root, top, wat];
   const bytesOf = A => new Uint8Array(A.buffer, A.byteOffset, A.byteLength);
   const TILE_BYTES = TILES.reduce((n, A) => n + A.byteLength, 0);
@@ -4089,6 +4150,7 @@
       villagers: S.villagers.map(v => ({ n: v.n, nextAt: v.nextAt })), roots: S.rootPlan.flatMap((t, k) => t.done ? [k] : []),
       ride: plain(S.ride), mount: plain(S.mount), carrots: S.carrots || 0,
       carpet: { have: !!(S.carpet && S.carpet.have), on: !!(S.carpet && S.carpet.on), face: S.carpet ? S.carpet.face : 1 },
+      tail: { have: !!(S.tail && S.tail.have), on: !!(S.tail && S.tail.on) },
       tiles: tileBytes() };
   }
   async function saveText(snap) {
@@ -4111,7 +4173,7 @@
     S.frame = d.frame; S.seed = d.seed; build(h, S.seed);
     // (a save from before the magic carpet, 0.0.106, or the running shoes, 0.0.109, has a thing or two fewer: those, the last, lie
     // where they were put)
-    const have = shapeOf(), older = k => k === "items" && d.shape.items < have.items && S.items.slice(d.shape.items).every(it => it.kind === "carpet" || it.kind === "shoes" || it.kind === "flippers" || it.kind === "climber");
+    const have = shapeOf(), older = k => k === "items" && d.shape.items < have.items && S.items.slice(d.shape.items).every(it => it.kind === "carpet" || it.kind === "shoes" || it.kind === "flippers" || it.kind === "climber" || it.kind === "tail");
     for (const k in d.shape) if (d.shape[k] !== have[k] && !older(k)) throw new Error("its world was planned by other rules (were they edited?)");
     for (const k of d.roots) { const t = S.rootPlan[k]; if (t && !t.done) { t.done = true; if (h.roots && S.built.compiled) rootSet(h, t, false); } }
     setTileBytes(d.tiles);
@@ -4130,6 +4192,7 @@
     d.villagers.forEach((v, k) => { S.villagers[k].n = v.n; S.villagers[k].nextAt = v.nextAt; });
     if (d.ride) S.ride = { ...d.ride, safe: d.ride.safe ? { ...d.ride.safe } : null }; if (d.mount) S.mount = { ...d.mount }; S.carrots = d.carrots || 0;
     S.carpet = { have: !!(d.carpet && d.carpet.have), on: !!(d.carpet && d.carpet.on), vx: 0, vy: 0, face: d.carpet && d.carpet.face < 0 ? -1 : 1, ph: 0, wisps: null };
+    S.tail = { have: !!(d.tail && d.tail.have), on: !!(d.tail && d.tail.on), meter: 0, fly: 0, lift: 0, flut: 0 };   // (0.0.116; a save from before has none)
     if (HEROES[d.hero]) { S.hero = d.hero; keep("hero", S.hero); heroPicker(); }
     keep("seed", S.seed);
     rootChunks.clear(); S.minimapAt = -1e9; S.cam.set = false; S.party = null; S.confetti = []; S.talk = null; hushTalk(); S.parts = []; S.smoke = [];
@@ -4178,7 +4241,7 @@
       rivers: js(S.rivers.map(R => R.level)), dams: js(S.dams.map(d => d.logs)), works: js([...S.works]), things: js(S.items.map(it => [it.kind, it.x, it.y, !!it.taken])), heartItems: js((S.heartItems || []).map(hh => [hh.x, hh.y, !!hh.taken])),
       trees: js(S.trees.map(t => [t.x, t.alive, t.grow, t.fallAt, t.fallDir ?? null, t.regrow])), fallen: js(S.fallen.map(f => [f.x, S.trees.indexOf(f.t), f.k, f.F.trunk, [...f.F.gone]])),
       piles: js(S.piles), beavers: js(S.beavers.map(B => [B.b, B.px, B.py])), boulders: js(S.boulders), pebbles: js(S.pebbles),
-      villagers: js(S.villagers.map(v => [v.id, v.n, v.nextAt])), ride: js({ ride: S.ride, mount: S.mount, carrots: S.carrots || 0 }), carpet: js({ have: !!(S.carpet && S.carpet.have), on: !!(S.carpet && S.carpet.on), face: S.carpet ? S.carpet.face : 1 }), rootsDone: js(S.rootPlan.map(t => t.done ? 1 : 0)), rootSets: S.rootSets.length + S.threadSets.length };
+      villagers: js(S.villagers.map(v => [v.id, v.n, v.nextAt])), ride: js({ ride: S.ride, mount: S.mount, carrots: S.carrots || 0 }), tail: js({ have: !!(S.tail && S.tail.have), on: !!(S.tail && S.tail.on) }), carpet: js({ have: !!(S.carpet && S.carpet.have), on: !!(S.carpet && S.carpet.on), face: S.carpet ? S.carpet.face : 1 }), rootsDone: js(S.rootPlan.map(t => t.done ? 1 : 0)), rootSets: S.rootSets.length + S.threadSets.length };
   }
   addEventListener("resize", () => draw());
   const P = window.HazelPause ? window.HazelPause.make({ into: $("new").parentElement, over: $("world").parentElement,
@@ -4328,7 +4391,7 @@
   });
   if (Q.has("test")) window.WorldTest = { gemFound, gem, spriteCache, SPRITES, birdBody, BIRD, bushSprite, drawSprite, strips, drawRabbit, gnomeProfile, RABBIT_FUR, cellWords, digSteps, ITEM, mat, wat, at, WH, WW, BOT, botPlan, dist, botEnter, botStand, botClimb, profile: gnomeProfile, front: gnome, map: () => { minimap(); return map2Cv; }, look: (x, y) => { S.camFix = x == null ? null : { x, y }; draw(); }, paintHouse, paintSmallHouse, squirrelBody, drawVillager, drawVillagerProfile, drawBusy, S, tick: n => { const h = H(); for (let i = 0; i < n; i++) tick(h); draw(); }, draw, near, code, at, mat, wat, fix, bg, stone, shape, surf0, treeMask, digOut, tile: () => T, drawPebbles, PERF, timedDraw: () => timedDraw(), lineCtx, lineScene, paintTall, leafyTree, drawLodge };
   if (Q.has("test")) Object.assign(window.WorldTest, { listen, voiceOf, spoken, hushTalk });
-  if (Q.has("test")) Object.assign(window.WorldTest, { PAD, padPoll, padTaught, PAD_USUAL, mountToggle, itemsShow, itemsOpen, itemsChoose, nextRide });
+  if (Q.has("test")) Object.assign(window.WorldTest, { PAD, padPoll, padTaught, PAD_USUAL, mountToggle, itemsShow, itemsOpen, itemsChoose, nextRide, tailJS, tailToggle });
   if (Q.has("test")) Object.assign(window.WorldTest, { CANVAS, newCanvas, dropCanvas, purgePictures, WATCH, bugReport, IOS });   // (0.0.115: the canvases kept, ^ticket(852))   // (0.0.112: the 🎮 controller, driven by hand where frames do not come)
   if (Q.has("test")) Object.assign(window.WorldTest, { snapshot, saveText, readSave, loadText, restartNow: () => restartNow(H()), askRestart, stopBot, digest, bot: on => { if (on !== BOT.on) $("run").click(); return BOT.on; }, carpetToggle, carpetHits, carpetTop, flyJS });
   document.body.classList.add("js");

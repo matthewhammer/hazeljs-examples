@@ -13,8 +13,8 @@ const BUILD_ONLY = process.argv.includes("--build-only"), NO_FLY = process.argv.
 await import(pathToFileURL(lib).href);
 const Hazel = globalThis.Hazel;
 const read = f => readFileSync(new URL("../world/rules/" + f, import.meta.url), "utf8").replace(/\s+$/, "");
-const modules = NO_FLY ? ["World"] : ["World", "Fly"];
-const tail = "(plan = World.plan, step = World.step" + (NO_FLY ? "" : ", fly = Fly.step") + ")";
+const modules = NO_FLY ? ["World"] : ["World", "Fly", "Tail"];   // (0.0.116: and the cat tail's flight, Tail.hz)
+const tail = "(plan = World.plan, step = World.step" + (NO_FLY ? "" : ", fly = Fly.step, tail = Tail.step") + ")";
 const spec = { preamble: read("preamble.hz"), modules: modules.map(name => ({ name, text: read(name + ".hz") })), tail };
 const t0 = performance.now();
 const built = Hazel.jitProgram(spec);
@@ -58,5 +58,22 @@ time(flyJS); time(fly);
 const usJS = time(flyJS), usHazel = time(fly);
 console.log(`a step: the page's JavaScript ${usJS.toFixed(3)} µs, Hazel's Fly.step through the jit ${usHazel.toFixed(3)} µs (${(usHazel / usJS).toFixed(1)}×); of a 16.7 ms frame, ${(usHazel / 16700 * 100).toFixed(3)}%`);
 const result = { when: new Date().toISOString(), node: process.version, build: Hazel.build, buildMs: Math.round(buildMs), steps: N, same, first, moved, stopped, usJS: +usJS.toFixed(4), usHazel: +usHazel.toFixed(4) };
+// (0.0.116) the cat tail's flight: Hazel's Tail.step against the page's tailJS, on 20,000 made-up gnomes (on the ground or in
+// the air, climbing or in the water, at any speed), keys and tails (the meter, the flight, the lift and the flutter at any count)
+const tsrc = app.slice(app.indexOf("  function tailJS("), app.indexOf("  function tailToggle("));
+const tailJS = new Function(tsrc + "; return tailJS;")(), tailH = built.value.tail;
+let tSame = 0, tFirst = null; const seen = { takeoff: 0, lift: 0, flutter: 0, ended: 0, landed: 0 };
+for (let i = 0; i < N; i++) {
+  const ground = rnd() < 0.4, wet = rnd() < 0.12;
+  const gg = { ...gnome0, x: 1000 + Math.floor(rnd() * 70000), y: 1000 + Math.floor(rnd() * 50000), vx: Math.round((rnd() * 2 - 1) * 300), vy: Math.round(rnd() * 520 - 250), face: rnd() < 0.5 ? -1 : 1,
+    ground, climb: wet && rnd() < 0.5, swim: wet && rnd() < 0.5, under: wet && rnd() < 0.3 };
+  const pp = { dx: [-1, 0, 1][Math.floor(rnd() * 3)], up: rnd() < 0.3, down: rnd() < 0.2, jump: rnd() < 0.35, dig: false, dash: rnd() < 0.5 };
+  const tt = { meter: rnd() < 0.4 ? 50 : Math.floor(rnd() * 51), fly: rnd() < 0.5 ? Math.floor(rnd() * 241) : rnd() < 0.15 ? 1 : 0, lift: Math.floor(rnd() * 19), flut: Math.floor(rnd() * 17) };
+  const a = tailH(gg, pp, tt), b = tailJS(gg, pp, tt);
+  if (JSON.stringify(a) === JSON.stringify(b)) tSame++; else if (!tFirst) tFirst = { step: i, gnome: gg, pad: pp, tail: tt, hazel: a, js: b };
+  if (b.tail.fly === 240) seen.takeoff++; if (b.gnome.vy === -81) seen.lift++; if (b.gnome.vy === 19 && gg.vy !== 19) seen.flutter++; if (tt.fly === 1 && b.tail.fly === 0 && !ground) seen.ended++; if (tt.fly > 0 && ground && b.tail.meter === 0) seen.landed++;
+}
+console.log(`the cat tail: Tail.step the same as the page's tailJS at ${tSame} of ${N} made-up steps${tFirst ? "; first differs: " + JSON.stringify(tFirst) : ""} (take-offs ${seen.takeoff}, lifts ${seen.lift}, flutters ${seen.flutter}, flights run out ${seen.ended}, landed ${seen.landed})`);
+result.tail = { steps: N, same: tSame, first: tFirst, seen };
 if (out) writeFileSync(out, JSON.stringify(result, null, 1));
-process.exit(same === N ? 0 : 1);
+process.exit(same === N && tSame === N ? 0 : 1);
