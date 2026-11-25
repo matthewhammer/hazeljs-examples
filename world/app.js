@@ -3984,5 +3984,7 @@
   if (Q.has("test")) Object.assign(window.WorldTest, { listen, voiceOf, spoken, hushTalk });
   if (Q.has("test")) Object.assign(window.WorldTest, { snapshot, saveText, readSave, loadText, restartNow: () => restartNow(H()), askRestart, stopBot, digest, bot: on => { if (on !== BOT.on) $("run").click(); return BOT.on; }, carpetToggle, carpetHits, carpetTop, flyJS });
   document.body.classList.add("js");
+  // (0.0.108) a screen that can be touched, whatever else points at it (an iPad with its trackpad on): full screen keeps the pad (world.css)
+  if (navigator.maxTouchPoints > 0) document.documentElement.classList.add("has-touch");
   draw();
 })();

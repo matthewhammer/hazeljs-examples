@@ -35,7 +35,11 @@ html.oracle-fs .gw-ui .gw-pad button[data-k="dig"] { order: 4; margin-right: 8px
 html.oracle-fs .gw-ui .gw-pad button#build { order: 4; margin-right: 8px; }
 html.oracle-fs .gw-ui .gw-pad button#ride { order: 4; margin-right: 8px; }
 .gw-pad button[hidden] { display: none; }
-@media (hover: hover) and (pointer: fine) { html.oracle-fs .gw-ui .gw-pad { display: none; } }
+/* (0.0.108; Matthew: "please have the on-screen controls show up on the ipad when in landscape mode; they do show up in portrait
+   mode") In full screen the pad was hidden wherever the main pointer was fine and could hover: a computer's mouse, but also an
+   iPad with its keyboard and trackpad on, as it mostly is in landscape. Now it is hidden only on a screen with no touch at all:
+   no coarse pointer of any kind (any-pointer), and no touch points (app.js marks html.has-touch) */
+@media not all and (any-pointer: coarse) { html.oracle-fs:not(.has-touch) .gw-ui .gw-pad { display: none; } }
 /* (0.0.101) 🔄 Restart's question, over everything (in full screen too: a modal dialog is drawn on top of it) */
 .gw-ask { max-width: min(92vw, 400px); border: 1px solid var(--line); border-radius: 16px; padding: 20px 22px 16px; background: var(--paper); color: var(--ink); box-shadow: 0 16px 48px rgb(0 0 0 / 0.35); }
 .gw-ask::backdrop { background: rgb(12 24 14 / 0.55); }
