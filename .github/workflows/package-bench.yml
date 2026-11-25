@@ -5,6 +5,8 @@
 # trial/853-pkg (6d041e9769: hazeljs with trial/853-jit-loops-args merged), then the base again, on one runner, the games' own
 # compiled.js as the ahead-of-time reference (--aot-as-is; the same file every way, a check on the runner's noise), the
 # interpreter left out. Runs on a push to a bench/ branch, so main and the site are untouched.
+# (bench/853-split) The two changes apart: the base, loops alone (trial/853-pkg-loops, db27761a79: hazeljs with 50b70d5a40
+# merged), and both (trial/853-pkg, 6d041e9769), one after another on one runner.
 name: package bench
 on:
   push:
@@ -26,8 +28,11 @@ jobs:
           repository: hazelgrove/hazeljs
           ref: 3a4a1cdb2dc1f01135d9f0bc304eb19c4693658c
           path: pkg-0
-      - name: The same package with the trial's library (loops and JS arguments)
+      - name: The same package with loops alone, and with both changes
         run: |
+          cp -r pkg-0 pkg-L
+          curl -sfL -A "Mozilla/5.0" https://build.hazel.org/trial/853-pkg-loops/hazel-lib.js -o pkg-L/hazel-lib.js
+          grep -q 'build:"db27761a79' pkg-L/hazel-lib.js
           cp -r pkg-0 pkg-1
           curl -sfL -A "Mozilla/5.0" https://build.hazel.org/trial/853-pkg/hazel-lib.js -o pkg-1/hazel-lib.js
           grep -o 'build:"[0-9a-f]*"' pkg-0/hazel-lib.js | head -1
@@ -41,15 +46,15 @@ jobs:
         run: |
           mkdir -p bench
           { nproc; grep -m1 'model name' /proc/cpuinfo; node --version; } | tee bench/${{ matrix.game }}-machine.txt
-      - name: The base, the trial, the base again, on this runner
+      - name: The base, loops alone, both, on this runner
         run: |
           ulimit -s unlimited || ulimit -s 65536
           set -o pipefail
           node --stack-size=30000 --max-old-space-size=6000 node/package-bench.mjs ${{ matrix.game }} pkg-0 bench/${{ matrix.game }}-base.json --runs --aot-as-is --no-interp | tee bench/${{ matrix.game }}-base.txt
+          node --stack-size=30000 --max-old-space-size=6000 node/package-bench.mjs ${{ matrix.game }} pkg-L bench/${{ matrix.game }}-loops.json --runs --aot-as-is --no-interp | tee bench/${{ matrix.game }}-loops.txt
           node --stack-size=30000 --max-old-space-size=6000 node/package-bench.mjs ${{ matrix.game }} pkg-1 bench/${{ matrix.game }}-trial.json --runs --aot-as-is --no-interp | tee bench/${{ matrix.game }}-trial.txt
-          node --stack-size=30000 --max-old-space-size=6000 node/package-bench.mjs ${{ matrix.game }} pkg-0 bench/${{ matrix.game }}-base2.json --runs --aot-as-is --no-interp | tee bench/${{ matrix.game }}-base2.txt
       - uses: actions/upload-artifact@v4
         if: ${{ always() }}
         with:
-          name: b853-${{ matrix.game }}
+          name: b853s-${{ matrix.game }}
           path: bench/
