@@ -2,6 +2,11 @@
 
 Each version lists what the apps do as of that version. The newest version is first.
 
+## 0.0.133 (2026-11-25)
+
+- **Gnome world: ⚡ Fastest, the rules in plain JavaScript**, under ⚙️ Advanced (Matthew: "on the kids' machines, I'd like a mode under advanced that uses plain JS for everything, to give them the best possible performance when it's challenged. I don't want that to be the default, but I want it to be saved in the .json save files once they enable it."). A switch: on, the rules the game calls as it plays (the gnome's step, the beavers', the rivers' level, the magic carpet's and the cat tail's flight) are the same rules written by hand in JavaScript (`world/plain.js`, and the page's own twins of the carpet's and the tail's), not Hazel's; the world is still planned by Hazel's, once. Off unless you turn it on; kept on that computer; written into every world you 💾 save while it's on (`"rules": "plain"`), and a world loaded from such a save turns it on. The line under the world says which rules are playing.
+- **⏱ times both ways** (Matthew: "when we do the timing, let's time both plain JS and hazel, and report back both"): the same speed run from the same fresh world, once with Hazel's rules and once with ⚡ plain JavaScript, each its steps alone (each part timed) and as the game plays it, then a frame's drawing; half a minute; your world and your choice of rules put back after. On this laptop: a step 0.598 ms with Hazel's rules, 0.576 ms with plain JavaScript; the water 0.56 ms of either (after 0.0.131's change; it was 1.61), the gnome's own step 0.011 ms in Hazel, 0.004 ms in plain JavaScript.
+
 ## 0.0.132 (2026-11-25)
 
 - **Gnome world: a world made again is the same world, step for step.** The water's step goes across the world one way, then the other, turn about; which way it went first was left from whatever the page had done before, not set as the world was made. So two runs of the same fresh world could part, slowly, a small difference in the water growing until a villager stood elsewhere and the world's chances came out otherwise (found by the speed run timed three ways, ^report(65): its runs in separate pages parted at about step 14,000, though every answer of the rules was the same). Now a world made starts the water the same way each time.

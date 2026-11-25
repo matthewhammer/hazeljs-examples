@@ -109,8 +109,17 @@
   const S = { built: null, lib: "", libFailed: false, plan: null, seed: kept("seed", 7), rivers: [], dams: [], lodges: [], beavers: [], rooms: [], villages: [],
     greats: [], trees: [], bushes: [], shrooms: [], flowers: [], rootSets: [], threadSets: [], rootPlan: [], boulders: [], ducts: [], lamps: [], items: [], houses: [], bridges: [], smoke: [], parts: [], drops: [], rain: 0, rainAt: 0,
     styles: [], dry: [], works: new Map(), windNow: 0.2, leaves: [], g: null, hero: kept("hero", "dad"), hearts: 5, gems: kept("gems", 0), hurtAt: -1e9, faintAt: 0, start: { x: 12500, y: 0 }, keys: { left: false, right: false, up: false, down: false, dig: false, dash: false },
-    jumpQueued: false, cam: { x: 0, y: 0, set: false }, frame: 0, map: kept("map", true), use: kept("use", "clover"), banner: null, places: [], stepMs: [], beaverAt: 0, damAt: 0, minimapAt: -1e9, dirty: true };
-  const H = () => S.built && S.built.ok ? S.built.value : null;
+    jumpQueued: false, cam: { x: 0, y: 0, set: false }, frame: 0, rules: kept("rules", "hazel"), map: kept("map", true), use: kept("use", "clover"), banner: null, places: [], stepMs: [], beaverAt: 0, damAt: 0, minimapAt: -1e9, dirty: true };
+  // (0.0.133; Matthew: "on the kids' machines, I'd like a mode under advanced that uses plain JS for everything, to give them the
+  // best possible performance when it's challenged. I don't want that to be the default, but I want it to be saved in the .json
+  // save files once they enable it.") ⚡: the rules the game calls as it plays in plain JavaScript (plain.js: the gnome's step,
+  // the beavers', the river's level; the page's own flyJS and tailJS for the carpet and the cat tail), Hazel's for what is done
+  // once (the world's plan, its villages and trees); off unless chosen; kept on this device, and in a save made with it on
+  let plainView = null, plainOf = null;
+  const H = () => { if (!(S.built && S.built.ok)) return null; const v = S.built.value; if (S.rules !== "plain" || !window.WorldPlain) return v;
+    if (plainOf !== v) { plainOf = v; plainView = { ...v, step: window.WorldPlain.step, beaver: window.WorldPlain.beaver, water_row: window.WorldPlain.water_row, fly: undefined, tail: undefined }; }
+    return plainView; };
+  function setRules(r) { S.rules = r === "plain" ? "plain" : "hazel"; keep("rules", S.rules); plainOf = null; const box = document.getElementById("rules-plain"); if (box) box.checked = S.rules === "plain"; if (typeof drawStatus === "function") drawStatus(); }
   let seedRand = 1;
   const rand = () => { seedRand = (seedRand * 1103515245 + 12345) & 0x7fffffff; return seedRand / 0x7fffffff; };
 
@@ -4623,6 +4632,7 @@
       ride: plain(S.ride), mount: plain(S.mount), carrots: S.carrots || 0,
       carpet: { have: !!(S.carpet && S.carpet.have), on: !!(S.carpet && S.carpet.on), face: S.carpet ? S.carpet.face : 1 },
       tail: { have: !!(S.tail && S.tail.have), on: !!(S.tail && S.tail.on) },
+      ...(S.rules === "plain" ? { rules: "plain" } : {}),   // (0.0.133: ⚡, kept in the save once chosen)
       tiles: tileBytes() };
   }
   async function saveText(snap) {
@@ -4643,6 +4653,7 @@
   // as it was is put back instead)
   function restore(h, d) {
     S.frame = d.frame; S.seed = d.seed; build(h, S.seed);
+    if (d.rules === "plain") setRules("plain");   // (0.0.133: a save made with ⚡ on turns it on)
     // (0.0.123: a save from before, v 6 or less, has the garden's three carrots, one after another, the first of Clover's things:
     // the one carrot now in the first one's place, the other two dropped)
     if ((d.v | 0) < 7 && Array.isArray(d.items)) { const k0 = S.items.findIndex(it => it.kind === "carrot");
@@ -4743,6 +4754,7 @@
     if (!b) { st.className = "status wait"; st.textContent = "⏳ Building the rules…"; return; }
     if (b.ok) { const ms = S.stepMs.length ? (S.stepMs.reduce((a, v) => a + v, 0) / S.stepMs.length).toFixed(3) : "…";
       const fly = S.flyMs && S.flyMs.length ? `; the carpet's step (${S.flyBy === "JS" ? "the page's JavaScript" : "Hazel's Fly.step"}) about ${(S.flyMs.reduce((a, v) => a + v, 0) / S.flyMs.length).toFixed(3)} ms` : "";
+      if (S.rules === "plain" && window.WorldPlain) { st.className = "status ok"; st.textContent = `⚡ The game's rules in plain JavaScript (⚙️ Advanced), the world planned by Hazel's: the gnome's step about ${ms} ms.`; return; }
       st.className = "status ok"; st.textContent = b.compiled ? `✓ Hazel's rules, compiled by hazel-jit as the page loaded (${(b.ms / 1000).toFixed(1)} s, the hazeljs branch's build): the gnome's step about ${ms} ms${fly}.`
         : `✓ Hazel's rules, built by hazeljs ${S.lib === LIB_NPM ? "0.0.4" : ""} in ${(b.ms / 1000).toFixed(1)} s and interpreted${b.reason ? " (not compiled: " + b.reason + ")" : ""}: the gnome's step about ${ms} ms, so the world may go slowly.`; return; }
     st.className = "status no";
@@ -4848,7 +4860,7 @@
         const screens = [cv, ...layerCv, darkCv, mapCv, map2Cv].reduce((n, c) => n + (c ? c.width * c.height : 0), 0), fps = med(PERF.frames) ? 1000 / med(PERF.frames) : 0;
         return `canvas memory (0.0.115): ${mb(CANVAS.px)} of pictures kept now, peak ${mb(CANVAS.peak)}, the screen's own ${mb(screens)}${CANVAS.cap < Infinity ? ` · test cap ${mb(CANVAS.cap)}` : ""} · ${IOS ? "iPad/iPhone budgets" : "full budgets"} · made ${CANVAS.made}, let go ${CANVAS.freed} · could not make ${CANVAS.fails}${CANVAS.fails ? ` (first ${ago(CANVAS.firstFail)}, last ${ago(CANVAS.lastFail)}, wanting ${(CANVAS.failPx / 1e6).toFixed(2)} Mpx)` : ""} · everything let go ${CANVAS.purges} times${CANVAS.lastPurge ? `, last ${CANVAS.lastPurge}` : ""} · ${fps.toFixed(0)} fps now${fps > 26 && fps < 34 ? " (a steady 30: Safari's Low Power Mode?)" : ""}`; })(),
       `canvas trouble kept in this browser from any visit: ${JSON.stringify(kept("canvasTrouble", null))}`,
-      `hazel: ${S.built ? `${S.built.ok ? "ready" : "NOT ready"}${S.built.compiled ? ", compiled" : ""}${S.built.threw ? ", threw: " + S.built.threw : ""}` : "not built"} · ${S.lib || "?"}`,
+      `hazel: ${S.rules === "plain" ? "⚡ the rules in plain JavaScript · " : ""}${S.built ? `${S.built.ok ? "ready" : "NOT ready"}${S.built.compiled ? ", compiled" : ""}${S.built.threw ? ", threw: " + S.built.threw : ""}` : "not built"} · ${S.lib || "?"}`,
       WATCH.errors.length ? "errors: " + WATCH.errors.map(e => `${e.msg}${e.where ? " @ " + e.where : ""} ×${e.n} (first ${ago(e.first)}, last ${ago(e.last)})`).join(" | ") : "errors: none",
     ];
     return lines.join("\n");
@@ -4870,32 +4882,42 @@
   // step, the water, the boulders, the beavers, the creatures...); a frame's drawing; then six seconds of the speed run as the
   // game plays it (as many steps a frame as fit in 12 ms, and the frame drawn): frames and steps a second; the world put back
   async function timeSpeedRun(say) {
-    const h = H(); if (!h || !S.g) return "⏱ Hazel was not ready";
-    const kept = await saveText(snapshot()), wasMap = S.map, sleep = ms => new Promise(r => setTimeout(r, ms));
-    try {
+    if (!H() || !S.g) return "⏱ Hazel was not ready";
+    // (0.0.133; Matthew: "when we do the timing, let's time both plain JS and hazel, and report back both") the same run twice
+    // from the same fresh world, once with Hazel's rules and once with ⚡ plain JavaScript; the way chosen put back after
+    const kept = await saveText(snapshot()), wasMap = S.map, wasRules = S.rules, sleep = ms => new Promise(r => setTimeout(r, ms));
+    const med = xs => [...xs].sort((a, b) => a - b)[xs.length >> 1] || 0;
+    const useRules = r => { S.rules = r; plainOf = null; };   // (for the measuring only: not kept)
+    async function one(r, label) {
+      useRules(r); const h = H();
       S.asking = true; restartNow(h); S.asking = true; BOT.on = false; $("run").click();
-      say("⏱ the speed run's steps alone, 12 s…"); await sleep(50);
+      say(`⏱ ${label}: the speed run's steps alone, 8 s…`); await sleep(50);
       TP.ms = {}; TP.on = true; let n = 0; const t0 = performance.now();
-      while (performance.now() - t0 < 12000 && BOT.on) { const t1 = performance.now(); while (performance.now() - t1 < 40 && BOT.on) { tick(h); n++; } await sleep(0); }
+      while (performance.now() - t0 < 8000 && BOT.on) { const t1 = performance.now(); while (performance.now() - t1 < 40 && BOT.on) { tick(h); n++; } await sleep(0); }
       const tAll = performance.now() - t0; TP.on = false; const parts = Object.entries(TP.ms).sort((a, b) => b[1] - a[1]), sum = parts.reduce((a, [, v]) => a + v, 0);
-      say("⏱ a frame's drawing…"); const d0 = performance.now(); for (let k = 0; k < 20; k++) draw(); const drawMs = (performance.now() - d0) / 20;
-      say("⏱ the speed run as the game plays it, 6 s…"); S.asking = false; const f0 = PERF.frames ? PERF.frames.length : 0, b0 = BOT.frames; let frames = 0, last = performance.now(); const gaps = [];
-      await new Promise(done => { const t2 = performance.now(); let over = false; const end = () => { if (!over) { over = true; done(); } }; setTimeout(end, 6500);   // (a page out of sight has no frames: six and a half seconds at most)
-        const go = t => { if (over) return; frames++; gaps.push(t - last); last = t; if (t - t2 < 6000) requestAnimationFrame(go); else end(); }; requestAnimationFrame(go); });
-      const steps = BOT.frames - b0, secs = 6, fps = frames / secs, sps = steps / secs; if (!gaps.length) gaps.push(0);
-      const med = xs => [...xs].sort((a, b) => a - b)[xs.length >> 1] || 0;
-      const D = { app: "Gnome world", what: "speed run", v: (document.querySelector(".advanced-version") || {}).textContent || "?", at: new Date().toISOString(),
+      say(`⏱ ${label}: as the game plays it, 5 s…`); S.asking = false; const b0 = BOT.frames; let frames = 0, last = performance.now(); const gaps = [];
+      await new Promise(done => { const t2 = performance.now(); let over = false; const end = () => { if (!over) { over = true; done(); } }; setTimeout(end, 5500);   // (a page out of sight has no frames: five and a half seconds at most)
+        const go = t => { if (over) return; frames++; gaps.push(t - last); last = t; if (t - t2 < 5000) requestAnimationFrame(go); else end(); }; requestAnimationFrame(go); });
+      S.asking = true; const steps = BOT.frames - b0; if (!gaps.length) gaps.push(0); stopBot();
+      return { rules: r, steps: n, ms: +tAll.toFixed(0), stepMs: +(sum / n).toFixed(3), parts: Object.fromEntries(parts.map(([k, v]) => [k, +(v / n).toFixed(3)])), top: parts.slice(0, 6).map(([k, v]) => `${k} ${(v / n).toFixed(3)} ms (${(v / sum * 100).toFixed(0)}%)`).join(", "),
+        played: { fps: +(frames / 5).toFixed(1), stepsPerSec: +(steps / 5).toFixed(0), stepsPerFrame: +(steps / Math.max(1, frames)).toFixed(2), frameMs: +med(gaps).toFixed(1), worstMs: +Math.max(...gaps).toFixed(0) } };
+    }
+    try {
+      const A = await one("hazel", "Hazel's rules"), B = window.WorldPlain ? await one("plain", "⚡ plain JavaScript") : null;
+      say("⏱ a frame's drawing…"); const d0 = performance.now(); for (let k = 0; k < 20; k++) draw(); const drawMs = +((performance.now() - d0) / 20).toFixed(1);
+      const D = { app: "Gnome world", what: "speed run", v: (document.querySelector(".advanced-version") || {}).textContent || "?", at: new Date().toISOString(), chosen: wasRules,
         device: { ua: navigator.userAgent, cores: navigator.hardwareConcurrency || null, dpr: window.devicePixelRatio, screen: `${screen.width}x${screen.height}`, canvas: `${cv.width}x${cv.height}`, tile: T },
-        alone: { steps: n, ms: +tAll.toFixed(0), stepMs: +(sum / n).toFixed(3), parts: Object.fromEntries(parts.map(([k, v]) => [k, +(v / n).toFixed(3)])) },
-        drawMs: +drawMs.toFixed(1), played: { fps: +fps.toFixed(1), stepsPerSec: +sps.toFixed(0), stepsPerFrame: +(steps / Math.max(1, frames)).toFixed(2), frameMs: +med(gaps).toFixed(1), worstMs: +Math.max(...gaps).toFixed(0) } };
-      return [`⏱ Gnome world speed run, measured · ${D.v} · ${D.at} · ${navigator.userAgent.replace(/^Mozilla\/5\.0 /, "")} · ${D.device.cores} cores · canvas ${D.device.canvas}, a tile ${T} px`,
-        `the steps alone: ${D.alone.stepMs} ms a step (${n} steps in ${(tAll / 1000).toFixed(1)} s): ` + parts.slice(0, 8).map(([k, v]) => `${k} ${(v / n).toFixed(3)} ms (${(v / sum * 100).toFixed(0)}%)`).join(", "),
-        `a frame's drawing: ${D.drawMs} ms · as the game plays it: ${D.played.fps} frames a second, ${D.played.stepsPerSec} steps a second (${D.played.stepsPerFrame} a frame), a frame ${D.played.frameMs} ms, the slowest ${D.played.worstMs} ms`,
+        hazel: A, plain: B, drawMs };
+      const way = (W, label) => W ? `${label}: a step ${W.stepMs} ms (${W.steps} steps alone in ${(W.ms / 1000).toFixed(1)} s): ${W.top} · as the game plays it: ${W.played.fps} frames a second, ${W.played.stepsPerSec} steps a second (${W.played.stepsPerFrame} a frame), a frame ${W.played.frameMs} ms, the slowest ${W.played.worstMs} ms` : `${label}: not loaded`;
+      for (const W of [A, B]) if (W) delete W.top;
+      return [`⏱ Gnome world speed run, measured both ways · ${D.v} · ${D.at} · ${navigator.userAgent.replace(/^Mozilla\/5\.0 /, "")} · ${D.device.cores} cores · canvas ${D.device.canvas}, a tile ${T} px · a frame's drawing ${drawMs} ms`,
+        way(A && { ...A, top: (A && Object.entries(A.parts).slice(0, 6).map(([k, v]) => `${k} ${v} ms`).join(", ")) }, "Hazel's rules"),
+        way(B && { ...B, top: (B && Object.entries(B.parts).slice(0, 6).map(([k, v]) => `${k} ${v} ms`).join(", ")) }, "⚡ plain JavaScript"),
         `DATA ${JSON.stringify(D)}`].join("\n");
-    } finally { TP.on = false; stopBot(); S.asking = true; try { await loadText(kept); } catch (e) { /* the world as the speed run left it */ } S.map = wasMap; S.asking = false; }
+    } finally { TP.on = false; stopBot(); useRules(wasRules); S.asking = true; try { await loadText(kept); } catch (e) { /* the world as the speed run left it */ } S.map = wasMap; S.asking = false; drawStatus(); }
   }
   const tpOut = document.createElement("textarea"); tpOut.readOnly = true; tpOut.rows = 5; tpOut.className = "bug-report"; tpOut.placeholder = "⏱ the speed run's numbers show here";
-  const tpBtn = document.createElement("button"); tpBtn.type = "button"; tpBtn.className = "primary"; tpBtn.textContent = "⏱ time the speed run (20 s)";
+  const tpBtn = document.createElement("button"); tpBtn.type = "button"; tpBtn.className = "primary"; tpBtn.textContent = "⏱ time the speed run, both ways (30 s)";
   const tpCopy = document.createElement("button"); tpCopy.type = "button"; tpCopy.textContent = "📋 copy";
   const tpPad = document.createElement("a"); tpPad.href = bugPad.href; tpPad.target = "_blank"; tpPad.rel = "noopener"; tpPad.textContent = "📝 then paste it here";
   tpBtn.addEventListener("click", async () => { if (tpBtn.disabled) return; tpBtn.disabled = true; const say = t => { tpOut.value = t; };
@@ -4903,9 +4925,14 @@
   tpCopy.addEventListener("click", () => { tpOut.select(); try { navigator.clipboard.writeText(tpOut.value).then(() => { tpCopy.textContent = "📋 copied"; }, () => document.execCommand("copy")); } catch (e) { document.execCommand("copy"); } });
   const tpCap = document.createElement("h3"); tpCap.className = "advanced-cap"; tpCap.textContent = "⏱ The speed run, measured";
   const tpRow = document.createElement("div"); tpRow.className = "speed-row"; tpRow.append(tpBtn, tpCopy, tpPad);
-  const tpHint = document.createElement("p"); tpHint.className = "muted speed-hint"; tpHint.textContent = "Twenty seconds: the speed run from a fresh world, its steps alone (each part of a step timed), a frame's drawing, then the speed run as the game plays it. Your world is kept aside and put back after. Then copy the line into the pad.";
+  const tpHint = document.createElement("p"); tpHint.className = "muted speed-hint"; tpHint.textContent = "Half a minute: the speed run from a fresh world, twice, once with Hazel's rules and once with ⚡ plain JavaScript: each time its steps alone (each part of a step timed), then as the game plays it; and a frame's drawing. Your world, and your choice of rules, are kept aside and put back after. Then copy the lines into the pad.";
+  const rlCap = document.createElement("h3"); rlCap.className = "advanced-cap"; rlCap.textContent = "⚡ Fastest: the rules in plain JavaScript";
+  const rlRow = document.createElement("label"); rlRow.className = "speed-row rules-row"; const rlBox = document.createElement("input"); rlBox.type = "checkbox"; rlBox.id = "rules-plain"; rlBox.checked = S.rules === "plain";
+  rlRow.append(rlBox, document.createTextNode(" the game's rules in plain JavaScript, not Hazel's"));
+  rlBox.addEventListener("change", () => setRules(rlBox.checked ? "plain" : "hazel"));
+  const rlHint = document.createElement("p"); rlHint.className = "muted speed-hint"; rlHint.textContent = "For a slow computer. The rules the game calls as it plays (the gnome's step, the beavers', the rivers', the magic carpet's and the cat tail's flight) in JavaScript written by hand, the same rules: the world still planned by Hazel. Kept on this computer, and in every world you 💾 save while it is on; a world loaded from such a save turns it on. Off: Hazel's rules, compiled by hazel-jit.";
   if (window.OracleAdvanced) window.OracleAdvanced.panel({
-    extras: [bugCap, bugRow, bugOut, bugHint, tpCap, tpRow, tpOut, tpHint],
+    extras: [rlCap, rlRow, rlHint, bugCap, bugRow, bugOut, bugHint, tpCap, tpRow, tpOut, tpHint],
     holder: $("advanced"), name: "Gnome world", built: () => S.built, libAt: () => 0, keysIn: null,
     mode: () => ({ asked: S.built && S.built.compiled ? "compiled" : "interpreted", error: null }),
     about: "600 of the gnome's steps through Hazel, running and jumping",
@@ -4924,7 +4951,7 @@
   if (Q.has("test")) Object.assign(window.WorldTest, { SKYC, skyClouds, cloudArt, storminess });   // (0.0.125: the sky)
   if (Q.has("test")) Object.assign(window.WorldTest, { GEMAIM, gemAim, hasFinder, gemCompass });   // (0.0.126: the gem finder)
   if (Q.has("test")) Object.assign(window.WorldTest, { CAVE, CAVEFX, caveLife });   // (0.0.127: the caverns)
-  if (Q.has("test")) Object.assign(window.WorldTest, { botItemOrder, timeSpeedRun, TP, wakeTill, wakeAll, waterStep });   // (0.0.130: the speed run's order of the things; ⏱)
+  if (Q.has("test")) Object.assign(window.WorldTest, { botItemOrder, timeSpeedRun, TP, wakeTill, wakeAll, waterStep, setRules, H });   // (0.0.130: the speed run's order of the things; ⏱)
   // (^ticket(873): the speed run's steps alone, timed, no drawing: up to n, while the run is on and not yet at its dig)
   if (Q.has("test")) Object.assign(window.WorldTest, { steps: n => { const h = H(); const t0 = performance.now(); let k = 0; for (; k < n && BOT.on && BOT.phase !== "dig"; k++) tick(h); return { k, ms: performance.now() - t0 }; } });   // (0.0.115: the canvases kept, ^ticket(852))   // (0.0.112: the 🎮 controller, driven by hand where frames do not come)
   if (Q.has("test")) Object.assign(window.WorldTest, { snapshot, saveText, readSave, loadText, restartNow: () => restartNow(H()), askRestart, stopBot, digest, bot: on => { if (on !== BOT.on) $("run").click(); return BOT.on; }, carpetToggle, carpetHits, carpetTop, flyJS });
