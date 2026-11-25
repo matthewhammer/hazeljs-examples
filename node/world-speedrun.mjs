@@ -31,6 +31,10 @@ const GN = ["x", "y", "vx", "vy", "face", "ground", "climb", "swim", "under", "a
 // (hazel-jit's run), the run started)
 const SETUP = way => `(() => {
   const T = WorldTest, S = T.S; S.asking = true; T.restartNow(); S.asking = true;
+  // (as a page fresh from loading: restarting makes the world again from its seed, but the frame count, the next rain, the
+  // dam's next washing away, the wind and the falling leaves go on from the frames this page ran before the run was set up,
+  // a different number for each page; and the beavers, the rain and the dam keep time by frames)
+  Object.assign(S, { frame: 0, damAt: 0, rain: 0, rainAt: 0, windNow: 0.2, leaves: [] }); S.wind = undefined; Object.assign(S.cam, { x: 0, y: 0, set: false });
   const V = S.built.value, R = window.__R = { way: ${JSON.stringify(way)}, calls: {}, ms: {}, samples: [], swapped: [] };
   if (R.way === "plain") for (const k of ["step", "beaver", "water_row"]) { V[k] = WorldPlain[k]; R.swapped.push(k); }
   for (const k of Object.keys(V)) { const f = V[k]; if (typeof f !== "function") continue; R.calls[k] = 0; R.ms[k] = 0;
