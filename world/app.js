@@ -44,6 +44,35 @@
   const load = src => new Promise((ok, no) => { const s = document.createElement("script"); s.src = src; s.onload = ok; s.onerror = () => no(new Error(src)); document.body.append(s); });
   const kept = (k, dflt) => { try { const v = JSON.parse(localStorage.getItem(KEY + k)); return v === null ? dflt : v; } catch (e) { return dflt; } };
   const keep = (k, v) => { try { localStorage.setItem(KEY + k, JSON.stringify(v)); } catch (e) { /* this visit only */ } };
+  // ---- (0.0.115; ^ticket(852); Matthew: on the iPad, in Safari, "sometimes every foreground component (everything but the back
+  // hills) disappears. Then it sometimes reappears again, or never does"; not on the Linux laptop, in Firefox; since the world
+  // grew bigger and more detailed) The pictures the page keeps, as canvases: Safari has a cap on all of them together (about 384 MB
+  // on many iPads), and past it getContext gives no context, so the first picture painted then threw, and the rest of the frame
+  // went undrawn, all but the sky and hills, drawn first and straight to the screen; till its garbage collector let go of enough
+  // old canvases. So: every picture's canvas is made here, counted (CANVAS.px), and let go of at once (width and height 0, which
+  // Safari frees then and there, not at its next collection); on an iPad or iPhone the caches are kept smaller; and a canvas that
+  // cannot be made frees every picture kept, once a frame, and tries again, else gives a 1×1 blank one, drawn as nothing, so a
+  // frame never stops half way. What happened is kept for 🐞 (and in this browser, for the next visit). ?canvasCap=MB imitates
+  // Safari's cap, for trying it on a computer
+  const IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1) || new URLSearchParams(location.search).has("ios");   // (?ios=1: its budgets, on a computer)
+  const CANVAS = { px: 0, peak: 0, made: 0, freed: 0, fails: 0, failPx: 0, firstFail: null, lastFail: null, purges: 0, lastPurge: null, purgeFrame: -1,
+                   cap: (() => { const q = new URLSearchParams(location.search).get("canvasCap"); return q ? Number(q) * 1e6 / 4 : Infinity; })(),
+                   hard: IOS ? 64e6 : Infinity };   // (pixels: the page's own limit, 256 MB on iOS, past which the caches let go first)
+  function newCanvas(w, h) {
+    w = Math.max(1, Math.ceil(w)); h = Math.max(1, Math.ceil(h)); const px = w * h;
+    if (CANVAS.px + px > CANVAS.hard) purgePictures("past the page's own limit");
+    for (let k = 0; k < 2; k++) {
+      let cv = null, g = null;
+      if (CANVAS.px + px <= CANVAS.cap) { cv = document.createElement("canvas"); cv.width = w; cv.height = h; try { g = cv.getContext("2d"); } catch (e) { g = null; } }
+      if (g && cv.width === w && cv.height === h) { cv._px = px; CANVAS.px += px; CANVAS.made++; if (CANVAS.px > CANVAS.peak) CANVAS.peak = CANVAS.px; return cv; }
+      if (cv) cv.width = cv.height = 0;
+      CANVAS.fails++; CANVAS.failPx = px; CANVAS.lastFail = new Date().toISOString(); if (!CANVAS.firstFail) CANVAS.firstFail = CANVAS.lastFail;
+      keep("canvasTrouble", { at: CANVAS.lastFail, first: CANVAS.firstFail, fails: CANVAS.fails, keptMpx: +(CANVAS.px / 1e6).toFixed(1), peakMpx: +(CANVAS.peak / 1e6).toFixed(1), wantPx: px, purges: CANVAS.purges });
+      if (k === 0) purgePictures("a canvas could not be made");
+    }
+    const b = document.createElement("canvas"); b.width = b.height = 1; b._blank = true; return b;   // (drawn as next to nothing; let go of with the caches)
+  }
+  function dropCanvas(cv) { if (!cv || !cv._px) return; CANVAS.px -= cv._px; cv._px = 0; cv.width = cv.height = 0; CANVAS.freed++; }
   const SND = window.DigSound || null;   // (Gnome dig's music and sounds, dig/sound.js)
 
   // ---- the world's tiles: what is there (mat), its water (wat: for ground, the share of its pores full; for air, the share of
@@ -442,7 +471,7 @@
   // (a tile's stones, set in it, drawn once for each look and size: a picture a tile square)
   const stoneTiles = new Map();
   function stoneTile(v) { const key = v + ":" + T + (LINE ? ":line" : ""); let cv = stoneTiles.get(key); if (cv) return cv;
-    if (stoneTiles.size > 400) stoneTiles.clear(); cv = document.createElement("canvas"); cv.width = cv.height = Math.ceil(T); const c = cv.getContext("2d");
+    if (stoneTiles.size > 400) { for (const o of stoneTiles.values()) dropCanvas(o); stoneTiles.clear(); } cv = newCanvas(T, T); const c = cv.getContext("2d");
     const c2 = LINE ? lineCtx(c) : c; for (const st of stonesIn(v)) drawStone(c2, st.dx * T, st.dy * T, st.rad * T, st.v, true, false); stoneTiles.set(key, cv); return cv; }
   function dropStones(c, r, v) {
     for (const st of stonesIn(v)) S.pebbles.push({ x: c + st.dx, y: r + st.dy + st.rad * 0.6, vy: 0, vx: (st.dx - 0.5) * 0.01, rad: st.rad, v: st.v, front: seededR(st.v)(9) < 0.4, rest: false });
@@ -801,7 +830,7 @@
   const texCache = new Map();
   function tex(kind, v) {
     const key = kind * 8 + v + (LINE ? 100000 : 0); let t = texCache.get(key); if (t) return t;
-    t = document.createElement("canvas"); t.width = t.height = T; const c = t.getContext("2d");
+    t = newCanvas(T, T); const c = t.getContext("2d");
     if (LINE) { c.fillStyle = "#fff"; c.fillRect(0, 0, T, T); texCache.set(key, t); return t; }
     let r = 1 + kind * 7 + v * 131; const R = () => { r = (r * 16807) % 2147483647; return r / 2147483647; };
     const base = kind === 100 ? "#4a2f1d" : kind === 101 ? "#e8dcc4" : kind === 102 ? "#8a5a33" : kind === 103 ? "#6b6258" : kind === 104 ? "#3c3a3a" : COLOR[kind];
@@ -876,7 +905,8 @@
   let edgeSet = null;
   function edges() {
     if (edgeSet && edgeSet.T === T) return edgeSet;
-    const mk = (w, h, x0, y0, x1, y1, a) => { const c = document.createElement("canvas"); c.width = Math.max(1, Math.ceil(w)); c.height = Math.max(1, Math.ceil(h)); const g = c.getContext("2d");
+    if (edgeSet) { dropCanvas(edgeSet.top); dropCanvas(edgeSet.left); dropCanvas(edgeSet.right); }
+    const mk = (w, h, x0, y0, x1, y1, a) => { const c = newCanvas(w, h), g = c.getContext("2d");
       const gr = g.createLinearGradient(x0, y0, x1, y1); gr.addColorStop(0, `rgba(8,4,2,${a})`); gr.addColorStop(1, "rgba(8,4,2,0)"); g.fillStyle = gr; g.fillRect(0, 0, c.width, c.height); return c; };
     edgeSet = { T, top: mk(T + 0.5, T * 0.34, 0, 0, 0, T * 0.34, 0.55), left: mk(T * 0.16, T + 0.5, 0, 0, T * 0.16, 0, 0.35), right: mk(T * 0.16 + 0.5, T + 0.5, T * 0.16, 0, 0, 0, 0.35) };
     return edgeSet;
@@ -909,11 +939,13 @@
   const RCH = 12, rootChunks = new Map();
   const dirtyRootsAt = (c, r) => { const ch = rootChunks.get(Math.floor(c / RCH) + "," + Math.floor(r / RCH)); if (ch) ch.dirty = true; };
   const dirtyRootsX = (x0, x1) => { for (const [k, ch] of rootChunks) { const cx = +k.split(",")[0]; if ((cx + 1) * RCH >= x0 && cx * RCH <= x1) ch.dirty = true; } };
+  function dropChunk(ch) { if (!ch) return; dropCanvas(ch.ground); dropCanvas(ch.back); dropCanvas(ch.front); ch.ground = ch.back = ch.front = null; }
   function rootChunk(cx, cy) {
     const k = cx + "," + cy, res = Math.min(T, TCAP); let ch = rootChunks.get(k);
     if (ch && ch.res === res && !ch.dirty) { rootChunks.delete(k); rootChunks.set(k, ch); return ch; }
     const x0 = cx * RCH, y0 = cy * RCH, W = Math.ceil(RCH * res), sets = S.rootSets.filter(R => R.x1 >= x0 - 1 && R.x0 <= x0 + RCH + 1), tsets = S.threadSets.filter(R => R.x1 >= x0 - 1 && R.x0 <= x0 + RCH + 1);
-    const mk = () => { const c = document.createElement("canvas"); c.width = c.height = W; return c; }, tmp = mk(), tg = tmp.getContext("2d");
+    if (ch) dropChunk(ch);
+    const mk = () => newCanvas(W, W), tmp = mk(), tg = tmp.getContext("2d");
     const pass = fn => { tg.setTransform(1, 0, 0, 1, 0, 0); tg.clearRect(0, 0, W, W); tg.setTransform(1, 0, 0, 1, -x0 * res, -y0 * res); fn(tg); };
     const mask = (g, keep) => { g.globalCompositeOperation = "destination-in"; g.fillStyle = "#000"; g.beginPath();
       for (let r = y0; r < y0 + RCH; r++) for (let c = x0; c < x0 + RCH; c++) { if (!inside(c, r) || !keep(at(c, r))) continue; const X = (c - x0) * res, Y = (r - y0) * res, sk = shape[at(c, r)];
@@ -933,8 +965,9 @@
       front = mk(); const fg = front.getContext("2d"); fg.setTransform(1, 0, 0, 1, -x0 * res, -y0 * res);
       strokeLines(fg, sets, "rgba(5,2,1,0.45)", 1.05, res * 0.05, res * 0.07, 5, false, res); strokeLines(fg, sets, "#5b3a22", 1, 0, 0, 5, false, res); strokeLines(fg, sets, "#8a6440", 0.35, -res * 0.012, -res * 0.012, 5, false, res);
       fg.setTransform(1, 0, 0, 1, 0, 0); mask(fg, dug); }
+    dropCanvas(tmp);
     ch = { res, ground, back, front, dirty: false }; rootChunks.set(k, ch);
-    if (rootChunks.size > 30) rootChunks.delete(rootChunks.keys().next().value);
+    while (rootChunks.size > (IOS ? 10 : 30)) { const k0 = rootChunks.keys().next().value; dropChunk(rootChunks.get(k0)); rootChunks.delete(k0); }
     return ch;
   }
   function drawRootChunks(c0, c1, r0, r1, s, which) {
@@ -1412,9 +1445,21 @@
   // kept in strips eight tiles tall, each painted the first time it is drawn, so only the strips in view are painted and held;
   // at most 40 million pixels of strips are kept (the oldest let go): a great tree a hundred tiles tall would be 15 million
   // pixels in one. The other pictures, whole, at most 48 million pixels of them (and 70 pictures)
-  const STRIP_T = 8, BIG_PX = 6e6, STRIP_BUDGET = 40e6, WHOLE_BUDGET = 48e6, strips = new Map(); let stripPx = 0, wholePx = 0;
+  const STRIP_T = 8, BIG_PX = 6e6, STRIP_BUDGET = IOS ? 12e6 : 40e6, WHOLE_BUDGET = IOS ? 16e6 : 48e6, SPRITES_KEPT = IOS ? 40 : 70, strips = new Map(); let stripPx = 0, wholePx = 0;   // (0.0.115: smaller on an iPad or iPhone)
   const VIEW = { y0: -1e9, y1: 1e9 };   // (the rows in view, in the world's pixels, for skipping strips out of it: draw sets it)
-  function forget(sp) { if (sp && sp.cv) { wholePx -= sp.w * sp.h; sp.cv = null; } if (!sp || !sp.strips) return; sp.strips.forEach((cv, i) => { const k = sp.key + "#" + i, e = strips.get(k); if (e) { stripPx -= e.px; strips.delete(k); } }); sp.strips = []; }
+  function forget(sp) { if (sp && sp.cv) { wholePx -= sp.w * sp.h; dropCanvas(sp.cv); sp.cv = null; } if (!sp || !sp.strips) return; sp.strips.forEach((cv, i) => { const k = sp.key + "#" + i, e = strips.get(k); if (e) { stripPx -= e.px; strips.delete(k); } dropCanvas(cv); }); sp.strips = []; }
+  function purgePictures(why) {
+    const now = performance.now(); if (CANVAS.purgeT && now - CANVAS.purgeT < 250) return; CANVAS.purgeT = now;
+    CANVAS.purges++; CANVAS.lastPurge = new Date().toISOString() + " (" + why + ")";
+    const each = (f) => { try { f(); } catch (e) { noteError("purge: " + (e && e.message || e)); } };
+    each(() => { for (const sp of spriteCache.values()) forget(sp); spriteCache.clear(); wholePx = 0; });
+    each(() => { for (const e of strips.values()) { if (e.sp.strips) { dropCanvas(e.sp.strips[e.i]); e.sp.strips[e.i] = null; } } strips.clear(); stripPx = 0; });
+    each(() => { for (const ch of rootChunks.values()) dropChunk(ch); rootChunks.clear(); });
+    each(() => { for (const t of texCache.values()) dropCanvas(t); texCache.clear(); for (const t of stoneTiles.values()) dropCanvas(t); stoneTiles.clear(); });
+    each(() => { if (edgeSet) { dropCanvas(edgeSet.top); dropCanvas(edgeSet.left); dropCanvas(edgeSet.right); edgeSet = null; } if (carpetArt) { dropCanvas(carpetArt.cv); carpetArt = null; } });
+    each(() => { for (const t of propLRU) if (t.props) { dropCanvas(t.props.cv); t.props = null; } propLRU.length = 0; });
+    each(() => { for (const fl of S.fallen || []) if (fl.pic) { dropCanvas(fl.pic.cv); fl.pic = null; } fallenLRU.length = 0; for (const L of S.lodges || []) if (L.cache) { dropCanvas(L.cache.cv); L.cache = null; } });
+  }
   function sprite(key, wT, hT, ox, oy, paint) {
     if (LINE) key = "line:" + key;
     let sp = spriteCache.get(key);
@@ -1423,21 +1468,21 @@
     const res = Math.min(T, LINE ? 64 : TCAP), W = Math.ceil(wT * res), Hp = Math.ceil(hT * res);
     if (W * Hp > BIG_PX) sp = { strips: [], sh: STRIP_T * res, w: W, h: Hp, ox, oy, res, T, key, paint, line: LINE };
     else { SPRITES.painted++;   // (counted, for the frame times: sprites painted afresh)
-      const c = document.createElement("canvas"); c.width = W; c.height = Hp;
+      const c = newCanvas(W, Hp);
       const g0 = c.getContext("2d"), g = LINE ? lineCtx(g0) : g0; g0.translate(ox * res, oy * res); paint(g, res);
       sp = { cv: c, ox, oy, res, T, w: W, h: Hp }; wholePx += W * Hp; }
     spriteCache.set(key, sp);
-    while ((spriteCache.size > 70 || wholePx > WHOLE_BUDGET) && spriteCache.size > 1) { const k0 = spriteCache.keys().next().value; forget(spriteCache.get(k0)); spriteCache.delete(k0); }
+    while ((spriteCache.size > SPRITES_KEPT || wholePx > WHOLE_BUDGET) && spriteCache.size > 1) { const k0 = spriteCache.keys().next().value; forget(spriteCache.get(k0)); spriteCache.delete(k0); }
     return sp;
   }
   function stripOf(sp, i) {
     const k = sp.key + "#" + i; let cv = sp.strips[i];
     if (cv) { const e = strips.get(k); strips.delete(k); strips.set(k, e); return cv; }
     SPRITES.painted++; SPRITES.strips++;
-    const h = Math.min(sp.sh, sp.h - i * sp.sh); cv = document.createElement("canvas"); cv.width = sp.w; cv.height = h;
+    const h = Math.min(sp.sh, sp.h - i * sp.sh); cv = newCanvas(sp.w, h);
     const g0 = cv.getContext("2d"), g = sp.line ? lineCtx(g0) : g0; g0.translate(sp.ox * sp.res, sp.oy * sp.res - i * sp.sh); sp.paint(g, sp.res);
     sp.strips[i] = cv; strips.set(k, { sp, i, px: sp.w * h }); stripPx += sp.w * h;
-    while (stripPx > STRIP_BUDGET && strips.size > 1) { const [k0, e] = strips.entries().next().value; strips.delete(k0); e.sp.strips[e.i] = null; stripPx -= e.px; }
+    while (stripPx > STRIP_BUDGET && strips.size > 1) { const [k0, e] = strips.entries().next().value; strips.delete(k0); dropCanvas(e.sp.strips[e.i]); e.sp.strips[e.i] = null; stripPx -= e.px; }
     return cv;
   }
   // (a picture's rows sy to sy + sh drawn at dx, dy, scaled by f: from its canvas, or from the strips they fall in)
@@ -1550,9 +1595,9 @@
   function drawPropRoots(t, x, y, s) {
     if (!t.alive || t.grow < 0.6) return;
     const key = s + ":" + y + (LINE ? ":line" : ""), P2 = t.props;
-    if (!P2 || P2.key !== key) { const ox = 6 * s, oy = 2.5 * s, cv2 = document.createElement("canvas"); cv2.width = Math.ceil(12 * s); cv2.height = Math.ceil(8 * s);
+    if (!P2 || P2.key !== key) { if (P2) dropCanvas(P2.cv); const ox = 6 * s, oy = 2.5 * s, cv2 = newCanvas(12 * s, 8 * s);
       const g = cv2.getContext("2d"); g.translate(ox - x, oy - y); paintPropRoots(LINE ? lineCtx(g) : g, t, x, y, s); t.props = { key, cv: cv2, ox, oy };
-      propLRU.push(t); if (propLRU.length > 40) { const o = propLRU.shift(); if (o !== t) o.props = null; } }
+      propLRU.push(t); if (propLRU.length > (IOS ? 16 : 40)) { const o = propLRU.shift(); if (o !== t && o.props) { dropCanvas(o.props.cv); o.props = null; } } }
     ctx.drawImage(t.props.cv, x - t.props.ox, y - t.props.oy);
   }
   function paintPropRoots(ctx, t, x, y, s) {
@@ -2448,7 +2493,8 @@
   function carpetTop(s) {
     const W = Math.max(28, Math.round(1.8 * s)), Hh = Math.max(10, Math.round(0.5 * s));
     if (carpetArt && carpetArt.W === W && carpetArt.H === Hh) return carpetArt;
-    const cv2 = document.createElement("canvas"); cv2.width = W; cv2.height = Hh; const c = cv2.getContext("2d");
+    if (carpetArt) dropCanvas(carpetArt.cv);
+    const cv2 = newCanvas(W, Hh); const c = cv2.getContext("2d");
     c.fillStyle = "#4c0d0d"; c.fillRect(0, 0, W, Hh);
     // (a grid of diamond-shaped squares, 13 across and 5 down, the rings rectangles round the middle one, as the carpet is)
     const NI = 6, NJ = 2, pad = Math.max(1.5, Hh * 0.12), cw = (W / 2 - pad) / (NI + 0.8), ch = (Hh / 2 - pad) / (NJ + 0.8), cells = [];
@@ -3168,7 +3214,7 @@
   function drawLodgeCached(L, s) {
     const R = L.river, mid = L.x + L.w / 2, k = Math.floor(mid) - R.x, inCh = k >= 0 && k < R.w, base = inCh ? R.bed[k] : surf0[Math.max(0, Math.min(WW - 1, Math.floor(mid)))], lvl = R.level;
     const W = (L.w / 2 + 1.1) * s, cx = mid * s, by = base * s, topY = (Math.min(lvl, base) - 3.3) * s, key = lvl + ":" + base + ":" + s + (LINE ? ":line" : "");
-    if (!L.cache || L.cache.key !== key) { const x0 = cx - W - s, y0 = topY - s, cv2 = document.createElement("canvas"); cv2.width = Math.ceil(2 * W + 2 * s); cv2.height = Math.ceil(by - topY + 2.5 * s);
+    if (!L.cache || L.cache.key !== key) { if (L.cache) dropCanvas(L.cache.cv); const x0 = cx - W - s, y0 = topY - s, cv2 = newCanvas(2 * W + 2 * s, by - topY + 2.5 * s);
       const g = cv2.getContext("2d"); g.translate(-x0, -y0); drawLodge(L, s, LINE ? lineCtx(g) : g, "body"); L.cache = { key, cv: cv2, x0, y0 }; }
     ctx.drawImage(L.cache.cv, L.cache.x0, L.cache.y0); drawLodge(L, s, ctx, "beavers");
   }
@@ -3229,10 +3275,12 @@
     return { segs, pieces, trunk: 1, gone: new Uint8Array(segs.length) };
   }
   function cutPiece(fl) { const p = fl.F.pieces[fl.k++]; if (!p) return; if (p.i === 0) fl.F.trunk = p.to; else fl.F.gone[p.i] = 1; }
+  const fallenLRU = [];   // (0.0.115: the fallen trees whose pictures are kept, the last few drawn: each is millions of pixels)
   function drawFallen(fl, s) {
     const t = fl.t, hT = t.h * (t.kind === 4 ? 1.1 : 1) + 3, x = (t.x + 0.5) * s, gy = landY(t.x) * s, key = fl.k + ":" + s + (LINE ? ":line" : "");
-    if (!fl.pic || fl.pic.key !== key) { const ox = hT * s, oy = hT * 0.8 * s, cv2 = document.createElement("canvas"); cv2.width = Math.ceil(2 * hT * s); cv2.height = Math.ceil((hT * 0.8 + 2.5) * s);
-      const g = cv2.getContext("2d"); g.translate(ox - x, oy - gy); paintFallen(LINE ? lineCtx(g) : g, fl, s); fl.pic = { key, cv: cv2, ox, oy }; }
+    if (!fl.pic || fl.pic.key !== key) { if (fl.pic) dropCanvas(fl.pic.cv); const ox = hT * s, oy = hT * 0.8 * s, cv2 = newCanvas(2 * hT * s, (hT * 0.8 + 2.5) * s);
+      const g = cv2.getContext("2d"); g.translate(ox - x, oy - gy); paintFallen(LINE ? lineCtx(g) : g, fl, s); fl.pic = { key, cv: cv2, ox, oy };
+      fallenLRU.push(fl); while (fallenLRU.length > (IOS ? 2 : 8)) { const o = fallenLRU.shift(); if (o !== fl && o.pic) { dropCanvas(o.pic.cv); o.pic = null; } } }
     ctx.drawImage(fl.pic.cv, x - fl.pic.ox, gy - fl.pic.oy);
   }
   function paintFallen(ctx, fl, s) {
@@ -4246,6 +4294,10 @@
       `touches: at most ${WATCH.touchMax} at once · ${WATCH.multi} starts with two or more · pinch gestures ${WATCH.gestures} (stopped ${WATCH.gesturesBlocked}) · pointers ${JSON.stringify(WATCH.pointers)} · the last touch ${WATCH.lastTouch ? `${WATCH.lastTouch.n} at ${WATCH.lastTouch.x},${WATCH.lastTouch.y}, ${ago(WATCH.lastTouch.at)}` : "none"}`,
       `frames: ${S.frame} · a frame ${f2(med(PERF.frames))} ms (median of the last ${PERF.frames.length}) · a tick ${f2(med(PERF.ticks))} ms · paused ${!!(P && P.paused())} · hidden ${document.hidden}`,
       `pictures: whole ${f2(wholePx / 1e6)} of ${WHOLE_BUDGET / 1e6} Mpx · strips ${f2(stripPx / 1e6)} of ${STRIP_BUDGET / 1e6} Mpx · ${spriteCache.size} pictures, ${strips.size} strips · painted ${SPRITES.painted}`,
+      (() => { const mb = px => `${Math.round(px * 4 / 1e6)} MB`, ago = t => t ? t.slice(11, 19) + " UTC" : "never";
+        const screens = [cv, ...layerCv, darkCv, mapCv, map2Cv].reduce((n, c) => n + (c ? c.width * c.height : 0), 0), fps = med(PERF.frames) ? 1000 / med(PERF.frames) : 0;
+        return `canvas memory (0.0.115): ${mb(CANVAS.px)} of pictures kept now, peak ${mb(CANVAS.peak)}, the screen's own ${mb(screens)}${CANVAS.cap < Infinity ? ` · test cap ${mb(CANVAS.cap)}` : ""} · ${IOS ? "iPad/iPhone budgets" : "full budgets"} · made ${CANVAS.made}, let go ${CANVAS.freed} · could not make ${CANVAS.fails}${CANVAS.fails ? ` (first ${ago(CANVAS.firstFail)}, last ${ago(CANVAS.lastFail)}, wanting ${(CANVAS.failPx / 1e6).toFixed(2)} Mpx)` : ""} · everything let go ${CANVAS.purges} times${CANVAS.lastPurge ? `, last ${CANVAS.lastPurge}` : ""} · ${fps.toFixed(0)} fps now${fps > 26 && fps < 34 ? " (a steady 30: Safari's Low Power Mode?)" : ""}`; })(),
+      `canvas trouble kept in this browser from any visit: ${JSON.stringify(kept("canvasTrouble", null))}`,
       `hazel: ${S.built ? `${S.built.ok ? "ready" : "NOT ready"}${S.built.compiled ? ", compiled" : ""}${S.built.threw ? ", threw: " + S.built.threw : ""}` : "not built"} · ${S.lib || "?"}`,
       WATCH.errors.length ? "errors: " + WATCH.errors.map(e => `${e.msg}${e.where ? " @ " + e.where : ""} ×${e.n} (first ${ago(e.first)}, last ${ago(e.last)})`).join(" | ") : "errors: none",
     ];
@@ -4276,7 +4328,8 @@
   });
   if (Q.has("test")) window.WorldTest = { gemFound, gem, spriteCache, SPRITES, birdBody, BIRD, bushSprite, drawSprite, strips, drawRabbit, gnomeProfile, RABBIT_FUR, cellWords, digSteps, ITEM, mat, wat, at, WH, WW, BOT, botPlan, dist, botEnter, botStand, botClimb, profile: gnomeProfile, front: gnome, map: () => { minimap(); return map2Cv; }, look: (x, y) => { S.camFix = x == null ? null : { x, y }; draw(); }, paintHouse, paintSmallHouse, squirrelBody, drawVillager, drawVillagerProfile, drawBusy, S, tick: n => { const h = H(); for (let i = 0; i < n; i++) tick(h); draw(); }, draw, near, code, at, mat, wat, fix, bg, stone, shape, surf0, treeMask, digOut, tile: () => T, drawPebbles, PERF, timedDraw: () => timedDraw(), lineCtx, lineScene, paintTall, leafyTree, drawLodge };
   if (Q.has("test")) Object.assign(window.WorldTest, { listen, voiceOf, spoken, hushTalk });
-  if (Q.has("test")) Object.assign(window.WorldTest, { PAD, padPoll, padTaught, PAD_USUAL, mountToggle, itemsShow, itemsOpen, itemsChoose, nextRide });   // (0.0.112: the 🎮 controller, driven by hand where frames do not come)
+  if (Q.has("test")) Object.assign(window.WorldTest, { PAD, padPoll, padTaught, PAD_USUAL, mountToggle, itemsShow, itemsOpen, itemsChoose, nextRide });
+  if (Q.has("test")) Object.assign(window.WorldTest, { CANVAS, newCanvas, dropCanvas, purgePictures, WATCH, bugReport, IOS });   // (0.0.115: the canvases kept, ^ticket(852))   // (0.0.112: the 🎮 controller, driven by hand where frames do not come)
   if (Q.has("test")) Object.assign(window.WorldTest, { snapshot, saveText, readSave, loadText, restartNow: () => restartNow(H()), askRestart, stopBot, digest, bot: on => { if (on !== BOT.on) $("run").click(); return BOT.on; }, carpetToggle, carpetHits, carpetTop, flyJS });
   document.body.classList.add("js");
   // (0.0.108) a screen that can be touched, whatever else points at it (an iPad with its trackpad on): full screen keeps the pad (world.css)

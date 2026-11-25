@@ -11,6 +11,10 @@
 //   5. a second page, a new world (another seed) and the boy chosen there, the same file loaded: every part the same again,
 //      the girl back, where she was.
 // The wildlife, the villagers' strolls and passing dust and smoke are not in a save (they start afresh), so not in the digest.
+// (0.0.115; ^ticket(852), the iPad's foreground vanishing in Safari, past its cap on canvas memory) Page 1 keeps its pictures
+// as an iPad would (?ios=1: the smaller caches) at the largest tile (56 px, as full screen on an iPad): after the tour, its
+// canvases at their peak must stay within the page's own limit for an iPad (256 MB, well under Safari's 384 MB with the
+// screen's own), and no canvas may have failed, nor every picture been let go.
 //   node node/world-save-check.mjs [base url] [out dir]     (the site served at the base url: python3 -m http.server)
 import fs from "node:fs";
 import path from "node:path";
@@ -36,12 +40,12 @@ const fail = [];
 try {
   C = await chrome();
   // ---- 1. the tour
-  const A = await C.open(BASE + "world/?test=1", "page 1");
+  const A = await C.open(BASE + "world/?test=1&ios=1", "page 1");
   await A.until(READY, "the rules built and the world made");
   const lib = await A.eval("({ compiled: !!WorldTest.S.built.compiled, ms: Math.round(WorldTest.S.built.ms), seed: WorldTest.S.seed })");
   log(`page 1: the world made (seed ${lib.seed}); the rules ${lib.compiled ? "compiled by hazel-jit" : "interpreted"}, built in ${lib.ms} ms`);
   await A.eval(`(() => { const T = WorldTest; T.S.asking = true; document.querySelector('#heroes button[data-hero="girl"]').click();
-    T.restartNow(); T.S.asking = true; T.S.hearts = 3; let d = 0; for (let i = 0; i < T.bg.length; i++) if (T.bg[i] === 1) d++; window.__dug0 = d; window.__fresh = T.digest(); T.bot(true); return true; })()`);
+    T.restartNow(); T.S.asking = true; T.S.tileFix = 56; T.S.hearts = 3; let d = 0; for (let i = 0; i < T.bg.length; i++) if (T.bg[i] === 1) d++; window.__dug0 = d; window.__fresh = T.digest(); T.bot(true); return true; })()`);
   let P = null, steps = 0, skipTrees = false; const t0 = Date.now();
   while (steps < STEPS_MAX) {
     await A.eval(`(WorldTest.S.asking = true, WorldTest.tick(${CHUNK}), true)`); steps += CHUNK;
@@ -59,6 +63,9 @@ try {
   if (!P.heartsTaken && await A.eval("(() => { const H = WorldTest.S.heartItems; if (!H.length) return false; H[0].taken = true; return true; })()"))
     log("❤️ the tour took no heart: one marked taken, as if just picked up, so that the save holds a taken one");
   await A.shot(path.join(OUT, "1-before-save.png"));
+  const CM = await A.eval("(() => { const K = WorldTest.CANVAS; return { ios: WorldTest.IOS, peakMB: Math.round(K.peak * 4 / 1e6), keptMB: Math.round(K.px * 4 / 1e6), made: K.made, freed: K.freed, fails: K.fails, purges: K.purges }; })()");
+  log(`canvas memory, as on an iPad (${CM.ios ? "its budgets" : "NOT its budgets"}): peak ${CM.peakMB} MB, kept ${CM.keptMB} MB at the end; made ${CM.made}, let go ${CM.freed}; could not make ${CM.fails}; everything let go ${CM.purges} times`);
+  if (!CM.ios || CM.peakMB > 256 || CM.fails || CM.purges) fail.push(`canvas memory as on an iPad: peak ${CM.peakMB} MB (at most 256), ${CM.fails} could not be made, everything let go ${CM.purges} times`);
   // ---- 2. read, then save
   const before = await A.eval(`(async () => { const T = WorldTest; T.stopBot(); T.S.asking = true; const d = T.digest(); window.__save = await T.saveText(T.snapshot()); return d; })()`);
   const text = await A.eval("window.__save");
@@ -93,7 +100,7 @@ try {
   if (d2.length) fail.push("page 2 load differs: " + d2.join(", "));
   await B.shot(path.join(OUT, "3-page2-after-load.png"));
   const errs = [...A.console, ...B.console]; if (errs.length) log("console:\n" + errs.join("\n"));
-  fs.writeFileSync(path.join(OUT, "result.json"), JSON.stringify({ ok: !fail.length, fail, lib, steps, tour: P, before, restarted: after.d, fresh: after.fresh, loaded, loaded2, differ1: d1, differ2: d2 }, null, 1));
+  fs.writeFileSync(path.join(OUT, "result.json"), JSON.stringify({ ok: !fail.length, fail, lib, steps, tour: P, canvas: CM, before, restarted: after.d, fresh: after.fresh, loaded, loaded2, differ1: d1, differ2: d2 }, null, 1));
 } catch (e) { fail.push(String(e && e.stack || e)); }
 log(fail.length ? "FAILED:\n  " + fail.join("\n  ") : "✓ the tour's world, saved, restarted and loaded (twice): the same");
 done(fail.length ? 1 : 0);

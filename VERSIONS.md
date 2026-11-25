@@ -2,6 +2,16 @@
 
 Each version lists what the apps do as of that version. The newest version is first.
 
+## 0.0.115 (2026-11-25)
+
+- **Gnome world on an iPad: the world no longer vanishes but for the hills** (Matthew: on the iPad, in Safari, "sometimes every foreground component (everything but the back hills) disappears. Then it sometimes reappears again, or never does"; since the world grew bigger and more detailed; not on the Linux laptop in Firefox; the iPad unplugged and under 30%). Safari caps the memory of all a page's canvases together (about 384 MB on many iPads); past it, a new canvas gets no context, and the first picture painted then threw, so the rest of the frame went undrawn, all but the sky and hills, drawn first and straight to the screen, until Safari's collector let go of enough old canvases. Measured on a computer: going about the world, the page kept 355 MB of pictures, 462 MB at the peak. Now:
+  - every picture's canvas is counted, and let go of at once when a cache drops it (made zero size, which Safari frees then and there), the fallen trees' pictures too, which were kept for good;
+  - on an iPad or iPhone the caches are smaller: the same trip about the world keeps 107 MB, 166 MB at the peak; walking costs the same (a frame 14.2 ms at the median, against 13.8);
+  - a canvas that cannot be made lets go of every picture kept and tries again, else draws nothing for that picture: the frame is drawn to the end (tried with ?canvasCap=100, imitating a cap: 1,010 canvases refused, no error, the world on the screen);
+  - ⚙️ Advanced's 🐞 says how much canvas memory is kept, its peak, the canvases refused and when, and the frame rate (a steady 30 can be Safari's Low Power Mode), and keeps any trouble in this browser for a later visit;
+  - the GitHub world save check now keeps its pictures as an iPad would, at the largest tile, through the whole tour, and fails if they ever pass 256 MB, or a canvas is refused.
+  - ?ios=1 gives a computer the iPad's budgets, ?canvasCap=MB imitates Safari's cap, for trying it.
+
 ## 0.0.114 (2026-11-25)
 
 - **Gnome world: two more power-ups, on by themselves once found** (Matthew: "more power up items, which are used by default (no need to turn them 'off')"):
