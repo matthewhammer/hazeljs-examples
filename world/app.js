@@ -35,8 +35,8 @@
   if (window.visualViewport) { const vz = () => { const z = visualViewport.scale; WATCH.zoomMin = Math.min(WATCH.zoomMin, z); WATCH.zoomMax = Math.max(WATCH.zoomMax, z); if (Math.abs(z - 1) > 0.01) WATCH.zoomAt = performance.now(); };
     visualViewport.addEventListener("resize", vz); visualViewport.addEventListener("scroll", vz); }
   const LIB_JIT = "https://build.hazel.org/hazeljs/hazel-lib.js", LIB_NPM = "https://cdn.jsdelivr.net/npm/hazeljs@0.0.4/hazel-lib.js";
-  const PROGRAM = "world", MODULES = ["World", "Fly", "Tail"];
-  const TAIL = "(plan = World.plan, ground = World.ground, village = World.village, furnish = World.furnish, limbs = World.limbs, styles = World.styles, beaver = World.beaver, water_row = World.water_row, step = World.step, roots = World.roots, threads = World.threads, greet = World.greet, dig_steps = World.dig_steps, fly = Fly.step, tail = Tail.step)";
+  const PROGRAM = "world", MODULES = ["World", "Fly", "Tail", "Ride"];
+  const TAIL = "(plan = World.plan, ground = World.ground, village = World.village, furnish = World.furnish, limbs = World.limbs, styles = World.styles, beaver = World.beaver, water_row = World.water_row, step = World.step, roots = World.roots, threads = World.threads, greet = World.greet, dig_steps = World.dig_steps, fly = Fly.step, tail = Tail.step, ride_pre = Ride.pre, ride_post = Ride.post)";
   const KEY = "hazeljs-examples/world/";
   const Q = new URLSearchParams(location.search);
   const $ = id => document.getElementById(id);
@@ -117,7 +117,7 @@
   // once (the world's plan, its villages and trees); off unless chosen; kept on this device, and in a save made with it on
   let plainView = null, plainOf = null;
   const H = () => { if (!(S.built && S.built.ok)) return null; const v = S.built.value; if (S.rules !== "plain" || !window.WorldPlain) return v;
-    if (plainOf !== v) { plainOf = v; plainView = { ...v, step: window.WorldPlain.step, beaver: window.WorldPlain.beaver, water_row: window.WorldPlain.water_row, fly: undefined, tail: undefined }; }
+    if (plainOf !== v) { plainOf = v; plainView = { ...v, step: window.WorldPlain.step, beaver: window.WorldPlain.beaver, water_row: window.WorldPlain.water_row, fly: undefined, tail: undefined, ride_pre: undefined, ride_post: undefined }; }
     return plainView; };
   function setRules(r) { S.rules = r === "plain" ? "plain" : "hazel"; keep("rules", S.rules); plainOf = null; const box = document.getElementById("rules-plain"); if (box) box.checked = S.rules === "plain"; if (typeof drawStatus === "function") drawStatus(); }
   let seedRand = 1;
@@ -2628,34 +2628,41 @@
     const row = r => t(cx - 1, r) + 512 * t(cx, r) + 262144 * t(cx + 1, r);
     return { cx, cy, r0: row(cy - 3), r1: row(cy - 2), r2: row(cy - 1), r3: row(cy), r4: row(cy + 1) };
   }
+  // (0.0.134; piece 2 of ^report(64)'s plan: her ride's two halves round World.step in Hazel, Ride.pre and Ride.post; here their
+  // twin in JavaScript, the same answers, for ⚡ and for the check in Node. Her state as a record: want, leapt, hop, leap, and her
+  // safe place as safe, sx, sy. The rules: ↑ pressed in the air kept a moment, for when she lands; a leap its whole height, up held
+  // or not; rising in a hop or a leap, World.step told up is held, so it does not cut the jump short; (0.0.118, Matthew: "clover
+  // got stuck in the ground for me": climbing out of water, she is not swimming) (0.0.124, stuck again in a pool: a safe place the
+  // water has reached is none; she wades to a ladder or the bank)
+  const rideJS = {
+    pre(g, k, c) {
+      const wet = g.swim || g.under, want = k.jump ? 40 : c.want > 0 ? c.want - 1 : 0;
+      const leap = (want > 0 || (k.up && c.leapt)) && g.ground && !g.climb && !wet, hop = !leap && g.ground && k.dx !== 0 && !k.dig && !k.down && !g.climb && !wet;
+      return { pad: { dx: k.dig ? k.dx : k.dx * 2, up: k.up || ((c.hop || c.leap) && !g.ground && g.vy < 0), down: k.down, jump: leap || hop || (k.jump && (g.climb || wet)), dig: k.dig, dash: false },
+        leap, clover: { want: leap ? 0 : want, leapt: c.leapt, hop: c.hop, leap: c.leap, safe: c.safe, sx: c.sx, sy: c.sy } };
+    },
+    post(g, k, c, leap, wet) {
+      const jumped = g.ev === 2, still = g.ground || g.climb || g.swim || g.under, safe = c.safe && !wet, back = !g.gear && (g.swim || g.under) && !g.climb && safe, face = g.face < 0 ? -1 : 1;
+      const h = back ? { x: c.sx, y: c.sy, vx: 0, vy: 0, face, ground: true, climb: false, swim: false, under: false, air: 600, gear: g.gear, tool: g.tool, kit: g.kit, dc: -1, dr: -1, dt: 0, ev: 0 }
+        : { x: g.x, y: g.y, vx: g.vx, vy: jumped ? (leap ? -360 : -165) : g.vy, face, ground: g.ground, climb: g.climb, swim: g.swim, under: g.under, air: g.air, gear: g.gear, tool: g.tool, kit: g.kit, dc: g.dc, dr: g.dr, dt: g.dc >= 0 && g.dt > 0 ? g.dt + 2 : g.dt, ev: g.ev };
+      const dry = h.ground && !h.swim && !h.under;
+      return { gnome: h, clover: { want: c.want, leapt: (jumped && leap ? true : c.leapt) && k.up, hop: (jumped ? !leap : c.hop) && !still && !back, leap: (jumped && leap ? true : c.leap) && !still && !back,
+        safe: dry || safe, sx: dry ? h.x : c.sx, sy: dry ? h.y : c.sy }, back };
+    },
+  };
   function rideStep(h) {
-    const k = S.keys, R = S.ride, g0 = S.g, dx = (k.right ? 1 : 0) - (k.left ? 1 : 0), wet = g0.swim || g0.under;
-    // (↑ pressed while she is in the air, between hops, is kept a moment, for when she lands; a leap goes its whole height, up held or not)
-    if (S.jumpQueued) R.want = 40; else if (R.want > 0) R.want--;
-    const leap = (R.want > 0 || (k.up && R.leapt)) && g0.ground && !g0.climb && !wet, hop = !leap && g0.ground && dx !== 0 && !k.dig && !k.down && !g0.climb && !wet;
-    // (rising in a hop or a leap, World.step is told up is held, so that it does not cut the jump short)
-    const pad = { dx: k.dig ? dx : dx * 2, up: k.up || ((R.hop || R.leap) && !g0.ground && g0.vy < 0), down: k.down, jump: leap || hop || (S.jumpQueued && (g0.climb || wet)), dig: !!k.dig, dash: false };
-    if (leap) R.want = 0;
+    const k = S.keys, R = S.ride, g0 = S.g, keys = { dx: (k.right ? 1 : 0) - (k.left ? 1 : 0), up: !!k.up, down: !!k.down, jump: !!S.jumpQueued, dig: !!k.dig, dash: false };
+    const c0 = { want: R.want | 0, leapt: !!R.leapt, hop: !!R.hop, leap: !!R.leap, safe: !!R.safe, sx: R.safe ? R.safe.x : 0, sy: R.safe ? R.safe.y : 0 };
+    const byHazel = !!(h && h.ride_pre) && !Q.has("jsride"), t0 = performance.now();
+    const a = byHazel ? h.ride_pre(g0, keys, c0) : rideJS.pre(g0, keys, c0);
     S.jumpQueued = false;
-    const t0 = performance.now();
-    let g = { ...h.step(g0, rideNear(g0), pad) };   // (a plain copy: a record World.step gives back keeps its fields inside, and a change made to it here would not reach the next step)
-    S.stepMs.push(performance.now() - t0); if (S.stepMs.length > 120) S.stepMs.shift();
-    if (g0.climbPack) g.climbPack = true; g.face = g.face < 0 ? -1 : 1;
-    if (g.ev === 2) { if (leap) { g.vy = -360; R.leap = true; R.leapt = true; R.hop = false; } else { g.vy = -165; R.hop = true; } }
-    if (!k.up) R.leapt = false;   // (up held: leap again at each landing)
-    if (g.ground || g.climb || g.swim || g.under) R.hop = R.leap = false;
-    if (g.dc >= 0 && g.dt > 0) g.dt += 2;   // (she digs three times as fast)
-    // (no swimming without the diving gear: back onto the bank. 0.0.118; Matthew: "clover got stuck in the ground for me", his 🐞:
-    // riding at the bottom of a hole dug five deep, its last tile with water seeped into it; there her last safe place was that
-    // tile, and climbing up out of it counts as in the water too, so every step put her back: climbing, she is not swimming)
-    // (0.0.124; Matthew, stuck again: a room dug with a pool on its clay floor, her last safe place under its water now, so that
-    // every step put her back into it, whatever was pressed: a safe place the water has reached is none; she wades, as the gnome
-    // does, to a ladder or the bank)
-    if (R.safe) { const sc = Math.floor(R.safe.x / 1000), sr = Math.floor((R.safe.y - 450) / 1000); if (inside(sc, sr) && wat[at(sc, sr)] >= 0.5) R.safe = null; }
-    if (!g.gear && (g.swim || g.under) && !g.climb && R.safe) {
-      g = { ...g, x: R.safe.x, y: R.safe.y, vx: 0, vy: 0, swim: false, under: false, ground: true, climb: false, air: 600, ev: 0, dc: -1, dr: -1, dt: 0 }; R.hop = R.leap = false;
-      if (SND) SND.splash(); S.banner = { text: "🐇 Clover won't swim without her diving kit 🤿", t: performance.now() }; }
-    if (g.ground && !g.swim && !g.under) R.safe = { x: g.x, y: g.y };
+    let g = { ...h.step(g0, rideNear(g0), a.pad) };   // (a plain copy: a record World.step gives back keeps its fields inside, and a change made to it here would not reach the next step)
+    const wet = R.safe ? (() => { const sc = Math.floor(R.safe.x / 1000), sr = Math.floor((R.safe.y - 450) / 1000); return inside(sc, sr) && wat[at(sc, sr)] >= 0.5; })() : false;
+    const b = byHazel ? h.ride_post(g, keys, a.clover, a.leap, wet) : rideJS.post(g, keys, a.clover, a.leap, wet);
+    S.stepMs.push(performance.now() - t0); if (S.stepMs.length > 120) S.stepMs.shift(); S.rideBy = byHazel ? "Hazel" : "JS";
+    g = { ...b.gnome }; if (g0.climbPack) g.climbPack = true;
+    const c = b.clover; R.want = c.want; R.leapt = c.leapt; R.hop = c.hop; R.leap = c.leap; R.safe = c.safe ? { x: c.sx, y: c.sy } : null;
+    if (b.back) { if (SND) SND.splash(); S.banner = { text: "🐇 Clover won't swim without her diving kit 🤿", t: performance.now() }; }
     S.g = g;
     if (g.ev === 1 && g.dc >= 0) digOut(g.dc, g.dr);
     else if (g.ev === 3 && SND) SND.splash();
@@ -4951,9 +4958,9 @@
   if (Q.has("test")) Object.assign(window.WorldTest, { SKYC, skyClouds, cloudArt, storminess });   // (0.0.125: the sky)
   if (Q.has("test")) Object.assign(window.WorldTest, { GEMAIM, gemAim, hasFinder, gemCompass });   // (0.0.126: the gem finder)
   if (Q.has("test")) Object.assign(window.WorldTest, { CAVE, CAVEFX, caveLife });   // (0.0.127: the caverns)
-  if (Q.has("test")) Object.assign(window.WorldTest, { botItemOrder, timeSpeedRun, TP, wakeTill, wakeAll, waterStep, setRules, H });   // (0.0.130: the speed run's order of the things; ⏱)
+  if (Q.has("test")) Object.assign(window.WorldTest, { botItemOrder, timeSpeedRun, TP, wakeTill, wakeAll, waterStep, setRules, H, rideJS, rideStep });   // (0.0.130: the speed run's order of the things; ⏱)
   // (^ticket(873): the speed run's steps alone, timed, no drawing: up to n, while the run is on and not yet at its dig)
-  if (Q.has("test")) Object.assign(window.WorldTest, { steps: n => { const h = H(); const t0 = performance.now(); let k = 0; for (; k < n && BOT.on && BOT.phase !== "dig"; k++) tick(h); return { k, ms: performance.now() - t0 }; } });   // (0.0.115: the canvases kept, ^ticket(852))   // (0.0.112: the 🎮 controller, driven by hand where frames do not come)
+  if (Q.has("test")) Object.assign(window.WorldTest, { steps: (n, any) => { const h = H(); const t0 = performance.now(); let k = 0; for (; k < n && (any || (BOT.on && BOT.phase !== "dig")); k++) tick(h); return { k, ms: performance.now() - t0 }; } });   // (any: steps with or without the speed run)   // (0.0.115: the canvases kept, ^ticket(852))   // (0.0.112: the 🎮 controller, driven by hand where frames do not come)
   if (Q.has("test")) Object.assign(window.WorldTest, { snapshot, saveText, readSave, loadText, restartNow: () => restartNow(H()), askRestart, stopBot, digest, bot: on => { if (on !== BOT.on) $("run").click(); return BOT.on; }, carpetToggle, carpetHits, carpetTop, flyJS });
   document.body.classList.add("js");
   // (0.0.108) a screen that can be touched, whatever else points at it (an iPad with its trackpad on): full screen keeps the pad (world.css)

@@ -1,0 +1,23 @@
+# Clover's ride (piece 2 of ^report(64)'s plan; Gnome world 0.0.134, the page's JavaScript of 0.0.102 to 0.0.124 moved into Hazel): the two halves round the gnome's own step, World.step, while the gnome rides her. Her state, clover: want, the steps a press of up in the air is kept, for when she lands; leapt, she leapt and up is still held, so she leaps again as she lands; hop and leap, she is in the air from one; safe, sx and sy, her last safe place (where she stood dry), if she has one. Before World.step, Ride.pre: the keys as the page holds them (dx -1, 0 or 1; up, down and dig held; jump, up pressed this step) and her state give the keys World.step is to get (across twice as fast, but not digging; up held while she rises in a hop or a leap, so it is not cut short; a jump for a leap, for a hop, or for up pressed climbing or in the water), whether this step is a leap, and her state. After it, Ride.post: World.step's gnome becomes hers: a jump taken is her leap (360 thousandths of a tile a step up) or her hop (165); landed, climbing or in the water, neither; up let go, no leaping on; she digs three times as fast; in the water without the diving gear, not climbing, she goes back to her last safe place (one the water has reached since is none: the page, which holds the water, says so in wet); standing dry, that is her safe place now. The answer says too whether she went back, for the page to splash. The page builds her window of tiles (it reads the world) and plays the sounds #
+let pre : (Gnome, Pad, (want = Int, leapt = Bool, hop = Bool, leap = Bool, safe = Bool, sx = Int, sy = Int)) -> (pad = Pad, leap = Bool, clover = (want = Int, leapt = Bool, hop = Bool, leap = Bool, safe = Bool, sx = Int, sy = Int)) = fun (g, k, c) ->
+  let wet = g.swim || g.under in
+  let want = (if k.jump then 40 else if c.want > 0 then c.want - 1 else 0) in
+  let leap = (want > 0 || (k.up && c.leapt)) && g.ground && !g.climb && !wet in
+  let hop = !leap && g.ground && k.dx != 0 && !k.dig && !k.down && !g.climb && !wet in
+  (pad = (dx = (if k.dig then k.dx else k.dx * 2), up = k.up || ((c.hop || c.leap) && !g.ground && g.vy < 0), down = k.down, jump = leap || hop || (k.jump && (g.climb || wet)), dig = k.dig, dash = false),
+   leap = leap,
+   clover = (want = (if leap then 0 else want), leapt = c.leapt, hop = c.hop, leap = c.leap, safe = c.safe, sx = c.sx, sy = c.sy));
+let post : (Gnome, Pad, (want = Int, leapt = Bool, hop = Bool, leap = Bool, safe = Bool, sx = Int, sy = Int), Bool, Bool) -> (gnome = Gnome, clover = (want = Int, leapt = Bool, hop = Bool, leap = Bool, safe = Bool, sx = Int, sy = Int), back = Bool) = fun (g, k, c, leap, wet) ->
+  let jumped = g.ev == 2 in
+  let still = g.ground || g.climb || g.swim || g.under in
+  let safe = c.safe && !wet in
+  let back = !g.gear && (g.swim || g.under) && !g.climb && safe in
+  let face = (if g.face < 0 then 0 - 1 else 1) in
+  let h = (if back then (x = c.sx, y = c.sy, vx = 0, vy = 0, face = face, ground = true, climb = false, swim = false, under = false, air = 600, gear = g.gear, tool = g.tool, kit = g.kit, dc = 0 - 1, dr = 0 - 1, dt = 0, ev = 0)
+           else (x = g.x, y = g.y, vx = g.vx, vy = (if jumped then (if leap then 0 - 360 else 0 - 165) else g.vy), face = face, ground = g.ground, climb = g.climb, swim = g.swim, under = g.under, air = g.air, gear = g.gear, tool = g.tool, kit = g.kit, dc = g.dc, dr = g.dr, dt = (if g.dc >= 0 && g.dt > 0 then g.dt + 2 else g.dt), ev = g.ev)) in
+  let dry = h.ground && !h.swim && !h.under in
+  (gnome = h,
+   clover = (want = c.want, leapt = (if jumped && leap then true else c.leapt) && k.up,
+             hop = (if jumped then !leap else c.hop) && !still && !back, leap = (if jumped && leap then true else c.leap) && !still && !back,
+             safe = dry || safe, sx = (if dry then h.x else c.sx), sy = (if dry then h.y else c.sy)),
+   back = back)

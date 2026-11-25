@@ -13,8 +13,8 @@ const BUILD_ONLY = process.argv.includes("--build-only"), NO_FLY = process.argv.
 await import(pathToFileURL(lib).href);
 const Hazel = globalThis.Hazel;
 const read = f => readFileSync(new URL("../world/rules/" + f, import.meta.url), "utf8").replace(/\s+$/, "");
-const modules = NO_FLY ? ["World"] : ["World", "Fly", "Tail"];   // (0.0.116: and the cat tail's flight, Tail.hz)
-const tail = "(plan = World.plan, step = World.step" + (NO_FLY ? "" : ", fly = Fly.step, tail = Tail.step") + ")";
+const modules = NO_FLY ? ["World"] : ["World", "Fly", "Tail", "Ride"];   // (0.0.116: and the cat tail's flight, Tail.hz; 0.0.134: Clover's ride, Ride.hz)
+const tail = "(plan = World.plan, step = World.step" + (NO_FLY ? "" : ", fly = Fly.step, tail = Tail.step, ride_pre = Ride.pre, ride_post = Ride.post") + ")";
 const spec = { preamble: read("preamble.hz"), modules: modules.map(name => ({ name, text: read(name + ".hz") })), tail };
 const t0 = performance.now();
 const built = Hazel.jitProgram(spec);
@@ -75,5 +75,28 @@ for (let i = 0; i < N; i++) {
 }
 console.log(`the cat tail: Tail.step the same as the page's tailJS at ${tSame} of ${N} made-up steps${tFirst ? "; first differs: " + JSON.stringify(tFirst) : ""} (take-offs ${seen.takeoff}, lifts ${seen.lift}, flutters ${seen.flutter}, flights run out ${seen.ended}, landed ${seen.landed}, flaps by up held ${seen.auto})`);
 result.tail = { steps: N, same: tSame, first: tFirst, seen };
+// (0.0.134) Clover's ride, piece 2 of ^report(64): Hazel's Ride.pre and Ride.post against the page's rideJS, on 20,000 made-up
+// gnomes, keys and states of hers each (on the ground or in the air, climbing or in the water, a jump just taken or not, a safe
+// place or none, wet or dry); then each one's time a call, the same inputs again, the median of seven batches
+const rsrc = app.slice(app.indexOf("  const rideJS = {"), app.indexOf("  function rideStep("));
+const rideJS = new Function(rsrc + "; return rideJS;")(), preH = built.value.ride_pre, postH = built.value.ride_post;
+const canon = x => JSON.stringify(x, (k, v) => (v && typeof v === "object" && !Array.isArray(v) ? Object.fromEntries(Object.keys(v).sort().map(q => [q, v[q]])) : v));
+const rin = []; let rSame = 0, rFirst = null; const rseen = { leap: 0, hop: 0, back: 0, safeNew: 0 };
+for (let i = 0; i < N; i++) {
+  const wet = rnd() < 0.2, gg = { ...gnome0, x: 1000 + Math.floor(rnd() * 70000), y: 1000 + Math.floor(rnd() * 50000), vx: Math.round((rnd() * 2 - 1) * 300), vy: Math.round(rnd() * 520 - 250), face: rnd() < 0.5 ? -1 : 1,
+    ground: rnd() < 0.5, climb: rnd() < 0.15, swim: wet && rnd() < 0.7, under: wet && rnd() < 0.4, gear: rnd() < 0.3, tool: Math.floor(rnd() * 3), kit: Math.floor(rnd() * 8),
+    dc: rnd() < 0.5 ? -1 : Math.floor(rnd() * 60), dr: Math.floor(rnd() * 60), dt: Math.floor(rnd() * 6), ev: [0, 0, 1, 2, 2, 3, 4, 5][Math.floor(rnd() * 8)], air: Math.floor(rnd() * 601) };
+  const kk = { dx: [-1, 0, 1][Math.floor(rnd() * 3)], up: rnd() < 0.4, down: rnd() < 0.2, jump: rnd() < 0.3, dig: rnd() < 0.2, dash: false };
+  const cc = { want: rnd() < 0.5 ? 0 : Math.floor(rnd() * 41), leapt: rnd() < 0.3, hop: rnd() < 0.3, leap: rnd() < 0.3, safe: rnd() < 0.6, sx: Math.floor(rnd() * 70000), sy: Math.floor(rnd() * 50000) };
+  const lp = rnd() < 0.4, wt = rnd() < 0.2; rin.push([gg, kk, cc, lp, wt]);
+  const a1 = preH(gg, kk, cc), a2 = rideJS.pre(gg, kk, cc), b1 = postH(gg, kk, cc, lp, wt), b2 = rideJS.post(gg, kk, cc, lp, wt);
+  if (canon(a1) === canon(a2) && canon(b1) === canon(b2)) rSame++; else if (!rFirst) rFirst = { step: i, gnome: gg, keys: kk, clover: cc, leap: lp, wet: wt, hazel: [a1, b1], js: [a2, b2] };
+  if (a2.leap) rseen.leap++; if (a2.pad.jump && !a2.leap) rseen.hop++; if (b2.back) rseen.back++; if (b2.clover.safe && !cc.safe) rseen.safeNew++;
+}
+const rtime = f => { const ts = []; for (let b = 0; b < 7; b++) { const t = performance.now(); for (const [gg, kk, cc, lp, wt] of rin) f(gg, kk, cc, lp, wt); ts.push((performance.now() - t) * 1000 / rin.length); } ts.sort((x, y) => x - y); return ts[3]; };
+const rjs = rtime((gg, kk, cc, lp, wt) => { rideJS.pre(gg, kk, cc); rideJS.post(gg, kk, cc, lp, wt); }), rhz = rtime((gg, kk, cc, lp, wt) => { preH(gg, kk, cc); postH(gg, kk, cc, lp, wt); });
+console.log(`Clover's ride: Ride.pre and Ride.post the same as the page's rideJS at ${rSame} of ${N} made-up steps${rFirst ? "; first differs: " + JSON.stringify(rFirst) : ""} (leaps ${rseen.leap}, hops ${rseen.hop}, back to a safe place ${rseen.back}, a new safe place ${rseen.safeNew})`);
+console.log(`a step of her ride (pre and post): the page's JavaScript ${rjs.toFixed(3)} µs, Hazel's through the jit ${rhz.toFixed(3)} µs (${(rhz / rjs).toFixed(1)}×); of a 16.7 ms frame, ${(rhz / 16670 * 100).toFixed(4)}%`);
+result.ride = { steps: N, same: rSame, first: rFirst, seen: rseen, jsUs: rjs, hazelUs: rhz };
 if (out) writeFileSync(out, JSON.stringify(result, null, 1));
-process.exit(same === N && tSame === N ? 0 : 1);
+process.exit(same === N && tSame === N && rSame === N ? 0 : 1);
