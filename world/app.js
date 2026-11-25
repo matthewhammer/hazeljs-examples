@@ -3753,6 +3753,122 @@
   { const b = $("run"); if (b) b.addEventListener("click", () => { BOT.on = !BOT.on; b.setAttribute("aria-pressed", String(BOT.on));
       if (BOT.on) { Object.assign(BOT, { phase: "", queue: [], cur: null, path: [], k: 0, skipped: [], frames: 0, t0: performance.now(), items: 0, parts: 0, partsAll: 0, gems: 0, gemsAll: 0, report: null }); S.banner = { text: "🏃 Speed run: every thing, every part of every big tree, every gem", t: performance.now() }; }
       else for (const k in S.keys) S.keys[k] = false; b.blur(); }); }
+  // ---- 🎮 a game controller (0.0.112; Matthew, 2026-11-25: "We have a Linux laptop that N often uses. Let's add game controller
+  // support ... for the buttons, and a configure controller feature -- see messed up dress up for the game controller configure
+  // support.") Through the browser's Gamepad API, as Dress Up does it: the controller's arrows (buttons 12 to 15 on a pad with the
+  // "standard" numbers) or its left stick (where a plain USB pad puts its arrows) are ← → ↑ ↓; each action is one of its buttons.
+  // The usual ones, on a SNES-style pad: B (bottom) jump, Y (left) dash, held, as Mario runs, A (right) dig, X (top) build, L ride
+  // Clover, R the magic carpet, select 🔊 a villager's words aloud, start pause; the map has none (M). 🎮, beside the other
+  // buttons, sets them: 🎓 teach it your controller (B, A, X, Y, L, R, select and start pressed as asked: for a pad that numbers
+  // its buttons its own way), or 🎯 set one action's button (the next one pressed). Each pad's layout is kept by its name and put
+  // back whenever it connects. Polled each frame while one is connected, never without one.
+  const PAD_ACTIONS = [["jump", "⬆️ jump (as ↑)"], ["dash", "💨 dash, held (as Shift)"], ["dig", "⛏️ dig (as X)"], ["build", "🪵 build (as B)"],
+                       ["ride", "🐇 ride Clover, on or off (as R)"], ["carpet", "🧞 the magic carpet, on or off (as C)"],
+                       ["listen", "🔊 a villager's words aloud (as L)"], ["pause", "⏸ pause, or go on (as the space bar)"], ["map", "🗺️ the map, shown or hidden (as M)"]];
+  const PAD_USUAL = { jump: 0, dash: 2, dig: 1, build: 3, ride: 4, carpet: 5, listen: 8, pause: 9, map: -1 };
+  const PAD_TEACH = [["B", "B, the bottom button"], ["A", "A, the right one"], ["X", "X, the top one"], ["Y", "Y, the left one"],
+                     ["L", "L, the left shoulder"], ["R", "R, the right shoulder"], ["select", "select"], ["start", "start"]];
+  const PAD_FROM_TEACH = { jump: "B", dig: "A", build: "X", dash: "Y", ride: "L", carpet: "R", listen: "select", pause: "start" };
+  const PAD_PLACES = ["bottom", "right", "left", "top", "left shoulder", "right shoulder", "left trigger", "right trigger", "select", "start", "left stick", "right stick", "up", "down", "left", "right", "home"];
+  const PAD = { id: "", name: "", mapping: "", down: new Set(), held: {}, learn: null, teach: null, loop: 0, buttons: { ...PAD_USUAL }, ui: null };
+  const padButtonName = i => !(i >= 0) ? "—" : PAD.mapping === "standard" && PAD_PLACES[i] ? `${PAD_PLACES[i]} (button ${i})` : `button ${i}`;
+  const padLayouts = () => { const all = kept("pads", {}); return all && typeof all === "object" ? all : {}; };
+  function padKeepLayout() { if (!PAD.id) return; const all = padLayouts(); all[PAD.id] = { ...PAD.buttons }; keep("pads", all); }
+  function padUse(id) { const k = padLayouts()[id]; PAD.buttons = { ...PAD_USUAL, ...(k && typeof k === "object" ? k : {}) }; PAD.id = id; }
+  function padTaught() {
+    const G = PAD.teach.got, at = k => (Number.isInteger(G[k]) ? G[k] : -1);
+    for (const [a, k] of Object.entries(PAD_FROM_TEACH)) PAD.buttons[a] = at(k);
+    if (PAD.buttons.map >= 0 && PAD_ACTIONS.some(([a]) => a !== "map" && PAD.buttons[a] === PAD.buttons.map)) PAD.buttons.map = -1;
+    PAD.teach = { done: true, line: `${PAD.name} (${PAD.mapping === "standard" ? "standard numbers" : "its own numbers"}): ` + PAD_TEACH.map(([k]) => `${k}=${at(k)}`).join(", ") };
+    padKeepLayout();
+  }
+  function padLetGo() { for (const k in PAD.held) if (PAD.held[k]) S.keys[k] = false; PAD.held = {}; }
+  const padOpen = () => !!(PAD.ui && PAD.ui.dlg.open);
+  const pauser = () => { try { return P; } catch (e) { return null; } };   // (the pause is made further down; a poll may come first)
+  function padPoll() {
+    PAD.loop = 0;
+    const g = [...(navigator.getGamepads ? navigator.getGamepads() : [])].find(Boolean);
+    if (!g) { padLetGo(); PAD.name = ""; PAD.mapping = ""; PAD.down = new Set(); PAD.learn = null; padSync(); return; }
+    const other = (g.id || "") !== PAD.id || !PAD.name;
+    if (other) { padLetGo(); padUse(g.id || ""); }
+    PAD.name = (g.id || "").replace(/\s*\(.*$/, "").trim() || "a game controller"; PAD.mapping = g.mapping || "";
+    if (other) padSync();
+    const now = new Set(); g.buttons.forEach((b, i) => { if (b && b.pressed) now.add(i); });
+    const std = PAD.mapping === "standard", arrows = std ? [12, 13, 14, 15] : [];
+    const fresh = [...now].filter(i => !PAD.down.has(i) && !arrows.includes(i));
+    const lit = now.size !== PAD.down.size || fresh.length > 0;
+    PAD.down = now;
+    const PZ = pauser();
+    if (PAD.learn && fresh.length) {   // 🎯: the next button pressed is this action's, and no other's
+      for (const [a] of PAD_ACTIONS) if (PAD.buttons[a] === fresh[0]) PAD.buttons[a] = -1;
+      PAD.buttons[PAD.learn] = fresh[0]; PAD.learn = null; padKeepLayout(); padSync();
+    } else if (PAD.teach && !PAD.teach.done && fresh.length) {   // 🎓: each button pressed is the next one asked for
+      PAD.teach.got[PAD_TEACH[PAD.teach.step][0]] = fresh[0]; if (++PAD.teach.step >= PAD_TEACH.length) padTaught(); padSync();
+    } else if (padOpen() || S.asking || BOT.on) { padLetGo(); if (lit) padSync(); }
+    else {
+      const btn = a => (PAD.buttons[a] >= 0 ? PAD.buttons[a] : -2), hit = a => fresh.includes(btn(a));
+      if (PZ && PZ.paused()) { padLetGo(); if (hit("pause")) PZ.set(false); }
+      else {
+        const stick = v => (Math.abs(v || 0) > 0.5 ? Math.sign(v) : 0), sx = stick(g.axes[0]), sy = stick(g.axes[1]);
+        const want = { left: (std && now.has(14)) || sx < 0, right: (std && now.has(15)) || sx > 0, up: (std && now.has(12)) || sy < 0 || now.has(btn("jump")),
+                       down: (std && now.has(13)) || sy > 0, dig: now.has(btn("dig")), dash: now.has(btn("dash")) };
+        for (const k in want) if (want[k] !== !!PAD.held[k]) { PAD.held[k] = want[k]; if (want[k] && k === "up" && !S.keys.up) S.jumpQueued = true; S.keys[k] = want[k]; }
+        if (hit("build")) buildHere();
+        if (hit("ride")) rideToggle();
+        if (hit("carpet")) carpetToggle();
+        if (hit("listen")) listen();
+        if (hit("map")) toggleMap();
+        if (hit("pause") && PZ) { padLetGo(); PZ.set(true); }
+      }
+    }
+    PAD.loop = requestAnimationFrame(padPoll);
+  }
+  const padStart = () => { if (!PAD.loop) PAD.loop = requestAnimationFrame(padPoll); };
+  addEventListener("gamepadconnected", padStart);
+  addEventListener("gamepaddisconnected", padStart);
+  if (navigator.getGamepads && [...navigator.getGamepads()].some(Boolean)) padStart();
+  // the 🎮 dialog: whether a controller is there, 🎓 teach, and each action with its button (lit while held) and 🎯 set
+  function padDialog() {
+    const mk = (tag, attrs, kids) => { const e = document.createElement(tag); for (const [k, v] of Object.entries(attrs || {})) if (k === "on") e.addEventListener("click", v); else e.setAttribute(k, v);
+      for (const c of [].concat(kids || [])) e.append(c); return e; };
+    const dlg = mk("dialog", { class: "gw-ask gw-pad-ask", "aria-labelledby": "pad-q" });
+    const status = mk("p", { class: "gw-pad-status" });
+    const how = mk("p", { class: "muted" }, "Its arrows, or its stick, run, jump and climb as the arrow keys do. To change a button: 🎯 set, then press the button you want.");
+    const teach = mk("button", { type: "button", on: () => { PAD.learn = null; PAD.teach = { step: 0, got: {} }; padSync(); } }, "🎓 teach me your controller");
+    const askText = mk("span", { class: "gw-pad-asking" });
+    const skip = mk("button", { type: "button", on: () => { if (PAD.teach && !PAD.teach.done) { if (++PAD.teach.step >= PAD_TEACH.length) padTaught(); padSync(); } } }, "skip: it has none");
+    const stop = mk("button", { type: "button", on: () => { PAD.teach = null; padSync(); } }, "stop");
+    const ask = mk("p", { class: "gw-pad-teach" }, [askText, skip, stop]);
+    const line = mk("input", { type: "text", readonly: "", class: "gw-pad-line" }); line.addEventListener("focus", () => line.select());
+    const copy = mk("button", { type: "button", on: () => { line.select(); try { navigator.clipboard.writeText(line.value).then(() => { copy.textContent = "📋 copied"; }, () => document.execCommand("copy")); } catch (e) { document.execCommand("copy"); } } }, "📋 copy");
+    const done = mk("p", { class: "gw-pad-teach" }, [line, copy]);
+    const rows = PAD_ACTIONS.map(([a, name]) => { const which = mk("span", { class: "gw-pad-which" }), set = mk("button", { type: "button", on: () => { PAD.teach = null; PAD.learn = PAD.learn === a ? null : a; padSync(); } }, "🎯 set");
+      return [a, which, set, mk("div", { class: "gw-pad-row" }, [mk("span", {}, name), which, set])]; });
+    const heldNow = mk("p", { class: "muted gw-pad-held" });
+    const usual = mk("button", { type: "button", on: () => { PAD.learn = null; PAD.teach = null; PAD.buttons = { ...PAD_USUAL }; padKeepLayout(); padSync(); } }, "↺ the usual buttons");
+    const after = () => { PAD.learn = null; if (PAD.teach && !PAD.teach.done) PAD.teach = null; S.asking = false; };   // (Done, Escape, or the close event: each, as one may not come)
+    const close = mk("button", { type: "button", class: "gw-ask-yes", on: () => { dlg.close(); after(); } }, "Done");
+    dlg.append(mk("p", { id: "pad-q", class: "gw-ask-q" }, "🎮 Game controller"), status, how, teach, ask, done, mk("div", { class: "gw-pad-rows" }, rows.map(r => r[3])), heldNow,
+               mk("div", { class: "gw-ask-buttons" }, [usual, close]));
+    dlg.addEventListener("keydown", e => e.stopPropagation());   // (its keys are its own: not the gnome's, nor the pause's)
+    dlg.addEventListener("cancel", after); dlg.addEventListener("close", after);
+    document.body.append(dlg);
+    PAD.ui = { dlg, sync() {
+      status.textContent = PAD.name ? `🎮 ${PAD.name}: ready${PAD.mapping === "standard" ? "." : ". Its buttons are numbered its own way: 🎓 teach it, or 🎯 set the ones not where you want them."}`
+                                    : "🎮 No game controller yet: plug one in (USB) or pair it, then press one of its buttons.";
+      const teaching = !!PAD.teach && !PAD.teach.done;
+      teach.hidden = !PAD.name || teaching; ask.hidden = !teaching; done.hidden = !(PAD.teach && PAD.teach.done);
+      if (teaching) askText.textContent = `🎓 ${PAD.teach.step + 1} of ${PAD_TEACH.length}: press ${PAD_TEACH[PAD.teach.step][1]} `;
+      if (PAD.teach && PAD.teach.done) line.value = PAD.teach.line;
+      for (const [a, which, set, row] of rows) { const i = PAD.buttons[a];
+        which.textContent = PAD.learn === a ? "press a button…" : padButtonName(i); set.setAttribute("aria-pressed", String(PAD.learn === a)); set.disabled = !PAD.name;
+        row.classList.toggle("down", i >= 0 && PAD.down.has(i)); }
+      heldNow.textContent = PAD.name ? "held now: " + ([...PAD.down].map(padButtonName).join(", ") || "nothing") : "";
+    } };
+  }
+  function padSync() { if (padOpen()) PAD.ui.sync(); }
+  { const b = $("pad"); if (b) b.addEventListener("click", () => { if (!PAD.ui) padDialog(); for (const k in S.keys) S.keys[k] = false; padLetGo();
+      S.asking = true; PAD.ui.dlg.showModal(); PAD.ui.sync(); padStart(); b.blur(); }); }
   function toggleMap() { S.map = !S.map; keep("map", S.map); $("map").setAttribute("aria-pressed", String(S.map)); }
   $("map").setAttribute("aria-pressed", String(S.map));
   $("map").addEventListener("click", () => { toggleMap(); $("map").blur(); });
@@ -4003,6 +4119,7 @@
       `canvas: on the page ${r(cr.width)}×${r(cr.height)} at ${r(cr.left)},${r(cr.top)} · pixels ${cv.width}×${cv.height} · a tile ${f2(T)} px (cap ${TCAP}${S.tileFix ? ", fixed at " + S.tileFix : ""}) · view ${f2(VW)}×${f2(VH)} tiles${S.camFix ? " · camera FIXED at " + JSON.stringify(S.camFix) : ""}`,
       `camera: ${f2(S.cam.x)},${f2(S.cam.y)} (set ${!!S.cam.set}) · world ${WW}×${WH} tiles · the gnome at ${f2((g.x || 0) / 1000)},${f2((g.y || 0) / 1000)} moving ${r(g.vx || 0)},${r(g.vy || 0)} · ${["ground", "swim", "under", "climb"].filter(k => g[k]).join(", ") || "in the air"}${S.ride && S.ride.on ? " · riding Clover" : ""}${BOT.on ? " · speed run on" : ""}`,
       `keys held: ${held.join(", ") || "none"} · pad buttons held: ${pads.join(", ") || "none"} · map ${S.map ? "on" : "off"}`,
+      `game controller: ${PAD.name ? `${PAD.id} · ${PAD.mapping || "its own numbers"} · held ${[...PAD.down].join(", ") || "none"}` : "none"} · its buttons ${PAD_ACTIONS.map(([a]) => `${a} ${PAD.buttons[a]}`).join(", ")}`,
       `touches: at most ${WATCH.touchMax} at once · ${WATCH.multi} starts with two or more · pinch gestures ${WATCH.gestures} (stopped ${WATCH.gesturesBlocked}) · pointers ${JSON.stringify(WATCH.pointers)} · the last touch ${WATCH.lastTouch ? `${WATCH.lastTouch.n} at ${WATCH.lastTouch.x},${WATCH.lastTouch.y}, ${ago(WATCH.lastTouch.at)}` : "none"}`,
       `frames: ${S.frame} · a frame ${f2(med(PERF.frames))} ms (median of the last ${PERF.frames.length}) · a tick ${f2(med(PERF.ticks))} ms · paused ${!!(P && P.paused())} · hidden ${document.hidden}`,
       `pictures: whole ${f2(wholePx / 1e6)} of ${WHOLE_BUDGET / 1e6} Mpx · strips ${f2(stripPx / 1e6)} of ${STRIP_BUDGET / 1e6} Mpx · ${spriteCache.size} pictures, ${strips.size} strips · painted ${SPRITES.painted}`,
@@ -4036,6 +4153,7 @@
   });
   if (Q.has("test")) window.WorldTest = { gemFound, gem, spriteCache, SPRITES, birdBody, BIRD, bushSprite, drawSprite, strips, drawRabbit, gnomeProfile, RABBIT_FUR, cellWords, digSteps, ITEM, mat, wat, at, WH, WW, BOT, botPlan, dist, botEnter, botStand, botClimb, profile: gnomeProfile, front: gnome, map: () => { minimap(); return map2Cv; }, look: (x, y) => { S.camFix = x == null ? null : { x, y }; draw(); }, paintHouse, paintSmallHouse, squirrelBody, drawVillager, drawVillagerProfile, drawBusy, S, tick: n => { const h = H(); for (let i = 0; i < n; i++) tick(h); draw(); }, draw, near, code, at, mat, wat, fix, bg, stone, shape, surf0, treeMask, digOut, tile: () => T, drawPebbles, PERF, timedDraw: () => timedDraw(), lineCtx, lineScene, paintTall, leafyTree, drawLodge };
   if (Q.has("test")) Object.assign(window.WorldTest, { listen, voiceOf, spoken, hushTalk });
+  if (Q.has("test")) Object.assign(window.WorldTest, { PAD, padPoll, padTaught, PAD_USUAL });   // (0.0.112: the 🎮 controller, driven by hand where frames do not come)
   if (Q.has("test")) Object.assign(window.WorldTest, { snapshot, saveText, readSave, loadText, restartNow: () => restartNow(H()), askRestart, stopBot, digest, bot: on => { if (on !== BOT.on) $("run").click(); return BOT.on; }, carpetToggle, carpetHits, carpetTop, flyJS });
   document.body.classList.add("js");
   // (0.0.108) a screen that can be touched, whatever else points at it (an iPad with its trackpad on): full screen keeps the pad (world.css)
