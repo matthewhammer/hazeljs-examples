@@ -1,10 +1,10 @@
-# (ticket 853, 2026-11-25; Matthew: "let's work on turning tail calls into loops next. followed by passing function arguments as
-# JS arguments") hazel-jit's output with a recursive function's self tail calls as loops and a named function's tuple parts as
-# JS arguments, against hazel-jit as on #2859: each game's own run of states (node/package-bench.mjs --runs) through the jit of
-# hazeljs 0.0.13 (hazelgrove/hazel 20febee548, the base), then of the same package with the library of hazelgrove/hazel's
-# trial/853-pkg (6d041e9769: hazeljs with trial/853-jit-loops-args merged), then the base again, on one runner, the games' own
-# compiled.js as the ahead-of-time reference (--aot-as-is; the same file every way, a check on the runner's noise), the
-# interpreter left out. Runs on a push to a bench/ branch, so main and the site are untouched.
+# (ticket 853, 2026-11-25; Matthew, on ^report(65) #left: "constructions without arguments... guarded access of modules
+# == vs === measure cost of exact Ints and step counts, individually") each game's own run of states (node/package-bench.mjs
+# --runs) through the jit of six builds of hazeljs 0.0.13's package, one after another on one runner: the base (loops and JS
+# arguments, trial/853-pkg 6d041e9769), then each change on top in turn (constructors without arguments made once, c1; a
+# module's members by name, c2; == against a literal as ===, c3), then two bench builds on top of c3 that measure what
+# Hazel's meaning costs: Ints as plain JS numbers (noint), and no step counted (nostep). The games' own compiled.js is the
+# same file every way, a check on the runner's noise. Runs on a push to a bench/ branch.
 name: package bench
 on:
   push:
@@ -13,27 +13,27 @@ on:
 jobs:
   bench:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
         game: [checkers, go, minesweeper, mahjong, solitaire, mahjong-solitaire, pinball, downhill, bricks, snake, trails, starwave, bugs, dig]
     steps:
       - uses: actions/checkout@v4
-      # hazeljs 0.0.13: hazelgrove/hazeljs's editor-in-package at the commit that made it (hazel-lib.js from 20febee548)
       - uses: actions/checkout@v4
         with:
           repository: hazelgrove/hazeljs
           ref: 3a4a1cdb2dc1f01135d9f0bc304eb19c4693658c
           path: pkg-0
-      - name: The same package with the trial's library (loops and JS arguments)
+      - name: The six builds' libraries
         run: |
-          cp -r pkg-0 pkg-1
-          curl -sfL -A "Mozilla/5.0" https://build.hazel.org/trial/853-pkg/hazel-lib.js -o pkg-1/hazel-lib.js
-          grep -o 'build:"[0-9a-f]*"' pkg-0/hazel-lib.js | head -1
-          grep -o 'build:"[0-9a-f]*"' pkg-1/hazel-lib.js | head -1
-          grep -q 'build:"20febee548' pkg-0/hazel-lib.js
-          grep -q 'build:"6d041e9769' pkg-1/hazel-lib.js
+          get() { cp -r pkg-0 pkg-$1; curl -sfL -A "Mozilla/5.0" https://build.hazel.org/trial/$2/hazel-lib.js -o pkg-$1/hazel-lib.js; grep -o 'build:"[0-9a-f]*"' pkg-$1/hazel-lib.js | head -1; grep -q "build:\"$3" pkg-$1/hazel-lib.js; }
+          get base 853-pkg 6d041e9769
+          get c1 853-pkg-c1 a14e698ec8
+          get c2 853-pkg-c2 bc9d98db6b
+          get c3 853-pkg-c3 f111bb00ac
+          get noint 853-pkg-noint b471f761fb
+          get nostep 853-pkg-nostep ae9611d03f
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -41,15 +41,15 @@ jobs:
         run: |
           mkdir -p bench
           { nproc; grep -m1 'model name' /proc/cpuinfo; node --version; } | tee bench/${{ matrix.game }}-machine.txt
-      - name: The base, the trial, the base again, on this runner
+      - name: The six builds, one after another, on this runner
         run: |
           ulimit -s unlimited || ulimit -s 65536
           set -o pipefail
-          node --stack-size=30000 --max-old-space-size=6000 node/package-bench.mjs ${{ matrix.game }} pkg-0 bench/${{ matrix.game }}-base.json --runs --aot-as-is --no-interp | tee bench/${{ matrix.game }}-base.txt
-          node --stack-size=30000 --max-old-space-size=6000 node/package-bench.mjs ${{ matrix.game }} pkg-1 bench/${{ matrix.game }}-trial.json --runs --aot-as-is --no-interp | tee bench/${{ matrix.game }}-trial.txt
-          node --stack-size=30000 --max-old-space-size=6000 node/package-bench.mjs ${{ matrix.game }} pkg-0 bench/${{ matrix.game }}-base2.json --runs --aot-as-is --no-interp | tee bench/${{ matrix.game }}-base2.txt
+          for w in base c1 c2 c3 noint nostep; do
+            node --stack-size=30000 --max-old-space-size=6000 node/package-bench.mjs ${{ matrix.game }} pkg-$w bench/${{ matrix.game }}-$w.json --runs --aot-as-is --no-interp | tee bench/${{ matrix.game }}-$w.txt
+          done
       - uses: actions/upload-artifact@v4
         if: ${{ always() }}
         with:
-          name: b853-${{ matrix.game }}
+          name: b853m-${{ matrix.game }}
           path: bench/
