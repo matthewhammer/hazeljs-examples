@@ -547,7 +547,7 @@
     carpet: { icon: "🧞", label: "🧞 magic carpet", what: "🧞 the magic carpet", banner: "🧞 The magic carpet! Press R (or 🧞) to fly it: the arrows steer, and let go, it floats. 🎒 (I) chooses it or Clover" },
     // (0.0.114; Matthew: "more power up items, which are used by default (no need to turn them 'off')")
     flippers: { icon: "🏊", label: "🏊 swim flippers", what: "🏊 the swim flippers", banner: "🏊 The swim flippers: swim three times as fast, across, up and down (on by themselves in the water)" },
-    tail: { icon: "🐈", label: "🐈 cat tail", what: "🐈 the cat tail", banner: "🐈 The cat tail! R puts it on: dash (💨) to full speed, jump, and keep pressing jump to fly" },
+    tail: { icon: "🐈", label: "🐈 cat tail", what: "🐈 the cat tail", banner: "🐈 The cat tail! Hold ↑ and press R to put it on: jump, and keep pressing jump in the air to fly up" },
     climber: { icon: "🪝", label: "🪝 super climbing gear", what: "🪝 the super climbing gear", banner: "🪝 The super climbing gear: climb three times as fast, trees, ladders, stairs and tunnels" },
     shoes: { icon: "👟", label: "👟 running shoes", what: "👟 the running shoes", banner: "👟 The running shoes: hold 💨 (or Shift) to dash, up to full speed in a flash" },
   };
@@ -2566,18 +2566,18 @@
   function tailJS(g, p, t) {
     const wet = g.climb || g.swim || g.under, full = t.meter >= 50, takeoff = p.jump && g.ground && full && !wet, speed = Math.abs(g.vx);
     const meter0 = g.ground ? (speed >= 270 ? Math.min(t.meter + 1, 50) : Math.max(t.meter - 3, 0)) : t.meter;
-    const air = !g.ground && !wet, fly0 = takeoff ? 240 : g.ground || wet ? 0 : Math.max(t.fly - 1, 0), ended = t.fly === 1 && fly0 === 0;
+    const air = !g.ground && !wet, flap = air && p.jump, fly0 = takeoff || flap ? 240 : g.ground || wet ? 0 : Math.max(t.fly - 1, 0), ended = t.fly === 1 && fly0 === 0;
     const meter = ended || (t.fly > 0 && g.ground) ? 0 : meter0;
-    const lift0 = air && p.jump && fly0 > 0 ? 18 : air && fly0 > 0 ? t.lift : 0, flut0 = air && p.jump && fly0 === 0 ? 16 : air && fly0 === 0 ? t.flut : 0;
+    const lift0 = flap ? 18 : air ? t.lift : 0, flut0 = flap ? 36 : air ? t.flut : 0;   // (0.0.120: every press of jump in the air a flap, as Tail.hz)
     const flying = air && fly0 > 0, lifting = lift0 > 0, fluttering = !lifting && flut0 > 0 && g.vy > 30;
-    return { gnome: { x: g.x, y: g.y, vx: g.vx, vy: lifting ? -81 : fluttering ? 19 : g.vy, face: g.face, ground: g.ground, climb: g.climb, swim: g.swim, under: g.under, air: g.air, gear: g.gear, tool: g.tool, kit: g.kit, dc: g.dc, dr: g.dr, dt: g.dt, ev: g.ev },
-             pad: { dx: p.dx, up: p.up && !flying, down: p.down && !flying, jump: p.jump, dig: p.dig, dash: p.dash }, tail: { meter, fly: fly0, lift: Math.max(lift0 - 1, 0), flut: Math.max(flut0 - 1, 0) } };
+    return { gnome: { x: g.x, y: g.y, vx: g.vx, vy: lifting ? (g.vy < -81 ? g.vy : -81) : fluttering ? 19 : g.vy, face: g.face, ground: g.ground, climb: g.climb, swim: g.swim, under: g.under, air: g.air, gear: g.gear, tool: g.tool, kit: g.kit, dc: g.dc, dr: g.dr, dt: g.dt, ev: g.ev },
+             pad: { dx: p.dx, up: p.up && (!flying || g.vy < -81), down: p.down && !flying, jump: p.jump, dig: p.dig, dash: p.dash }, tail: { meter, fly: fly0, lift: Math.max(lift0 - 1, 0), flut: Math.max(flut0 - 1, 0) } };
   }
   function tailToggle() {
     const T = S.tail, g = S.g; if (!T || !T.have || !g || S.faintAt || BOT.on) return;
     const say = text => { S.banner = { text, t: performance.now() }; };
     if (T.on) { Object.assign(T, { on: false, meter: 0, fly: 0, lift: 0, flut: 0 }); say("🐈 The cat tail, off: tucked away in your pack"); return; }
-    Object.assign(T, { on: true, meter: 0, fly: 0, lift: 0, flut: 0 }); say("🐈 The cat tail! Dash (💨) to full speed, jump, then keep pressing jump to fly (R to take it off)");
+    Object.assign(T, { on: true, meter: 0, fly: 0, lift: 0, flut: 0 }); say("🐈 The cat tail! Jump, and keep pressing jump in the air to fly up (R to take it off)");
   }
   // (Clover not yet won over, near, with a carrot in hand: R gives it to her, whatever is chosen, as 🎒 cannot choose her till then)
   const nextRide = () => { const M = S.mount, ok = { clover: nearClover() && !!M && (M.tame || S.carrots > 0), carpet: !!(S.carpet && S.carpet.have), tail: !!(S.tail && S.tail.have) };
@@ -2588,12 +2588,13 @@
   // wants to use a button combo: dpad Left + ride/on/off button = get on rabbit (get off carpet, off tail); dpad Right +
   // ride/on/off button = get on carpet (get off rabbit, off tail); dpad Down + ride/on/off button = use tail, and get off
   // carpet/rabit") The ride button (R, the 🐇/🧞/🐈 on the pad, L on a controller) with a way held, the arrows of the keyboard,
-  // the pad or the controller: ◀ Clover, ▶ the carpet, ▼ the cat tail: off whatever else you are on, then on that one (the same
-  // again: off it). Alone: off what you are on, or else on the one used last (or whichever you can)
+  // the pad or the controller: ◀ Clover, ▶ the carpet, ▲ the cat tail: off whatever else you are on, then on that one (the same
+  // again: off it). Alone: off what you are on, or else on the one used last (or whichever you can). (0.0.120; Matthew: "the cat
+  // tail should be item/on/off + dpad UP. dpad down is always dig, on the ground, and it overrides our intent": ▲, was ▼)
   const rideHave = which => (which === "carpet" ? !!(S.carpet && S.carpet.have) : which === "tail" ? !!(S.tail && S.tail.have) : !!(S.mount && S.mount.tame));
   const rideOn = () => (S.ride && S.ride.on ? "clover" : S.carpet && S.carpet.on ? "carpet" : S.tail && S.tail.on ? "tail" : null);
   const RIDE_TOGGLE = { clover: () => rideToggle(), carpet: () => carpetToggle(), tail: () => tailToggle() };
-  const rideWanted = () => { const k = S.keys; return k.left && !k.right ? "clover" : k.right && !k.left ? "carpet" : k.down ? "tail" : null; };
+  const rideWanted = () => { const k = S.keys; return k.left && !k.right ? "clover" : k.right && !k.left ? "carpet" : k.up && !k.down ? "tail" : null; };
   function rideOnto(which) {
     const say = text => { S.banner = { text, t: performance.now() }; };
     if (which === "carpet" && !rideHave("carpet")) { say("🧞 No magic carpet yet: it lies in the farthest room of the hamlet, far right, underground"); return; }
@@ -2604,10 +2605,10 @@
   }
   // (Matthew: "when the user is not riding anything, but presses the 'ride' button, it's okay to pop up a screen, but it should
   // work") The ride button alone, on nothing, with two or three rides at hand: a screen to choose, laid out as the combos are, ◀
-  // Clover, ▶ the carpet, ▼ the cat tail; a tap on one (begun on it: not the tap that opened the screen, which the 0.0.113 screen
+  // Clover, ▶ the carpet, ▲ the cat tail; a tap on one (begun on it: not the tap that opened the screen, which the 0.0.113 screen
   // took as a choice), or that way on the keyboard or a controller, gets on it at once; the ride button again, B, start or
   // Escape shuts it. With one at hand, the button gets on it; with none, says why
-  const RIDES = { clover: ["🐇", "Clover", "◀"], carpet: ["🧞", "the magic carpet", "▶"], tail: ["🐈", "the cat tail", "▼"] };
+  const RIDES = { clover: ["🐇", "Clover", "◀"], carpet: ["🧞", "the magic carpet", "▶"], tail: ["🐈", "the cat tail", "▲"] };
   const ridesCan = () => { const M = S.mount; return { clover: nearClover() && !!M && (M.tame || S.carrots > 0), carpet: rideHave("carpet"), tail: rideHave("tail") }; };
   const RIDEPOP = { dlg: null, at: 0, down: null, btns: {} };
   const ridePopOpen = () => !!(RIDEPOP.dlg && RIDEPOP.dlg.open);
@@ -2630,9 +2631,9 @@
         const note = el("span", "gw-rides-note"), b = el("button", "gw-rides-pick gw-rides-" + id, [el("span", "gw-rides-icon", icon), el("span", "gw-rides-name", name), el("span", "gw-rides-way", way), note]);
         b.type = "button"; tap(b, () => ridePick(id)); grid.append(b); RIDEPOP.btns[id] = { b, note }; }
       const none = el("button", "gw-rides-none", "✕ none"); none.type = "button"; tap(none, () => ridePop(false));
-      dlg.append(el("p", "gw-ask-q", "Which one?"), grid, el("p", "muted gw-rides-how", "Tap one, or press its way: ◀ ▶ ▼. Next time: hold that way and press the ride button."), none);
+      dlg.append(el("p", "gw-ask-q", "Which one?"), grid, el("p", "muted gw-rides-how", "Tap one, or press its way: ◀ ▶ ▲. Next time: hold that way and press the ride button."), none);
       dlg.addEventListener("keydown", e => { e.stopPropagation();
-        const k = e.key, pick = k === "ArrowLeft" || k === "a" || k === "A" ? "clover" : k === "ArrowRight" || k === "d" || k === "D" ? "carpet" : k === "ArrowDown" || k === "s" || k === "S" ? "tail" : null;
+        const k = e.key, pick = k === "ArrowLeft" || k === "a" || k === "A" ? "clover" : k === "ArrowRight" || k === "d" || k === "D" ? "carpet" : k === "ArrowUp" || k === "w" || k === "W" ? "tail" : null;
         if (pick) { e.preventDefault(); ridePick(pick); } else if (k === "r" || k === "R" || k === "e" || k === "E") { e.preventDefault(); ridePop(false); } });
       const after = () => { S.asking = false; RIDEPOP.down = null; };
       dlg.addEventListener("cancel", after); dlg.addEventListener("close", after);
@@ -3934,7 +3935,7 @@
       if (mb) { if (mb.hidden === show) mb.hidden = !show; const which = riding ? "clover" : flying ? "carpet" : tailed ? "tail" : nextRide(), icon = which === "carpet" ? "🧞" : which === "tail" ? "🐈" : "🐇", on = String(riding || flying || tailed);
         if (mb.textContent !== icon) { mb.textContent = icon; mb.title = which === "carpet" ? "The magic carpet: on or off (R)" : which === "tail" ? "The cat tail: on or off (R)" : "Ride Clover the rabbit: on or off (R); a carrot first"; }
         if (mb.getAttribute("aria-pressed") !== on) mb.setAttribute("aria-pressed", on); } }
-    const line = `${runWord}${hearts}  💎 ${S.found || 0} / ${S.gemTotal || 0}${S.carrots ? "  🥕 " + S.carrots : ""}${S.ride && S.ride.on ? "  🐇" : ""}${S.carpet && S.carpet.have ? (S.carpet.on ? "  🧞 flying" : "  🧞") : ""}${S.tail && S.tail.on ? (S.tail.fly > 0 ? "  🐈 flying" : S.tail.meter >= 50 ? "  🐈 ready to fly" : "  🐈") : ""}  🍃 ${windWord} ${arrows}  ${where}${g && g.gear ? "  🤿" : ""}${g && g.climbPack ? "  🧗" : ""}${g && g.tool ? (g.tool >= 2 ? "  ⚒️" : "  ⛏️") : ""}${place ? "  ·  " + place : ""}`;
+    const line = `${runWord}${hearts}  💎 ${S.found || 0} / ${S.gemTotal || 0}${S.carrots ? "  🥕 " + S.carrots : ""}${S.ride && S.ride.on ? "  🐇" : ""}${S.carpet && S.carpet.have ? (S.carpet.on ? "  🧞 flying" : "  🧞") : ""}${S.tail && S.tail.on ? (S.tail.fly > 0 ? "  🐈 flying" : "  🐈") : ""}  🍃 ${windWord} ${arrows}  ${where}${g && g.gear ? "  🤿" : ""}${g && g.climbPack ? "  🧗" : ""}${g && g.tool ? (g.tool >= 2 ? "  ⚒️" : "  ⛏️") : ""}${place ? "  ·  " + place : ""}`;
     const tw = ctx.measureText(line).width;
     pill(10 * k, 10 * k, tw + 20 * k, 30 * k); ctx.fillStyle = "#fff"; ctx.fillText(line, 20 * k, 15 * k);
     let below = 46 * k;
@@ -4040,14 +4041,14 @@
   // its buttons its own way), or 🎯 set one action's button (the next one pressed). Each pad's layout is kept by its name and put
   // back whenever it connects. Polled each frame while one is connected, never without one.
   const PAD_ACTIONS = [["jump", "⬆️ jump (as ↑)"], ["dash", "💨 dash, held (as Shift)"], ["dig", "⛏️ dig (as X)"], ["build", "🪵 build (as B)"],
-                       ["ride", "🐇🧞🐈 on or off; with ◀ Clover, ▶ the carpet, ▼ the cat tail (as R)"],
+                       ["ride", "🐇🧞🐈 on or off; with ◀ Clover, ▶ the carpet, ▲ the cat tail (as R)"],
                        ["listen", "🔊 a villager's words aloud (as L)"], ["pause", "⏸ pause, or go on (as the space bar)"], ["map", "🗺️ the map, shown or hidden (as M)"]];
   const PAD_USUAL = { jump: 0, dash: 2, dig: 1, build: 3, ride: 4, listen: 8, pause: 9, map: -1 };
   const PAD_TEACH = [["B", "B, the bottom button"], ["A", "A, the right one"], ["X", "X, the top one"], ["Y", "Y, the left one"],
                      ["L", "L, the left shoulder"], ["R", "R, the right shoulder"], ["select", "select"], ["start", "start"]];
   const PAD_FROM_TEACH = { jump: "B", dig: "A", build: "X", dash: "Y", ride: "L", listen: "select", pause: "start" };
   const PAD_PLACES = ["bottom", "right", "left", "top", "left shoulder", "right shoulder", "left trigger", "right trigger", "select", "start", "left stick", "right stick", "up", "down", "left", "right", "home"];
-  const PAD = { id: "", name: "", mapping: "", down: new Set(), held: {}, learn: null, teach: null, loop: 0, buttons: { ...PAD_USUAL }, ui: null, lastSx: 0, was14: false, was15: false };
+  const PAD = { id: "", name: "", mapping: "", down: new Set(), held: {}, learn: null, teach: null, loop: 0, buttons: { ...PAD_USUAL }, ui: null, lastSx: 0, was12: false, was14: false, was15: false };
   const padButtonName = i => !(i >= 0) ? "—" : PAD.mapping === "standard" && PAD_PLACES[i] ? `${PAD_PLACES[i]} (button ${i})` : `button ${i}`;
   const padLayouts = () => { const all = kept("pads", {}); return all && typeof all === "object" ? all : {}; };
   function padKeepLayout() { if (!PAD.id) return; const all = padLayouts(); all[PAD.id] = { ...PAD.buttons }; keep("pads", all); }
@@ -4075,7 +4076,7 @@
     const std = PAD.mapping === "standard", arrows = std ? [12, 13, 14, 15] : [];
     const fresh = [...now].filter(i => !PAD.down.has(i) && !arrows.includes(i));
     const lit = now.size !== PAD.down.size || fresh.length > 0;
-    PAD.was13 = PAD.down.has(13); PAD.was14 = PAD.down.has(14); PAD.was15 = PAD.down.has(15);
+    PAD.was12 = PAD.down.has(12); PAD.was13 = PAD.down.has(13); PAD.was14 = PAD.down.has(14); PAD.was15 = PAD.down.has(15);
     PAD.down = now;
     const PZ = pauser();
     if (PAD.learn && fresh.length) {   // 🎯: the next button pressed is this action's, and no other's
@@ -4083,12 +4084,12 @@
       PAD.buttons[PAD.learn] = fresh[0]; PAD.learn = null; padKeepLayout(); padSync();
     } else if (PAD.teach && !PAD.teach.done && fresh.length) {   // 🎓: each button pressed is the next one asked for
       PAD.teach.got[PAD_TEACH[PAD.teach.step][0]] = fresh[0]; if (++PAD.teach.step >= PAD_TEACH.length) padTaught(); padSync();
-    } else if (ridePopOpen()) {   // (0.0.117: the ride screen open: ◀ ▶ ▼ choose, as the combos do; the ride button, B or start shut it)
+    } else if (ridePopOpen()) {   // (0.0.117: the ride screen open: ◀ ▶ ▲ choose (0.0.120: ▲, was ▼), as the combos do; the ride button, B or start shut it)
       padLetGo();
       const btn = a => (PAD.buttons[a] >= 0 ? PAD.buttons[a] : -2), sx = Math.abs(g.axes[0] || 0) > 0.5 ? Math.sign(g.axes[0]) : 0, sy = Math.abs(g.axes[1] || 0) > 0.5 ? Math.sign(g.axes[1]) : 0;
-      const left = (std && now.has(14) && !PAD.was14) || (sx < 0 && PAD.lastSx >= 0), right = (std && now.has(15) && !PAD.was15) || (sx > 0 && PAD.lastSx <= 0), down = (std && now.has(13) && !PAD.was13) || (sy > 0 && (PAD.lastSy || 0) <= 0);
+      const left = (std && now.has(14) && !PAD.was14) || (sx < 0 && PAD.lastSx >= 0), right = (std && now.has(15) && !PAD.was15) || (sx > 0 && PAD.lastSx <= 0), up = (std && now.has(12) && !PAD.was12) || (sy < 0 && (PAD.lastSy || 0) >= 0);
       PAD.lastSx = sx; PAD.lastSy = sy;
-      if (left) ridePick("clover"); else if (right) ridePick("carpet"); else if (down) ridePick("tail");
+      if (left) ridePick("clover"); else if (right) ridePick("carpet"); else if (up) ridePick("tail");
       else if (fresh.includes(btn("ride")) || fresh.includes(btn("jump")) || fresh.includes(btn("pause"))) ridePop(false);
     } else if (padOpen() || S.asking || BOT.on) { padLetGo(); if (lit) padSync(); }
     else {
