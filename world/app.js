@@ -1304,7 +1304,30 @@
     c.fillStyle = "#5e3d22"; c.beginPath(); c.moveTo(-7, 2); c.lineTo(-1.2, -188); c.lineTo(1.2, -188); c.lineTo(7, 2); c.fill();
     c.fillStyle = "rgba(255,228,196,0.16)"; c.beginPath(); c.moveTo(2, 2); c.lineTo(0.3, -186); c.lineTo(1.2, -186); c.lineTo(7, 2); c.fill();
     c.strokeStyle = "rgba(30,15,5,0.4)"; c.lineWidth = 0.8; c.beginPath(); for (let k = 0; k < 4; k++) { const x0 = -4.5 + k * 3; c.moveTo(x0, 2); for (let y = 0; y > -70; y -= 7) c.lineTo(x0 * (1 + y / 260) + (r(k * 30 + y) - 0.5) * 1.2, y - 7); } c.stroke();
-    c.strokeStyle = "#4a3019"; c.lineCap = "round"; for (let k = 0; k < 3; k++) { const sd = k % 2 ? 1 : -1, y = -14 - k * 7; c.lineWidth = 1.6; c.beginPath(); c.moveTo(sd * 4, y); c.lineTo(sd * (12 + 6 * r(k + 60)), y - 3 - 3 * r(k + 61)); c.stroke(); }
+    c.lineCap = "round";
+    // (0.0.110; Matthew: "pine tree branches don't connect to pads of needles above them", "add some branching, and extra
+    // length") Low on the trunk, under the lowest tier, four limbs, longer, each curving out and up from the trunk into that
+    // tier's needles, where its end is lost: the lower pair reaching furthest; each forks partway, a twig rising more steeply
+    // into the needles above it, and a lesser one near its end. Every end is placed at the middle of the front bough over it
+    // (the same formulas as bough's, below), so each goes into its pad of needles whatever the tree's chance gave it
+    { const th0 = 60, tip0 = -24 - th0, y0f = tip0 + th0 * 0.84 * 0.95, d0 = th0 * (0.22 + 0.2 * r(11));
+      const mid = (sd, x) => { const L = 62 * (0.9 + 0.2 * r(6 + sd)), t = Math.min(1, x / L), s2 = t / (1.1 - 0.1 * t);   // (the front bough's top, a quadratic curve, at x; its underside; between them)
+        const top = (1 - s2) ** 2 * (y0f - 4) + 2 * s2 * (1 - s2) * (y0f - 6 - d0 * 0.15) + s2 * s2 * (y0f + d0 - 1.5), under = y0f + d0 * t * t + 3; return (top + under) / 2; };
+      const tw = x => Math.max(1.4, 7 - 0.0305 * -x);   // (the trunk's half width at a height)
+      const bark = "#4a3019", lit = "rgba(255,228,196,0.2)";
+      const limb = (p0, p1, p2, w0, w1) => { taper(c, p0, p1, p2, w0, w1, bark);
+        c.strokeStyle = lit; c.lineWidth = Math.max(0.4, w1 * 0.45); c.beginPath(); c.moveTo(p0[0], p0[1] - w0 * 0.3); c.quadraticCurveTo(p1[0], p1[1] - (w0 + w1) * 0.15, p2[0], p2[1] - w1 * 0.3); c.stroke(); };
+      const at = (p0, p1, p2, u) => [(1 - u) ** 2 * p0[0] + 2 * u * (1 - u) * p1[0] + u * u * p2[0], (1 - u) ** 2 * p0[1] + 2 * u * (1 - u) * p1[1] + u * u * p2[1]];
+      for (let k = 0; k < 4; k++) {
+        const sd = [-1, 1, 1, -1][k], ys = -11 - k * 5.5 - 2 * r(k + 60), low = k < 2, X = low ? 32 + 10 * r(k + 61) : 22 + 7 * r(k + 61), Y = mid(sd, X);
+        const p0 = [sd * tw(ys) * 0.5, ys], p2 = [sd * X, Y], p1 = [sd * X * 0.45, ys - (ys - Y) * 0.25 - 2];   // (out first, then up into the needles: it droops a little under its own weight)
+        // the fork: a twig from partway along, rising more steeply into the bough above; a lesser one near the end, out and up
+        const fa = 0.42 + 0.12 * r(k + 62), f0 = at(p0, p1, p2, fa), fx = sd * X * (0.62 + 0.1 * r(k + 63)), f2 = [fx, mid(sd, Math.abs(fx)) - 7 - 4 * r(k + 64)], f1 = [(f0[0] + f2[0]) / 2 - sd * 2, (f0[1] + f2[1]) / 2 + 2];
+        const ga = 0.72 + 0.08 * r(k + 65), g0 = at(p0, p1, p2, ga), gx = sd * Math.min(X + 6, 44), g2 = [gx, mid(sd, Math.abs(gx)) - 1.5], g1 = [(g0[0] + g2[0]) / 2, (g0[1] + g2[1]) / 2 + 1.5];
+        const w0 = low ? 3.6 : 3, w1 = 1.1;
+        limb(f0, f1, f2, w0 * 0.55, 0.6); limb(g0, g1, g2, w0 * 0.4, 0.5); limb(p0, p1, p2, w0, w1);
+        if (r(k + 66) < 0.5) { const n0 = at(p0, p1, p2, 0.22 + 0.1 * r(k + 67)); limb(n0, [n0[0] + sd * 2.5, n0[1] + 1.5], [n0[0] + sd * 4.5, n0[1] + 3.5], 1.1, 0.5); }   // (now and then a short dead twig, hanging under it)
+      } }
     const bough = (sd, y0, len, droop, col, j, b) => { const tx = sd * len, ty = y0 + droop, mx = sd * len * 0.55, n2 = Math.max(5, Math.round(len / 4.5));
       const path = dy => { c.beginPath(); c.moveTo(0, y0 - 4 + dy); c.quadraticCurveTo(mx, y0 - 6 - droop * 0.15 + dy, tx, ty - 1.5 + dy);
         let px = tx, py = ty + 2 + dy;   // (the underside: uneven tufts of needles hanging, each a rounded scallop)
