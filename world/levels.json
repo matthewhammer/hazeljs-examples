@@ -1,0 +1,11 @@
+{
+ "about": "Gnome world's levels (0.0.140; Matthew, 2026-11-26: \"I want the current 'default/start world' to be consistent in ongoing versions\"; \"let's be sure to save any seed numbers we use\"; \"let's be sure to save any structure not entirely determined by that seed number to the .json file\"). Each level: the seed its world is planned from (Hazel's World.plan, then the page's build), whether a gnome may dig there, and everything placed by hand rather than by the seed. 'built' is the world as a version of the page built it, each part hashed (WorldTest.digest); the GitHub check node/level-check.mjs builds each level fresh and fails if any part differs, so a later version cannot change a level's world without saying so here. Tile coordinates: x a column from the left (0 to 895), y a row from the top (0 to 207); 'deep' is rows under the land at that column.",
+ "levels": {
+  "1": {
+   "name": "Gnome world",
+   "seed": 7,
+   "dig": true,
+   "since": "0.0.76"
+  }
+ }
+}
