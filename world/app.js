@@ -44,6 +44,12 @@
   const load = src => new Promise((ok, no) => { const s = document.createElement("script"); s.src = src; s.onload = ok; s.onerror = () => no(new Error(src)); document.body.append(s); });
   const kept = (k, dflt) => { try { const v = JSON.parse(localStorage.getItem(KEY + k)); return v === null ? dflt : v; } catch (e) { return dflt; } };
   const keep = (k, v) => { try { localStorage.setItem(KEY + k, JSON.stringify(v)); } catch (e) { /* this visit only */ } };
+  // ---- (0.0.140; Matthew, 2026-11-26: "N has an idea for a new gnome world level"; "I want the current 'default/start world' to
+  // be consistent in ongoing versions"; "let's be sure to save any seed numbers we use"; "let's be sure to save any structure not
+  // entirely determined by that seed number to the .json file") The levels (levels.json): each one's seed, whether a gnome may
+  // dig there, and all that is placed by hand, not by the seed. Read once, as the page opens; without it, the first level alone
+  const LEVELS = await fetch("levels.json", { cache: "no-cache" }).then(r => r.ok ? r.json() : null).catch(() => null) || { levels: { 1: { name: "Gnome world", seed: 7, dig: true } } };
+  const levelOf = id => (LEVELS.levels && LEVELS.levels[id]) || null;
   // ---- (0.0.115; ^ticket(852); Matthew: on the iPad, in Safari, "sometimes every foreground component (everything but the back
   // hills) disappears. Then it sometimes reappears again, or never does"; not on the Linux laptop, in Firefox; since the world
   // grew bigger and more detailed) The pictures the page keeps, as canvases: Safari has a cap on all of them together (about 384 MB
@@ -106,7 +112,7 @@
   // of ground, and each band of rows: the ground, the bedrock (the last four rows) and the world's floor (the very last)
   const DIGT = new Uint8Array(4 * 10 * 3);
   const digSteps = (m, r, tool) => m > 9 ? 0 : DIGT[((Math.min(3, Math.max(0, tool | 0)) * 10 + m) * 3) + (r >= WH - 1 ? 2 : r >= WH - 4 ? 1 : 0)];
-  const S = { built: null, lib: "", libFailed: false, plan: null, seed: kept("seed", 7), rivers: [], dams: [], lodges: [], beavers: [], rooms: [], villages: [],
+  const S = { built: null, lib: "", libFailed: false, plan: null, seed: kept("seed", (levelOf("1") || {}).seed || 7), level: "1", away: {}, points: 0, rivers: [], dams: [], lodges: [], beavers: [], rooms: [], villages: [],
     greats: [], trees: [], bushes: [], shrooms: [], flowers: [], rootSets: [], threadSets: [], rootPlan: [], boulders: [], ducts: [], lamps: [], items: [], houses: [], bridges: [], smoke: [], parts: [], drops: [], rain: 0, rainAt: 0,
     styles: [], dry: [], works: new Map(), windNow: 0.2, leaves: [], g: null, hero: kept("hero", "dad"), hearts: 5, gems: kept("gems", 0), hurtAt: -1e9, faintAt: 0, start: { x: 12500, y: 0 }, keys: { left: false, right: false, up: false, down: false, dig: false, dash: false },
     jumpQueued: false, cam: { x: 0, y: 0, set: false }, frame: 0, rules: kept("rules", "hazel"), map: kept("map", true), use: kept("use", "clover"), banner: null, places: [], stepMs: [], beaverAt: 0, damAt: 0, minimapAt: -1e9, dirty: true };
@@ -126,6 +132,8 @@
   // ---- building the world from Hazel's plan
   function build(h, seed) {
     const p = h.plan(seed); S.plan = p; seedRand = seed * 7 + 3;
+    // (0.0.140) the level this world is: the first, as it always was; or one placed by hand from levels.json (N's, the second)
+    const LV = levelOf(S.level) || levelOf("1") || {}, hand = S.level !== "1";
     for (let k = 0; k <= 9; k++) { const gr = h.ground(k); PORES[k] = gr.pores / 100; FLOW[k] = gr.flow / 1000; CLING[k] = gr.cling / 100; DIG[k] = gr.dig;
       for (let t = 0; t < 4; t++) [60, WH - 3, WH - 1].forEach((r, b) => { DIGT[(t * 10 + k) * 3 + b] = h.dig_steps ? h.dig_steps(k, r, t) : t === 0 && b < 2 && k <= 5 ? gr.dig : 0; });
       COLOR[k] = "#" + gr.color.toString(16).padStart(6, "0"); NAME[k] = gr.name; }
@@ -147,11 +155,11 @@
         const u = (c + 0.5 - cx) / (q.w / 2), v = (r + 0.5 - cy) / (q.h / 2); if (u * u + v * v <= 1 + 0.25 * Math.sin(c * 1.7 + r)) fn ? fn(c, r) : (mat[at(c, r)] = kind); } };
     // under the ground: old river gravel, limestone shelves (their caves), granite, and bowls of clay holding water
     for (const q of byKind(41)) blob(q, SAND);
-    for (const q of byKind(42)) { blob(q, LIME);
+    for (const q of byKind(42)) { blob(q, LIME); if (hand) continue;   // (0.0.140: in a level placed by hand, its caves are levels.json's)
       for (let k = 0; k < 2 + (q.v % 2); k++) { const w = 4 + Math.floor(rand() * Math.max(2, q.w / 3)), hh = 2 + Math.floor(rand() * 2), x = q.x + 2 + Math.floor(rand() * Math.max(1, q.w - w - 4)), y = q.y + 2 + Math.floor(rand() * Math.max(1, q.h - hh - 3));
         blob({ x, y, w, h: hh + 1 }, 0, (c, r) => { const i = at(c, r); if (mat[i] === LIME) { mat[i] = AIR; bg[i] = B_CAVE; } }); } }
     for (const q of byKind(43)) blob(q, GRANITE);
-    for (const q of byKind(40)) { const cx = q.x + q.w / 2;
+    for (const q of hand ? [] : byKind(40)) { const cx = q.x + q.w / 2;
       for (let c = q.x; c < q.x + q.w; c++) { if (c < 0 || c >= WW) continue; const u = (c + 0.5 - cx) / (q.w / 2), d = Math.round(q.h * Math.sqrt(Math.max(0, 1 - u * u)));
         const bottom = q.y + Math.max(1, d);
         for (let r = q.y; r < bottom && r < WH - 4; r++) { const i = at(c, r); if (r > surf0[c] + 2) { mat[i] = SAND; wat[i] = 1; } }
@@ -182,8 +190,10 @@
     S.beavers = byKind(15).map(q => ({ b: { x: q.x * 100, face: 1, job: 0, t: 40 + q.v * 35, tree: -1, lodge: q.x, dam: q.w, felled: -1, laid: false, cut: false }, px: q.x, py: 0, swing: q.v }));
     // the villages, deep under the ground
     S.rooms = []; S.ducts = []; S.lamps = []; S.items = []; S.villages = [];
-    for (const q of [...byKind(20), ...byKind(21)]) village(h, q, q.kind === 21 ? 1 : 0, p.seed);
-    if (!S.items.some(it => it.kind === "good")) { const ws = S.rooms.find(R => R.kind === 4) || S.rooms[0]; if (ws) S.items.push({ kind: "good", x: ws.x + 0.9, y: ws.y + 3.2, taken: false }); }
+    // (0.0.140) a level placed by hand: its one gnome house (a hamlet's rooms, with none of the things a hamlet has), where levels.json puts it
+    if (hand) { const HS = LV.house; if (HS) village(h, { x: HS.x, y: surf0[HS.x] + HS.deep }, 1, p.seed, true); }
+    else for (const q of [...byKind(20), ...byKind(21)]) village(h, q, q.kind === 21 ? 1 : 0, p.seed);
+    if (!hand && !S.items.some(it => it.kind === "good")) { const ws = S.rooms.find(R => R.kind === 4) || S.rooms[0]; if (ws) S.items.push({ kind: "good", x: ws.x + 0.9, y: ws.y + 3.2, taken: false }); }
     // the great trees, their limbs, platforms, ladders or stair, houses, and rope bridges to the trees beside the stair tree
     S.greats = []; S.houses = []; S.bridges = [];
     S.trees = byKind(50).map(q => ({ x: q.x, kind: q.v, h: q.h, alive: true, grow: 1, fallAt: 0, regrow: 0, seed: q.x * 13 + q.h }));
@@ -192,7 +202,7 @@
     // (Matthew: "gnome should be able to climb the tree like an animal"; "even the parts without a ladder"; "if he has the
     // tree-climb pack"; "place that into one of the tree houses by default") the tree-climbing pack, in the lowest house of
     // the first great tree
-    { const first = S.houses.filter(hs => !hs.small).sort((a, b) => b.row - a.row)[0]; if (first) S.items.push({ kind: "climb", x: first.x + 0.5 - first.side * 1.1, y: first.row - 0.55, taken: false }); }
+    if (!hand) { const first = S.houses.filter(hs => !hs.small).sort((a, b) => b.row - a.row)[0]; if (first) S.items.push({ kind: "climb", x: first.x + 0.5 - first.side * 1.1, y: first.row - 0.55, taken: false }); }
     S.shrooms = byKind(53).map(q => ({ x: q.x, v: q.v }));
     S.flowers = byKind(54).map(q => ({ x: q.x, v: q.v, n: q.h }));
     S.rootSets = []; S.threadSets = []; shapeSurface(); makeSquirrels(); buildTreeMask(); makeVillagers(); makeWild(); makeBunnies();
@@ -208,7 +218,7 @@
     // rest of the world comes out as it did, but for the gems that would have lain where they are), before the gems; marked, so
     // the super digger's cave is still the limestone's
     CAVE.fill(0); S.caves = [];
-    { const cr = seededR(S.seed * 101 + 7); let j = 0; const q = () => cr(j++);
+    if (!hand) { const cr = seededR(S.seed * 101 + 7); let j = 0; const q = () => cr(j++);
       const busy = x => S.villages.some(v => x > v.x0 - 8 && x < v.x1 + 8) || S.rivers.some(R => x > R.x - 8 && x < R.x + R.w + 8) || S.greats.some(G => Math.abs(G.x - x) < 6);
       for (let tries = 0; S.caves.length < 16 && tries < 400; tries++) {
         const w = 10 + Math.floor(q() * 16), h = 5 + Math.floor(q() * 5), x = 8 + Math.floor(q() * (WW - 16 - w)), mid = x + (w >> 1);
@@ -224,18 +234,18 @@
         if (C.n >= 24) S.caves.push(C); } }
     // gems in veins, and boulders, each in the ground (never in a room's walls)
     const diggable = i => mat[i] >= SOIL && mat[i] <= SHALE;
-    for (const q of byKind(44)) for (let k = 0; k < q.v; k++) { const c = q.x + Math.floor(rand() * (q.w + 2)) - 1, r = q.y + Math.floor(rand() * (q.h + 2)) - 1;
+    for (const q of hand ? [] : byKind(44)) for (let k = 0; k < q.v; k++) { const c = q.x + Math.floor(rand() * (q.w + 2)) - 1, r = q.y + Math.floor(rand() * (q.h + 2)) - 1;
       if (inside(c, r) && r > surf0[c] + 1 && diggable(at(c, r))) gem[at(c, r)] = 1 + Math.floor(rand() * 5); }
     // stones in the soil, the clay and the sand, below the turf
     // (by a chance of their own, so the rest of the world comes out as it did before them)
     { const sr = seededR(S.seed * 31 + 5); for (let c = 0; c < WW; c++) for (let r = surf0[c] + 1; r < WH; r++) { const i = at(c, r), m = mat[i]; if (gem[i] || !(m === SOIL || m === CLAY || m === SAND)) continue;
       if (sr(i) < (m === SAND ? 0.13 : m === SOIL ? 0.09 : 0.05)) stone[i] = 1 + Math.floor(sr(i + NN) * 250); } }
     S.boulders = [];
-    for (const q of byKind(45)) { const c = q.x, r = q.y, i = inside(c, r) ? at(c, r) : -1;
+    for (const q of hand ? [] : byKind(45)) { const c = q.x, r = q.y, i = inside(c, r) ? at(c, r) : -1;
       if (i >= 0 && r > surf0[c] + 1 && diggable(i) && inside(c, r + 1) && diggable(at(c, r + 1))) { mat[i] = AIR; bg[i] = B_DUG; gem[i] = 0; S.boulders.push({ c, r, oy: 0, wob: -1, falling: false }); } }
     // the water: below the table, the ground full; above it, damp; near a river, the table up to the river; caves under it full
     for (let c = 0; c < WW; c++) {
-      let t = lerp(p.table, c, 16);
+      let t = hand && LV.table ? LV.table : lerp(p.table, c, 16);
       for (const R of S.rivers) { const d = c < R.x ? R.x - c : c >= R.x + R.w ? c - (R.x + R.w - 1) : 0; if (d < 40) t = Math.min(t, R.level + d / 3); }
       for (let r = 0; r < WH; r++) { const i = at(c, r), m = mat[i];
         if (m === AIR) { if (r >= t && r > surf0[c]) wat[i] = 1; continue; }
@@ -247,7 +257,7 @@
       for (const i of C.cells) wat[i] = ((i / WW) | 0) >= C.pondTop ? 1 : 0; }
     // (0.0.95) the super digger, deep: on the floor of the deepest cave in the limestone, which the good digger digs into; with no
     // cave, in a pocket in a body of granite near the bedrock
-    { let best = -1; for (let i = 0; i + WW < NN; i++) if (bg[i] === B_CAVE && mat[i] === AIR && mat[i + WW] !== AIR && !CAVE[i]) best = i;   // (0.0.127: the limestone's, not a cavern's)
+    if (!hand) { let best = -1; for (let i = 0; i + WW < NN; i++) if (bg[i] === B_CAVE && mat[i] === AIR && mat[i + WW] !== AIR && !CAVE[i]) best = i;   // (0.0.127: the limestone's, not a cavern's)
       if (best < 0) { const c0 = Math.floor(WW * 0.62), r0 = WH - 11;
         for (let c = c0 - 4; c <= c0 + 4; c++) for (let r = r0 - 3; r <= r0 + 3; r++) { const i = at(c, r); mat[i] = GRANITE; bg[i] = B_NONE; wat[i] = 0; gem[i] = 0; stone[i] = 0; root[i] = 0; shape[i] = 0; }
         for (let c = c0 - 1; c <= c0 + 1; c++) for (let r = r0 - 1; r <= r0; r++) { const i = at(c, r); mat[i] = AIR; bg[i] = B_CAVE; }
@@ -264,7 +274,7 @@
     // (0.0.109; Matthew: "a button on the RHS on the screen for dashing ... quicker with the running shoes (another item in the left
     // underground gnome house)") the running shoes, in the nearest room of the gnome village farthest left, toward its near wall,
     // clear of anything else there: now the last of the things (a save from before them has one fewer; restore lets it in)
-    { const v = [...S.villages].sort((a, b) => a.x0 - b.x0)[0], mine = v ? S.rooms.filter(R => R.x >= v.x0 && R.x < v.x1) : [];
+    if (!hand) { const v = [...S.villages].sort((a, b) => a.x0 - b.x0)[0], mine = v ? S.rooms.filter(R => R.x >= v.x0 && R.x < v.x1) : [];
       const R = mine.sort((a, b) => a.x - b.x || b.y - a.y)[0];
       if (R) { const y = R.y + 3.35; let x = R.x + 1.4; while (x < R.x + R.w - 1 && S.items.some(it => Math.abs(it.x - x) < 1.2 && Math.abs(it.y - y) < 1.5)) x += 1.3;
         S.items.push({ kind: "shoes", x, y, taken: false }); } }
@@ -272,7 +282,7 @@
     // gear --- like climbing gear but 3x faster") the swim flippers in the tree house farthest right, and the super climbing gear in
     // the highest tree house (neither the climbing pack's): now the last two of the things (a save from before them has two fewer;
     // restore lets them in)
-    { const big = S.houses.filter(hs => !hs.small), pack = [...big].sort((a, b) => b.row - a.row)[0];
+    if (!hand) { const big = S.houses.filter(hs => !hs.small), pack = [...big].sort((a, b) => b.row - a.row)[0];
       const fl = big.filter(hs => hs !== pack).sort((a, b) => b.x - a.x)[0];
       if (fl) S.items.push({ kind: "flippers", x: fl.x + 0.5 - fl.side * 1.1, y: fl.row - 0.55, taken: false });
       const hi = big.filter(hs => hs !== pack && hs !== fl).sort((a, b) => a.row - b.row)[0];
@@ -286,14 +296,17 @@
     // the world.") the gem finder: in the left quarter of the world, four to twelve tiles under the land, in ground a gnome digs
     // with no digger, beside the richest patch of gems there (the most within three tiles; nearer the top and home, the better): now the
     // last of the things (a save from before it has one fewer; restore lets it in)
-    { let best = null;
+    if (!hand) { let best = null;
       for (let c = 16; c < Math.floor(WW / 4); c++) for (let r = surf0[c] + 4; r <= surf0[c] + 12; r++) { if (!inside(c, r)) continue; const i = at(c, r);
         if (gem[i] || !diggable(i)) continue;
         let n = 0; for (let dc = -3; dc <= 3; dc++) for (let dr = -3; dr <= 3; dr++) if (inside(c + dc, r + dr) && gem[at(c + dc, r + dr)]) n++;
         const score = n * 4 - (r - surf0[c]) - c / 30; if (n > 0 && (!best || score > best.score)) best = { c, r, score }; }   // (nearer home, the better: found early)
       if (best) S.items.push({ kind: "finder", x: best.c + 0.5, y: best.r + 0.5, taken: false }); }
+    S.rainbows = []; S.beams = []; S.catNeed = 0;
+    if (hand) handMade(LV);   // (0.0.140: its caves, the tunnels to them, the cat heads, the rainbow clouds)
     for (const R of S.rivers) holdRiver(R);
     for (let c = 0; c < WW; c++) top[c] = topOf(c);
+    S.vortex = vortexOf(LV);   // (0.0.140: the doorway to the other level)
     wakeAll();   // (0.0.131: all the water's blocks awake, to settle)
     sweep = 1; wetFrom = 0;   // (0.0.132: the water's way across, the first step, the same in every world made: it went on from the page's steps before, and two runs of one world parted by it, ^ticket(873))
     S.dry = []; for (let i = 0; i < NN; i++) if (mat[i] === AIR && (bg[i] === B_PLASTER || bg[i] === B_WOOD || bg[i] === B_STAIR)) S.dry.push(i);
@@ -301,7 +314,7 @@
     S.places = [
       ...S.rivers.map(R => ({ x0: R.x - 3, x1: R.x + R.w + 3, name: R.dam ? `${R.name} and the beavers' dam` : R.name })),
       ...S.greats.map(g => ({ x0: g.x - 9, x1: g.x + 9, name: g.kind === 31 ? "the stair tree" : "a great tree, its ladders" })),
-      ...S.villages.map(v => ({ x0: v.x0 - 2, x1: v.x1 + 2, name: v.which ? "the hamlet" : "the gnomes' village", under: true })),
+      ...S.villages.map(v => ({ x0: v.x0 - 2, x1: v.x1 + 2, name: S.level !== "1" ? "the gnome house" : v.which ? "the hamlet" : "the gnomes' village", under: true })),
     ];
     const g0 = { x: 12500, y: top[12] * 1000 };
     S.start = g0;
@@ -316,19 +329,71 @@
     for (const v of S.villages) { const mine = S.rooms.filter(R => R.x >= v.x0 && R.x < v.x1), R = mine.find(R => R.kind === 1) || mine[0];
       if (R) S.heartItems.push({ x: R.x + R.w * 0.5, y: R.y + 3.3, taken: false }); }
     for (const hs of S.houses) if (!hs.small) S.heartItems.push({ x: hs.x + 0.5 + hs.side * 0.6, y: hs.row - 0.55, taken: false });
-    S.works = new Map(); S.hearts = 5; S.hurtAt = -1e9; S.faintAt = 0; S.cam.set = false; S.smoke = []; S.parts = []; S.pebbles = []; S.piles = []; S.fallen = []; S.talk = null; hushTalk(); rootChunks.clear(); S.minimapAt = -1e9; S.rain = 0; S.rainAt = S.frame + 60 * 60; S.banner = { text: "🌍 Gnome world", t: performance.now() };
+    S.works = new Map(); S.hearts = 5; S.hurtAt = -1e9; S.faintAt = 0; S.cam.set = false; S.smoke = []; S.parts = []; S.pebbles = []; S.piles = []; S.fallen = []; S.talk = null; hushTalk(); rootChunks.clear(); S.minimapAt = -1e9; S.rain = 0; S.rainAt = S.frame + 60 * 60; S.banner = { text: hand ? "🌈 " + LV.name : "🌍 Gnome world", t: performance.now() };
   }
   const riverAt = x => S.rivers.find(R => x >= R.x - 0.5 && x < R.x + R.w + 0.5) || null;
   const topOf = c => { for (let r = 0; r < WH; r++) if (mat[at(c, r)] !== AIR) return r; return WH; };
   // (a dam's river at the height its logs hold it: World.water_row)
   function setLevel(h, R) { R.level = R.dam ? h.water_row(R.natural, R.bank, R.dam.logs) : R.natural; }
+  // ---- (0.0.140; N's idea, through Matthew, 2026-11-26: "He wants digging to be disabled. There is almost no underground structure,
+  // except for a gnome house with power ups, and caves with pre-existing tunnels to explore") A level placed by hand, from
+  // levels.json: its caves (as the first level's caverns, each where it says, its top so many rows under the land over its
+  // middle), shafts down to them from hatches in the land, a ladder all the way, and passages from one cave to another, three
+  // tiles high, a ladder where they go down or up; the cat head gems; the rainbow clouds. Carved after the water is laid (the
+  // ground water is deep there), so the tunnels are dry; a cave says whether it has a pond in its lowest row
+  function handMade(LV) {
+    const carve = (c, r, b) => { if (!inside(c, r) || r >= WH - 4) return; const i = at(c, r);
+      if (bg[i] === B_PLASTER || bg[i] === B_WOOD || bg[i] === B_STAIR || mat[i] === MASON || mat[i] === TIMBER) return;
+      mat[i] = AIR; bg[i] = b; wat[i] = 0; gem[i] = 0; stone[i] = 0; root[i] = 0; shape[i] = 0; };
+    const caves = (LV.caves || []).map((K, id) => {
+      const mid = Math.min(WW - 1, K.x + (K.w >> 1)), C = { x: K.x, y: surf0[mid] + K.deep, w: K.w, h: K.h, n: 0, pond: !!K.pond, id, cells: [] }, cx = C.x + C.w / 2, cy = C.y + C.h / 2;
+      for (let c = C.x; c < C.x + C.w; c++) for (let r = C.y; r < C.y + C.h; r++) { if (!inside(c, r) || r >= WH - 4) continue;
+        const u = (c + 0.5 - cx) / (C.w / 2), v = (r + 0.5 - cy) / (C.h / 2);
+        if (u * u + v * v <= 1 + 0.25 * Math.sin(c * 1.7 + r)) { const i = at(c, r); carve(c, r, B_CAVE); if (mat[i] === AIR && bg[i] === B_CAVE && !CAVE[i]) { CAVE[i] = 1; C.n++; C.cells.push(i); } } }
+      let low = 0; for (const i of C.cells) low = Math.max(low, (i / WW) | 0);
+      C.low = low; C.pondTop = C.pond ? low : low + 1; C.floor = low - 1;   // (a passage comes in a row over its lowest)
+      for (const i of C.cells) wat[i] = ((i / WW) | 0) >= C.pondTop ? 1 : 0;
+      S.caves.push(C); return C; });
+    const across = (x0, x1, row) => { for (let c = Math.min(x0, x1); c <= Math.max(x0, x1); c++) for (let r = row - 2; r <= row; r++) carve(c, r, B_DUG); };
+    const T = LV.tunnels || {};
+    for (const D of T.shafts || []) { const C = caves[D.to]; if (!C) continue; const s0 = Math.min(surf0[D.x], surf0[D.x + 1]);
+      for (let r = s0 - 1; r <= C.floor; r++) for (const c of [D.x, D.x + 1]) { if (r >= s0) carve(c, r, B_DUG); if (inside(c, r) && mat[at(c, r)] === AIR) fix[at(c, r)] = r === s0 ? F_HATCH : F_LADDER; }
+      across(D.x < C.x ? D.x + 2 : D.x - 1, C.x + (C.w >> 1), C.floor); }
+    for (const P of T.passages || []) { const A = caves[P.from], B = caves[P.to]; if (!A || !B) continue;
+      const ax = A.x + (A.w >> 1), bx = B.x + (B.w >> 1), lx = bx > ax ? B.x - 3 : B.x + B.w + 1;
+      across(ax, lx, A.floor);
+      for (let r = Math.min(A.floor, B.floor) - 2; r <= Math.max(A.floor, B.floor); r++) for (const c of [lx, lx + 1]) { carve(c, r, B_DUG); if (inside(c, r) && mat[at(c, r)] === AIR) fix[at(c, r)] = F_LADDER; }
+      across(lx, bx, B.floor); }
+    // the cat head gems: on a cave's floor, in its middle; or in the sky, so far over the land
+    const CH = LV.catHeads; S.catNeed = CH ? CH.need || 10 : 0;
+    for (const P of (CH && CH.at) || []) { const C = P.cave != null ? caves[P.cave] : null; if (P.cave != null && !C) continue;
+      S.items.push(C ? { kind: "cathead", x: C.x + (C.w >> 1) + 0.5, y: C.low + 0.35, taken: false } : { kind: "cathead", x: P.x + 0.5, y: surf0[P.x] - P.up, taken: false }); }
+    // the rainbow clouds
+    const RB = LV.rainbows; S.rainbowPts = RB ? RB.points || 100 : 0; S.rainbowBack = RB ? RB.back || 3600 : 0;
+    S.rainbows = ((RB && RB.at) || []).map((P, k) => ({ k, x: P.x + 0.5, y: surf0[P.x] - P.up, w: P.w || 6, gone: false, back: 0 }));
+  }
+  // (0.0.140) the doorway to the other level, a swirling vortex: where levels.json puts it, and where the gnome comes out when it
+  // comes back through it; in a world from another seed (🌍 New world), the first level's by rule, past the end of the highest
+  // limb on the right of the great tree farthest right, as it is in the seed's own world
+  function vortexOf(LV) {
+    const V = LV && LV.vortex; if (!V || !levelOf(V.to)) return null;
+    let x = V.x, y = V.y, ax = V.arrive ? V.arrive.x : V.x + 3, ay = V.arrive ? V.arrive.y : null;
+    if (V.up != null) y = top[Math.floor(x)] - V.up;
+    if (S.level === "1" && S.seed !== LV.seed) {
+      const G = [...S.greats].sort((a, b) => b.x - a.x)[0], L = G && G.limbs.filter(l => l.side > 0).sort((a, b) => b.y - a.y)[0];
+      if (!L) return null; const end = G.x + G.half + L.len, row = G.foot - L.y; x = end + 1.3; y = row - 1; ax = end - 2.5; ay = row; }
+    if (ay == null) ay = top[Math.floor(ax)];
+    return { x, y, to: V.to, arrive: { x: ax, y: ay, face: (V.arrive && V.arrive.face) || 1 }, armed: false };
+  }
+  const digOK = () => { const L = levelOf(S.level); return !L || L.dig !== false; };
+  function digButton() { const b = document.querySelector('[data-k="dig"]'); if (b) b.hidden = !digOK(); }
   function holdRiver(R) {
     for (let k = 0; k < R.w; k++) { const c = R.x + k; for (let r = Math.min(R.level, R.natural) - 4; r < R.bed[k]; r++) { if (r < 0) continue; const i = at(c, r);
       if (mat[i] === AIR && bg[i] === B_NONE) { const w = r >= R.level ? 1 : 0; if (Math.abs(wat[i] - w) > QEPS) { wat[i] = w; wakeNear(c, r); } } } }
   }
   // a village: its rooms (World.village), walls of masonry round each, a timber floor, doorways between, the stair down from a
   // door on the hill, the things in each room (World.furnish), a lamp in each, and its chimneys and shafts up to the meadow
-  function village(h, q, which, seed) {
+  function village(h, q, which, seed, bare = false) {
     const rooms = h.village(q.x, q.y, which, seed), x0 = q.x;
     const set = (c, r, m, b) => { if (!inside(c, r)) return; const i = at(c, r); mat[i] = m; if (b != null) bg[i] = b; wat[i] = 0; gem[i] = 0; root[i] = 0; stone[i] = 0; shape[i] = 0; };
     let bottom = 0;
@@ -355,10 +420,10 @@
       S.ducts.push({ kind: R.up, x: cx, y0: top0, y1: R.y, room: R });
       if (R.up === 1) S.lamps.push({ x: cx + 0.5, y: R.y + 1.5, r: 4.5, sun: true }); }
     // the diving gear, hung in the village's bath house (or its hall)
-    if (which === 0) { const bath = rooms.find(R => R.kind === 7) || rooms[0]; S.items.push({ kind: "gear", x: bath.x + bath.w - 1.2, y: bath.y + 2.2, taken: false }); }
+    if (which === 0 && !bare) { const bath = rooms.find(R => R.kind === 7) || rooms[0]; S.items.push({ kind: "gear", x: bath.x + bath.w - 1.2, y: bath.y + 2.2, taken: false }); }
     // (Matthew: "let's give more power ups in gnome world: * good digger * super digger") the good digger, leaning in the hamlet's
     // workshop (with no hamlet, the village's: placed once the villages are laid out)
-    if (which === 1) { const ws = rooms.find(R => R.kind === 4) || rooms[rooms.length - 1]; S.items.push({ kind: "good", x: ws.x + 0.9, y: ws.y + 3.2, taken: false }); }
+    if (which === 1 && !bare) { const ws = rooms.find(R => R.kind === 4) || rooms[rooms.length - 1]; S.items.push({ kind: "good", x: ws.x + 0.9, y: ws.y + 3.2, taken: false }); }
     S.villages.push({ which, x0, x1: Math.max(...rooms.map(R => R.x + R.w)), top: s0, bottom });
   }
   // a great tree: its limbs (World.limbs), a platform out along each, a ladder up its trunk (30) or a stair inside it (31), the
@@ -611,6 +676,8 @@
     climber: { icon: "🪝", label: "🪝 super climbing gear", what: "🪝 the super climbing gear", banner: "🪝 The super climbing gear: climb three times as fast, trees, ladders, stairs and tunnels" },
     // (0.0.126; Matthew: "a new item, gem finder -- it looks like a compass, but it's a bit magical too")
     finder: { icon: "🧭", label: "🧭 gem finder", what: "🧭 the gem finder", banner: "🧭 The gem finder! A magic compass: over your head, its needle points to the nearest gem still in the ground, and the map shows that gem big. Dig it out, and it points to the next" },
+    // (0.0.140; N's level: "to earn the cat tail, instead of getting it in one go, we collect 10 cat head powerup gems")
+    cathead: { icon: "🐱", label: "🐱 cat head gem", what: "🐱 a cat head gem", banner: "🐱 A cat head gem! Find all ten, and the cat tail is yours" },
     shoes: { icon: "👟", label: "👟 running shoes", what: "👟 the running shoes", banner: "👟 The running shoes: hold 💨 (or Shift) to dash, up to full speed in a flash" },
   };
   const BOT = { on: false, phase: "", queue: [], cur: null, path: [], k: 0, lastCell: -1, still: 0, tries: 0, skipped: [], frames: 0, t0: 0, items: 0, parts: 0, partsAll: 0, gems: 0, gemsAll: 0, report: null,
@@ -799,7 +866,7 @@
   function gnomeStep(h) {
     if (S.carpet && S.carpet.on) { carpetStep(h); return; }
     if (S.ride && S.ride.on) { rideStep(h); return; }
-    const k = S.keys; let pad = { dx: (k.right ? 1 : 0) - (k.left ? 1 : 0), up: k.up, down: k.down, jump: S.jumpQueued, dig: !!k.dig, dash: !!k.dash };
+    const k = S.keys; let pad = { dx: (k.right ? 1 : 0) - (k.left ? 1 : 0), up: k.up, down: k.down, jump: S.jumpQueued, dig: !!k.dig && digOK(), dash: !!k.dash };
     S.jumpQueued = false;
     const t0 = performance.now();
     let g0 = S.g;
@@ -879,7 +946,7 @@
     const m = { x: me.x, y: me.y, hearts: me.hearts, gear: me.gear, tool: me.tool, kit: me.kit, pack: me.pack, carrots: me.carrots }, items = [], hs = [];
     for (let i = 0; i < things.length; i++) { const t = things[i]; if (t.taken || !near(t.x, t.y)) continue; items.push(i); const k = t.kind;
       if (k === "climb") m.pack = true; else if (k === "gear") m.gear = true; else if (k === "carrot") m.carrots++;
-      else if (k === "carpet" || k === "tail" || k === "finder") { /* the page's */ }
+      else if (k === "carpet" || k === "tail" || k === "finder" || k === "cathead") { /* the page's */ }
       else if (KITS[k]) m.kit |= KITS[k]; else m.tool |= k === "super" ? 2 : 1; }   // (0.0.138: both diggers kept, 3)
     for (let i = 0; i < hearts.length && m.hearts < 5; i++) { const h = hearts[i]; if (!h.taken && near(h.x, h.y)) { hs.push(i); m.hearts++; } }
     return { me: m, items, hearts: hs };
@@ -900,6 +967,7 @@
     if (m.gear !== me.gear) ch.gear = m.gear; if (m.tool !== me.tool) ch.tool = m.tool; if (m.kit !== me.kit) ch.kit = m.kit; if (m.pack !== me.pack) ch.climbPack = m.pack;
     if (Object.keys(ch).length) S.g = { ...S.g, ...ch }; if (m.carrots !== me.carrots) S.carrots = m.carrots;
     for (const i of a.items) { const it = S.items[i]; it.taken = true; if (SND) SND.gem();
+      if (it.kind === "cathead") { catHeadFound(it); continue; }   // (0.0.140: no card for each; the tenth gives the cat tail)
       if (it.kind === "carpet") { S.carpet.have = true; useRide("carpet"); }
       else if (it.kind === "tail") { S.tail.have = true; useRide("tail"); }
       else if (it.kind === "finder") GEMAIM.at = -1e9;   // (0.0.126: had, it looks for the nearest gem at once)
@@ -907,6 +975,15 @@
     // a heart, walked into, gives back one heart (not with all five: it stays for later)
     for (const i of a.hearts) { const hh = hs[i]; hh.taken = true; popWord("❤️", hh.x, hh.y - 0.7); if (SND) SND.gem(); }
     S.hearts = m.hearts;
+  }
+  // (0.0.140; N's level) a cat head gem found: how many of the ten, over it; the tenth, the cat tail, as if found, its card and a fanfare
+  const CAT_TAIL = { label: "🐈 the cat tail", banner: "🐱 Ten cat head gems: the 🐈 cat tail is yours! Hold ↑ and press R to put it on: jump, and keep pressing jump in the air, or hold it, to fly up" };
+  function catHeadFound(it) {
+    const n = S.items.filter(t => t.kind === "cathead" && t.taken).length, need = S.catNeed || 10;
+    popWord(`🐱 ${Math.min(n, need)}/${need}`, it.x, it.y - 0.7);
+    if (n === need) { if (!S.tail.have) { S.tail.have = true; useRide("tail"); powerNote("tail", CAT_TAIL); }
+      else powerNote("tail", { label: "🐱 ten cat head gems", banner: "🐱 All ten cat head gems! You have the cat tail already: hold ↑ and press R to put it on" });
+      if (SND && SND.cleared) SND.cleared(); }
   }
   // (Matthew: "is there a celebration when we get them all? what happens?") There was none. The last gem of the world found: a
   // banner, Gnome dig's fanfare and its party tune, the gnome cheering, and its party: a burst of confetti, stars and bubbles
@@ -938,8 +1015,72 @@
       if (p.kind === 0) { c.save(); c.translate(x, y); c.rotate(p.rot); c.scale(1, Math.cos(p.t * 9 + p.ph)); c.fillStyle = p.col; c.fillRect(-z, -z * 0.45, z * 2, z * 0.9); c.restore(); }
       else if (p.kind === 1) { const tw = 0.75 + 0.25 * Math.sin(p.t * 14 + p.ph); c.fillStyle = p.col === "#ffffff" ? "#fef08a" : p.col; c.beginPath();
         for (let i = 0; i < 10; i++) { const a = p.rot + i * Math.PI / 5, r = (i % 2 ? 0.45 : 1.15) * z * tw; if (i) c.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r); else c.moveTo(x + Math.cos(a) * r, y + Math.sin(a) * r); } c.closePath(); c.fill(); }
+      else if (p.kind === 3) { const k = Math.max(0, 1 - p.t / 3); c.save(); c.globalAlpha = Math.min(1, k * 1.6); c.translate(x, y); c.rotate(p.rot); const zz = z * 1.25;   // (0.0.140: a rainbow cloud's gems, cut stones in its colours, a glint on each)
+        c.fillStyle = p.col; c.beginPath(); c.moveTo(0, -zz); c.lineTo(zz * 0.7, -zz * 0.25); c.lineTo(0, zz); c.lineTo(-zz * 0.7, -zz * 0.25); c.closePath(); c.fill();
+        c.fillStyle = "rgba(255,255,255,0.55)"; c.beginPath(); c.moveTo(0, -zz); c.lineTo(zz * 0.7, -zz * 0.25); c.lineTo(0, -zz * 0.05); c.closePath(); c.fill(); c.restore(); }
       else { c.strokeStyle = "rgba(224,242,254,0.85)"; c.lineWidth = Math.max(1, s * 0.03); c.beginPath(); c.arc(x, y, z * 1.6, 0, 7); c.stroke(); } }
     S.confetti = keep;
+  }
+  // (0.0.140) the swirling vortex: arms of light winding in to a dark eye, turning, sparks drawn into it
+  function drawVortex(V, s, now) {
+    const x = V.x * s, y = V.y * s, R = s * 1.7, t = now / 1000, c = ctx;
+    if (x < (S.cam.x - 3) * s || x > (S.cam.x + VW + 3) * s || y < (S.cam.y - 3) * s || y > (S.cam.y + VH + 3) * s) return;
+    c.save(); c.translate(x, y);
+    const glow = c.createRadialGradient(0, 0, 0, 0, 0, R * 1.5); glow.addColorStop(0, "rgba(76,29,149,0.95)"); glow.addColorStop(0.45, "rgba(124,58,237,0.5)"); glow.addColorStop(1, "rgba(167,139,250,0)");
+    c.fillStyle = glow; c.beginPath(); c.arc(0, 0, R * 1.5, 0, 7); c.fill();
+    c.globalCompositeOperation = "lighter"; c.lineCap = "round";
+    const ARMS = ["#a78bfa", "#60a5fa", "#f472b6", "#22d3ee", "#c084fc"];
+    for (let a = 0; a < 5; a++) { c.strokeStyle = ARMS[a]; c.lineWidth = Math.max(1.5, s * 0.16); c.globalAlpha = 0.75; c.beginPath();
+      for (let k = 0; k <= 28; k++) { const f = k / 28, ang = -t * 2.6 + a * 1.2566 + f * 5.2, rr = R * (1 - f * 0.88); const px = Math.cos(ang) * rr, py = Math.sin(ang) * rr * 0.92; if (k) c.lineTo(px, py); else c.moveTo(px, py); }
+      c.stroke(); }
+    c.globalAlpha = 1;
+    for (let k = 0; k < 9; k++) { const f = ((t * 0.7 + k / 9) % 1), ang = k * 2.4 - t * 3 + f * 4, rr = R * 1.35 * (1 - f); c.fillStyle = ARMS[k % 5];
+      c.beginPath(); c.arc(Math.cos(ang) * rr, Math.sin(ang) * rr, s * 0.07 * (1 - f * 0.6), 0, 7); c.fill(); }
+    c.globalCompositeOperation = "source-over";
+    const eye = c.createRadialGradient(0, 0, 0, 0, 0, R * 0.42); eye.addColorStop(0, "rgba(10,4,30,1)"); eye.addColorStop(1, "rgba(46,16,101,0)");
+    c.fillStyle = eye; c.beginPath(); c.arc(0, 0, R * 0.42, 0, 7); c.fill();
+    c.restore();
+  }
+  // (0.0.140) the rainbow clouds, in front: puffs washed in the rainbow's colours, a soft bob; and a burst's beams of rainbow light
+  function drawRainbows(s, now, c0, c1, r0, r1) {
+    const c = ctx;
+    for (const R of S.rainbows || []) { if (R.gone || R.x + R.w < c0 - 2 || R.x - R.w > c1 + 2 || R.y < r0 - 4 || R.y > r1 + 4) continue;
+      const x = R.x * s, y = (R.y + Math.sin(now / 900 + R.k) * 0.15) * s, w = R.w * s / 2;
+      const gr = c.createLinearGradient(x - w, y - w * 0.4, x + w, y + w * 0.4); RAINBOW.forEach((col, k) => gr.addColorStop(k / 6, col));
+      // (puffs as shares of its half width: across, down, how big; overlapping, a cloud's lumpy top and flatter bottom)
+      const P = [[-0.66, 0.1, 0.3], [-0.36, -0.08, 0.4], [0, -0.2, 0.46], [0.36, -0.06, 0.4], [0.66, 0.12, 0.29], [-0.24, 0.17, 0.34], [0.24, 0.17, 0.34]];
+      const puffs = k => { c.beginPath(); for (const [px, py, pr] of P) { const rr = pr * w * k; c.moveTo(x + px * w + rr, y + py * w); c.arc(x + px * w, y + py * w, rr, 0, 7); } };
+      c.save();
+      c.fillStyle = "rgba(255,255,255,0.35)"; puffs(1.16); c.fill();   // (a soft halo, a size larger: no blur, which a canvas pays dearly for)
+      c.fillStyle = "rgba(255,255,255,0.95)"; puffs(1); c.fill();
+      c.globalAlpha = 0.5 + 0.15 * Math.sin(now / 400 + R.k); c.fillStyle = gr; puffs(0.86); c.fill();
+      c.globalAlpha = 1; c.fillStyle = "rgba(255,255,255,0.55)"; c.beginPath(); c.ellipse(x - w * 0.15, y - w * 0.32, w * 0.3, w * 0.09, -0.1, 0, 7); c.fill();
+      c.fillStyle = "rgba(255,255,255,0.85)";
+      for (let k = 0; k < 3; k++) { const a = now / 600 + k * 2.1 + R.k, sx = x + Math.cos(a) * w * 0.6, sy = y + Math.sin(a * 1.3) * w * 0.2, z = s * (0.07 + 0.03 * Math.sin(now / 120 + k));
+        c.beginPath(); c.moveTo(sx, sy - z * 2); c.lineTo(sx + z * 0.5, sy - z * 0.5); c.lineTo(sx + z * 2, sy); c.lineTo(sx + z * 0.5, sy + z * 0.5); c.lineTo(sx, sy + z * 2); c.lineTo(sx - z * 0.5, sy + z * 0.5); c.lineTo(sx - z * 2, sy); c.lineTo(sx - z * 0.5, sy - z * 0.5); c.closePath(); c.fill(); }
+      c.restore(); }
+    // the beams: rays of each colour turning out from where the cloud was, longer, then fading, over a second and a half
+    const keepB = [];
+    for (const B of S.beams || []) { const age = (now - B.at) / 1500; if (age >= 1) continue; keepB.push(B);
+      const x = B.x * s, y = B.y * s, L = s * (2 + 9 * Math.sqrt(age)), a0 = B.spin + age * 1.4;
+      c.save(); c.globalAlpha = (1 - age) * 0.85; c.lineCap = "round";   // (in their own colours: added as light, on a bright sky they went white)
+      for (let k = 0; k < 14; k++) { const ang = a0 + k * 0.4488; c.strokeStyle = RAINBOW[k % 7]; c.lineWidth = s * (0.35 - 0.2 * age);
+        c.beginPath(); c.moveTo(x + Math.cos(ang) * s * 0.6, y + Math.sin(ang) * s * 0.6); c.lineTo(x + Math.cos(ang) * L, y + Math.sin(ang) * L); c.stroke(); }
+      if (age < 0.25) { c.globalAlpha = 1 - age * 4; const fl = c.createRadialGradient(x, y, 0, x, y, s * 2.5); fl.addColorStop(0, "rgba(255,255,255,1)"); fl.addColorStop(1, "rgba(255,255,255,0)"); c.fillStyle = fl; c.beginPath(); c.arc(x, y, s * 2.5, 0, 7); c.fill(); }
+      c.restore(); }
+    S.beams = keepB;
+  }
+  // (0.0.140) a cat head gem: a stone cut as a cat's head, ears and all, in the cat tail's orange, red and yellow; green eyes that blink
+  function catHeadGem(c, s, now) {
+    const z = s * 0.32, blink = Math.sin(now / 1700) > 0.97 ? 0.15 : 1;
+    c.beginPath(); c.moveTo(-z, -0.15 * z); c.lineTo(-0.95 * z, -1.05 * z); c.lineTo(-0.42 * z, -0.62 * z); c.lineTo(0.42 * z, -0.62 * z); c.lineTo(0.95 * z, -1.05 * z); c.lineTo(z, -0.15 * z); c.lineTo(0.62 * z, 0.72 * z); c.lineTo(0, 0.95 * z); c.lineTo(-0.62 * z, 0.72 * z); c.closePath();
+    const gr = c.createLinearGradient(-z, -z, z, z); gr.addColorStop(0, "#fde047"); gr.addColorStop(0.5, "#f97316"); gr.addColorStop(1, "#dc2626");
+    c.fillStyle = gr; c.fill(); c.lineWidth = Math.max(1, s / 26); c.strokeStyle = "rgba(90,30,10,0.9)"; c.stroke();
+    c.strokeStyle = "rgba(255,255,255,0.45)"; c.lineWidth = Math.max(1, s / 40); c.beginPath(); c.moveTo(-0.42 * z, -0.62 * z); c.lineTo(0, 0.95 * z); c.lineTo(0.42 * z, -0.62 * z); c.moveTo(-z, -0.15 * z); c.lineTo(z, -0.15 * z); c.stroke();
+    c.fillStyle = "#15803d"; for (const sx of [-1, 1]) { c.beginPath(); c.ellipse(sx * 0.38 * z, 0.05 * z, 0.13 * z, 0.2 * z * blink, 0, 0, 7); c.fill(); }
+    c.fillStyle = "#be185d"; c.beginPath(); c.moveTo(-0.1 * z, 0.33 * z); c.lineTo(0.1 * z, 0.33 * z); c.lineTo(0, 0.47 * z); c.closePath(); c.fill();
+    c.strokeStyle = "rgba(255,255,255,0.8)"; c.beginPath(); for (const sx of [-1, 1]) for (const dy of [-0.07, 0.08]) { c.moveTo(sx * 0.22 * z, 0.43 * z); c.lineTo(sx * 0.92 * z, (0.38 + dy) * z); } c.stroke();
+    c.fillStyle = "rgba(255,255,255,0.85)"; c.beginPath(); c.ellipse(-0.52 * z, -0.33 * z, 0.12 * z, 0.07 * z, -0.6, 0, 7); c.fill();
   }
   // ---- the boulders: one with open air under it wobbles, then falls (slower in the water), landing where it can fall no further;
   // falling on the gnome, a heart. (0.0.135; piece 3 of ^report(64)'s plan) A boulder's step is Hazel's, Boulder.step; here its
@@ -1038,6 +1179,60 @@
 
   // ---- one frame: the gnome, the boulders, the water, the beavers, the smoke; the camera after the gnome
   // (0.0.130; ⏱ under ⚙️ Advanced: a step's parts timed, while TP.on; otherwise a call that does nothing)
+  // ---- (0.0.140; N's idea, through Matthew, 2026-11-26: "this new N-based level is linked to the existing one through a special
+  // doorway ... as a swirling vortex"; "Provide a passage way back") Into the vortex, the gnome goes to the other level: this
+  // world kept as it is (S.away, as a save is, and in a 💾 save and the world this browser keeps), the other one as it was left,
+  // or made from its seed the first time; the gnome comes through with its hearts and its things (each level says whether it
+  // may dig), and out by that level's vortex. The vortex waits until the gnome has stepped away from it before it takes it
+  // again; not on Clover (she stays in her world), and not in the speed run
+  function vortexStep() {
+    const V = S.vortex, g = S.g; if (!V || !g || S.faintAt || BOT.on) return;
+    const d = Math.hypot(g.x / 1000 - V.x, g.y / 1000 - 0.5 - V.y);
+    if (!V.armed) { if (d > 2.6) V.armed = true; return; }
+    if (d > 1.3) { V.told = false; return; }   // (a gnome walking by, its middle half a tile up, touches it)
+    if (S.ride && S.ride.on) { if (!V.told) { V.told = true; S.banner = { text: "🐇 Clover will not go into the vortex: hop off (R), then in you go", t: performance.now() }; } return; }
+    travel(V.to);
+  }
+  function travel(to) {
+    const h = H(), LV = levelOf(to); if (!h || !S.g || !LV) return;
+    const from = S.level, g = S.g, carry = { hearts: S.hearts, carpet: !!S.carpet.have, carpetOn: !!S.carpet.on, tail: !!S.tail.have, tailOn: !!S.tail.on, points: S.points | 0, hero: S.hero };
+    const here = snapshot(); delete here.away;
+    const away = { ...S.away, [from]: here }, there = away[to]; delete away[to];
+    try { if (there) restore(h, { ...there, level: to, away }); else { S.level = to; S.seed = LV.seed; build(h, S.seed); S.away = away; } }
+    catch (e) { console.error(e); restore(h, { ...here, level: from, away: S.away }); S.banner = { text: "🌀 The vortex would not take you: " + (e && e.message || e), t: performance.now() }; return; }
+    const V = S.vortex, A = V ? V.arrive : { x: S.start.x / 1000, y: top[Math.floor(S.start.x / 1000)], face: 1 }, mine = {};
+    for (const k of ["tool", "kit", "gear", "climbPack", "air"]) if (g[k] !== undefined) mine[k] = g[k];
+    S.g = { ...S.g, ...mine, x: Math.round(A.x * 1000), y: Math.round(A.y * 1000), vx: 0, vy: 0, face: A.face || 1, ground: false, climb: false, swim: false, under: false, dc: -1, dr: -1, dt: 0, ev: 0 };
+    S.hearts = carry.hearts; S.points = carry.points;
+    S.carpet.have = S.carpet.have || carry.carpet; S.carpet.on = carry.carpetOn && S.carpet.have;
+    S.tail.have = S.tail.have || carry.tail; S.tail.on = carry.tailOn && S.tail.have;
+    if (S.ride) S.ride.on = false;
+    if (HEROES[carry.hero] && S.hero !== carry.hero) { S.hero = carry.hero; keep("hero", S.hero); heroPicker(); }
+    if (V) V.armed = false;
+    S.cam.set = false; digButton();
+    S.banner = { text: to === "1" ? "🌀 Home again: 🌍 " + LV.name : `🌀 🌈 ${LV.name}${LV.by ? ", " + LV.by.split(" ")[0] + "'s level" : ""}${LV.dig === false ? ": no digging here. Fly!" : ""}`, t: performance.now() };
+    if (SND) SND.gem(); keepWorld();
+  }
+  // (0.0.140; N's level: "a new kind of rainbow foreground cloud that gives us points for hitting it while flying, any way we are
+  // flying. It explodes with a celebration of rainbow gems and rainbow light beams") A rainbow cloud flown into, on the carpet or
+  // with the cat tail in the air: its points, then it bursts; a minute later, once it is out of sight, it is back
+  const RAINBOW = ["#ef4444", "#f97316", "#facc15", "#22c55e", "#3b82f6", "#6366f1", "#a855f7"];
+  function rainbowsStep() {
+    if (!S.rainbows || !S.rainbows.length) return;
+    const g = S.g, flying = !!g && !S.faintAt && ((S.carpet && S.carpet.on) || (S.tail && S.tail.on && !g.ground && !g.climb && !g.swim));
+    for (const R of S.rainbows) {
+      if (R.gone) { if (S.frame >= R.back && S.cam.set && (R.x + R.w < S.cam.x - 1 || R.x - R.w > S.cam.x + VW + 1 || R.y + 2 < S.cam.y || R.y - 2 > S.cam.y + VH)) R.gone = false; continue; }
+      if (!flying) continue;
+      const dx = (g.x / 1000 - R.x) / (R.w / 2 + 0.4), dy = (g.y / 1000 - 0.5 - R.y) / (R.w * 0.3 + 0.6);   // (as big as it is drawn)
+      if (dx * dx + dy * dy <= 1) { R.gone = true; R.back = S.frame + (S.rainbowBack || 3600); S.points = (S.points | 0) + (S.rainbowPts || 100);
+        popWord(`🌈 +${S.rainbowPts || 100}`, R.x, R.y - 1.2); rainbowBurst(R.x, R.y, R.w); if (SND) SND.gem(); }
+    }
+  }
+  function rainbowBurst(x, y, w) {
+    for (let i = 0; i < 48 && S.confetti.length < 500; i++) { const a = Math.random() * 6.283, v = 3 + Math.random() * 7;
+      S.confetti.push({ kind: 3, x: x + (Math.random() - 0.5) * w * 0.6, y: y + (Math.random() - 0.5), vx: Math.cos(a) * v, vy: Math.sin(a) * v - 4, rot: Math.random() * 6.3, vr: (Math.random() - 0.5) * 10, col: RAINBOW[i % 7], z: 0.17 + Math.random() * 0.12, ph: Math.random() * 6.3, t: 0 }); }
+    S.beams.push({ x, y, w, at: performance.now(), spin: Math.random() * 6.3 });
+  }
   const TP = { on: false, ms: {}, t: 0 };
   const tmark = k => { if (!TP.on) return; const t = performance.now(); TP.ms[k] = (TP.ms[k] || 0) + t - TP.t; TP.t = t; };
   function tick(h) {
@@ -1047,7 +1242,7 @@
     if (S.faintAt && S.carpet && S.carpet.on) S.carpet.on = false;
     if (S.faintAt && S.tail && S.tail.on) Object.assign(S.tail, { fly: 0, lift: 0, flut: 0, meter: 0, rep: 0 });
     if (S.faintAt) { if (performance.now() - S.faintAt > 1800) { S.faintAt = 0; S.hearts = 5; S.g = { ...S.g, x: S.start.x, y: top[Math.floor(S.start.x / 1000)] * 1000, vx: 0, vy: 0, air: 600 }; S.cam.set = false; } }
-    else { if (BOT.on) { BOT.frames++; botStep(); tmark("the speed run's way"); } gnomeStep(h); tmark("the gnome"); }
+    else { if (BOT.on) { BOT.frames++; botStep(); tmark("the speed run's way"); } gnomeStep(h); tmark("the gnome"); rainbowsStep(); vortexStep(); tmark("rainbows, the vortex"); }
     bouldersStep(h); tmark("boulders");
     waterStep(); tmark("water");
     if (S.frame % 6 === 0) beaversStep(h); tmark("beavers");
@@ -4139,6 +4334,7 @@
     // (Matthew: "the items themselves need more emph in the game") each thing to be found: on a golden halo, pulsing, sparkles
     // going round it, drawn half again as large, bobbing, a sign over it with its name (and in the dark it glows: the lights,
     // below; off the screen, a pointer at the edge, in hud)
+    if (S.vortex && !LINE) drawVortex(S.vortex, s, now);   // (0.0.140)
     for (const it of S.items) { if (it.taken) continue; const x = it.x * s, y = it.y * s + Math.sin(now / 300) * 0.08 * s, pulse = 0.75 + 0.25 * Math.sin(now / 260);
       const halo = ctx.createRadialGradient(x, y, 0, x, y, s * 1.3 * pulse); halo.addColorStop(0, "rgba(255,236,150,0.85)"); halo.addColorStop(0.45, "rgba(255,214,90,0.35)"); halo.addColorStop(1, "rgba(255,214,90,0)");
       ctx.fillStyle = halo; ctx.beginPath(); ctx.arc(x, y, s * 1.3 * pulse, 0, 7); ctx.fill();
@@ -4160,6 +4356,7 @@
         ctx.lineWidth = Math.max(1, s / 30); ctx.beginPath(); for (const k of [0, 1, 2]) { ctx.moveTo(X(-0.11 + k * 0.05), Y(-0.15 + k * 0.035)); ctx.lineTo(X(-0.06 + k * 0.05), Y(-0.1 + k * 0.035)); } ctx.stroke();
         ctx.strokeStyle = "rgba(40,25,10,0.8)"; ctx.lineWidth = Math.max(1, s / 22); }
       else if (it.kind === "tail") { ctx.save(); ctx.scale(s / 34, s / 34); catTail(ctx, -9, 8, 1, Math.sin(now / 300) * 0.2); ctx.restore(); }   // (0.0.116: the cat tail, curled)
+      else if (it.kind === "cathead") catHeadGem(ctx, s, now);   // (0.0.140: N's ten)
       else if (it.kind === "finder") gemCompass(ctx, s * 0.95, now / 700 + Math.sin(now / 430) * 0.8, now);   // (0.0.126: the gem finder, its needle wandering till it is had)
       else if (it.kind === "flippers") for (const [ox, rot] of [[-0.15, -0.28], [0.15, 0.28]]) {   // (0.0.114: the swim flippers, a pair, teal, ribbed)
         ctx.save(); ctx.translate(ox * s, 0); ctx.rotate(rot);
@@ -4235,6 +4432,7 @@
         const gl = ctx.createRadialGradient(tx * s, ty * s, 0, tx * s, ty * s, s * 1.1 * pulse); gl.addColorStop(0, "rgba(196,181,253,0.75)"); gl.addColorStop(1, "rgba(167,139,250,0)");
         ctx.fillStyle = gl; ctx.beginPath(); ctx.arc(tx * s, ty * s, s * 1.1 * pulse, 0, 7); ctx.fill();
         ctx.save(); ctx.translate(hx * s, hy * s); gemCompass(ctx, s * 1.3, Math.atan2(ty - hy, tx - hx), now); ctx.restore(); } }
+    if (!LINE && ((S.rainbows && S.rainbows.length) || (S.beams && S.beams.length))) drawRainbows(s, now, c0, c1, r0, r1);   // (0.0.140: in front of everything)
     drawPebbles(true, c0, c1, r0, r1);
     drawTalk(s);
     for (const p of S.parts) { if (p.fire) { const k = Math.max(0, p.life / p.life0); ctx.fillStyle = k > 0.65 ? "#fde047" : k > 0.35 ? "#fb923c" : "#ef4444"; ctx.globalAlpha = Math.min(1, 0.35 + k);
@@ -4294,6 +4492,7 @@
       ctx.font = `${Math.round(0.6 * s)}px sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillStyle = "#fff"; ctx.fillText(icon, 0, -s * 0.02);
       ctx.font = `bold ${Math.round(0.28 * s)}px sans-serif`; ctx.fillStyle = "#fff8d0"; ctx.fillText(`${Math.round(Math.hypot(tx - S.g.x / 1000, ty - S.g.y / 1000))} m`, 0, s * 0.85); ctx.restore(); };
     if (!LINE) for (const it of S.items) if (!it.taken) edgePointer(it.x, it.y, ITEM[it.kind].icon, "#fde68a", "rgba(30,20,8,0.7)");
+    if (!LINE && S.vortex) edgePointer(S.vortex.x, S.vortex.y, "🌀", "#c4b5fd", "rgba(46,16,101,0.78)");   // (0.0.140)
     if (!LINE && GEMAIM.i >= 0 && gem[GEMAIM.i] && hasFinder()) { const gc = GEMAIM.i % WW; edgePointer(gc + 0.5, (GEMAIM.i - gc) / WW + 0.5, "💎", "#c4b5fd", "rgba(46,16,101,0.78)"); }
     ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
     if (!LINE) { ctx.save(); ctx.translate(-camX * s, -camY * s); drawParty(s, now); ctx.restore(); }   // (in the world, where the gnome is)
@@ -4382,6 +4581,8 @@
     const wet = PORES[m] === 0 ? "💧 none: water cannot soak in" : `💧 ${w < 0.05 ? "dry" : w < 0.25 ? "damp" : w < 0.5 ? "moist" : w < 0.85 ? "wet" : "soaked"}, ${pct}% full`;
     return `${how}: ${about}  ·  ${need}  ·  ${wet}`;
   }
+  // (0.0.140) the gems' words: in a level with cat head gems and no others, those; and the rainbow points, once there are any
+  const gemWords = () => (S.catNeed && !S.gemTotal ? `🐱 ${Math.min(S.catNeed, S.items.filter(t => t.kind === "cathead" && t.taken).length)} / ${S.catNeed}` : `💎 ${S.found || 0} / ${S.gemTotal || 0}`) + (S.points ? `  🌈 ${S.points}` : "");
   function hud(now) {
     const W = cv.width, Hh = cv.height, k = Math.max(1, Math.min(2.2, W / 900)), g = S.g;
     ctx.save(); ctx.textAlign = "left"; ctx.textBaseline = "top";
@@ -4398,7 +4599,7 @@
       if (mb) { if (mb.hidden === show) mb.hidden = !show; const which = riding ? "clover" : flying ? "carpet" : tailed ? "tail" : nextRide(), icon = which === "carpet" ? "🧞" : which === "tail" ? "🐈" : "🐇", on = String(riding || flying || tailed);
         if (mb.textContent !== icon) { mb.textContent = icon; mb.title = which === "carpet" ? "The magic carpet: on or off (R)" : which === "tail" ? "The cat tail: on or off (R)" : "Ride Clover the rabbit: on or off (R); a carrot first"; }
         if (mb.getAttribute("aria-pressed") !== on) mb.setAttribute("aria-pressed", on); } }
-    const line = `${runWord}${hearts}  💎 ${S.found || 0} / ${S.gemTotal || 0}${S.carrots ? "  🥕 " + S.carrots : ""}${S.ride && S.ride.on ? "  🐇" : ""}${S.carpet && S.carpet.have ? (S.carpet.on ? "  🧞 flying" : "  🧞") : ""}${S.tail && S.tail.on ? (S.tail.fly > 0 ? "  🐈 flying" : "  🐈") : ""}  🍃 ${windWord} ${arrows}  ${where}${g && g.gear ? "  🤿" : ""}${hasFinder() ? "  🧭" : ""}${g && g.climbPack ? "  🧗" : ""}${g && g.tool ? (g.tool >= 3 ? "  ⛏️⚒️" : g.tool >= 2 ? "  ⚒️" : "  ⛏️") : ""}${place ? "  ·  " + place : ""}`;
+    const line = `${runWord}${hearts}  ${gemWords()}${S.carrots ? "  🥕 " + S.carrots : ""}${S.ride && S.ride.on ? "  🐇" : ""}${S.carpet && S.carpet.have ? (S.carpet.on ? "  🧞 flying" : "  🧞") : ""}${S.tail && S.tail.on ? (S.tail.fly > 0 ? "  🐈 flying" : "  🐈") : ""}  🍃 ${windWord} ${arrows}  ${where}${g && g.gear ? "  🤿" : ""}${hasFinder() ? "  🧭" : ""}${g && g.climbPack ? "  🧗" : ""}${g && g.tool ? (g.tool >= 3 ? "  ⛏️⚒️" : g.tool >= 2 ? "  ⚒️" : "  ⛏️") : ""}${place ? "  ·  " + place : ""}`;
     const tw = ctx.measureText(line).width;
     pill(10 * k, 10 * k, tw + 20 * k, 30 * k); ctx.fillStyle = "#fff"; ctx.fillText(line, 20 * k, 15 * k);
     let below = 46 * k;
@@ -4430,7 +4631,7 @@
       ctx.textAlign = "left"; ctx.textBaseline = "top";
       ctx.fillStyle = "#ef4444"; ctx.beginPath(); ctx.arc(mx + gx / WW * mw, my + g.y / 1000 / WH * mh, 3 * k, 0, 7); ctx.fill(); ctx.strokeStyle = "rgba(255,255,255,0.6)"; ctx.lineWidth = 1; ctx.strokeRect(mx, my, mw, mh); }
     ctx.restore();
-    if (S.frame % 15 === 0) { $("gems").textContent = `💎 ${S.found || 0} / ${S.gemTotal || 0}`; $("gems").title = `this world's gems: found, and all there are (${S.gems} found in all your worlds)`; $("hearts").textContent = hearts; $("where").textContent = place || where; }
+    if (S.frame % 15 === 0) { $("gems").textContent = gemWords(); $("gems").title = `this world's gems: found, and all there are (${S.gems} found in all your worlds)`; $("hearts").textContent = hearts; $("where").textContent = place || where; }
   }
 
   // (Matthew: "it seems like there are performance challenges now with gnome world"; "can we add a FPS HUD please?") The frame's
@@ -4502,6 +4703,7 @@
   // each time; again, it stops
   { const b = $("digall"); if (b) b.addEventListener("click", () => {
       if (BOT.on) { stopBot(); b.blur(); return; }
+      if (S.level !== "1") { S.banner = { text: "⛏️ No digging in this level: the 🌀 vortex at the far left goes home", t: performance.now() }; b.blur(); return; }   // (0.0.140)
       const h = H(); if (!h || !S.g) return;
       const got = []; for (const it of S.items) if (!it.taken && (it.kind === "good" || it.kind === "super" || it.kind === "gear" || it.kind === "flippers")) { it.taken = true; got.push(ITEM[it.kind].icon); }
       S.g = { ...S.g, tool: 3, gear: true, kit: (S.g.kit | 0) | KIT.flippers };   // (0.0.138: both diggers, as if found)
@@ -4509,7 +4711,8 @@
         digAll: 0, digLeft: 0, digSkip: new Set(), digPass: 1, digT0: 0, chunks: 0, sayAt: 0, rng: 1 + Math.floor(Math.random() * 0x7ffffffe) });
       b.setAttribute("aria-pressed", "true"); $("run").setAttribute("aria-pressed", "false");
       S.banner = { text: `🕳️ Dig everything!${got.length ? ` ${got.join(" ")} yours` : ""}`, t: performance.now() + 1500 }; b.blur(); }); }
-  { const b = $("run"); if (b) b.addEventListener("click", () => { BOT.on = !BOT.on; b.setAttribute("aria-pressed", String(BOT.on)); const dg = $("digall"); if (dg) dg.setAttribute("aria-pressed", "false");
+  { const b = $("run"); if (b) b.addEventListener("click", () => { if (!BOT.on && S.level !== "1") { S.banner = { text: "🏃 The speed run tours the first world: the 🌀 vortex at the far left goes home", t: performance.now() }; b.blur(); return; }   // (0.0.140)
+      BOT.on = !BOT.on; b.setAttribute("aria-pressed", String(BOT.on)); const dg = $("digall"); if (dg) dg.setAttribute("aria-pressed", "false");
       if (BOT.on) { Object.assign(BOT, { phase: "", queue: [], cur: null, path: [], k: 0, skipped: [], frames: 0, t0: performance.now(), items: 0, parts: 0, partsAll: 0, gems: 0, gemsAll: 0, report: null, digAll: 0, digLeft: 0, digSkip: new Set(), digPass: 1, digT0: 0, chunks: 0, sayAt: 0 }); S.banner = { text: "🏃 Speed run: every thing, every part of every big tree, every gem", t: performance.now() }; }
       else for (const k in S.keys) S.keys[k] = false; b.blur(); }); }
   // ---- 🎮 a game controller (0.0.112; Matthew, 2026-11-25: "We have a Linux laptop that N often uses. Let's add game controller
@@ -4667,7 +4870,7 @@
       c.restore(); c.lineWidth = 3; c.strokeStyle = "#fff"; c.beginPath(); c.arc(R, R, R - 2.5, 0, 7); c.stroke(); }
   }
   buildHeads();
-  $("new").addEventListener("click", () => { const h = H(); if (!h) return; S.seed = 1 + Math.floor(Math.random() * 100000); keep("seed", S.seed); build(h, S.seed); keepWorld(); $("new").blur(); });
+  $("new").addEventListener("click", () => { const h = H(); if (!h) return; S.seed = 1 + Math.floor(Math.random() * 100000); keep("seed", S.seed); S.level = "1"; S.away = {}; build(h, S.seed); digButton(); keepWorld(); $("new").blur(); });
 
   // ---- (0.0.101; Matthew, 2026-11-24: "M wants a save/load feature, so that the game world state is preserved in a file"; "and
   // water state"; "choice of gnome family member as main char"; "position in the game world, and game world state for weather")
@@ -4678,7 +4881,7 @@
   // its gusts, the rain and when it comes next). 📂 Load makes the world from its seed again, then puts all that back. The birds,
   // frogs, insects and squirrels, the villagers' strolls and the dust and smoke start afresh. The tiles go packed (gzip, then
   // base64) where the browser can pack them: a world's tiles are 0.7 MB as they are.
-  const SAVE_KIND = "hazeljs-examples/gnome-world", SAVE_V = 7;   // (7, 0.0.123: one carrot on the ground, not three; 2, 0.0.102: the bigger world, Clover, the carrots; 3, 0.0.106: the magic carpet; 4, 0.0.109: the running shoes; 5, 0.0.114: the swim flippers and the super climbing gear; 6, 0.0.116: the cat tail)
+  const SAVE_KIND = "hazeljs-examples/gnome-world", SAVE_V = 8;   // (8, 0.0.140: the level, the other levels as left, the rainbow points)   // (7, 0.0.123: one carrot on the ground, not three; 2, 0.0.102: the bigger world, Clover, the carrots; 3, 0.0.106: the magic carpet; 4, 0.0.109: the running shoes; 5, 0.0.114: the swim flippers and the super climbing gear; 6, 0.0.116: the cat tail)
   const TILES = [mat, bg, fix, gem, stone, shape, root, top, wat];
   const bytesOf = A => new Uint8Array(A.buffer, A.byteOffset, A.byteLength);
   const TILE_BYTES = TILES.reduce((n, A) => n + A.byteLength, 0);
@@ -4702,27 +4905,33 @@
       ride: plain(S.ride), mount: plain(S.mount), carrots: S.carrots || 0,
       carpet: { have: !!(S.carpet && S.carpet.have), on: !!(S.carpet && S.carpet.on), face: S.carpet ? S.carpet.face : 1 },
       tail: { have: !!(S.tail && S.tail.have), on: !!(S.tail && S.tail.on) },
-      ...(S.rules === "plain" ? { rules: "plain" } : {}),   // (0.0.133: ⚡, kept in the save once chosen)
+      ...(S.rules === "plain" ? { rules: "plain" } : {}),
+      level: S.level, away: S.away, points: S.points | 0, rainbows: (S.rainbows || []).map(R => [R.gone ? 1 : 0, R.back | 0]),   // (0.0.140)   // (0.0.133: ⚡, kept in the save once chosen)
       tiles: tileBytes() };
   }
-  async function saveText(snap) {
+  async function saveText(snap) { return JSON.stringify(await packSave(snap)); }
+  async function packSave(snap) {
     const gz = typeof CompressionStream === "function", packed = gz ? await squeeze(snap.tiles, new CompressionStream("gzip")) : snap.tiles;
-    return JSON.stringify({ ...snap, page: "0.0.109", saved: new Date().toISOString(), tiles: { gzip: gz, bytes: snap.tiles.length, data: b64(packed) } });
+    const away = {}; for (const [k, a] of Object.entries(snap.away || {})) away[k] = await packSave({ ...a, away: {} });   // (0.0.140: each other level, a save of its own inside)
+    return { ...snap, away, page: "0.0.109", saved: new Date().toISOString(), tiles: { gzip: gz, bytes: snap.tiles.length, data: b64(packed) } };
   }
   async function readSave(text) {
-    let d; try { d = JSON.parse(text); } catch (e) { d = null; }
+    let d; try { d = typeof text === "string" ? JSON.parse(text) : text; } catch (e) { d = null; }
     if (!d || d.kind !== SAVE_KIND || !d.tiles) throw new Error("it is not a Gnome world save");
     if (!(d.v <= SAVE_V)) throw new Error("a newer Gnome world saved it: reload this page for the newest");
     const packed = unb64(d.tiles.data);
     if (d.tiles.gzip && typeof DecompressionStream !== "function") throw new Error("this browser cannot unpack it");
     const raw = d.tiles.gzip ? await squeeze(packed, new DecompressionStream("gzip")) : packed;
     if (raw.length !== d.tiles.bytes || raw.length !== TILE_BYTES) throw new Error("its world is not the size of this one");
-    return { ...d, tiles: raw };
+    const away = {}; for (const [k, a] of Object.entries(d.away || {})) away[k] = await readSave(a);   // (0.0.140)
+    return { ...d, tiles: raw, away };
   }
   // (the world made again from the save's seed, then all that play changed put back; a save that does not fit, and the world
   // as it was is put back instead)
   function restore(h, d) {
-    S.frame = d.frame; S.seed = d.seed; build(h, S.seed);
+    S.frame = d.frame; S.seed = d.seed; S.level = levelOf(d.level) ? String(d.level) : "1"; build(h, S.seed);   // (0.0.140: the level the save was in)
+    S.away = d.away || {}; S.points = d.points | 0; digButton();
+    if (Array.isArray(d.rainbows)) d.rainbows.forEach(([gone, back], k) => { const R = S.rainbows[k]; if (R) { R.gone = !!gone; R.back = back | 0; } });
     if (d.rules === "plain") setRules("plain");   // (0.0.133: a save made with ⚡ on turns it on)
     // (0.0.123: a save from before, v 6 or less, has the garden's three carrots, one after another, the first of Clover's things:
     // the one carrot now in the first one's place, the other two dropped)
@@ -4753,7 +4962,8 @@
     S.carpet = { have: !!(d.carpet && d.carpet.have), on: !!(d.carpet && d.carpet.on), vx: 0, vy: 0, face: d.carpet && d.carpet.face < 0 ? -1 : 1, ph: 0, wisps: null };
     S.tail = { have: !!(d.tail && d.tail.have), on: !!(d.tail && d.tail.on), meter: 0, fly: 0, lift: 0, flut: 0, rep: 0 };   // (0.0.116; a save from before has none)
     if (HEROES[d.hero]) { S.hero = d.hero; keep("hero", S.hero); heroPicker(); }
-    keep("seed", S.seed);
+    if (S.level === "1") keep("seed", S.seed);   // (0.0.140: the first level's seed, the one the page opens with)
+    if (S.vortex) S.vortex.armed = false;
     rootChunks.clear(); S.minimapAt = -1e9; S.cam.set = false; S.party = null; S.confetti = []; S.talk = null; hushTalk(); S.parts = []; S.smoke = [];
   }
   // ---- 🧩 Load-merge (0.0.139; Matthew: "N has a save state from 12:40 and we want to load it with the current game world"; "he got
@@ -4771,7 +4981,7 @@
   const TILE_NAMES = ["mat", "bg", "fix", "gem", "stone", "shape", "root", "top", "wat"];
   const savedTiles = u8 => { const o = {}; let off = 0; TILES.forEach((A, k) => { o[TILE_NAMES[k]] = new A.constructor(u8.slice(off, off + A.byteLength).buffer); off += A.byteLength; }); return o; };
   function mergeSave(h, d) {
-    S.frame = 0; S.seed = d.seed; build(h, S.seed);
+    S.frame = 0; S.seed = d.seed; S.level = levelOf(d.level) ? String(d.level) : "1"; build(h, S.seed); S.away = {}; digButton();   // (0.0.140: the level the save was in)
     if (d.rules === "plain") setRules("plain");
     if ((d.v | 0) < 7 && Array.isArray(d.items)) { const k0 = S.items.findIndex(it => it.kind === "carrot");
       if (k0 >= 0) d = { ...d, items: [...d.items.slice(0, k0 + 1), ...d.items.slice(k0 + 3)] }; }
@@ -4879,7 +5089,8 @@
   // (leaving the page, there is no time to pack the tiles: the save as it is, unpacked, written at once on the handle kept)
   function keepWorldNow() {
     if (!KEEPS || !keptHandle || !H() || !S.g || S.resuming) return;
-    try { const snap = snapshot(), text = JSON.stringify({ ...snap, page: "0.0.138", saved: new Date().toISOString(), tiles: { gzip: false, bytes: snap.tiles.length, data: b64(snap.tiles) } });
+    try { const raw = a => ({ ...a, away: Object.fromEntries(Object.entries(a.away || {}).map(([k, b]) => [k, raw({ ...b, away: {} })])), page: "0.0.138", saved: new Date().toISOString(), tiles: { gzip: false, bytes: a.tiles.length, data: b64(a.tiles) } });
+      const text = JSON.stringify(raw(snapshot()));
       keptHandle.transaction("kept", "readwrite").objectStore("kept").put({ text, at: Date.now() }, "world"); }
     catch (e) { console.warn("Gnome world: could not keep the world in this browser:", e); }
   }
@@ -4920,7 +5131,9 @@
       rivers: js(S.rivers.map(R => R.level)), dams: js(S.dams.map(d => d.logs)), works: js([...S.works]), things: js(S.items.map(it => [it.kind, it.x, it.y, !!it.taken])), heartItems: js((S.heartItems || []).map(hh => [hh.x, hh.y, !!hh.taken])),
       trees: js(S.trees.map(t => [t.x, t.alive, t.grow, t.fallAt, t.fallDir ?? null, t.regrow])), fallen: js(S.fallen.map(f => [f.x, S.trees.indexOf(f.t), f.k, f.F.trunk, [...f.F.gone]])),
       piles: js(S.piles), beavers: js(S.beavers.map(B => [B.b, B.px, B.py])), boulders: js(S.boulders), pebbles: js(S.pebbles),
-      villagers: js(S.villagers.map(v => [v.id, v.n, v.nextAt])), ride: js({ ride: S.ride, mount: S.mount, carrots: S.carrots || 0 }), tail: js({ have: !!(S.tail && S.tail.have), on: !!(S.tail && S.tail.on) }), carpet: js({ have: !!(S.carpet && S.carpet.have), on: !!(S.carpet && S.carpet.on), face: S.carpet ? S.carpet.face : 1 }), rootsDone: js(S.rootPlan.map(t => t.done ? 1 : 0)), rootSets: S.rootSets.length + S.threadSets.length };
+      villagers: js(S.villagers.map(v => [v.id, v.n, v.nextAt])),
+      level: js({ level: S.level, points: S.points | 0, vortex: S.vortex ? [S.vortex.x, S.vortex.y, S.vortex.to] : null, rainbows: (S.rainbows || []).map(R => [R.x, R.y, !!R.gone, R.back | 0]),
+        away: Object.entries(S.away || {}).map(([k, a]) => [k, a.seed, a.frame, fnv(a.tiles), a.items, a.gnome]) }), ride: js({ ride: S.ride, mount: S.mount, carrots: S.carrots || 0 }), tail: js({ have: !!(S.tail && S.tail.have), on: !!(S.tail && S.tail.on) }), carpet: js({ have: !!(S.carpet && S.carpet.have), on: !!(S.carpet && S.carpet.on), face: S.carpet ? S.carpet.face : 1 }), rootsDone: js(S.rootPlan.map(t => t.done ? 1 : 0)), rootSets: S.rootSets.length + S.threadSets.length };
   }
   addEventListener("resize", () => draw());
   const P = window.HazelPause ? window.HazelPause.make({ into: $("new").parentElement, over: $("world").parentElement,
@@ -5153,7 +5366,10 @@
   if (Q.has("test")) Object.assign(window.WorldTest, { CANVAS, newCanvas, dropCanvas, purgePictures, WATCH, bugReport, IOS });
   if (Q.has("test")) Object.assign(window.WorldTest, { SKYC, skyClouds, cloudArt, storminess });   // (0.0.125: the sky)
   if (Q.has("test")) Object.assign(window.WorldTest, { GEMAIM, gemAim, hasFinder, gemCompass, HEADTOP, draw, keepWorldNow, mergeText, saveText, snapshot });   // (0.0.126: the gem finder)
-  if (Q.has("test")) Object.assign(window.WorldTest, { CAVE, CAVEFX, caveLife });   // (0.0.127: the caverns)
+  if (Q.has("test")) Object.assign(window.WorldTest, { CAVE, CAVEFX, caveLife });
+  // (0.0.140: the levels: one built fresh, as the level check reads it; the vortex's journey)
+  if (Q.has("test")) Object.assign(window.WorldTest, { LEVELS, levelOf, travel, vortexStep, rainbowsStep, catHeadFound, digOK,
+    freshLevel: id => { S.level = String(id); S.seed = levelOf(id).seed; S.away = {}; S.points = 0; build(H(), S.seed); digButton(); return S.level; } });   // (0.0.127: the caverns)
   if (Q.has("test")) Object.assign(window.WorldTest, { botItemOrder, timeSpeedRun, TP, wakeTill, wakeAll, waterStep, setRules, H, rideJS, rideStep, boulderJS, bouldersStep, pickupJS, pickups, windJS, windStep, keepWorld });   // (0.0.130: the speed run's order of the things; ⏱)
   // (^ticket(873): the speed run's steps alone, timed, no drawing: up to n, while the run is on and not yet at its dig)
   if (Q.has("test")) Object.assign(window.WorldTest, { steps: (n, any) => { const h = H(); const t0 = performance.now(); let k = 0; for (; k < n && (any || (BOT.on && BOT.phase !== "dig")); k++) tick(h); return { k, ms: performance.now() - t0 }; } });   // (any: steps with or without the speed run)   // (0.0.115: the canvases kept, ^ticket(852))   // (0.0.112: the 🎮 controller, driven by hand where frames do not come)

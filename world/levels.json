@@ -1,11 +1,294 @@
 {
- "about": "Gnome world's levels (0.0.140; Matthew, 2026-11-26: \"I want the current 'default/start world' to be consistent in ongoing versions\"; \"let's be sure to save any seed numbers we use\"; \"let's be sure to save any structure not entirely determined by that seed number to the .json file\"). Each level: the seed its world is planned from (Hazel's World.plan, then the page's build), whether a gnome may dig there, and everything placed by hand rather than by the seed. 'built' is the world as a version of the page built it, each part hashed (WorldTest.digest); the GitHub check node/level-check.mjs builds each level fresh and fails if any part differs, so a later version cannot change a level's world without saying so here. Tile coordinates: x a column from the left (0 to 895), y a row from the top (0 to 207); 'deep' is rows under the land at that column.",
+ "about": "Gnome world's levels (0.0.140; Matthew, 2026-11-26: \"I want the current 'default/start world' to be consistent in ongoing versions\"; \"let's be sure to save any seed numbers we use\"; \"let's be sure to save any structure not entirely determined by that seed number to the .json file\"). Each level: the seed its world is planned from (Hazel's World.plan, then the page's build), whether a gnome may dig there, and everything placed by hand rather than by the seed. 'built' is the world as a version of the page built it, each part hashed (WorldTest.digest); the GitHub check node/level-check.mjs builds each level fresh and fails if any part differs, so a later version cannot change a level's world without saying so here. Tile coordinates: x a column from the left (0 to 895), y a row from the top (0 to 207); 'deep' is rows under the land at that column, 'up' rows over it.",
  "levels": {
   "1": {
    "name": "Gnome world",
    "seed": 7,
    "dig": true,
-   "since": "0.0.76"
+   "since": "0.0.76",
+   "built": {
+    "version": "0.0.139",
+    "by": "the level check's first run, 2026-11-26, before any level was added (hazeljs-examples' world-save run 45882106667): the world as made, both of two fresh builds the same in all 21 parts",
+    "parts": {
+     "seed": 7,
+     "gemTotal": 336,
+     "rand": 484343616,
+     "ground": "ece942aa",
+     "back": "dc94695e",
+     "built": "336f10bb",
+     "gems": "a818dec",
+     "stones": "b24336da",
+     "slopes": "5ea9cdc1",
+     "tops": "69df90f6",
+     "water": "9eee0687",
+     "surface": "1627ecad",
+     "treeMask": "5760b609",
+     "rivers": "af5adaf3",
+     "dams": "40569d7e",
+     "things": "875a0620",
+     "heartItems": "d9038443",
+     "trees": "a0b94689",
+     "beavers": "b3231a14",
+     "boulders": "48a79737",
+     "villagers": "a5c032d5"
+    }
+   },
+   "vortex": {
+    "about": "(Matthew, 2026-11-26, N's idea: \"linked to the existing one through a special doorway -- place it at the right hand side of the level, in the trees somewhere, as a swirling vortex\") In the crown of the great tree farthest right (column 729), past the end of its highest limb on the right, whose platform (row 53) runs to column 736, beside the tree house there: up its ladder and out along the limb. In a world from another seed (🌍 New world), the same place by rule: past the end of the right-hand tree's highest right limb.",
+    "x": 737.3,
+    "y": 52.0,
+    "to": "2",
+    "arrive": {
+     "x": 733.5,
+     "y": 53,
+     "face": -1
+    }
+   }
+  },
+  "2": {
+   "name": "The rainbow sky",
+   "by": "N (his idea, 2026-11-26, through Matthew)",
+   "seed": 1126,
+   "dig": false,
+   "since": "0.0.140",
+   "about": "(N's idea, through Matthew, 2026-11-26) \"He wants digging to be disabled. There is almost no underground structure, except for a gnome house with power ups, and caves with pre-existing tunnels to explore. In this level, there is no digging ability ... and no digging power ups. Instead, there are the flying power ups: carpet, cat tail. And to earn the cat tail, instead of getting it in one go, we collect 10 cat head powerup gems. The clouds include a new kind of rainbow foreground cloud that gives us points for hitting it while flying, any way we are flying. It explodes with a celebration of rainbow gems and rainbow light beams.\" The land, its rivers, trees and great trees are the seed's (World.plan), as in the first level; under the land only rock, its stones and the roots: no villages but the one house, no gems, no boulders, no ponds of clay, no caves but these.",
+   "table": 196,
+   "house": {
+    "about": "the one gnome house: a hamlet's rooms (World.village), its stair down from a hatch at column 34; the magic carpet in its farthest room, a heart in its kitchen",
+    "x": 34,
+    "deep": 11
+   },
+   "caves": [
+    {
+     "x": 90,
+     "deep": 14,
+     "w": 22,
+     "h": 7
+    },
+    {
+     "x": 140,
+     "deep": 26,
+     "w": 26,
+     "h": 8,
+     "pond": true
+    },
+    {
+     "x": 290,
+     "deep": 18,
+     "w": 20,
+     "h": 7
+    },
+    {
+     "x": 345,
+     "deep": 30,
+     "w": 28,
+     "h": 9,
+     "pond": true
+    },
+    {
+     "x": 500,
+     "deep": 20,
+     "w": 24,
+     "h": 7
+    },
+    {
+     "x": 660,
+     "deep": 24,
+     "w": 26,
+     "h": 8
+    },
+    {
+     "x": 740,
+     "deep": 16,
+     "w": 18,
+     "h": 6
+    },
+    {
+     "x": 860,
+     "deep": 28,
+     "w": 24,
+     "h": 8,
+     "pond": true
+    }
+   ],
+   "tunnels": {
+    "about": "a shaft: two columns down from a hatch in the land at x, a ladder all the way, to the floor of cave 'to', then a passage three tiles high across to the cave's middle; a passage from cave 'from' to cave 'to': from the middle of the one, at its floor, across to a ladder down (or up) beside the other, and on to its middle",
+    "shafts": [
+     {
+      "x": 84,
+      "to": 0
+     },
+     {
+      "x": 286,
+      "to": 2
+     },
+     {
+      "x": 494,
+      "to": 4
+     },
+     {
+      "x": 654,
+      "to": 5
+     },
+     {
+      "x": 762,
+      "to": 6
+     },
+     {
+      "x": 856,
+      "to": 7
+     }
+    ],
+    "passages": [
+     {
+      "from": 0,
+      "to": 1
+     },
+     {
+      "from": 2,
+      "to": 3
+     }
+    ],
+    "where": "every cave and shaft at least 42 columns from a river (the seed's rivers at columns 236, 421 to 440, 596 to 604 and 804 to 807): near a river the ground is full of water, as the river is high, and it would seep in"
+   },
+   "catHeads": {
+    "about": "ten cat head gems: five on cave floors, five in the sky (the magic carpet reaches them); all ten, and the cat tail is the gnome's",
+    "need": 10,
+    "at": [
+     {
+      "cave": 0
+     },
+     {
+      "cave": 1
+     },
+     {
+      "cave": 3
+     },
+     {
+      "cave": 5
+     },
+     {
+      "cave": 7
+     },
+     {
+      "x": 205,
+      "up": 14
+     },
+     {
+      "x": 392,
+      "up": 22
+     },
+     {
+      "x": 523,
+      "up": 17
+     },
+     {
+      "x": 702,
+      "up": 26
+     },
+     {
+      "x": 872,
+      "up": 15
+     }
+    ]
+   },
+   "rainbows": {
+    "about": "the rainbow clouds, in front of everything: flown into (on the carpet, or with the cat tail, in the air), each bursts into rainbow gems and beams of rainbow light, for points; it comes back a minute later, once out of sight",
+    "points": 100,
+    "back": 3600,
+    "at": [
+     {
+      "x": 60,
+      "up": 12,
+      "w": 6
+     },
+     {
+      "x": 118,
+      "up": 20,
+      "w": 7
+     },
+     {
+      "x": 176,
+      "up": 28,
+      "w": 8
+     },
+     {
+      "x": 232,
+      "up": 16,
+      "w": 6
+     },
+     {
+      "x": 290,
+      "up": 34,
+      "w": 9
+     },
+     {
+      "x": 348,
+      "up": 22,
+      "w": 7
+     },
+     {
+      "x": 410,
+      "up": 13,
+      "w": 6
+     },
+     {
+      "x": 466,
+      "up": 30,
+      "w": 8
+     },
+     {
+      "x": 520,
+      "up": 40,
+      "w": 9
+     },
+     {
+      "x": 578,
+      "up": 19,
+      "w": 7
+     },
+     {
+      "x": 636,
+      "up": 27,
+      "w": 8
+     },
+     {
+      "x": 690,
+      "up": 14,
+      "w": 6
+     },
+     {
+      "x": 746,
+      "up": 36,
+      "w": 9
+     },
+     {
+      "x": 800,
+      "up": 21,
+      "w": 7
+     },
+     {
+      "x": 850,
+      "up": 31,
+      "w": 8
+     },
+     {
+      "x": 884,
+      "up": 12,
+      "w": 5
+     }
+    ]
+   },
+   "vortex": {
+    "about": "(Matthew: \"Provide a passage way back to the current gnome world level in the new level.\") The way home: at the far left, a little left of where the gnome begins; it comes out on the limb by the first level's vortex",
+    "x": 5.5,
+    "up": 1.3,
+    "to": "1",
+    "arrive": {
+     "x": 9.5,
+     "face": 1
+    }
+   }
   }
  }
 }
