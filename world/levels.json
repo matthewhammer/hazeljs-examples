@@ -30,8 +30,10 @@
      "trees": "a0b94689",
      "beavers": "b3231a14",
      "boulders": "48a79737",
-     "villagers": "a5c032d5"
-    }
+     "villagers": "a5c032d5",
+     "level": "7251d625"
+    },
+    "since": "the 21 parts as 0.0.139 built them; 'level' (the vortex's place, nothing else changed) added as 0.0.140 built it"
    },
    "vortex": {
     "about": "(Matthew, 2026-11-26, N's idea: \"linked to the existing one through a special doorway -- place it at the right hand side of the level, in the trees somewhere, as a swirling vortex\") In the crown of the great tree farthest right (column 729), past the end of its highest limb on the right, whose platform (row 53) runs to column 736, beside the tree house there: up its ladder and out along the limb. In a world from another seed (🌍 New world), the same place by rule: past the end of the right-hand tree's highest right limb.",
@@ -51,6 +53,34 @@
    "seed": 1126,
    "dig": false,
    "since": "0.0.140",
+   "built": {
+    "version": "0.0.140",
+    "by": "the level check on 0.0.140's push (hazeljs-examples' world-save run 45883073732): both of two fresh builds the same in all 22 parts",
+    "parts": {
+     "seed": 1126,
+     "gemTotal": 0,
+     "rand": 7885,
+     "ground": "d1480d82",
+     "back": "23744f12",
+     "built": "594b6711",
+     "gems": "f0287dc5",
+     "stones": "14b78cd0",
+     "slopes": "9b2d5aad",
+     "tops": "4c3f305",
+     "water": "ab3abfd4",
+     "surface": "5b714eed",
+     "treeMask": "59e0af15",
+     "rivers": "ea5d29f3",
+     "dams": "40569d7e",
+     "things": "8b9d752",
+     "heartItems": "a93520f3",
+     "trees": "10dface1",
+     "beavers": "b4325d92",
+     "boulders": "741638a5",
+     "villagers": "9fbdf241",
+     "level": "4b666e80"
+    }
+   },
    "about": "(N's idea, through Matthew, 2026-11-26) \"He wants digging to be disabled. There is almost no underground structure, except for a gnome house with power ups, and caves with pre-existing tunnels to explore. In this level, there is no digging ability ... and no digging power ups. Instead, there are the flying power ups: carpet, cat tail. And to earn the cat tail, instead of getting it in one go, we collect 10 cat head powerup gems. The clouds include a new kind of rainbow foreground cloud that gives us points for hitting it while flying, any way we are flying. It explodes with a celebration of rainbow gems and rainbow light beams.\" The land, its rivers, trees and great trees are the seed's (World.plan), as in the first level; under the land only rock, its stones and the roots: no villages but the one house, no gems, no boulders, no ponds of clay, no caves but these.",
    "table": 196,
    "house": {
