@@ -76,4 +76,21 @@ function summarize() {
   const show = (title, m, k) => { console.log(`\n${title} (of ${(total / 1e6).toFixed(2)} s sampled)`);
     [...m].sort((a, b) => b[1] - a[1]).slice(0, k).forEach(([f, us]) => console.log(`  ${(us / 1e3).toFixed(0).padStart(7)} ms ${(100 * us / total).toFixed(1).padStart(5)}%  ${f}`)); };
   show("inclusive, by source file", incl, 40); show("self, by source file", self, 30); show("self, by function", fns, 30);
+  // (the hottest functions' callers in Hazel's own source: for each sample whose top is one of them, the nearest frame up the
+  // stack in src/ outside the hot function's own file, by file and function; so a library helper, a List.append or a Map.add,
+  // is laid at the statics' door that calls it)
+  const HOT = [...fns].sort((a, b) => b[1] - a[1]).slice(0, 14).map(([k]) => k).filter(k => !k.startsWith("((garbage"));
+  const callers = new Map(HOT.map(k => [k, new Map()])); t = P.startTime;
+  P.samples.forEach((id, i) => { t += P.timeDeltas[i]; const dt = P.timeDeltas[i]; if (!inBuild(t)) return;
+    let n = nodes.get(id); const top = fileOfNode(n), fk = top + " " + (n.callFrame.functionName || "anon") + ":" + n.callFrame.lineNumber;
+    if (!callers.has(fk)) return; let up = nodes.get(parent.get(n.id)), who = "(none in src/)";
+    while (up) { const f = fileOfNode(up); if (f.startsWith("src/") && f !== top) { who = f + " " + (up.callFrame.functionName || "anon") + ":" + up.callFrame.lineNumber; break; } up = nodes.get(parent.get(up.id)); }
+    const m = callers.get(fk); m.set(who, (m.get(who) || 0) + dt); });
+  for (const k of HOT) show(`callers in src/ of ${k}`, callers.get(k), 6);
+  // (each function in src/ anywhere on the stack: which of the statics' own functions the time is under)
+  const inclFn = new Map(); t = P.startTime;
+  P.samples.forEach((id, i) => { t += P.timeDeltas[i]; const dt = P.timeDeltas[i]; if (!inBuild(t)) return;
+    const seen = new Set(); for (let n = nodes.get(id); n; n = nodes.get(parent.get(n.id))) { const f = fileOfNode(n); if (!f.startsWith("src/")) continue;
+      const k = f + " " + (n.callFrame.functionName || "anon") + ":" + n.callFrame.lineNumber; if (!seen.has(k)) { seen.add(k); inclFn.set(k, (inclFn.get(k) || 0) + dt); } } });
+  show("inclusive, by function in src/", inclFn, 45);
 }
