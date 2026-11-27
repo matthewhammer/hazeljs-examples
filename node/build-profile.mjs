@@ -37,18 +37,27 @@ function summarize() {
   // (the map beside the library, or inlined at its end as a data: URL)
   let M; try { M = JSON.parse(readFileSync(MAP, "utf8")); } catch { const js = readFileSync(LIB, "utf8"), at = js.lastIndexOf("sourceMappingURL=data:application/json");
     M = JSON.parse(Buffer.from(js.slice(js.indexOf("base64,", at) + 7).trim(), "base64").toString("utf8")); }
-  console.log(`source map: ${M.sources.length} sources, ${M.mappings.length} chars of mappings`);
-  // the source map's mappings, line by line: [generated column, source index] (base64 VLQ, as the source map spec has it)
-  const B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/", lines = [];
-  let src = 0, sl = 0, sc = 0, nm = 0;
-  for (const line of M.mappings.split(";")) { const segs = []; let col = 0;
-    for (const seg of line.split(",")) { if (!seg) continue; const v = []; let shift = 0, value = 0;
-      for (const ch of seg) { const d = B64.indexOf(ch); value += (d & 31) << shift; if (d & 32) shift += 5; else { v.push(value & 1 ? -(value >> 1) : value >> 1); shift = 0; value = 0; } }
-      col += v[0]; if (v.length > 1) { src += v[1]; sl += v[2]; sc += v[3]; if (v.length > 4) nm += v[4]; segs.push([col, src]); } }
-    lines.push(segs); }
-  const fileOf = (line, col) => { const segs = lines[line]; if (!segs || !segs.length) return "(unmapped)"; let lo = 0, hi = segs.length - 1, best = -1;
+  console.log(`source map: keys ${Object.keys(M).join(", ")}${M.sections ? `; ${M.sections.length} sections` : ""}`);
+  // (a map is plain, { sources, mappings }, or indexed, { sections: [{ offset: { line, column }, map }] }, as js_of_ocaml links
+  // one; each map's mappings decoded into lines of [generated column, source index] (base64 VLQ, as the source map spec has it))
+  const B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  const decode = m => { const lines = []; let src = 0, sl = 0, sc = 0, nm = 0;
+    for (const line of (m.mappings || "").split(";")) { const segs = []; let col = 0;
+      for (const seg of line.split(",")) { if (!seg) continue; const v = []; let shift = 0, value = 0;
+        for (const ch of seg) { const d = B64.indexOf(ch); value += (d & 31) << shift; if (d & 32) shift += 5; else { v.push(value & 1 ? -(value >> 1) : value >> 1); shift = 0; value = 0; } }
+        col += v[0]; if (v.length > 1) { src += v[1]; sl += v[2]; sc += v[3]; if (v.length > 4) nm += v[4]; segs.push([col, src]); } }
+      lines.push(segs); }
+    return lines; };
+  const sections = (M.sections || [{ offset: { line: 0, column: 0 }, map: M }])
+    .map(sec => ({ line: sec.offset.line, column: sec.offset.column, sources: (sec.map && sec.map.sources) || [], lines: sec.map ? decode(sec.map) : [] }));
+  console.log(`decoded ${sections.length} map(s), ${sections.reduce((n, x) => n + x.sources.length, 0)} sources`);
+  const lookup = (L, line, col) => { const segs = L[line]; if (!segs || !segs.length) return -1; let lo = 0, hi = segs.length - 1, best = -1;
     while (lo <= hi) { const mid = (lo + hi) >> 1; if (segs[mid][0] <= col) { best = mid; lo = mid + 1; } else hi = mid - 1; }
-    return best < 0 ? "(unmapped)" : M.sources[segs[best][1]].replace(/^.*?(src\/|_build\/default\/|\.opam\/)/, "$1"); };
+    return best < 0 ? -1 : segs[best][1]; };
+  const fileOf = (line, col) => { let lo = 0, hi = sections.length - 1, k = -1;
+    while (lo <= hi) { const mid = (lo + hi) >> 1, S = sections[mid]; if (S.line < line || (S.line === line && S.column <= col)) { k = mid; lo = mid + 1; } else hi = mid - 1; }
+    if (k < 0) return "(unmapped)"; const S = sections[k], l = line - S.line, c = l === 0 ? col - S.column : col, src = lookup(S.lines, l, c);
+    return src < 0 ? "(unmapped)" : String(S.sources[src]).replace(/^.*?(src\/|_build\/default\/|\.opam\/)/, "$1"); };
   const nodes = new Map(P.nodes.map(n => [n.id, n])), parent = new Map();
   for (const n of P.nodes) for (const c of n.children || []) parent.set(c, n.id);
   const lib = path.basename(LIB), where = new Map();
