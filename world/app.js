@@ -5286,15 +5286,53 @@
   // built only once it was looked at)
   const buildSoon = then => { building(true, "🔨 Building the rules…"); let done = false; const go = () => { if (!done) { done = true; then(); } };
     requestAnimationFrame(() => requestAnimationFrame(go)); setTimeout(go, 120); };
+  // (0.0.144; ^ticket(890)) The rules kept as text. With a library that gives Hazel.jitProgramSaved (for now only the trial,
+  // ?libat=trial/890-saved-program), a build is kept in this browser, its key the rules' own text; and on the next load the rules
+  // are made from it at once, before the library has even loaded, so the statics, nearly all of a build (15 s the first time in
+  // the browser pane), are not run again until the rules change. A call the kept converters cannot take goes the old way, which
+  // builds then (it needs the library). ?nosaved: neither keeps nor uses them
+  const SAVED_ON = !Q.has("nosaved");
+  function keepRules(key, r) {
+    if (!r || !r.saved || !r.value || (r.errors || []).length) return;
+    const fns = Object.keys(r.value).filter(k => typeof r.value[k] === "function");
+    if (!fns.every(k => r.saved.wrap && typeof r.saved.wrap[k] === "string")) return;   // (only a whole one: every function wrapped)
+    // (the rules' fields that are data, not functions, World.styles: kept as the page has them, as the browser's storage keeps
+    // plain data; the trial's saved wraps only the functions)
+    const data = {}; for (const k of Object.keys(r.value)) if (typeof r.value[k] !== "function") data[k] = r.value[k];
+    keptDo("readwrite", st => st.put({ key, saved: r.saved, data, build: window.Hazel.build, at: Date.now() }, "rules"))
+      .catch(e => console.warn("Gnome world: could not keep the rules in this browser:", e));
+  }
+  function rulesFromSaved(saved, sp, data) {
+    const R = (0, eval)("(" + saved.runtime + ")"), cv = new Function("$R", saved.js)(R), v = { ...(data || {}) };
+    let full = null;
+    const fullValue = () => { if (!full) { if (!window.Hazel) throw new Error("the kept rules could not take a call, and Hazel is not loaded yet"); full = window.Hazel.jitProgram(sp).value; } return full; };
+    for (const k of Object.keys(saved.wrap)) v[k] = (0, eval)(saved.wrap[k])(cv[k], (...args) => fullValue()[k](...args));
+    return v;
+  }
+  async function useSavedRules() {
+    if (!SAVED_ON || !L || Q.has("interpreted") || (Q.has("test") && !Q.has("keep"))) return false;
+    const sp = L.spec(PROGRAM, TAIL), key = JSON.stringify(sp), t0 = performance.now();
+    let k; try { k = await keptDo("readonly", st => st.get("rules")); } catch (e) { return false; }
+    if (!k || k.key !== key || !k.saved) return false;
+    let v; try { v = rulesFromSaved(k.saved, sp, k.data); } catch (e) { console.warn("Gnome world: the kept rules did not run:", e); return false; }
+    if (typeof v.step !== "function" || typeof v.plan !== "function" || !k.data) return false;   // (one kept before its data was: built again)
+    S.built = { key, ok: true, compiled: true, reason: "", value: v, errors: [], threw: "", ms: performance.now() - t0, saved: k.build || true };
+    S.stepMs = [];
+    try { build(v, S.seed); } catch (e) { S.built = { ...S.built, ok: false, threw: "making the world: " + String(e && e.message || e) }; console.error(e); return false; }
+    if (!resumed) { resumed = true; if (KEEPS) { building(true, "↩️ Bringing back your world…"); resumeKept(H()); } }
+    drawStatus(); return true;
+  }
   let resumed = false;
   function buildRules() { try { buildRulesNow(); } finally { if (!S.resuming) building(false); } }
   function buildRulesNow() {
     if (!window.Hazel || !L) return;
     const sp = L.spec(PROGRAM, TAIL), key = JSON.stringify(sp);
-    if (S.built && S.built.key === key) return;
+    if (S.built && S.built.key === key && !(S.built.saved && !S.built.ok)) return;   // (0.0.144: kept rules that failed are built afresh)
     const t0 = performance.now(); let r, threw = "";
     const jit = typeof window.Hazel.jitProgram === "function" && !Q.has("interpreted");
-    try { r = jit ? window.Hazel.jitProgram(sp) : window.Hazel.runProgram(sp); } catch (e) { threw = String(e && e.message || e); r = { ok: false, errors: [] }; }
+    const keepIt = jit && SAVED_ON && typeof window.Hazel.jitProgramSaved === "function";
+    try { r = keepIt ? window.Hazel.jitProgramSaved(sp) : jit ? window.Hazel.jitProgram(sp) : window.Hazel.runProgram(sp); } catch (e) { threw = String(e && e.message || e); r = { ok: false, errors: [] }; }
+    if (keepIt) keepRules(key, r);
     const v = r.value && typeof r.value === "object" ? r.value : null;
     S.built = { key, ok: !!v && typeof v.step === "function" && typeof v.plan === "function" && !(r.errors || []).length, compiled: !!r.compiled, reason: r.reason || "", value: v, errors: r.errors || [], threw, ms: performance.now() - t0 };
     S.stepMs = [];
@@ -5305,7 +5343,8 @@
   }
   function loadLib() {
     drawStatus();
-    const want = Q.get("lib") === "npm" ? [LIB_NPM] : [LIB_JIT, LIB_NPM];
+    // (0.0.144) ?libat=<a branch>: the library built from that branch of Hazel, at build.hazel.org, to try one (^ticket(890))
+    const want = Q.get("lib") === "npm" ? [LIB_NPM] : [Q.get("libat") ? `https://build.hazel.org/${Q.get("libat")}/hazel-lib.js` : LIB_JIT, LIB_NPM];
     const next = i => { if (i >= want.length) { S.libFailed = true; drawStatus(); building(false); return; }
       const s = document.createElement("script"); s.src = want[i]; s.async = true;
       s.onload = () => { S.lib = want[i]; drawStatus(); buildSoon(buildRules); }; s.onerror = () => { s.remove(); next(i + 1); };
@@ -5320,6 +5359,9 @@
     await load("../shared/hazel-listings.js?v=0.0.24");
     L = window.HazelListings; L.tail(PROGRAM, TAIL);
     L.onChange(PROGRAM, () => { clearTimeout(timer); timer = setTimeout(() => buildSoon(buildRules), 350); });
+    // (0.0.144) the rules this browser kept, if they are for these rules: the game begins at once; the library still loads, and
+    // finding the rules built for this very text, does not build them again
+    try { if (await useSavedRules() && !S.resuming) building(false); } catch (e) { console.warn("Gnome world: the kept rules:", e); }
     loadLib();
   } catch (e) {
     building(false);
