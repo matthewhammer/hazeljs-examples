@@ -7,7 +7,7 @@
 <meta name="description" content="Gnome world: a gnome running, jumping, climbing and digging through a world thirty-two screens across and thirteen down, from the deep rock to the tops of great trees: rivers and the beavers' dams, the gnomes' village deep under a hill, tree houses in sixteen styles, and ground water seeping through soil, sand and stone. The world's plan, its villages and tree houses and the beavers' minds are Hazel.">
 <link rel="stylesheet" href="../shared/style.css?v=0.0.14">
 <link rel="stylesheet" href="../shared/oracles.css?v=0.0.121">
-<link rel="stylesheet" href="world.css?v=0.0.137">
+<link rel="stylesheet" href="world.css?v=0.0.146">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
 <link rel="icon" href="icons/icon-32.png" sizes="32x32" type="image/png">
@@ -22,7 +22,7 @@
 <h1>Gnome world, planned in Hazel</h1>
 <span class="app-links"><a href="../">Hazel activities</a> › <a href="../#games">One-player games</a> · <a href="https://github.com/matthewhammer/hazeljs-examples">source on GitHub</a> · <a href="https://www.npmjs.com/package/hazeljs">hazeljs on npm</a></span>
 </div>
-<p class="sub">A gnome in a world thirty-two screens wide, from deep rock to the tops of great trees: Dad, Mom, the girl or the boy. <b>← →</b> run · <b>💨 Shift</b> held, dash · <b>↑</b> jump, climb · <b>↓</b> dig down, or slide down a slope · <b>⛏️ X</b> dig the way you face · <b>🪵 B</b> plank, bridge, ladder · <b>🐇🧞🐈 R</b> on or off, with <b>←</b> Clover, <b>→</b> the magic carpet, <b>↑</b> the cat tail (jump, then keep pressing jump in the air, or hold it, to fly up); R alone, a choice · <b>space</b> pause · <b>F</b> frame times · <b>🎮</b> a game controller: its arrows run, jump and climb, its buttons the rest.</p>
+<p class="sub">A gnome in a world thirty-two screens wide, from deep rock to the tops of great trees: Dad, Mom, the girl or the boy. <b>← →</b> run · <b>💨 Shift</b> held, dash · <b>↑</b> jump, climb · <b>↓</b> dig down, or slide down a slope · <b>⛏️ X</b> dig the way you face · <b>🪵 B</b> plank, bridge, ladder · <b>🐇🧞🐈 R</b> on or off, with <b>←</b> Clover, <b>→</b> the magic carpet, <b>↑</b> the cat tail (jump, then keep pressing jump in the air, or hold it, to fly up); R alone, a choice · <b>↑</b> held and <b>J</b>, the flying jellyfish (↑ pulses it up like a rocket; let go, it hovers; J again, a gnome) · <b>space</b> pause · <b>F</b> frame times · <b>🎮</b> a game controller: its arrows run, jump and climb, its buttons the rest.</p>
 <p class="sub">Find the diving gear 🤿, the climbing pack 🧗, the running shoes 👟, the swim flippers 🏊, the super climbing gear 🪝, the cat tail 🐈, the gem finder 🧭 and the diggers ⛏️ ⚒️; dig for gems 💎; say hello to the villagers. High in the crown of the great tree farthest right, a swirling vortex 🌀 goes to <b>🌈 The rainbow sky</b>, N's level: no digging there; caves to explore by their tunnels, the magic carpet 🧞 in its gnome house, ten cat head gems 🐱 that make the cat tail, and rainbow clouds to fly into for points. Its own vortex, at the far left, goes home. <b>💾 Save</b> keeps the world as it is in a file, and <b>📂 Load</b> brings it back; <b>🔄 Restart</b> begins this world again; a reload, or a newer version, brings it back as you left it. <b>🧩 Load-merge</b> brings a save from an older version into today's world: your digging, the gems you found and your things, with the new gems still to find. <a href="manual/">📖 The instruction booklet</a>, to print as a zine. The world, its water, its beavers and every step of the gnome are Hazel. Pictures after Rien Poortvliet's <i>Gnomes</i> (1976), our own drawings.</p>
 
 <div class="oracle-grid">
@@ -60,6 +60,7 @@
       <button type="button" data-k="dig" aria-label="Dig" title="Dig the way you face, or the way you hold, standing (X)">⛏️</button>
       <button type="button" id="build" aria-label="Build" title="Build: a plank ahead, a bridge across a pit or the water; in a pit, a ladder up (B)">🪵</button>
       <button type="button" id="mount" aria-label="On or off: Clover, the magic carpet or the cat tail (hold an arrow: ← Clover, → the carpet, ↑ the tail)" aria-pressed="false" title="On or off (R); hold ← for Clover, → for the carpet, ↑ for the cat tail" hidden>🐇</button>
+      <button type="button" id="jelly" aria-label="The flying jellyfish: hold up and press this; press it again to change back" title="The flying jellyfish: hold ↑ and press this (J); again, to change back"><svg viewBox="0 0 24 24" width="1.1em" height="1.1em" aria-hidden="true" style="vertical-align:-0.18em"><path d="M3.5 12.5C3.5 6.5 7.5 3 12 3s8.5 3.5 8.5 9.5z" fill="#cbd5e1" stroke="#111827" stroke-width="1.4"/><path d="M6 6.5c1.2-1.4 2.6-2 4-2.2" stroke="#fff" stroke-width="1.4" fill="none" stroke-linecap="round"/><circle cx="9.5" cy="9.3" r="1.1" fill="#111827"/><circle cx="14.5" cy="9.3" r="1.1" fill="#111827"/><path d="M6 13c-.6 3 .8 4.5 0 7.5M9.5 13c.6 2.5-.8 4.5.2 8M14.5 13c-.6 2.5.8 4.5-.2 8M18 13c.6 3-.8 4.5 0 7.5" stroke="#111827" stroke-width="1.4" fill="none" stroke-linecap="round"/><path d="M12 13c-.9 2.4.9 4.2 0 7" stroke="#a78bfa" stroke-width="2.4" fill="none" stroke-linecap="round"/></svg></button>
       <button type="button" data-k="dash" aria-label="Dash" title="Dash: hold it, going across, to run faster and faster, up to three times a walk (Shift); quicker with the running shoes">💨</button>
     </div>
   </div>
@@ -67,7 +68,7 @@
   <p class="nojs muted">This app needs JavaScript, and a page served over http (python3 -m http.server, then localhost).</p>
 </section>
 <section class="oracle-code" aria-label="The rules, in Hazel">
-  <p class="muted" style="margin-top:0">The rules, in Hazel: its words (<code>preamble.hz</code>), the world (<code>World.hz</code>), the magic carpet's flight (<code>Fly.hz</code>), the cat tail's (<code>Tail.hz</code>), Clover's ride (<code>Ride.hz</code>), the boulders' (<code>Boulder.hz</code>), picking things up (<code>Pickup.hz</code>), the wind (<code>Wind.hz</code>), a wild bunny's mind (<code>Bunny.hz</code>), a frog's (<code>Frog.hz</code>) and the birds' (<code>Bird.hz</code>). <b>Edit in Hazel</b> to change them.</p>
+  <p class="muted" style="margin-top:0">The rules, in Hazel: its words (<code>preamble.hz</code>), the world (<code>World.hz</code>), the magic carpet's flight (<code>Fly.hz</code>), the cat tail's (<code>Tail.hz</code>), Clover's ride (<code>Ride.hz</code>), the boulders' (<code>Boulder.hz</code>), picking things up (<code>Pickup.hz</code>), the wind (<code>Wind.hz</code>), a wild bunny's mind (<code>Bunny.hz</code>), a frog's (<code>Frog.hz</code>), the birds' (<code>Bird.hz</code>) and the flying jellyfish's pulses (<code>Jelly.hz</code>). <b>Edit in Hazel</b> to change them.</p>
   <pre class="code hazel" data-program="world">loading preamble.hz…</pre>
   <div class="ed"><div class="ed-head"><b>World</b> <span class="muted">the plan, the ground, the villages, the trees, the beavers, the villagers and the gnome's step</span></div>
   <pre class="code hazel" data-program="world" data-module="World">loading World.hz…</pre></div>
@@ -89,6 +90,8 @@
   <pre class="code hazel" data-program="world" data-module="Frog">loading Frog.hz…</pre></div>
   <div class="ed"><div class="ed-head"><b>Bird</b> <span class="muted">the songbirds' minds (on the ground, perched, flying between) and the ducks' and swans', moved from the page's JavaScript (^report(64)'s piece 6); the hawks stay the page's</span></div>
   <pre class="code hazel" data-program="world" data-module="Bird">loading Bird.hz…</pre></div>
+  <div class="ed"><div class="ed-head"><b>Jelly</b> <span class="muted">the flying jellyfish: it hovers, and each pulse of its bell shoots it up like a rocket (N's ask)</span></div>
+  <pre class="code hazel" data-program="world" data-module="Jelly">loading Jelly.hz…</pre></div>
   <p><button type="button" id="reset-rules">Put the program back as it was</button></p>
 </section>
 </div>
@@ -109,9 +112,9 @@
 <script src="../shared/advanced.js?v=0.0.104"></script>
 <script src="../shared/pause.js?v=0.0.121"></script>
 <script src="../shared/chip.js?v=0.0.129"></script>
-<script src="../dig/sound.js?v=0.0.128"></script>
+<script src="../dig/sound.js?v=0.0.146"></script>
 <script src="../shared/volume.js?v=0.0.56"></script>
 <script src="plain.js?v=0.0.133"></script>
-<script src="app.js?v=0.0.145"></script>
+<script src="app.js?v=0.0.146"></script>
 </body>
 </html>

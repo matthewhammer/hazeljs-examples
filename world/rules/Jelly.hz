@@ -1,0 +1,36 @@
+# The flying jellyfish (0.0.146; N's ask, through Matthew, 2026-11-27: "when we press up and (another button), we turn into a flying jellyfish object. Our inspiration are real jellyfish (except this one flies in the air), including the way that they pulse their bodies to shoot up really fast like a rocket. N wants that action included in its dynamics. When not moving, they hover in the air and wave their arms below them gently, like there's a calm breeze"): the gnome as a jellyfish, a step at a time (sixty a second). Let go of everything and it hovers where it is: its speed eases to nothing. Up pressed is a pulse: its bell squeezes for 8 steps, each pushing it 64 thousandths of a tile a step faster the way the bell points (up, and leaning as the arrows lean it), then it coasts, slowing by a sixteenth of its speed a step, while its bell fills again. Up held, a pulse every 40 steps; pressed again and again, as often as every 13. Left or right leans the bell (at most 450 thousandths of a tile across for each tile up) and drifts it that way, 100 thousandths of a tile a step; down lets it sink, 120. It goes through open air, a platform, a hatch and the water (a jellyfish!), not ground, rock, masonry, timber or a boulder; blocked, it tries half the way, then a quarter, then stops. Calls nothing in World: it reads the same window of tiles World.step does, as the magic carpet's flight (Fly.hz) does #
+# The jellyfish (j): its speed across and up or down (thousandths of a tile a step), its beat (0 ready; else the steps since its last pulse began, up to 40), its lean (thousandths of a tile across for each tile up, -450 to 450) and the way it faces (-1, 1); the answer, the gnome and its jellyfish after the step (the record types written out here, not named in the preamble: Gnome world's program is at the browser's limit for definitions, World.hz's note) #
+let step : (Gnome, Near, Pad, (vx = Int, vy = Int, beat = Int, lean = Int, face = Int)) -> (gnome = Gnome, jelly = (vx = Int, vy = Int, beat = Int, lean = Int, face = Int)) = fun (g, n, p, j) ->
+  let md : (Int, Int) -> Int = fun (a, b) -> a - (a / b) * b in
+  # a tile of the window by its column and row in the world (outside the window, masonry: nothing to fly through); each row of the window one number, its three tiles 512 apart #
+  let tile : (Int, Int) -> Int = fun (col, row) ->
+    let k = col - n.cx + 1 in let r = row - n.cy + 3 in
+    if k < 0 || k > 2 || r < 0 || r > 4 then 8
+    else (let rv = (if r == 0 then n.r0 else if r == 1 then n.r1 else if r == 2 then n.r2 else if r == 3 then n.r3 else n.r4) in
+      md((if k == 0 then rv else if k == 1 then rv / 512 else rv / 262144), 512)) in
+  # what stops it: ground of any kind or shape, masonry, timber, a boulder; not the water #
+  let stops : Int -> Bool = fun v -> (let w = md(v, 16) in v >= 64 || (w >= 1 && w <= 10)) in
+  # whether it would meet something with its feet at (x, y): a box 0.76 tiles across, from 0.92 above its feet (the top of its bell) to 0.28 below them #
+  let meets : (Int, Int) -> Bool = fun (x, y) ->
+    if x < 380 || y < 920 then true
+    else (let c0 = (x - 380) / 1000 in let c1 = (x + 380) / 1000 in let r0 = (y - 920) / 1000 in let rb = (y + 280) / 1000 in
+      let down : (Int, Int) -> Bool = fun (col, r) -> if r > rb then false else stops(tile(col, r)) || down(col, r + 1) in
+      down(c0, r0) || (c1 != c0 && down(c1, r0))) in
+  # a speed's way toward the speed wanted: a sixteenth of the difference and 2 more a step, till it is there #
+  let calm : (Int, Int) -> Int = fun (v, t) ->
+    let d = v - t in let a = (if d < 0 then 0 - d else d) / 16 + 2 in
+    if d > a then v - a else if d < 0 - a then v + a else t in
+  let pulse = (p.jump && (j.beat == 0 || j.beat > 12)) || (p.up && j.beat == 0) in
+  let beat = (if pulse then 1 else if j.beat > 0 && j.beat < 40 then j.beat + 1 else 0) in
+  let lt = p.dx * 450 in
+  let lean = (if lt - j.lean > 30 then j.lean + 30 else if j.lean - lt > 30 then j.lean - 30 else lt) in
+  let push = beat >= 1 && beat <= 8 in
+  let vx = calm(j.vx + (if push then 64 * lean / 1000 else 0), p.dx * 100) in
+  let vy = calm(j.vy - (if push then 64 else 0), (if p.down then 120 else 0)) in
+  let x = (if vx == 0 then g.x else if !meets(g.x + vx, g.y) then g.x + vx else if !meets(g.x + vx / 2, g.y) then g.x + vx / 2 else if !meets(g.x + vx / 4, g.y) then g.x + vx / 4 else g.x) in
+  let vx2 = (if x == g.x + vx then vx else 0) in
+  let y = (if vy == 0 then g.y else if !meets(x, g.y + vy) then g.y + vy else if !meets(x, g.y + vy / 2) then g.y + vy / 2 else if !meets(x, g.y + vy / 4) then g.y + vy / 4 else g.y) in
+  let vy2 = (if y == g.y + vy then vy else 0) in
+  let face = (if p.dx != 0 then p.dx else j.face) in
+  (gnome = (x = x, y = y, vx = 0, vy = 0, face = face, ground = false, climb = false, swim = false, under = false, air = (if g.air > 600 then g.air else 600), gear = g.gear, tool = g.tool, kit = g.kit, dc = 0 - 1, dr = 0 - 1, dt = 0, ev = 0),
+   jelly = (vx = vx2, vy = vy2, beat = beat, lean = lean, face = face))

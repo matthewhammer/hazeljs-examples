@@ -49,7 +49,8 @@ html.oracle-fs .gw-ui .gw-pad button[data-k="dig"] { order: 4; margin-right: 8px
 html.oracle-fs .gw-ui .gw-pad button#build { order: 4; margin-right: 8px; }
 html.oracle-fs .gw-ui .gw-pad button#mount { order: 4; margin-right: 8px; }
 html.oracle-fs .gw-ui .gw-pad button#items { order: 4; margin-right: 8px; }
-html.oracle-fs .gw-ui .gw-pad button[data-k="dash"] { order: 4; margin-right: 8px; }   /* (0.0.109: the dash, beside the jump, for the right thumb) */
+html.oracle-fs .gw-ui .gw-pad button[data-k="dash"] { order: 4; margin-right: 8px; }
+html.oracle-fs .gw-ui .gw-pad button#jelly { order: 4; margin-right: 8px; }   /* (0.0.146: the flying jellyfish, beside the jump: ↑ held and this) */   /* (0.0.109: the dash, beside the jump, for the right thumb) */
 .gw-pad button[hidden] { display: none; }
 /* (0.0.108; Matthew: "please have the on-screen controls show up on the ipad when in landscape mode; they do show up in portrait
    mode") In full screen the pad was hidden wherever the main pointer was fine and could hover: a computer's mouse, but also an

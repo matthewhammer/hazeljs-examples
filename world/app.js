@@ -35,8 +35,8 @@
   if (window.visualViewport) { const vz = () => { const z = visualViewport.scale; WATCH.zoomMin = Math.min(WATCH.zoomMin, z); WATCH.zoomMax = Math.max(WATCH.zoomMax, z); if (Math.abs(z - 1) > 0.01) WATCH.zoomAt = performance.now(); };
     visualViewport.addEventListener("resize", vz); visualViewport.addEventListener("scroll", vz); }
   const LIB_JIT = "https://build.hazel.org/hazeljs/hazel-lib.js", LIB_NPM = "https://cdn.jsdelivr.net/npm/hazeljs@0.0.4/hazel-lib.js";
-  const PROGRAM = "world", MODULES = ["World", "Fly", "Tail", "Ride", "Boulder", "Pickup", "Wind", "Bunny", "Frog", "Bird"];
-  const TAIL = "(plan = World.plan, ground = World.ground, village = World.village, furnish = World.furnish, limbs = World.limbs, styles = World.styles, beaver = World.beaver, water_row = World.water_row, step = World.step, roots = World.roots, threads = World.threads, greet = World.greet, dig_steps = World.dig_steps, fly = Fly.step, tail = Tail.step, ride_pre = Ride.pre, ride_post = Ride.post, boulder = Boulder.step, pickup = Pickup.step, wind = Wind.step, bunny = Bunny.step, frog = Frog.step, bird = Bird.step, swim = Bird.swim)";
+  const PROGRAM = "world", MODULES = ["World", "Fly", "Tail", "Ride", "Boulder", "Pickup", "Wind", "Bunny", "Frog", "Bird", "Jelly"];
+  const TAIL = "(plan = World.plan, ground = World.ground, village = World.village, furnish = World.furnish, limbs = World.limbs, styles = World.styles, beaver = World.beaver, water_row = World.water_row, step = World.step, roots = World.roots, threads = World.threads, greet = World.greet, dig_steps = World.dig_steps, fly = Fly.step, tail = Tail.step, ride_pre = Ride.pre, ride_post = Ride.post, boulder = Boulder.step, pickup = Pickup.step, wind = Wind.step, bunny = Bunny.step, frog = Frog.step, bird = Bird.step, swim = Bird.swim, jelly = Jelly.step)";
   const KEY = "hazeljs-examples/world/";
   const Q = new URLSearchParams(location.search);
   const $ = id => document.getElementById(id);
@@ -123,7 +123,7 @@
   // once (the world's plan, its villages and trees); off unless chosen; kept on this device, and in a save made with it on
   let plainView = null, plainOf = null;
   const H = () => { if (!(S.built && S.built.ok)) return null; const v = S.built.value; if (S.rules !== "plain" || !window.WorldPlain) return v;
-    if (plainOf !== v) { plainOf = v; plainView = { ...v, step: window.WorldPlain.step, beaver: window.WorldPlain.beaver, water_row: window.WorldPlain.water_row, fly: undefined, tail: undefined, ride_pre: undefined, ride_post: undefined, boulder: undefined, pickup: undefined, wind: undefined, bunny: undefined, frog: undefined, bird: undefined, swim: undefined }; }
+    if (plainOf !== v) { plainOf = v; plainView = { ...v, step: window.WorldPlain.step, beaver: window.WorldPlain.beaver, water_row: window.WorldPlain.water_row, fly: undefined, tail: undefined, ride_pre: undefined, ride_post: undefined, boulder: undefined, pickup: undefined, wind: undefined, bunny: undefined, frog: undefined, bird: undefined, swim: undefined, jelly: undefined }; }
     return plainView; };
   function setRules(r) { S.rules = r === "plain" ? "plain" : "hazel"; keep("rules", S.rules); plainOf = null; const box = document.getElementById("rules-plain"); if (box) box.checked = S.rules === "plain"; if (typeof drawStatus === "function") drawStatus(); }
   let seedRand = 1;
@@ -268,6 +268,7 @@
     // made before it had one fewer (restore lets it in); after the super digger, the last before it
     S.carpet = { have: false, on: false, vx: 0, vy: 0, face: 1, ph: 0, wisps: null };
     S.tail = { have: false, on: false, meter: 0, fly: 0, lift: 0, flut: 0, rep: 0 };   // (0.0.116: the cat tail, N's)
+    S.jelly = { on: false, vx: 0, vy: 0, beat: 0, lean: 0, face: 1, glowAt: -1e9, rings: [] };   // (0.0.146: the flying jellyfish, N's; anyone can be one)
     { const v = [...S.villages].sort((a, b) => b.x1 - a.x1)[0], mine = v ? S.rooms.filter(R => R.x >= v.x0 && R.x < v.x1) : [];
       const R = mine.sort((a, b) => (b.x + b.w) - (a.x + a.w) || b.y - a.y)[0];
       if (R) S.items.push({ kind: "carpet", x: R.x + R.w - 1.4, y: R.y + 3.35, taken: false }); }
@@ -824,6 +825,7 @@
     if (S.ride && S.ride.on) { const M = S.mount; S.ride.on = false; M.x = S.g.x; M.y = S.g.y; }   // (0.0.102: the speed run is on foot)
     if (S.tail && S.tail.on) Object.assign(S.tail, { on: false, meter: 0, fly: 0, lift: 0, flut: 0, rep: 0 });   // (0.0.116: and without the tail)
     if (S.carpet && S.carpet.on) S.carpet.on = false;
+    if (S.jelly && S.jelly.on) S.jelly.on = false;
     const g = S.g, gc = Math.floor(g.x / 1000), gr0 = Math.floor((g.y - 1) / 1000), gr = inside(gc, gr0) && shape[at(gc, gr0)] ? gr0 - 1 : gr0, here = at(gc, gr);
     for (const k in S.keys) S.keys[k] = false;
     if (BOT.sayAt && performance.now() > BOT.sayAt) { BOT.sayAt = 0; S.banner = { text: "⛏️ And now: dig up the whole world, every tile a digger can dig", t: performance.now() + 1500 }; }
@@ -864,6 +866,7 @@
     else if (wc !== gc && Math.abs(g.vx) < 15) { if (ex > 0) S.keys.right = true; else S.keys.left = true; }
   }
   function gnomeStep(h) {
+    if (S.jelly && S.jelly.on) { jellyStep(h); return; }
     if (S.carpet && S.carpet.on) { carpetStep(h); return; }
     if (S.ride && S.ride.on) { rideStep(h); return; }
     const k = S.keys; let pad = { dx: (k.right ? 1 : 0) - (k.left ? 1 : 0), up: k.up, down: k.down, jump: S.jumpQueued, dig: !!k.dig && digOK(), dash: !!k.dash };
@@ -1195,7 +1198,7 @@
   }
   function travel(to) {
     const h = H(), LV = levelOf(to); if (!h || !S.g || !LV) return;
-    const from = S.level, g = S.g, carry = { hearts: S.hearts, carpet: !!S.carpet.have, carpetOn: !!S.carpet.on, tail: !!S.tail.have, tailOn: !!S.tail.on, points: S.points | 0, hero: S.hero };
+    const from = S.level, g = S.g, carry = { hearts: S.hearts, carpet: !!S.carpet.have, carpetOn: !!S.carpet.on, tail: !!S.tail.have, tailOn: !!S.tail.on, jellyOn: !!(S.jelly && S.jelly.on), points: S.points | 0, hero: S.hero };
     const here = snapshot(); delete here.away;
     const away = { ...S.away, [from]: here }, there = away[to]; delete away[to];
     try { if (there) restore(h, { ...there, level: to, away }); else { S.level = to; S.seed = LV.seed; build(h, S.seed); S.away = away; } }
@@ -1206,6 +1209,7 @@
     S.hearts = carry.hearts; S.points = carry.points;
     S.carpet.have = S.carpet.have || carry.carpet; S.carpet.on = carry.carpetOn && S.carpet.have;
     S.tail.have = S.tail.have || carry.tail; S.tail.on = carry.tailOn && S.tail.have;
+    if (S.jelly) { S.jelly.on = carry.jellyOn; S.jelly.vx = S.jelly.vy = S.jelly.beat = S.jelly.lean = 0; }
     if (S.ride) S.ride.on = false;
     if (HEROES[carry.hero] && S.hero !== carry.hero) { S.hero = carry.hero; keep("hero", S.hero); heroPicker(); }
     if (V) V.armed = false;
@@ -1219,13 +1223,14 @@
   const RAINBOW = ["#ef4444", "#f97316", "#facc15", "#22c55e", "#3b82f6", "#6366f1", "#a855f7"];
   function rainbowsStep() {
     if (!S.rainbows || !S.rainbows.length) return;
-    const g = S.g, flying = !!g && !S.faintAt && ((S.carpet && S.carpet.on) || (S.tail && S.tail.on && !g.ground && !g.climb && !g.swim));
+    const g = S.g, flying = !!g && !S.faintAt && ((S.carpet && S.carpet.on) || (S.jelly && S.jelly.on) || (S.tail && S.tail.on && !g.ground && !g.climb && !g.swim));
     for (const R of S.rainbows) {
       if (R.gone) { if (S.frame >= R.back && S.cam.set && (R.x + R.w < S.cam.x - 1 || R.x - R.w > S.cam.x + VW + 1 || R.y + 2 < S.cam.y || R.y - 2 > S.cam.y + VH)) R.gone = false; continue; }
       if (!flying) continue;
       const dx = (g.x / 1000 - R.x) / (R.w / 2 + 0.4), dy = (g.y / 1000 - 0.5 - R.y) / (R.w * 0.3 + 0.6);   // (as big as it is drawn)
       if (dx * dx + dy * dy <= 1) { R.gone = true; R.back = S.frame + (S.rainbowBack || 3600); S.points = (S.points | 0) + (S.rainbowPts || 100);
-        popWord(`🌈 +${S.rainbowPts || 100}`, R.x, R.y - 1.2); rainbowBurst(R.x, R.y, R.w); if (SND) SND.gem(); }
+        popWord(`🌈 +${S.rainbowPts || 100}`, R.x, R.y - 1.2); rainbowBurst(R.x, R.y, R.w); if (SND) SND.gem();
+        if (S.jelly && S.jelly.on) S.jelly.glowAt = performance.now(); }   // (0.0.146: a jellyfish soaks up its colours)
     }
   }
   function rainbowBurst(x, y, w) {
@@ -1240,6 +1245,7 @@
     S.frame++;
     if (S.faintAt && S.ride && S.ride.on) { const M = S.mount; S.ride.on = false; M.x = S.g.x; M.y = S.g.y; M.face = S.g.face; }
     if (S.faintAt && S.carpet && S.carpet.on) S.carpet.on = false;
+    if (S.faintAt && S.jelly && S.jelly.on) S.jelly.on = false;
     if (S.faintAt && S.tail && S.tail.on) Object.assign(S.tail, { fly: 0, lift: 0, flut: 0, meter: 0, rep: 0 });
     if (S.faintAt) { if (performance.now() - S.faintAt > 1800) { S.faintAt = 0; S.hearts = 5; S.g = { ...S.g, x: S.start.x, y: top[Math.floor(S.start.x / 1000)] * 1000, vx: 0, vy: 0, air: 600 }; S.cam.set = false; } }
     else { if (BOT.on) { BOT.frames++; botStep(); tmark("the speed run's way"); } gnomeStep(h); tmark("the gnome"); rainbowsStep(); vortexStep(); tmark("rainbows, the vortex"); }
@@ -3091,6 +3097,159 @@
     S.g = { ...g, y: Math.round(y * 1000), vx: 0, vy: 0, ground: false, climb: false, swim: false, under: false, dc: -1, dr: -1, dt: 0 };
     say("🧞 Up on the magic carpet! The arrows fly it; let go and it floats (R to get off)");
   }
+  // ---- (0.0.146; N's ask, through Matthew, 2026-11-27: "when we press up and (another button, TBD), we turn into a flying
+  // jellyfish object. Our inspiration are real jellyfish (except this one flies in the air), includin the way that they pulse
+  // their bodies to shoot up really fast like a rocket. N wants that action included in its dynamics. When not moving, they
+  // hover in the air and wave their arms below them gently, like there's a calm breeze"; "See recent jelly fish UFO photos in
+  // the news for more inspiration"; "The flying jellyfish form should also interact with the rainbow clouds") 🪼 The flying
+  // jellyfish: ↑ held and J (the 🪼 on the pad; the right shoulder button on a controller) turns the gnome into one, from
+  // anywhere, off whatever it rides; J again (or R) turns it back. Its flight is Hazel's (rules/Jelly.hz, Jelly.step); this is
+  // the same step in JavaScript, the page's answer while the rules build or when they cannot, ?jsjelly=1 to fly by it, and
+  // checked against Jelly.step at every step (node/fly-check.mjs). Drawn as the jellyfish UFO filmed over Anchorage in June
+  // 2026 was described (while its filmer was photographing a rainbow): black and silver, a bell over several ribbon-like arms
+  // that sway each on its own; with a real jellyfish's four rings showing through the bell, two eyes, and the gnome's cap on
+  // top. A rainbow cloud flown into bursts, as for the carpet and the tail, and the jellyfish soaks up its colours a while
+  function jellyJS(g, n, p, j) {
+    const md = (a, b) => a - Math.trunc(a / b) * b, q = (a, b) => Math.trunc(a / b);
+    const tile = (col, row) => { const k = col - n.cx + 1, r = row - n.cy + 3; if (k < 0 || k > 2 || r < 0 || r > 4) return 8;
+      const rv = r === 0 ? n.r0 : r === 1 ? n.r1 : r === 2 ? n.r2 : r === 3 ? n.r3 : n.r4; return md(k === 0 ? rv : k === 1 ? q(rv, 512) : q(rv, 262144), 512); };
+    const stops = v => { const w = md(v, 16); return v >= 64 || (w >= 1 && w <= 10); };
+    const meets = (x, y) => { if (x < 380 || y < 920) return true; const c0 = q(x - 380, 1000), c1 = q(x + 380, 1000), r0 = q(y - 920, 1000), rb = q(y + 280, 1000);
+      const down = col => { for (let r = r0; r <= rb; r++) if (stops(tile(col, r))) return true; return false; };
+      return down(c0) || (c1 !== c0 && down(c1)); };
+    const calm = (v, t) => { const d = v - t, a = q(d < 0 ? -d : d, 16) + 2; return d > a ? v - a : d < -a ? v + a : t; };
+    const pulse = (p.jump && (j.beat === 0 || j.beat > 12)) || (p.up && j.beat === 0);
+    const beat = pulse ? 1 : j.beat > 0 && j.beat < 40 ? j.beat + 1 : 0;
+    const lt = p.dx * 450, lean = lt - j.lean > 30 ? j.lean + 30 : j.lean - lt > 30 ? j.lean - 30 : lt, push = beat >= 1 && beat <= 8;
+    const vx = calm(j.vx + (push ? q(64 * lean, 1000) : 0), p.dx * 100), vy = calm(j.vy - (push ? 64 : 0), p.down ? 120 : 0);
+    const go = (v, hits) => v === 0 ? 0 : !hits(v) ? v : !hits(q(v, 2)) ? q(v, 2) : !hits(q(v, 4)) ? q(v, 4) : 0;
+    const x = g.x + go(vx, d => meets(g.x + d, g.y)), vx2 = x === g.x + vx ? vx : 0;
+    const y = g.y + go(vy, d => meets(x, g.y + d)), vy2 = y === g.y + vy ? vy : 0;
+    const face = p.dx !== 0 ? p.dx : j.face;
+    return { gnome: { x, y, vx: 0, vy: 0, face, ground: false, climb: false, swim: false, under: false, air: g.air > 600 ? g.air : 600, gear: g.gear, tool: g.tool, kit: g.kit, dc: -1, dr: -1, dt: 0, ev: 0 }, jelly: { vx: vx2, vy: vy2, beat, lean, face } };
+  }
+  function jellyStep(h) {
+    const J = S.jelly, k = S.keys, g0 = S.g, pad = { dx: (k.right ? 1 : 0) - (k.left ? 1 : 0), up: !!k.up, down: !!k.down, jump: !!S.jumpQueued, dig: false, dash: false };
+    S.jumpQueued = false;
+    const jr = { vx: J.vx | 0, vy: J.vy | 0, beat: J.beat | 0, lean: J.lean | 0, face: J.face < 0 ? -1 : 1 }, byHazel = !!(h && h.jelly) && !Q.has("jsjelly"), t0 = performance.now();
+    const f = byHazel ? h.jelly(g0, near(g0), pad, jr) : jellyJS(g0, near(g0), pad, jr);
+    (S.jellyMs || (S.jellyMs = [])).push(performance.now() - t0); if (S.jellyMs.length > 120) S.jellyMs.shift(); S.jellyBy = byHazel ? "Hazel" : "JS";
+    const g = { ...f.gnome }; if (g0.climbPack) g.climbPack = true;   // (a plain copy, the pack kept: World.step's way, gnomeStep)
+    J.vx = f.jelly.vx; J.vy = f.jelly.vy; J.beat = f.jelly.beat; J.lean = f.jelly.lean; J.face = f.jelly.face;
+    S.g = g;
+    if (J.beat === 1) jellyPulsed(g);
+    pickups();
+  }
+  // (a pulse: a bloop, a ring of light pushed out under the bell, and a puff of sparkles going the other way)
+  const JELLY_SILVER = ["#f8fafc", "#e2e8f0", "#cbd5e1", "#c4b5fd"];
+  function jellyPulsed(g) {
+    const J = S.jelly, a = Math.atan2(J.lean | 0, 1000) * 0.8, glow = jellyGlow() > 0, x = g.x / 1000 + Math.sin(a) * 0.42, y = g.y / 1000 - Math.cos(a) * 0.42;
+    if (SND && SND.bloop) SND.bloop();
+    (J.rings || (J.rings = [])).push({ x, y, a, at: performance.now(), glow });
+    for (let i = 0; i < 8 && S.parts.length < 400; i++) S.parts.push({ x: x + (Math.random() - 0.5) * 0.5, y: y + 0.1, vx: -Math.sin(a) * 0.04 + (Math.random() - 0.5) * 0.03, vy: 0.02 + Math.random() * 0.04, life: 16 + Math.random() * 12,
+      col: glow ? RAINBOW[i % 7] : JELLY_SILVER[i % 4] });
+  }
+  function jellyPoof(g) {
+    for (let i = 0; i < 24 && S.parts.length < 400; i++) { const a = Math.random() * 6.283, v = 0.03 + Math.random() * 0.06;
+      S.parts.push({ x: g.x / 1000 + Math.cos(a) * 0.2, y: g.y / 1000 - 0.6 + Math.sin(a) * 0.2, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 0.02, life: 20 + Math.random() * 16, col: JELLY_SILVER[i % 4] }); }
+    if (SND && SND.flash) SND.flash();
+  }
+  // (the room it needs, as the carpet's lift checks it, in tiles: but the water is no bar to a jellyfish)
+  const jellyHits = (x, y) => { const rb = Math.floor(y + 0.28);
+    for (let c = Math.floor(x - 0.38); c <= Math.floor(x + 0.38); c++) for (let r = Math.floor(y - 0.92); r <= rb; r++) {
+      if (!inside(c, r)) return true; const i = at(c, r); if (mat[i] !== AIR || boulderAt(c, r)) return true; }
+    return false; };
+  function jellyToggle() {
+    const J = S.jelly, g = S.g; if (!J || !g || S.faintAt || BOT.on) return;
+    const say = text => { S.banner = { text, t: performance.now() }; };
+    if (J.on) { J.on = false; J.vx = J.vy = J.beat = J.lean = 0; S.g = { ...g, vx: 0, vy: 0 }; jellyPoof(g); say("🪼 Back to a gnome again"); return; }
+    const on = rideOn(); if (on) { RIDE_TOGGLE[on](); if (rideOn()) return; }   // (off the ride first; off Clover only on solid ground: else she stays, and her banner says so)
+    const x = g.x / 1000, y = g.y / 1000 - (g.ground || g.climb ? 0.35 : 0);
+    if (jellyHits(x, y)) { say("🪼 No room to turn into a jellyfish here"); return; }
+    J.on = true; J.vx = J.vy = J.beat = J.lean = 0; J.face = g.face < 0 ? -1 : 1;
+    S.g = { ...g, y: Math.round(y * 1000), vx: 0, vy: 0, ground: false, climb: false, swim: false, under: false, dc: -1, dr: -1, dt: 0 };
+    jellyPoof(S.g);
+    say("🪼 A flying jellyfish! ↑ pulses you up like a rocket (hold it to keep pulsing), ← → lean and drift, ↓ sinks, and let go to hover. J to change back");
+  }
+  // (↑ held and J: a jellyfish; J as one: a gnome again; J alone otherwise: how to)
+  function jellyCombo() {
+    if (!S.jelly || !S.g) return;
+    if (S.jelly.on || S.keys.up) { jellyToggle(); return; }
+    S.banner = { text: "🪼 Hold ↑ and press J (🪼) to turn into a flying jellyfish", t: performance.now() };
+  }
+  // (twelve seconds of a rainbow cloud's colours, the last two fading)
+  const jellyGlow = () => { const t = (performance.now() - ((S.jelly && S.jelly.glowAt) || -1e9)) / 12000; return t < 0 || t >= 1 ? 0 : t < 0.83 ? 1 : (1 - t) / 0.17; };
+  // the jellyfish: its bell turned about its feet as it leans, squeezed narrow and tall in a pulse and filling again after, a slow
+  // breath while it hovers; under it, six thin arms from its rim and two frilled ones from its middle, each swaying on its own,
+  // a wave running down it, all of them drifting with the breeze, trailing behind as it goes, stretched long as it shoots up and
+  // gathered short as it sinks; the rings of its pulses spreading below it
+  function drawJelly(g, now, s) {
+    const J = S.jelly, c = ctx, b = J.beat | 0, vx = J.vx | 0, vy = J.vy | 0, sp = Math.min(1, Math.hypot(vx, vy) / 150), glow = jellyGlow(), look = heroLook();
+    const squeeze = b >= 1 && b <= 8 ? b / 8 : b > 8 ? (1 - (b - 8) / 32) ** 2 : 0;
+    const k = Math.max(squeeze, (1 - sp) * 0.08 * (0.5 + 0.5 * Math.sin(now / 650)));
+    const a = Math.atan2(J.lean | 0, 1000) * 0.8, ca = Math.cos(a), sa = Math.sin(a);
+    const fy = g.y / 1000 + (1 - sp) * Math.sin(now / 900) * 0.05, mx = g.x / 1000 + sa * 0.42, my = fy - ca * 0.42;   // (the rim's middle, in tiles)
+    const w = 0.5 * (1 - 0.24 * k), hh = 0.52 * (1 + 0.18 * k);
+    // the rings of its pulses, under everything
+    const keep = [];
+    for (const R of J.rings || []) { const age = (now - R.at) / 500; if (age >= 1 || age < 0) continue; keep.push(R);
+      const rx = (0.3 + age * 0.7) * s, ry = rx * 0.3, d = 0.25 + age * 0.9;
+      c.save(); c.translate((R.x - Math.sin(R.a) * d) * s, (R.y + Math.cos(R.a) * d) * s); c.rotate(R.a);
+      c.globalAlpha = (1 - age) * 0.8; c.lineWidth = Math.max(1, s * 0.07 * (1 - age));
+      if (R.glow) { for (let i = 0; i < 3; i++) { c.strokeStyle = RAINBOW[(i * 2 + Math.floor(age * 7)) % 7]; c.beginPath(); c.ellipse(0, i * s * 0.05, rx * (1 - i * 0.12), ry, 0, 0, 7); c.stroke(); } }
+      else { c.strokeStyle = "#f1f5f9"; c.beginPath(); c.ellipse(0, 0, rx, ry, 0, 0, 7); c.stroke(); }
+      c.restore(); }
+    J.rings = keep;
+    // its arms: in the world's frame, from points on its rim turned with the bell
+    const breeze = Math.max(-1, Math.min(1, S.windNow || 0)) * 0.22, trail = -vx / 260, up = Math.max(0, Math.min(1, -vy / 300)), sink = Math.max(0, Math.min(1, vy / 120));
+    const ARMS = [[-0.86, 0.72, 0], [-0.56, 0.86, 0], [-0.26, 0.95, 0], [0.26, 0.95, 0], [0.56, 0.86, 0], [0.86, 0.72, 0], [-0.13, 0.66, 1], [0.13, 0.7, 1]];
+    ARMS.forEach(([u, L0, oral], i) => {
+      const rx = mx + ca * u * w, ry = my + sa * u * w + 0.02, L = L0 * (1 + 0.35 * up) * (1 - 0.3 * sink), gather = 1 - 0.45 * squeeze, pts = [];
+      for (let t = 0; t <= 10; t++) { const v = t / 10;
+        const sway = Math.sin(now / (470 + 57 * i) + i * 1.9 - v * 3.4) * (0.05 + 0.07 * (1 - sp)) * (1 - 0.6 * squeeze) * v;
+        pts.push([(rx + sa * L * v * 0.4 + sway + (breeze * (1 - up) + trail) * v ** 1.5 + u * w * 0.25 * v * (gather - 0.55)) * s, (ry + L * v * (1 - 0.12 * Math.abs(trail))) * s]); }
+      const path = () => { c.beginPath(); c.moveTo(pts[0][0], pts[0][1]); for (let t = 1; t < pts.length - 1; t++) c.quadraticCurveTo(pts[t][0], pts[t][1], (pts[t][0] + pts[t + 1][0]) / 2, (pts[t][1] + pts[t + 1][1]) / 2); c.lineTo(pts[pts.length - 1][0], pts[pts.length - 1][1]); };
+      const col = glow > 0.3 ? RAINBOW[(i + Math.floor(now / 300)) % 7] : null;
+      c.save(); c.lineCap = "round"; c.lineJoin = "round";
+      if (oral) { c.globalAlpha = 0.85; c.strokeStyle = col || "#e2e8f0"; c.lineWidth = Math.max(2, s * 0.13); path(); c.stroke();
+        c.globalAlpha = 0.9; c.strokeStyle = col ? "#ffffff" : "#94a3b8"; c.lineWidth = Math.max(1, s * 0.035); c.setLineDash([Math.max(2, s * 0.06), Math.max(2, s * 0.05)]); path(); c.stroke(); }   // (its frill)
+      else { c.globalAlpha = 0.9; c.strokeStyle = col || "#1f2937"; c.lineWidth = Math.max(1, s * 0.045); path(); c.stroke(); }
+      c.restore(); });
+    // its bell, in its own frame: the rim's middle at the origin, up the way it points
+    c.save(); c.translate(mx * s, my * s); c.rotate(a);
+    const W = w * s, Hh = hh * s;
+    const rim = () => { for (let i = 7; i >= 0; i--) { const x0 = -W + (i / 8) * 2 * W; c.quadraticCurveTo(x0 + W / 8, Hh * 0.14, x0, 0); } };
+    const dome = () => { c.beginPath(); c.moveTo(-W, 0); c.bezierCurveTo(-W * 1.02, -Hh * 0.75, -W * 0.6, -Hh, 0, -Hh); c.bezierCurveTo(W * 0.6, -Hh, W * 1.02, -Hh * 0.75, W, 0); rim(); c.closePath(); };
+    if (glow > 0) { const hl = c.createRadialGradient(0, -Hh * 0.45, 0, 0, -Hh * 0.45, W * 2.2); hl.addColorStop(0, `rgba(255,255,255,${0.45 * glow})`); hl.addColorStop(1, "rgba(255,255,255,0)"); c.fillStyle = hl; c.beginPath(); c.arc(0, -Hh * 0.45, W * 2.2, 0, 7); c.fill(); }
+    const gr = c.createRadialGradient(-W * 0.35, -Hh * 0.75, 0, 0, -Hh * 0.35, W * 1.25);
+    gr.addColorStop(0, "#ffffff"); gr.addColorStop(0.35, "#e2e8f0"); gr.addColorStop(0.75, "#94a3b8"); gr.addColorStop(1, "#475569");
+    c.globalAlpha = 0.9; c.fillStyle = gr; dome(); c.fill();
+    if (glow > 0) { const rb = c.createLinearGradient(-W, -Hh, W, 0); RAINBOW.forEach((col, i) => rb.addColorStop(i / 6, col)); c.globalAlpha = 0.55 * glow; c.fillStyle = rb; dome(); c.fill(); }
+    // (a real jellyfish's four rings, seen through its bell)
+    c.globalAlpha = 0.5; c.strokeStyle = glow > 0.3 ? "#ffffff" : "#a78bfa"; c.lineWidth = Math.max(1, s * 0.04);
+    for (let i = 0; i < 4; i++) { const an = i * Math.PI / 2 + Math.PI / 4; c.beginPath(); c.ellipse(Math.cos(an) * W * 0.3, -Hh * 0.42 + Math.sin(an) * Hh * 0.16, W * 0.17, Hh * 0.1, an, 0, 7); c.stroke(); }
+    // its rim, black, scalloped; its edge; a shine on its top
+    c.globalAlpha = 1; c.strokeStyle = "#111827"; c.lineWidth = Math.max(1.5, s * 0.06); c.beginPath(); c.moveTo(W, 0); rim(); c.stroke();
+    c.lineWidth = Math.max(1, s * 0.025); c.globalAlpha = 0.7; dome(); c.stroke();
+    c.globalAlpha = 0.65; c.fillStyle = "#ffffff"; c.beginPath(); c.ellipse(-W * 0.38, -Hh * 0.72, W * 0.22, Hh * 0.09, -0.5, 0, 7); c.fill();
+    // its eyes, looking the way it faces, blinking now and then
+    c.globalAlpha = 1; const shut = (now % 4300) < 130, ex = J.face * W * 0.1;
+    for (const sx of [-1, 1]) { const x = sx * W * 0.3 + ex, y = -Hh * 0.3;
+      if (shut) { c.strokeStyle = "#111827"; c.lineWidth = Math.max(1, s * 0.04); c.beginPath(); c.moveTo(x - s * 0.08, y); c.lineTo(x + s * 0.08, y); c.stroke(); continue; }
+      c.fillStyle = "#ffffff"; c.beginPath(); c.ellipse(x, y, s * 0.095, s * 0.12, 0, 0, 7); c.fill(); c.strokeStyle = "#111827"; c.lineWidth = Math.max(1, s * 0.025); c.stroke();
+      c.fillStyle = "#111827"; c.beginPath(); c.arc(x + J.face * s * 0.03, y + s * 0.02, s * 0.055, 0, 7); c.fill();
+      c.fillStyle = "#ffffff"; c.beginPath(); c.arc(x + J.face * s * 0.01, y - s * 0.015, s * 0.02, 0, 7); c.fill(); }
+    // the gnome's cap on top, its tip bending back from the way it goes
+    const tipX = (-J.face * 0.08 - vx / 900) * s, tipY = -Hh - 0.4 * s * (1 - 0.2 * k);
+    c.fillStyle = look.cap; c.strokeStyle = look.capDk; c.lineWidth = Math.max(1, s * 0.03);
+    c.beginPath(); c.moveTo(-s * 0.15, -Hh * 0.93); c.quadraticCurveTo(-s * 0.08, -Hh - 0.2 * s, tipX, tipY); c.quadraticCurveTo(s * 0.06, -Hh - 0.16 * s, s * 0.15, -Hh * 0.93); c.closePath(); c.fill(); c.stroke();
+    c.restore();
+    // sparkles round it, while it glows
+    if (glow > 0) { c.save(); c.globalAlpha = glow; c.fillStyle = "#ffffff";
+      for (let i = 0; i < 4; i++) { const an = now / 500 + i * 1.57, px = (mx + Math.cos(an) * 0.75) * s, py = (my - 0.3 + Math.sin(an * 1.3) * 0.45) * s, z = s * (0.05 + 0.025 * Math.sin(now / 110 + i));
+        c.beginPath(); c.moveTo(px, py - z * 2); c.lineTo(px + z * 0.5, py - z * 0.5); c.lineTo(px + z * 2, py); c.lineTo(px + z * 0.5, py + z * 0.5); c.lineTo(px, py + z * 2); c.lineTo(px - z * 0.5, py + z * 0.5); c.lineTo(px - z * 2, py); c.lineTo(px - z * 0.5, py - z * 0.5); c.closePath(); c.fill(); }
+      c.restore(); }
+  }
   // ---- (0.0.113; Matthew, 2026-11-25: "on/off carpet and on/off clover should be a common action --- when we have access to both,
   // there should be an inventory system (pop up box like messed up dress up) that selects if it's clover or the magic carpet
   // that we are using during the 'on' action.") One action, R (E, and C as the booklet has it, too; 🐇/🧞 on the pad; L on a
@@ -3183,6 +3342,7 @@
     S.asking = true; RIDEPOP.at = performance.now(); RIDEPOP.down = null; RIDEPOP.dlg.showModal();
   }
   function mountToggle(want = rideWanted()) {
+    if (S.jelly && S.jelly.on) { jellyToggle(); if (!want || (S.jelly && S.jelly.on)) return; }   // (0.0.146: a jellyfish first changes back)
     const on = rideOn();
     if (!want) { if (on) { RIDE_TOGGLE[on](); return; }
       const can = ridesCan(), n = Object.keys(can).filter(k => can[k]);
@@ -4496,10 +4656,11 @@
       ctx.fillStyle = "#fff8d0"; ctx.fillText(label, x, ly); ctx.textAlign = "left"; ctx.textBaseline = "alphabetic"; }
     drawClover(c0, c1, now);   // (0.0.122: with the gnome, not behind the ground)
     const blink = performance.now() - S.hurtAt < 1500 && Math.floor(now / 100) % 2 === 0;
-    const flying = !!(S.carpet && S.carpet.on && !S.faintAt);
+    const flying = !!(S.carpet && S.carpet.on && !S.faintAt), jellied = !!(S.jelly && S.jelly.on && !S.faintAt);
     HEADTOP.x = gx; HEADTOP.y = g.y / 1000 - 1.31 + (flying ? carpetBob(now) : 0);   // (the cap's tip as the gnome is drawn; on Clover, drawRider's)
     if (flying) drawCarpet(g, now, s);
-    if (!S.faintAt && !blink && S.ride && S.ride.on) drawRider(g, now);
+    if (jellied) { HEADTOP.y = g.y / 1000 - 1.35; if (!blink) drawJelly(g, now, s); }   // (0.0.146: the gnome as a jellyfish)
+    else if (!S.faintAt && !blink && S.ride && S.ride.on) drawRider(g, now);
     else if (!blink && flying) { const C = S.carpet, gy0 = (g.y / 1000 + carpetBob(now)) * s - 0.48 * s;   // (standing on it: in profile going across, facing us still)
       if (Math.abs(C.vx) > 20) gnomeProfile(ctx, gx * s, gy0, s * 0.98, C.face, false, true, 0, now, g.gear, null);
       else gnome(ctx, gx * s, gy0, s * 0.98, 2, true, false, now, g.gear, false, true, false, null); }
@@ -4793,6 +4954,7 @@
     else if (e.key === "b" || e.key === "B") { e.preventDefault(); buildHere(); }
     else if (e.key === "r" || e.key === "R" || e.key === "e" || e.key === "E") { e.preventDefault(); mountToggle(); }
     else if (e.key === "c" || e.key === "C") { e.preventDefault(); mountToggle("carpet"); }   // (the booklet's key for the carpet)
+    else if (e.key === "j" || e.key === "J") { e.preventDefault(); jellyCombo(); }   // (0.0.146: with ↑ held, the flying jellyfish)
     else if (e.key === "l" || e.key === "L") { e.preventDefault(); if (S.note) readNote(); else listen(); }
   });
   // (0.0.104) a tap or a click on the listen button in a villager's bubble
@@ -4809,6 +4971,7 @@
   }
   { const b = $("build"); if (b) b.addEventListener("pointerdown", e => { e.preventDefault(); buildHere(); }); }
   { const b = $("mount"); if (b) b.addEventListener("pointerdown", e => { e.preventDefault(); mountToggle(); }); }
+  { const b = $("jelly"); if (b) b.addEventListener("pointerdown", e => { e.preventDefault(); jellyCombo(); }); }   // (0.0.146: with ⬆️ held, the flying jellyfish)
   // (0.0.130; Matthew: "let's have a 'dig everything' automation, next to the 'speed run' button, that's just digging up the
   // whole world, randomly, for fun. When we enable this button, if the gnome doesn't have the full dig/swim capabilities, let's
   // just add them, as if we got them ourselves. It's like a cheat code.") 🕳️: the good and the super digger, the diving gear and
@@ -4838,19 +5001,20 @@
   // its buttons its own way), or 🎯 set one action's button (the next one pressed). Each pad's layout is kept by its name and put
   // back whenever it connects. Polled each frame while one is connected, never without one.
   const PAD_ACTIONS = [["jump", "⬆️ jump (as ↑)"], ["dash", "💨 dash, held (as Shift)"], ["dig", "⛏️ dig (as X)"], ["build", "🪵 build (as B)"],
-                       ["ride", "🐇🧞🐈 on or off; with ◀ Clover, ▶ the carpet, ▲ the cat tail (as R)"],
+                       ["ride", "🐇🧞🐈 on or off; with ◀ Clover, ▶ the carpet, ▲ the cat tail (as R)"], ["jelly", "🪼 with ▲ held: the flying jellyfish; again, a gnome (as J)"],
                        ["listen", "🔊 a villager's words aloud (as L)"], ["pause", "⏸ pause, or go on (as the space bar)"], ["map", "🗺️ the map, shown or hidden (as M)"]];
-  const PAD_USUAL = { jump: 0, dash: 2, dig: 1, build: 3, ride: 4, listen: 8, pause: 9, map: -1 };
+  const PAD_USUAL = { jump: 0, dash: 2, dig: 1, build: 3, ride: 4, jelly: 5, listen: 8, pause: 9, map: -1 };
   const PAD_TEACH = [["B", "B, the bottom button"], ["A", "A, the right one"], ["X", "X, the top one"], ["Y", "Y, the left one"],
                      ["L", "L, the left shoulder"], ["R", "R, the right shoulder"], ["select", "select"], ["start", "start"]];
-  const PAD_FROM_TEACH = { jump: "B", dig: "A", build: "X", dash: "Y", ride: "L", listen: "select", pause: "start" };
+  const PAD_FROM_TEACH = { jump: "B", dig: "A", build: "X", dash: "Y", ride: "L", jelly: "R", listen: "select", pause: "start" };
   const PAD_PLACES = ["bottom", "right", "left", "top", "left shoulder", "right shoulder", "left trigger", "right trigger", "select", "start", "left stick", "right stick", "up", "down", "left", "right", "home"];
   const PAD = { id: "", name: "", mapping: "", down: new Set(), held: {}, learn: null, teach: null, loop: 0, buttons: { ...PAD_USUAL }, ui: null, lastSx: 0, was12: false, was14: false, was15: false };
   const padButtonName = i => !(i >= 0) ? "—" : PAD.mapping === "standard" && PAD_PLACES[i] ? `${PAD_PLACES[i]} (button ${i})` : `button ${i}`;
   const padLayouts = () => { const all = kept("pads", {}); return all && typeof all === "object" ? all : {}; };
   function padKeepLayout() { if (!PAD.id) return; const all = padLayouts(); all[PAD.id] = { ...PAD.buttons }; keep("pads", all); }
   function padUse(id) { const k = padLayouts()[id]; PAD.buttons = { ...PAD_USUAL, ...(k && typeof k === "object" ? k : {}) }; PAD.id = id;
-    delete PAD.buttons.carpet; delete PAD.buttons.items; }   // (a layout from 0.0.112 or 0.0.113: their 🧞 and 🎒 buttons are gone)
+    delete PAD.buttons.carpet; delete PAD.buttons.items;
+    if (k && typeof k === "object" && k.jelly === undefined && Object.entries(PAD.buttons).some(([a, b]) => a !== "jelly" && b === PAD.buttons.jelly)) PAD.buttons.jelly = -1; }   // (0.0.146: a layout from before the jellyfish, its button already some other action's: none)   // (a layout from 0.0.112 or 0.0.113: their 🧞 and 🎒 buttons are gone)
   function padTaught() {
     const G = PAD.teach.got, at = k => (Number.isInteger(G[k]) ? G[k] : -1);
     for (const [a, k] of Object.entries(PAD_FROM_TEACH)) PAD.buttons[a] = at(k);
@@ -4899,6 +5063,7 @@
         for (const k in want) if (want[k] !== !!PAD.held[k]) { PAD.held[k] = want[k]; if (want[k] && k === "up" && !S.keys.up) S.jumpQueued = true; S.keys[k] = want[k]; }
         if (hit("build")) buildHere();
         if (hit("ride")) mountToggle();
+        if (hit("jelly")) jellyCombo();
         if (hit("listen")) listen();
         if (hit("map")) toggleMap();
         if (hit("pause") && PZ) { padLetGo(); PZ.set(true); }
@@ -5017,6 +5182,7 @@
       villagers: S.villagers.map(v => ({ n: v.n, nextAt: v.nextAt })), roots: S.rootPlan.flatMap((t, k) => t.done ? [k] : []),
       ride: plain(S.ride), mount: plain(S.mount), carrots: S.carrots || 0,
       carpet: { have: !!(S.carpet && S.carpet.have), on: !!(S.carpet && S.carpet.on), face: S.carpet ? S.carpet.face : 1 },
+      jelly: { on: !!(S.jelly && S.jelly.on), face: S.jelly && S.jelly.face < 0 ? -1 : 1 },   // (0.0.146)
       tail: { have: !!(S.tail && S.tail.have), on: !!(S.tail && S.tail.on) },
       ...(S.rules === "plain" ? { rules: "plain" } : {}),
       level: S.level, away: S.away, points: S.points | 0, rainbows: (S.rainbows || []).map(R => [R.gone ? 1 : 0, R.back | 0]),   // (0.0.140)   // (0.0.133: ⚡, kept in the save once chosen)
@@ -5074,6 +5240,7 @@
     if (d.ride) S.ride = { ...d.ride, safe: d.ride.safe ? { ...d.ride.safe } : null }; if (d.mount) S.mount = { ...d.mount }; S.carrots = d.carrots || 0;
     S.carpet = { have: !!(d.carpet && d.carpet.have), on: !!(d.carpet && d.carpet.on), vx: 0, vy: 0, face: d.carpet && d.carpet.face < 0 ? -1 : 1, ph: 0, wisps: null };
     S.tail = { have: !!(d.tail && d.tail.have), on: !!(d.tail && d.tail.on), meter: 0, fly: 0, lift: 0, flut: 0, rep: 0 };   // (0.0.116; a save from before has none)
+    S.jelly = { on: !!(d.jelly && d.jelly.on), vx: 0, vy: 0, beat: 0, lean: 0, face: d.jelly && d.jelly.face < 0 ? -1 : 1, glowAt: -1e9, rings: [] };   // (0.0.146; a save from before: a gnome)
     if (HEROES[d.hero]) { S.hero = d.hero; keep("hero", S.hero); heroPicker(); }
     if (S.level === "1") keep("seed", S.seed);   // (0.0.140: the first level's seed, the one the page opens with)
     if (S.vortex) S.vortex.armed = false;
@@ -5126,6 +5293,7 @@
     if (d.ride) S.ride = { ...d.ride, safe: null }; if (d.mount) S.mount = { ...d.mount }; S.carrots = d.carrots || 0;
     S.carpet = { have: !!(d.carpet && d.carpet.have), on: !!(d.carpet && d.carpet.on), vx: 0, vy: 0, face: d.carpet && d.carpet.face < 0 ? -1 : 1, ph: 0, wisps: null };
     S.tail = { have: !!(d.tail && d.tail.have), on: !!(d.tail && d.tail.on), meter: 0, fly: 0, lift: 0, flut: 0, rep: 0 };
+    S.jelly = { on: !!(d.jelly && d.jelly.on), vx: 0, vy: 0, beat: 0, lean: 0, face: d.jelly && d.jelly.face < 0 ? -1 : 1, glowAt: -1e9, rings: [] };   // (0.0.146; a save from before: a gnome)
     let left = 0; for (let i = 0; i < NN; i++) if (gem[i]) left++;
     S.found = d.found || 0; S.gemTotal = S.found + left;
     const newGems = ranked.slice(0, leave).map(([R, i]) => ({ c: i % WW, r: Math.floor(i / WW), far: R }));
@@ -5246,7 +5414,7 @@
       piles: js(S.piles), beavers: js(S.beavers.map(B => [B.b, B.px, B.py])), boulders: js(S.boulders), pebbles: js(S.pebbles),
       villagers: js(S.villagers.map(v => [v.id, v.n, v.nextAt])),
       level: js({ level: S.level, points: S.points | 0, vortex: S.vortex ? [S.vortex.x, S.vortex.y, S.vortex.to] : null, rainbows: (S.rainbows || []).map(R => [R.x, R.y, !!R.gone, R.back | 0]),
-        away: Object.entries(S.away || {}).map(([k, a]) => [k, a.seed, a.frame, fnv(a.tiles), a.items, a.gnome]) }), ride: js({ ride: S.ride, mount: S.mount, carrots: S.carrots || 0 }), tail: js({ have: !!(S.tail && S.tail.have), on: !!(S.tail && S.tail.on) }), carpet: js({ have: !!(S.carpet && S.carpet.have), on: !!(S.carpet && S.carpet.on), face: S.carpet ? S.carpet.face : 1 }), rootsDone: js(S.rootPlan.map(t => t.done ? 1 : 0)), rootSets: S.rootSets.length + S.threadSets.length };
+        away: Object.entries(S.away || {}).map(([k, a]) => [k, a.seed, a.frame, fnv(a.tiles), a.items, a.gnome]) }), ride: js({ ride: S.ride, mount: S.mount, carrots: S.carrots || 0 }), tail: js({ have: !!(S.tail && S.tail.have), on: !!(S.tail && S.tail.on) }), carpet: js({ have: !!(S.carpet && S.carpet.have), on: !!(S.carpet && S.carpet.on), face: S.carpet ? S.carpet.face : 1 }), jelly: js({ on: !!(S.jelly && S.jelly.on), face: S.jelly && S.jelly.face < 0 ? -1 : 1 }), rootsDone: js(S.rootPlan.map(t => t.done ? 1 : 0)), rootSets: S.rootSets.length + S.threadSets.length };
   }
   addEventListener("resize", () => draw());
   const P = window.HazelPause ? window.HazelPause.make({ into: $("new").parentElement, over: $("world").parentElement,
@@ -5528,6 +5696,7 @@
   if (Q.has("test")) Object.assign(window.WorldTest, { SKYC, skyClouds, cloudArt, storminess });   // (0.0.125: the sky)
   if (Q.has("test")) Object.assign(window.WorldTest, { GEMAIM, gemAim, hasFinder, gemCompass, HEADTOP, draw, keepWorldNow, mergeText, saveText, snapshot });   // (0.0.126: the gem finder)
   if (Q.has("test")) Object.assign(window.WorldTest, { CAVE, CAVEFX, caveLife });
+  if (Q.has("test")) Object.assign(window.WorldTest, { jellyJS, jellyStep, jellyToggle, jellyCombo, jellyGlow, drawJelly });   // (0.0.146)
   // (0.0.140: the levels: one built fresh, as the level check reads it; the vortex's journey)
   if (Q.has("test")) Object.assign(window.WorldTest, { LEVELS, levelOf, travel, vortexStep, rainbowsStep, catHeadFound, digOK,
     freshLevel: id => { S.level = String(id); S.seed = levelOf(id).seed; S.away = {}; S.points = 0; build(H(), S.seed); digButton(); return S.level; } });   // (0.0.127: the caverns)

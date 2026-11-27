@@ -17,8 +17,8 @@ const FRESH_ON = process.argv.includes("--fresh");
 await import(pathToFileURL(lib).href);
 const Hazel = globalThis.Hazel;
 const read = f => readFileSync(new URL("../world/rules/" + f, import.meta.url), "utf8").replace(/\s+$/, "");
-const modules = NO_FLY ? ["World"] : ["World", "Fly", "Tail", "Ride", "Boulder", "Pickup", "Wind", "Bunny", "Frog", "Bird"];   // (0.0.116: and the cat tail's flight, Tail.hz; 0.0.134: Clover's ride, Ride.hz)
-const tail = "(plan = World.plan, step = World.step" + (NO_FLY ? "" : ", fly = Fly.step, tail = Tail.step, ride_pre = Ride.pre, ride_post = Ride.post, boulder = Boulder.step, pickup = Pickup.step, wind = Wind.step, bunny = Bunny.step, frog = Frog.step, bird = Bird.step, swim = Bird.swim") + ")";
+const modules = NO_FLY ? ["World"] : ["World", "Fly", "Tail", "Ride", "Boulder", "Pickup", "Wind", "Bunny", "Frog", "Bird", "Jelly"];   // (0.0.116: and the cat tail's flight, Tail.hz; 0.0.134: Clover's ride, Ride.hz)
+const tail = "(plan = World.plan, step = World.step" + (NO_FLY ? "" : ", fly = Fly.step, tail = Tail.step, ride_pre = Ride.pre, ride_post = Ride.post, boulder = Boulder.step, pickup = Pickup.step, wind = Wind.step, bunny = Bunny.step, frog = Frog.step, bird = Bird.step, swim = Bird.swim, jelly = Jelly.step") + ")";
 const sigOf = (name, fn) => read(name + ".hz").match(new RegExp("let " + fn + " : (.*?) -> \\(", "s"))[1];
 const CROSS = [["xpickup", "Pickup", "step", "(a, b, c)"], ["xbunny", "Bunny", "step", "(a, b, c, d)"], ["xfrog", "Frog", "step", "(a, b, c, d)"], ["xbird", "Bird", "step", "(a, b, c, d)"]];
 const crossText = "# the crossing alone (fly-check --fresh) #\n" + CROSS.map(([x, m, fn, args]) => `let ${x} : ${sigOf(m, fn)} -> Int = fun ${args} -> 0`).join(";\n");
@@ -283,5 +283,37 @@ console.log(`a step of a duck or swan: the page's JavaScript ${djs.toFixed(3)} �
 result.bird = { steps: sSteps, same: sSame, first: sFirst, seen: sseen, jsUs: sjs, hazelUs: shz };
 result.fresh = FRESH_ON ? freshOut : undefined;
 result.swim = { steps: dSteps, same: dSame, first: dFirst, seen: dseen, jsUs: djs, hazelUs: dhz };
+// (0.0.146) the flying jellyfish: Hazel's Jelly.step against the page's jellyJS, first on one long flight through the made-up
+// world (hovering, pulses held and pressed again and again, leaning, sinking, into ground and through water), then on 20,000
+// made-up jellyfish at any beat, lean and speed, keys of any kind
+const jsrc = app.slice(app.indexOf("  function jellyJS("), app.indexOf("  function jellyStep("));
+const jellyJS = new Function(jsrc + "; return jellyJS;")(), jellyH = built.value.jelly;
+const jkey = f => JSON.stringify([f.gnome.x, f.gnome.y, f.gnome.face, f.gnome.air, f.gnome.ground, f.jelly.vx, f.jelly.vy, f.jelly.beat, f.jelly.lean, f.jelly.face]);
+let jSame = 0, jFirst = null, jSteps = 0; const jseen = { pulses: 0, bonks: 0, part: 0, hover: 0, wet: 0, risen: 0 };
+const jin = [];
+const jcheck = (gg, pp, jj) => { const n = near(gg), a = jellyH(gg, n, pp, jj), b = jellyJS(gg, n, pp, jj); jSteps++; jin.push([gg, n, pp, jj]);
+  if (jkey(a) === jkey(b)) jSame++; else if (!jFirst) jFirst = { step: jSteps, in: { g: gg, p: pp, j: jj }, hazel: jkey(a), js: jkey(b) };
+  if (b.jelly.beat === 1) jseen.pulses++; if (b.jelly.vy === 0 && jj.vy !== 0 && (pp.up || pp.down || jj.vy < 0)) jseen.bonks++;
+  if (b.gnome.y !== gg.y && b.gnome.y - gg.y !== b.jelly.vy && b.jelly.vy === 0) jseen.part++;
+  if (!pp.up && !pp.down && pp.dx === 0 && b.jelly.vx === 0 && b.jelly.vy === 0) jseen.hover++;
+  if ((code(Math.floor(b.gnome.x / 1000), Math.floor((b.gnome.y - 500) / 1000)) & 16) === 16) jseen.wet++;
+  return b; };
+{ let gg = { ...gnome0, x: 30500, y: 30000 }, jj = { vx: 0, vy: 0, beat: 0, lean: 0, face: 1 }, upWas = false; const y0 = gg.y;
+  for (let i = 0; i < N; i++) { const ph = Math.floor(i / 90) % 12;
+    const dx = [0, 0, 1, 1, -1, 0, -1, 1, 0, 0, -1, 1][ph], up = ph === 1 || ph === 3 || (ph === 7 && rnd() < 0.5) || (ph === 10 && i % 9 < 4), down = ph === 5 || ph === 8 || ph === 11;
+    const pp = { dx, up, down, jump: up && !upWas, dig: false, dash: false }; upWas = up;
+    const b = jcheck(gg, pp, jj); gg = { ...gg, ...b.gnome }; jj = { ...b.jelly }; if (gg.y < y0 - 8000) jseen.risen++;
+    if (i % 2000 === 1999) { gg = { ...gg, x: 3000 + Math.floor(rnd() * 74000), y: 3000 + Math.floor(rnd() * 50000) }; } } }
+for (let i = 0; i < N; i++) {
+  const gg = { ...gnome0, x: 1000 + Math.floor(rnd() * 77000), y: 1000 + Math.floor(rnd() * 57000), air: Math.floor(rnd() * 700), face: rnd() < 0.5 ? -1 : 1 };
+  const pp = { dx: Math.floor(rnd() * 3) - 1, up: rnd() < 0.4, down: rnd() < 0.25, jump: rnd() < 0.3, dig: false, dash: false };
+  const jj = { vx: Math.round((rnd() * 2 - 1) * 400), vy: Math.round((rnd() * 2 - 1) * 450), beat: rnd() < 0.3 ? 0 : Math.floor(rnd() * 41), lean: Math.round((rnd() * 2 - 1) * 450), face: rnd() < 0.5 ? -1 : 1 };
+  jcheck(gg, pp, jj); }
+const jtime = f => { const ts = []; for (let k = 0; k < 7; k++) { const t = performance.now(); for (const [a1, a2, a3, a4] of jin) f(a1, a2, a3, a4); ts.push((performance.now() - t) * 1000 / jin.length); } ts.sort((x, y) => x - y); return ts[3]; };
+jtime(jellyJS); jtime(jellyH); const jjs = jtime(jellyJS), jhz = jtime(jellyH);
+console.log(`the flying jellyfish: Jelly.step the same as the page's jellyJS at ${jSame} of ${jSteps} steps${jFirst ? "; first differs: " + JSON.stringify(jFirst).slice(0, 2000) : ""} (seen: ${JSON.stringify(jseen)})`);
+console.log(`a step of the jellyfish: the page's JavaScript ${jjs.toFixed(3)} µs, Hazel's Jelly.step through the jit ${jhz.toFixed(3)} µs (${(jhz / jjs).toFixed(1)}×)`);
+FRESH("the jellyfish", jellyJS, jellyH, null, jin);
+result.jelly = { steps: jSteps, same: jSame, first: jFirst, seen: jseen, jsUs: jjs, hazelUs: jhz };
 if (out) writeFileSync(out, JSON.stringify(result, null, 1));
-process.exit(same === N && tSame === N && rSame === N && bSame === N && pSame === N && pRealSame === N && wSame === N * 3 && uSame === uSteps && fSame === fSteps && sSame === sSteps && dSame === dSteps ? 0 : 1);
+process.exit(same === N && tSame === N && rSame === N && bSame === N && pSame === N && pRealSame === N && wSame === N * 3 && uSame === uSteps && fSame === fSteps && sSame === sSteps && dSame === dSteps && jSame === jSteps ? 0 : 1);
