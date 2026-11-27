@@ -29,12 +29,15 @@ jobs:
       - name: Time them, interleaved
         shell: bash
         run: |
+          set +e +o pipefail
           mkdir -p out
           for round in 1 2; do
             for d in libs/*/; do n=$(basename "$d")
               echo "== $n, round $round"
-              node --stack-size=8000 node/fly-check.mjs "$d/hazel-lib.js" "out/${n}_$round.json" --fresh 2>&1 | grep -v '^SLOW PARSE' | grep -E '^(fresh|built|the same|the cat|Clover|the boulders|picking|the wind|a wild|a frog|a songbird|a duck|not built)' | cut -c1-200
-              echo "exit ${PIPESTATUS[0]}"
+              node --stack-size=8000 --max-old-space-size=5000 node/fly-check.mjs "$d/hazel-lib.js" "out/${n}_$round.json" --fresh > "out/${n}_$round.txt" 2>&1
+              code=$?
+              grep -v '^SLOW PARSE' "out/${n}_$round.txt" | grep -E '^(fresh|built|the same|the cat|Clover|the boulders|picking|the wind|a wild|a frog|a songbird|a duck|not built)' | cut -c1-200
+              echo "exit $code"; if [ "$code" != 0 ]; then echo "-- its last lines:"; tail -15 "out/${n}_$round.txt" | cut -c1-300; fi
             done
           done | tee timing.log
           { echo '## fresh timing'; echo '```'; cat timing.log; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
