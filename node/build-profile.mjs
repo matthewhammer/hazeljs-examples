@@ -1,0 +1,70 @@
+// node/build-profile.mjs (^ticket(791), from Gnome world's port, ^ticket(882)): where building Gnome world's rules spends its time,
+// by Hazel's own source files. For a GitHub runner (.github/workflows/build-profile.yml), NOT the laptop: it wants a hazel-lib.js
+// built in Hazel's dev profile, whose source map names each piece of JavaScript's OCaml (Reason) file.
+//   node --cpu-prof --cpu-prof-dir=DIR node/build-profile.mjs <hazel-lib.js> <its .map> DIR
+// It builds the world's rules (Hazel.jitProgram, as the page does) three times, then reads the CPU profile Node wrote and prints,
+// for the builds after the first, each source file's share: inclusive (the file anywhere on the stack) and self (on top), and the
+// functions on top most. Measured 11-26 on the laptop with the minified library: analyzeProgram (parse and statics) is nearly all of
+// a build; this says which part of it.
+import { readFileSync, readdirSync, writeFileSync } from "node:fs";
+import path from "node:path";
+import { pathToFileURL } from "node:url";
+
+const [LIB, MAP, DIR] = process.argv.slice(2);
+const R = new URL("../world/rules/", import.meta.url), read = f => readFileSync(new URL(f, R), "utf8").replace(/\s+$/, "");
+const MODS = [["World", "plan = World.plan, step = World.step"], ["Fly", "fly = Fly.step"], ["Tail", "tail = Tail.step"], ["Ride", "ride_pre = Ride.pre, ride_post = Ride.post"],
+  ["Boulder", "boulder = Boulder.step"], ["Pickup", "pickup = Pickup.step"], ["Wind", "wind = Wind.step"], ["Bunny", "bunny = Bunny.step"], ["Frog", "frog = Frog.step"],
+  ["Bird", "bird = Bird.step, swim = Bird.swim"]];
+const spec = { preamble: read("preamble.hz"), modules: MODS.map(([name]) => ({ name, text: read(name + ".hz") })), tail: "(" + MODS.map(([, t]) => t).join(", ") + ")" };
+
+if (process.argv.includes("--summarize")) summarize(); else {
+  await import(pathToFileURL(LIB).href);
+  const Hazel = globalThis.Hazel, marks = [];
+  for (let k = 0; k < 3; k++) {
+    // (the profile's clock is the monotonic one process.hrtime reads, in microseconds)
+    const h0 = Number(process.hrtime.bigint() / 1000n), t0 = performance.now(), b = Hazel.jitProgram(spec), ms = performance.now() - t0, h1 = Number(process.hrtime.bigint() / 1000n);
+    marks.push({ k, ms: Math.round(ms), ok: b.ok, compiled: b.compiled, startUs: h0, endUs: h1 });
+    console.log(`build ${k + 1}: ${(ms / 1000).toFixed(2)} s, ok ${b.ok}, compiled ${b.compiled}`);
+    const a0 = performance.now(); Hazel.analyzeProgram(spec); console.log(`  analyzeProgram alone: ${((performance.now() - a0) / 1000).toFixed(2)} s`);
+  }
+  writeFileSync(path.join(DIR, "marks.json"), JSON.stringify(marks));
+}
+
+// ---- the profile, by source file (run again with --summarize once Node has written it)
+function summarize() {
+  const prof = readdirSync(DIR).find(f => f.endsWith(".cpuprofile"));
+  const P = JSON.parse(readFileSync(path.join(DIR, prof), "utf8"));
+  // (the map beside the library, or inlined at its end as a data: URL)
+  let M; try { M = JSON.parse(readFileSync(MAP, "utf8")); } catch { const js = readFileSync(LIB, "utf8"), at = js.lastIndexOf("sourceMappingURL=data:application/json");
+    M = JSON.parse(Buffer.from(js.slice(js.indexOf("base64,", at) + 7).trim(), "base64").toString("utf8")); }
+  console.log(`source map: ${M.sources.length} sources, ${M.mappings.length} chars of mappings`);
+  // the source map's mappings, line by line: [generated column, source index] (base64 VLQ, as the source map spec has it)
+  const B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/", lines = [];
+  let src = 0, sl = 0, sc = 0, nm = 0;
+  for (const line of M.mappings.split(";")) { const segs = []; let col = 0;
+    for (const seg of line.split(",")) { if (!seg) continue; const v = []; let shift = 0, value = 0;
+      for (const ch of seg) { const d = B64.indexOf(ch); value += (d & 31) << shift; if (d & 32) shift += 5; else { v.push(value & 1 ? -(value >> 1) : value >> 1); shift = 0; value = 0; } }
+      col += v[0]; if (v.length > 1) { src += v[1]; sl += v[2]; sc += v[3]; if (v.length > 4) nm += v[4]; segs.push([col, src]); } }
+    lines.push(segs); }
+  const fileOf = (line, col) => { const segs = lines[line]; if (!segs || !segs.length) return "(unmapped)"; let lo = 0, hi = segs.length - 1, best = -1;
+    while (lo <= hi) { const mid = (lo + hi) >> 1; if (segs[mid][0] <= col) { best = mid; lo = mid + 1; } else hi = mid - 1; }
+    return best < 0 ? "(unmapped)" : M.sources[segs[best][1]].replace(/^.*?(src\/|_build\/default\/|\.opam\/)/, "$1"); };
+  const nodes = new Map(P.nodes.map(n => [n.id, n])), parent = new Map();
+  for (const n of P.nodes) for (const c of n.children || []) parent.set(c, n.id);
+  const lib = path.basename(LIB), where = new Map();
+  const fileOfNode = n => { if (where.has(n.id)) return where.get(n.id); const cf = n.callFrame;
+    const f = cf.url && cf.url.endsWith(lib) ? fileOf(cf.lineNumber, cf.columnNumber) : cf.functionName ? `(${cf.functionName || "anon"})` : "(native)"; where.set(n.id, f); return f; };
+  // only the builds after the first (warm), by the marks' times against the profile's own clock
+  const marks = JSON.parse(readFileSync(path.join(DIR, "marks.json"), "utf8")).slice(1);
+  let t = P.startTime; const incl = new Map(), self = new Map(), fns = new Map(); let total = 0;
+  const inBuild = t => marks.some(m => t >= m.startUs && t <= m.endUs);
+  console.log(`profile ${P.startTime} to ${P.endTime}; the warm builds ${marks.map(m => `${m.startUs} to ${m.endUs}`).join(", ")}`);
+  P.samples.forEach((id, i) => { t += P.timeDeltas[i]; const dt = P.timeDeltas[i];
+    if (!inBuild(t)) return;
+    total += dt; let n = nodes.get(id); const seen = new Set(); const top = fileOfNode(n);
+    self.set(top, (self.get(top) || 0) + dt); const fk = top + " " + (n.callFrame.functionName || "anon") + ":" + n.callFrame.lineNumber; fns.set(fk, (fns.get(fk) || 0) + dt);
+    while (n) { const f = fileOfNode(n); if (!seen.has(f)) { seen.add(f); incl.set(f, (incl.get(f) || 0) + dt); } n = nodes.get(parent.get(n.id)); } });
+  const show = (title, m, k) => { console.log(`\n${title} (of ${(total / 1e6).toFixed(2)} s sampled)`);
+    [...m].sort((a, b) => b[1] - a[1]).slice(0, k).forEach(([f, us]) => console.log(`  ${(us / 1e3).toFixed(0).padStart(7)} ms ${(100 * us / total).toFixed(1).padStart(5)}%  ${f}`)); };
+  show("inclusive, by source file", incl, 40); show("self, by source file", self, 30); show("self, by function", fns, 30);
+}

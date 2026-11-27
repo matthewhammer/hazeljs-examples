@@ -1,0 +1,49 @@
+# (^ticket(791), from Gnome world's port, ^ticket(882)) Where building Gnome world's rules spends its time, by Hazel's own source
+# files: hazelgrove/hazel's hazel-lib.js built in its dev profile (its dune env: --debuginfo --noinline --sourcemap, so the source
+# map names each piece of JavaScript's file), then node/build-profile.mjs builds the world's rules three times under Node's CPU
+# profiler and prints, for the two warm builds, each source file's share (inclusive and self) and the functions on top most. The
+# dev profile does not inline, so its times run longer than the shipped library's; the shares are what to read. On GitHub's
+# machines only (the laptop builds nothing big). Run by hand: Actions, "build profile", Run workflow.
+name: build profile
+on:
+  workflow_dispatch:
+    inputs:
+      commit:
+        description: "The hazelgrove/hazel commit or branch whose hazel-lib.js to profile"
+        required: true
+        default: "hazeljs"
+jobs:
+  profile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      # Hazel at the workspace root, as its toolchain action expects (as hazelgrove/hazeljs's build does); this repository beside it
+      - uses: actions/checkout@v4
+        with:
+          repository: hazelgrove/hazel
+          ref: ${{ inputs.commit }}
+      - uses: actions/checkout@v4
+        with:
+          path: ex
+      - uses: ./.github/actions/setup-hazel-toolchain
+      - name: Build hazel-lib.js in the dev profile
+        shell: bash
+        run: |
+          make setup-zarith
+          if command -v dune >/dev/null; then dune=(dune); else dune=(opam exec -- dune); fi
+          "${dune[@]}" build src/web/www/hazel-lib.js --profile dev
+          ls -la _build/default/src/web/ | grep -i hazellib || true
+          git log --oneline -1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Profile the world's build
+        shell: bash
+        run: |
+          LIB=_build/default/src/web/hazelLib.bc.js
+          MAP=$LIB.map; [ -f "$MAP" ] || MAP=inline
+          echo "library $(wc -c < "$LIB") bytes; map: $MAP"
+          mkdir -p prof
+          node --cpu-prof --cpu-prof-dir=prof --stack-size=8000 ex/node/build-profile.mjs "$LIB" "$MAP" prof 2>&1 | grep -v '^SLOW PARSE'
+          node --stack-size=8000 --max-old-space-size=6000 ex/node/build-profile.mjs "$LIB" "$MAP" prof --summarize | tee summary.txt
+          { echo '## Where the world'"'"'s build goes'; echo '```'; cat summary.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
