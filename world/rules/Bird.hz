@@ -1,0 +1,123 @@
+# The birds' minds (piece 6 of ^report(64)'s plan, its third part; Gnome world 0.0.143, the page's JavaScript moved into Hazel): a songbird's and a duck's or a swan's, each step, in view. The hawks stay the page's. A songbird (the sparrows, the robins, the jays) is on the ground (mode 0), perched (1), or flying (2). Flying, it goes on along its flight, easing in and out on an arc, and lands as its flight says (next). Perched, it sits where its perch is now (as the wind sways the tree); scared (the gnome within three tiles, a jay's two and a bit) or its wait run out, it flies home to the ground if it has one and the gnome is not near it, or to another perch near it (within seven tiles, twelve if scared, not by the gnome), now and then singing as it goes; its perch gone (the tree felled), it is on the ground. On the ground, scared, it flies up to one of the three perches nearest it; else it goes on along its hop, or pecks, or waits, and its wait run out, pecks a while or hops a little way, back toward its home when it has wandered three tiles from it, never into a river, past the edges, or up or down more than a bit. The bird (b): whether it is a jay, where it is (x, y, in tiles), its mode, the way it faces, how long it waits, how long it pecks, its home (if it has one), its perch (its place among the perches, or -1), its hop (on, from x0 to x1, how far along, t), and its flight (from x0 y0 to x1 y1, how far along, in how many steps, and what it does after). The gnome (g): where it is, half a tile above its feet. What it sees (w): its perch where it is now (ok, or gone), the land under its home, under it, and at the three columns from c0, the world's width, the rivers near it (from x0 to x1), and on a step it may choose a perch, the perches near it, where each is now (else none). Six random numbers from the page's stream (r): a, its wait; b, which perch; c, whether it sings, or pecks; d, how long it pecks; e, f, which way it hops and how far. The answer: the bird, and whether it calls. A duck or a swan (Bird.swim) swims about its river: the gnome near it on the bank or in the water, it makes for the far side, and now and then quacks or honks; else its wait run out, it picks a new place to swim to, a duck now and then dabbling, head down, a while #
+let step : ((jay = Bool, x = Float, y = Float, mode = Int, face = Int, wait = Int, peck = Int, home = Float, hashome = Bool, perch = Int, hop = (on = Bool, x0 = Float, x1 = Float, t = Float), fly = (x0 = Float, y0 = Float, x1 = Float, y1 = Float, t = Float, dur = Float, next = Int)), (x = Float, y = Float), (at = (ok = Bool, x = Float, y = Float), homey = Float, land = Float, c0 = Int, ww = Int, land3 = [Float], rivers = [(x0 = Float, x1 = Float)], perches = [(i = Int, x = Float, y = Float)]), (a = Float, b = Float, c = Float, d = Float, e = Float, f = Float)) -> (bird = (jay = Bool, x = Float, y = Float, mode = Int, face = Int, wait = Int, peck = Int, home = Float, hashome = Bool, perch = Int, hop = (on = Bool, x0 = Float, x1 = Float, t = Float), fly = (x0 = Float, y0 = Float, x1 = Float, y1 = Float, t = Float, dur = Float, next = Int)), call = Bool) = fun (b, g, w, r) ->
+  let ab : Float -> Float = fun v -> (if v <. 0. then 0. -. v else v) in
+  let sq : (Float, Float) -> Float = fun (x, y) -> x *. x +. y *. y in
+  let nth : ([Float], Int) -> Float = fun (l, k) ->
+    case l
+    | [] => 0.
+    | y :: rest => (if k == 0 then y else nth(rest, k - 1))
+    end in
+  let river : ([(x0 = Float, x1 = Float)], Float) -> Bool = fun (l, x) ->
+    case l
+    | [] => false
+    | v :: rest => (x >=. v.x0 && x <. v.x1) || river(rest, x)
+    end in
+  let size : [(i = Int, x = Float, y = Float)] -> Int = fun l ->
+    case l
+    | [] => 0
+    | _ :: rest => 1 + size(rest)
+    end in
+  let pick : ([(i = Int, x = Float, y = Float)], Int) -> (i = Int, x = Float, y = Float) = fun (l, k) ->
+    case l
+    | [] => (i = 0 - 1, x = 0., y = 0.)
+    | p :: rest => (if k == 0 then p else pick(rest, k - 1))
+    end in
+  let free : ([(i = Int, x = Float, y = Float)], Bool, Float, Float) -> [(i = Int, x = Float, y = Float)] = fun (l, mine, x, reach) ->
+    case l
+    | [] => []
+    | p :: rest => (if (!mine || !(p.i == b.perch)) && ab(p.x -. x) <. reach && sq(p.x -. g.x, p.y -. g.y) >. 16. then p :: free(rest, mine, x, reach) else free(rest, mine, x, reach))
+    end in
+  let put_in : ((i = Int, x = Float, y = Float), [(i = Int, x = Float, y = Float)]) -> [(i = Int, x = Float, y = Float)] = fun (p, l) ->
+    case l
+    | [] => [p]
+    | q :: rest => (if ab(p.x -. b.x) <=. ab(q.x -. b.x) then p :: q :: rest else q :: put_in(p, rest))
+    end in
+  let nearest_first : [(i = Int, x = Float, y = Float)] -> [(i = Int, x = Float, y = Float)] = fun l ->
+    case l
+    | [] => []
+    | p :: rest => put_in(p, nearest_first(rest))
+    end in
+  let bird : (Float, Float, Int, Int, Int, Int, Float, Bool, Int, (on = Bool, x0 = Float, x1 = Float, t = Float), (x0 = Float, y0 = Float, x1 = Float, y1 = Float, t = Float, dur = Float, next = Int)) -> (jay = Bool, x = Float, y = Float, mode = Int, face = Int, wait = Int, peck = Int, home = Float, hashome = Bool, perch = Int, hop = (on = Bool, x0 = Float, x1 = Float, t = Float), fly = (x0 = Float, y0 = Float, x1 = Float, y1 = Float, t = Float, dur = Float, next = Int)) = fun (x, y, mode, face, wait, peck, home, hashome, perch, hop, fly) ->
+    (jay = b.jay, x = x, y = y, mode = mode, face = face, wait = wait, peck = peck, home = home, hashome = hashome, perch = perch, hop = hop, fly = fly) in
+  let fly_to : (Float, Float, Int, Float, Float, Int, Int) -> (jay = Bool, x = Float, y = Float, mode = Int, face = Int, wait = Int, peck = Int, home = Float, hashome = Bool, perch = Int, hop = (on = Bool, x0 = Float, x1 = Float, t = Float), fly = (x0 = Float, y0 = Float, x1 = Float, y1 = Float, t = Float, dur = Float, next = Int)) = fun (x, y, wait, x1, y1, nxt, perch) ->
+    (let v = sqrt(sq(x1 -. x, y1 -. y)) *. 6. in
+     bird(x, y, 2, (if x1 >=. x then 1 else 0 - 1), wait, b.peck, b.home, b.hashome, perch, b.hop, (x0 = x, y0 = y, x1 = x1, y1 = y1, t = 0., dur = (if v >. 30. then v else 30.), next = nxt))) in
+  let scare = sq(b.x -. g.x, b.y -. g.y) <. (if b.jay then 4.84 else 9.) in
+  (if b.mode == 2 then
+    (let f = b.fly in
+     let t = f.t +. 1. /. f.dur in
+     let fly = (x0 = f.x0, y0 = f.y0, x1 = f.x1, y1 = f.y1, t = t, dur = f.dur, next = f.next) in
+     (if t >=. 1. then
+       (bird = bird(f.x1, f.y1, f.next, b.face, b.wait, b.peck, b.home, b.hashome, b.perch, b.hop, fly), call = false)
+     else
+       (let e = t *. t *. (3. -. 2. *. t) in
+        let len = sqrt(sq(f.x1 -. f.x0, f.y1 -. f.y0)) *. 0.25 in
+        let arc = sin(pi *. t) *. (if len <. 2. then len else 2.) in
+        (bird = bird(f.x0 +. (f.x1 -. f.x0) *. e, f.y0 +. (f.y1 -. f.y0) *. e -. arc, 2, b.face, b.wait, b.peck, b.home, b.hashome, b.perch, b.hop, fly), call = false))))
+  else (if b.mode == 1 then
+    (if !w.at.ok then
+      (bird = bird(b.x, b.y, 0, b.face, b.wait, b.peck, b.x, true, b.perch, b.hop, b.fly), call = false)
+    else
+      (let x = w.at.x in
+       let y = w.at.y in
+       let wait = (if scare then b.wait else b.wait - 1) in
+       (if !scare && wait > 0 then
+         (bird = bird(x, y, 1, b.face, wait, b.peck, b.home, b.hashome, b.perch, b.hop, b.fly), call = false)
+       else
+         (let nw = 200 + int_of_float(r.a *. 500.) in
+          (if b.hashome && !scare && sq(b.home -. g.x, w.homey -. g.y) >. 36. then
+            (bird = fly_to(x, y, nw, b.home, w.homey, 0, b.perch), call = false)
+          else
+            (let opts = free(w.perches, true, x, (if scare then 12. else 7.)) in
+             let n = size(opts) in
+             (if n > 0 then
+               (let p = pick(opts, int_of_float(r.b *. float_of_int(n))) in
+                (bird = fly_to(x, y, nw, p.x, p.y, 1, p.i), call = r.c <. 0.4))
+             else
+               (bird = bird(x, y, 1, b.face, nw, b.peck, b.home, b.hashome, b.perch, b.hop, b.fly), call = false))))))))
+  else
+    (let y = w.land in
+     let opts = (if scare then nearest_first(free(w.perches, false, b.x, 12.)) else []) in
+     let n = size(opts) in
+     (if scare && n > 0 then
+       (let p = pick(opts, int_of_float(r.b *. float_of_int((if n < 3 then n else 3)))) in
+        (bird = fly_to(b.x, y, 300 + int_of_float(r.a *. 300.), p.x, p.y, 1, p.i), call = true))
+     else (if b.hop.on then
+       (let t = b.hop.t +. 1. /. 10. in
+        (bird = bird(b.hop.x0 +. (b.hop.x1 -. b.hop.x0) *. (if t <. 1. then t else 1.), y, 0, b.face, b.wait, b.peck, b.home, b.hashome, b.perch, (on = t <. 1., x0 = b.hop.x0, x1 = b.hop.x1, t = t), b.fly), call = false))
+     else (if b.peck > 0 then
+       (bird = bird(b.x, y, 0, b.face, b.wait, b.peck - 1, b.home, b.hashome, b.perch, b.hop, b.fly), call = false)
+     else
+       (let wait = b.wait - 1 in
+        (if wait > 0 then
+          (bird = bird(b.x, y, 0, b.face, wait, b.peck, b.home, b.hashome, b.perch, b.hop, b.fly), call = false)
+        else
+          (let nw = 20 + int_of_float(r.a *. 90.) in
+           (if r.c <. 0.45 then
+             (bird = bird(b.x, y, 0, b.face, nw, 18 + int_of_float(r.d *. 20.), b.home, b.hashome, b.perch, b.hop, b.fly), call = false)
+           else
+             (let dx = (if r.e <. 0.5 then 0. -. 1. else 1.) *. (0.15 +. r.f *. 0.25) in
+              let to = (if ab(b.x +. dx -. b.home) >. 3. then b.x -. dx else b.x +. dx) in
+              let c = int_of_float(to) in
+              let land = nth(w.land3, c - w.c0) in
+              (if c > 0 && c < w.ww - 1 && !river(w.rivers, to) && ab(land -. y) <. 0.6 then
+                (bird = bird(b.x, y, 0, (if to >. b.x then 1 else 0 - 1), nw, b.peck, b.home, b.hashome, b.perch, (on = true, x0 = b.x, x1 = to, t = 0.), b.fly), call = false)
+              else
+                (bird = bird(b.x, y, 0, b.face, nw, b.peck, b.home, b.hashome, b.perch, b.hop, b.fly), call = false)))))))))))));
+let swim : ((swan = Bool, x = Float, tx = Float, face = Int, dab = Int, wait = Int), (x = Float, y = Float, wet = Bool), (x = Float, w = Float, level = Float), (a = Float, b = Float, c = Float, d = Float, e = Float, f = Float)) -> (bird = (swan = Bool, x = Float, tx = Float, face = Int, dab = Int, wait = Int), call = Bool) = fun (b, g, w, r) ->
+  let ab : Float -> Float = fun v -> (if v <. 0. then 0. -. v else v) in
+  let near = ab(b.x -. g.x) <. (if g.wet then 3.5 else 2.2) && g.y >. w.level -. 2.5 in
+  let turn = !near && b.wait - 1 <= 0 in
+  let tx = (if near then (if g.x <. w.x +. w.w /. 2. then w.x +. w.w -. 0.6 else w.x +. 0.6) else (if turn then w.x +. 0.7 +. r.c *. (w.w -. 1.4) else b.tx)) in
+  let dab = (if near then 0 else (if turn && !b.swan && r.d <. 0.35 then 70 + int_of_float(r.e *. 60.) else b.dab)) in
+  let wait = (if near then b.wait else (if turn then 120 + int_of_float(r.b *. 400.) else b.wait - 1)) in
+  let call = (if near then r.a <. 0.02 else turn && r.f <. 0.15) in
+  (if dab > 0 then
+    (bird = (swan = b.swan, x = b.x, tx = tx, face = b.face, dab = dab - 1, wait = wait), call = call)
+  else
+    (let sp = (if near then 0.04 else 0.012) *. (if b.swan then 0.8 else 1.) in
+     let to = tx -. b.x in
+     (if ab(to) >. 0.05 then
+       (bird = (swan = b.swan, x = b.x +. (if to >. 0. then 1. else 0. -. 1.) *. (if sp <. ab(to) then sp else ab(to)), tx = tx, face = (if to >. 0. then 1 else 0 - 1), dab = dab, wait = wait), call = call)
+     else
+       (bird = (swan = b.swan, x = b.x, tx = tx, face = b.face, dab = dab, wait = wait), call = call))))

@@ -13,8 +13,8 @@ const BUILD_ONLY = process.argv.includes("--build-only"), NO_FLY = process.argv.
 await import(pathToFileURL(lib).href);
 const Hazel = globalThis.Hazel;
 const read = f => readFileSync(new URL("../world/rules/" + f, import.meta.url), "utf8").replace(/\s+$/, "");
-const modules = NO_FLY ? ["World"] : ["World", "Fly", "Tail", "Ride", "Boulder", "Pickup", "Wind", "Bunny", "Frog"];   // (0.0.116: and the cat tail's flight, Tail.hz; 0.0.134: Clover's ride, Ride.hz)
-const tail = "(plan = World.plan, step = World.step" + (NO_FLY ? "" : ", fly = Fly.step, tail = Tail.step, ride_pre = Ride.pre, ride_post = Ride.post, boulder = Boulder.step, pickup = Pickup.step, wind = Wind.step, bunny = Bunny.step, frog = Frog.step") + ")";
+const modules = NO_FLY ? ["World"] : ["World", "Fly", "Tail", "Ride", "Boulder", "Pickup", "Wind", "Bunny", "Frog", "Bird"];   // (0.0.116: and the cat tail's flight, Tail.hz; 0.0.134: Clover's ride, Ride.hz)
+const tail = "(plan = World.plan, step = World.step" + (NO_FLY ? "" : ", fly = Fly.step, tail = Tail.step, ride_pre = Ride.pre, ride_post = Ride.post, boulder = Boulder.step, pickup = Pickup.step, wind = Wind.step, bunny = Bunny.step, frog = Frog.step, bird = Bird.step, swim = Bird.swim") + ")";
 const spec = { preamble: read("preamble.hz"), modules: modules.map(name => ({ name, text: read(name + ".hz") })), tail };
 const t0 = performance.now();
 const built = Hazel.jitProgram(spec);
@@ -225,5 +225,50 @@ ftime(frogJS); ftime(frogH); const fjs = ftime(frogJS), fhz = ftime(frogH); fin.
 console.log(`a frog's mind: Frog.step the same as the page's frogJS at ${fSame} of ${fSteps} steps of 20,000 made-up frogs${fFirst ? "; first differs: " + JSON.stringify(fFirst) : ""} (jumps begun ${fseen.jumps}, away into the water ${fseen.fled}, pad to pad ${fseen.padHops}; swimming ${fseen.swims} steps; croaks ${fseen.croaks}; bugs eaten ${fseen.ate}; plops ${fseen.plops})`);
 console.log(`a step of a frog: the page's JavaScript ${fjs.toFixed(3)} µs, Hazel's Frog.step through the jit ${fhz.toFixed(3)} µs (${(fhz / fjs).toFixed(1)}×); of a 16.7 ms frame, ${(fhz / 16670 * 100).toFixed(4)}%`);
 result.frog = { steps: fSteps, same: fSame, first: fFirst, seen: fseen, jsUs: fjs, hazelUs: fhz };
+// (0.0.143) the birds' minds, piece 6's third part: Hazel's Bird.step against the page's songJS (20,000 made-up songbirds, on the
+// ground, perched or flying, perches near them on a step they may choose one, the gnome near or far, each stepped 30 times) and
+// Bird.swim against swimJS (20,000 made-up ducks and swans on made-up rivers, 30 steps each); six random numbers a step
+const ssrc = app.slice(app.indexOf("  const songJS = (b, g, w, r) => {"), app.indexOf("  const BIRD_MODE = {"));
+const [songJS, swimJS] = new Function(ssrc + "; return [songJS, swimJS];")(), songH = built.value.bird, swimH = built.value.swim;
+const scanon = a => JSON.stringify([a.bird.x, a.bird.y, a.bird.mode, a.bird.face, a.bird.wait, a.bird.peck, a.bird.home, a.bird.hashome, a.bird.perch, Object.values(a.bird.hop), Object.values(a.bird.fly), a.call]);
+const wcanon2 = a => JSON.stringify([a.bird.x, a.bird.tx, a.bird.face, a.bird.dab, a.bird.wait, a.call]);
+const SNOHOP = { on: false, x0: 0, x1: 0, t: 0 }, SNOFLY = { x0: 0, y0: 0, x1: 0, y1: 0, t: 0, dur: 1, next: 0 };
+let sSame = 0, sFirst = null, sSteps = 0; const sin_ = [], sseen = { flights: 0, toPerch: 0, home: 0, lost: 0, hops: 0, pecks: 0, calls: 0, landed: 0 };
+const SWW = 200, sland = Array.from({ length: SWW }, (_, c) => 40 + Math.round(2 * Math.sin(c / 6)) + (rnd() < 0.2 ? 0.5 : 0) + (rnd() < 0.03 ? 1 : 0));
+const sperch = Array.from({ length: 60 }, (_, i) => ({ px: 3 + rnd() * (SWW - 6), dy: 4 + rnd() * 8 }));
+const sriv = [{ x0: 60 - 0.5, x1: 66 + 0.5 }, { x0: 140 - 0.5, x1: 142 + 0.5 }];
+for (let i = 0; i < N; i++) { const jay = rnd() < 0.3, mode = rnd() < 0.4 ? 0 : rnd() < 0.6 ? 1 : 2, x0 = 4 + rnd() * (SWW - 8), hashome = !jay || rnd() < 0.3;
+  let b = { jay, x: x0, y: sland[Math.floor(x0)], mode, face: rnd() < 0.5 ? -1 : 1, wait: Math.floor(rnd() * 60) - 3, peck: rnd() < 0.2 ? Math.floor(rnd() * 10) : 0, home: hashome ? x0 + (rnd() - 0.5) * 8 : 0, hashome,
+    perch: mode === 1 ? Math.floor(rnd() * sperch.length) : -1, hop: rnd() < 0.15 && mode === 0 ? { on: true, x0: x0, x1: x0 + 0.3, t: rnd() } : SNOHOP, fly: SNOFLY };
+  if (mode === 2) b.fly = { x0: x0, y0: b.y, x1: x0 + (rnd() - 0.5) * 20, y1: b.y - rnd() * 8, t: rnd(), dur: 30 + rnd() * 60, next: rnd() < 0.5 ? 0 : 1 };
+  const gnome = { x: x0 + (rnd() - 0.5) * (rnd() < 0.5 ? 7 : 40), y: 39 + rnd() * 2 }, gone = rnd() < 0.05, sway = rnd() * 6;
+  for (let k = 0; k < 30; k++) { const at = (pr) => ({ x: sperch[pr].px + 0.2 * Math.sin(sway + k / 9), y: sland[Math.floor(sperch[pr].px)] - sperch[pr].dy });
+    const scare = (b.x - gnome.x) * (b.x - gnome.x) + (b.y - gnome.y) * (b.y - gnome.y) < (b.jay ? 4.84 : 9), atp = b.mode === 1 && b.perch >= 0 && !(gone && k > 10) ? at(b.perch) : null;
+    const need = b.mode === 1 ? !!atp && (scare || b.wait - 1 <= 0) : b.mode === 0 && scare, cx = atp ? atp.x : b.x;
+    const perches = need ? sperch.map((pr, i) => ({ i, ...at(i) })).filter(p => Math.abs(sperch[p.i].px - cx) < 16) : [];
+    const c0 = Math.floor(b.x) - 1, w = { at: atp ? { ok: true, ...atp } : { ok: false, x: 0, y: 0 }, homey: b.hashome ? sland[Math.max(0, Math.min(SWW - 1, Math.floor(b.home)))] : 0, land: sland[Math.max(0, Math.min(SWW - 1, Math.floor(b.x)))], c0, ww: SWW,
+      land3: [0, 1, 2].map(q => sland[Math.max(0, Math.min(SWW - 1, c0 + q))]), rivers: sriv.filter(v => v.x0 < b.x + 2 && v.x1 > b.x - 2), perches };
+    const r = { a: rnd(), b: rnd(), c: rnd(), d: rnd(), e: rnd(), f: rnd() }; if (sSteps % 6 === 0) sin_.push([b, gnome, w, r]); sSteps++;
+    const a1 = songH(b, gnome, w, r), a2 = songJS(b, gnome, w, r);
+    if (scanon(a1) === scanon(a2)) sSame++; else if (!sFirst) sFirst = { bird: b, gnome, w, r, hazel: scanon(a1), js: scanon(a2) };
+    const B = a2.bird; if (B.mode === 2 && b.mode !== 2) { sseen.flights++; if (B.fly.next === 1) sseen.toPerch++; else sseen.home++; } if (b.mode === 1 && B.mode === 0) sseen.lost++; if (b.mode === 2 && B.mode !== 2) sseen.landed++;
+    if (B.hop.on && !b.hop.on) sseen.hops++; if (B.peck > b.peck) sseen.pecks++; if (a2.call) sseen.calls++;
+    b = B; } }
+let dSame = 0, dFirst = null, dSteps = 0; const din = [], dseen = { turns: 0, dabs: 0, fled: 0, calls: 0 };
+for (let i = 0; i < N; i++) { const swan = rnd() < 0.3, w = { x: 20 + Math.floor(rnd() * 100), w: 3 + Math.floor(rnd() * 18), level: 38 + rnd() * 4 };
+  let b = { swan, x: w.x + 0.8 + rnd() * (w.w - 1.6), tx: 0, face: rnd() < 0.5 ? -1 : 1, dab: rnd() < 0.2 ? Math.floor(rnd() * 30) : 0, wait: Math.floor(rnd() * 40) - 3 };
+  const gnome = { x: b.x + (rnd() - 0.5) * (rnd() < 0.5 ? 6 : 30), y: w.level - 3 + rnd() * 2, wet: rnd() < 0.3 };
+  for (let k = 0; k < 30; k++) { const r = { a: rnd() < 0.1 ? rnd() * 0.03 : rnd(), b: rnd(), c: rnd(), d: rnd(), e: rnd(), f: rnd() }; if (dSteps % 6 === 0) din.push([b, gnome, w, r]); dSteps++;
+    const a1 = swimH(b, gnome, w, r), a2 = swimJS(b, gnome, w, r);
+    if (wcanon2(a1) === wcanon2(a2)) dSame++; else if (!dFirst) dFirst = { bird: b, gnome, w, r, hazel: wcanon2(a1), js: wcanon2(a2) };
+    if (a2.bird.wait > b.wait) dseen.turns++; if (a2.bird.dab > b.dab) dseen.dabs++; if (a2.call) dseen.calls++; b = a2.bird; } }
+const stime = (fn, list) => { const ts = []; for (let k = 0; k < 7; k++) { const t = performance.now(); for (const [b, g, w, r] of list) fn(b, g, w, r); ts.push((performance.now() - t) * 1000 / list.length); } ts.sort((x, y) => x - y); return ts[3]; };
+stime(songJS, sin_); stime(songH, sin_); const sjs = stime(songJS, sin_), shz = stime(songH, sin_); stime(swimJS, din); stime(swimH, din); const djs = stime(swimJS, din), dhz = stime(swimH, din); sin_.length = 0; din.length = 0;
+console.log(`a songbird's mind: Bird.step the same as the page's songJS at ${sSame} of ${sSteps} steps of 20,000 made-up birds${sFirst ? "; first differs: " + JSON.stringify(sFirst).slice(0, 3000) : ""} (flights begun ${sseen.flights}, to a perch ${sseen.toPerch}, home ${sseen.home}; landed ${sseen.landed}; perches lost ${sseen.lost}; hops ${sseen.hops}; pecks ${sseen.pecks}; calls ${sseen.calls})`);
+console.log(`a step of a songbird: the page's JavaScript ${sjs.toFixed(3)} µs, Hazel's Bird.step through the jit ${shz.toFixed(3)} µs (${(shz / sjs).toFixed(1)}×)`);
+console.log(`a duck's or swan's mind: Bird.swim the same as the page's swimJS at ${dSame} of ${dSteps} steps of 20,000 made-up ducks and swans${dFirst ? "; first differs: " + JSON.stringify(dFirst) : ""} (new aims ${dseen.turns}, dabs ${dseen.dabs}, calls ${dseen.calls})`);
+console.log(`a step of a duck or swan: the page's JavaScript ${djs.toFixed(3)} µs, Hazel's Bird.swim through the jit ${dhz.toFixed(3)} µs (${(dhz / djs).toFixed(1)}×)`);
+result.bird = { steps: sSteps, same: sSame, first: sFirst, seen: sseen, jsUs: sjs, hazelUs: shz };
+result.swim = { steps: dSteps, same: dSame, first: dFirst, seen: dseen, jsUs: djs, hazelUs: dhz };
 if (out) writeFileSync(out, JSON.stringify(result, null, 1));
-process.exit(same === N && tSame === N && rSame === N && bSame === N && pSame === N && pRealSame === N && wSame === N * 3 && uSame === uSteps && fSame === fSteps ? 0 : 1);
+process.exit(same === N && tSame === N && rSame === N && bSame === N && pSame === N && pRealSame === N && wSame === N * 3 && uSame === uSteps && fSame === fSteps && sSame === sSteps && dSame === dSteps ? 0 : 1);

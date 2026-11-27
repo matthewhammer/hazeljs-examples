@@ -35,8 +35,8 @@
   if (window.visualViewport) { const vz = () => { const z = visualViewport.scale; WATCH.zoomMin = Math.min(WATCH.zoomMin, z); WATCH.zoomMax = Math.max(WATCH.zoomMax, z); if (Math.abs(z - 1) > 0.01) WATCH.zoomAt = performance.now(); };
     visualViewport.addEventListener("resize", vz); visualViewport.addEventListener("scroll", vz); }
   const LIB_JIT = "https://build.hazel.org/hazeljs/hazel-lib.js", LIB_NPM = "https://cdn.jsdelivr.net/npm/hazeljs@0.0.4/hazel-lib.js";
-  const PROGRAM = "world", MODULES = ["World", "Fly", "Tail", "Ride", "Boulder", "Pickup", "Wind", "Bunny", "Frog"];
-  const TAIL = "(plan = World.plan, ground = World.ground, village = World.village, furnish = World.furnish, limbs = World.limbs, styles = World.styles, beaver = World.beaver, water_row = World.water_row, step = World.step, roots = World.roots, threads = World.threads, greet = World.greet, dig_steps = World.dig_steps, fly = Fly.step, tail = Tail.step, ride_pre = Ride.pre, ride_post = Ride.post, boulder = Boulder.step, pickup = Pickup.step, wind = Wind.step, bunny = Bunny.step, frog = Frog.step)";
+  const PROGRAM = "world", MODULES = ["World", "Fly", "Tail", "Ride", "Boulder", "Pickup", "Wind", "Bunny", "Frog", "Bird"];
+  const TAIL = "(plan = World.plan, ground = World.ground, village = World.village, furnish = World.furnish, limbs = World.limbs, styles = World.styles, beaver = World.beaver, water_row = World.water_row, step = World.step, roots = World.roots, threads = World.threads, greet = World.greet, dig_steps = World.dig_steps, fly = Fly.step, tail = Tail.step, ride_pre = Ride.pre, ride_post = Ride.post, boulder = Boulder.step, pickup = Pickup.step, wind = Wind.step, bunny = Bunny.step, frog = Frog.step, bird = Bird.step, swim = Bird.swim)";
   const KEY = "hazeljs-examples/world/";
   const Q = new URLSearchParams(location.search);
   const $ = id => document.getElementById(id);
@@ -123,7 +123,7 @@
   // once (the world's plan, its villages and trees); off unless chosen; kept on this device, and in a save made with it on
   let plainView = null, plainOf = null;
   const H = () => { if (!(S.built && S.built.ok)) return null; const v = S.built.value; if (S.rules !== "plain" || !window.WorldPlain) return v;
-    if (plainOf !== v) { plainOf = v; plainView = { ...v, step: window.WorldPlain.step, beaver: window.WorldPlain.beaver, water_row: window.WorldPlain.water_row, fly: undefined, tail: undefined, ride_pre: undefined, ride_post: undefined, boulder: undefined, pickup: undefined, wind: undefined, bunny: undefined, frog: undefined }; }
+    if (plainOf !== v) { plainOf = v; plainView = { ...v, step: window.WorldPlain.step, beaver: window.WorldPlain.beaver, water_row: window.WorldPlain.water_row, fly: undefined, tail: undefined, ride_pre: undefined, ride_post: undefined, boulder: undefined, pickup: undefined, wind: undefined, bunny: undefined, frog: undefined, bird: undefined, swim: undefined }; }
     return plainView; };
   function setRules(r) { S.rules = r === "plain" ? "plain" : "hazel"; keep("rules", S.rules); plainOf = null; const box = document.getElementById("rules-plain"); if (box) box.checked = S.rules === "plain"; if (typeof drawStatus === "function") drawStatus(); }
   let seedRand = 1;
@@ -2753,6 +2753,84 @@
     if (a.croak) { f.croak = S.frame; wildCall("croak", f.x, f.y); }
     if (a.ate >= 0) { const b = near[a.ate]; f.tongue = S.frame; f.tx = b.x; f.ty = b.y; b.gone = S.frame; }
   }
+  // (0.0.143; piece 6 of ^report(64)'s plan, its third part: a songbird's mind (the sparrows, the robins, the jays: on the ground,
+  // perched, or flying between) and a duck's or a swan's are Hazel's, Bird.step and Bird.swim; here their twins in JavaScript, the
+  // same answers, for ⚡ and the check in Node. A songbird's mode is 0 on the ground, 1 perched, 2 flying; its perch its place in
+  // S.perches, or -1; a flight ends in mode next (the page's flight calls it then). The page draws six random numbers for each bird it steps and gives them in, with
+  // the land under it and beside it, the rivers near, its perch where the wind has it now, and, on a step it may choose a perch
+  // (scared, or on its perch with its wait run out), the perches within 16 tiles where the wind has them now (else none: working
+  // them out every step for every bird would cost more than the bird). Distances by their squares (a flight's length by Math.sqrt,
+  // as Hazel's sqrt), a whole number cut toward zero (Math.trunc). The hawks stay the page's)
+  const songJS = (b, g, w, r) => {
+    const ab = Math.abs, sq = (x, y) => x * x + y * y;
+    const flyTo = (B, x1, y1, next) => { const v = Math.sqrt(sq(x1 - B.x, y1 - B.y)) * 6; return { ...B, mode: 2, face: x1 >= B.x ? 1 : -1, fly: { x0: B.x, y0: B.y, x1, y1, t: 0, dur: v > 30 ? v : 30, next } }; };
+    const scare = sq(b.x - g.x, b.y - g.y) < (b.jay ? 4.84 : 9);
+    if (b.mode === 2) { const F = b.fly, t = F.t + 1 / F.dur, fly = { ...F, t };
+      if (t >= 1) return { bird: { ...b, mode: F.next, x: F.x1, y: F.y1, fly }, call: false };
+      const e = t * t * (3 - 2 * t), len = Math.sqrt(sq(F.x1 - F.x0, F.y1 - F.y0)) * 0.25, arc = Math.sin(Math.PI * t) * (len < 2 ? len : 2);
+      return { bird: { ...b, x: F.x0 + (F.x1 - F.x0) * e, y: F.y0 + (F.y1 - F.y0) * e - arc, fly }, call: false }; }
+    if (b.mode === 1) {
+      if (!w.at.ok) return { bird: { ...b, mode: 0, home: b.x, hashome: true }, call: false };
+      const x = w.at.x, y = w.at.y, wait = scare ? b.wait : b.wait - 1;
+      if (!scare && wait > 0) return { bird: { ...b, x, y, wait }, call: false };
+      const B = { ...b, x, y, wait: 200 + Math.trunc(r.a * 500) };
+      if (b.hashome && !scare && sq(b.home - g.x, w.homey - g.y) > 36) return { bird: flyTo(B, b.home, w.homey, 0), call: false };
+      const opts = w.perches.filter(p => p.i !== b.perch && ab(p.x - x) < (scare ? 12 : 7) && sq(p.x - g.x, p.y - g.y) > 16);
+      if (opts.length) { const p = opts[Math.trunc(r.b * opts.length)]; return { bird: { ...flyTo(B, p.x, p.y, 1), perch: p.i }, call: r.c < 0.4 }; }
+      return { bird: B, call: false }; }
+    const y = w.land, B = { ...b, y };
+    if (scare) { const opts = w.perches.filter(p => ab(p.x - b.x) < 12 && sq(p.x - g.x, p.y - g.y) > 16).sort((p, q) => ab(p.x - b.x) - ab(q.x - b.x));
+      if (opts.length) { const p = opts[Math.trunc(r.b * (opts.length < 3 ? opts.length : 3))]; return { bird: { ...flyTo({ ...B, wait: 300 + Math.trunc(r.a * 300) }, p.x, p.y, 1), perch: p.i }, call: true }; } }
+    if (b.hop.on) { const t = b.hop.t + 1 / 10; return { bird: { ...B, x: b.hop.x0 + (b.hop.x1 - b.hop.x0) * (t < 1 ? t : 1), hop: { ...b.hop, on: t < 1, t } }, call: false }; }
+    if (b.peck > 0) return { bird: { ...B, peck: b.peck - 1 }, call: false };
+    const wait = b.wait - 1; if (wait > 0) return { bird: { ...B, wait }, call: false };
+    const nw = 20 + Math.trunc(r.a * 90);
+    if (r.c < 0.45) return { bird: { ...B, wait: nw, peck: 18 + Math.trunc(r.d * 20) }, call: false };
+    const dx = (r.e < 0.5 ? -1 : 1) * (0.15 + r.f * 0.25), to = ab(b.x + dx - b.home) > 3 ? b.x - dx : b.x + dx, c = Math.trunc(to), land = w.land3[c - w.c0] ?? 0;
+    if (c > 0 && c < w.ww - 1 && !w.rivers.some(v => to >= v.x0 && to < v.x1) && ab(land - y) < 0.6) return { bird: { ...B, wait: nw, face: to > b.x ? 1 : -1, hop: { on: true, x0: b.x, x1: to, t: 0 } }, call: false };
+    return { bird: { ...B, wait: nw }, call: false };
+  };
+  const swimJS = (b, g, w, r) => {
+    const ab = Math.abs, near = ab(b.x - g.x) < (g.wet ? 3.5 : 2.2) && g.y > w.level - 2.5;
+    let tx = b.tx, dab = b.dab, wait = b.wait, call = false;
+    if (near) { tx = g.x < w.x + w.w / 2 ? w.x + w.w - 0.6 : w.x + 0.6; dab = 0; call = r.a < 0.02; }
+    else { wait = b.wait - 1; if (wait <= 0) { wait = 120 + Math.trunc(r.b * 400); tx = w.x + 0.7 + r.c * (w.w - 1.4); if (!b.swan && r.d < 0.35) dab = 70 + Math.trunc(r.e * 60); call = r.f < 0.15; } }
+    if (dab > 0) return { bird: { ...b, tx, dab: dab - 1, wait }, call };
+    const sp = (near ? 0.04 : 0.012) * (b.swan ? 0.8 : 1), to = tx - b.x;
+    if (ab(to) > 0.05) return { bird: { ...b, tx, dab, wait, face: to > 0 ? 1 : -1, x: b.x + (to > 0 ? 1 : -1) * (sp < ab(to) ? sp : ab(to)) }, call };
+    return { bird: { ...b, tx, dab, wait }, call };
+  };
+  const BIRD_MODE = { ground: 0, perch: 1, fly: 2 }, BIRD_MODES = ["ground", "perch", "fly"];
+  const NO_BHOP = { on: false, x0: 0, x1: 0, t: 0 }, NO_FLIGHT = { x0: 0, y0: 0, x1: 0, y1: 0, t: 0, dur: 1, next: 0 };
+  let perchIxOf = null, perchIx = null;   // (each perch's place in S.perches, made again when the list is)
+  const perchIndex = pr => { if (!pr) return -1; if (perchIxOf !== S.perches) { perchIxOf = S.perches; perchIx = new Map(S.perches.map((p, i) => [p, i])); } return perchIx.get(pr) ?? -1; };
+  // (what a songbird's mind is given, and its answer kept)
+  function songStep(h, b, gx, gy) {
+    const mode = BIRD_MODE[b.mode], at = mode === 1 ? perchAt(b.perch) : null, jay = b.kind === "jay", hashome = b.home != null;
+    const scare = (b.x - gx) * (b.x - gx) + (b.y - gy) * (b.y - gy) < (jay ? 4.84 : 9), need = mode === 1 ? !!at && (scare || (b.wait | 0) - 1 <= 0) : mode === 0 && scare;
+    const cx = at ? at[0] : b.x, perches = [];
+    if (need) S.perches.forEach((pr, i) => { if (Math.abs(pr.px - cx) < 16) { const a = perchAt(pr); if (a) perches.push({ i, x: a[0], y: a[1] }); } });
+    const c0 = Math.floor(b.x) - 1, land3 = [0, 1, 2].map(k => landY(Math.max(0, Math.min(WW - 1, c0 + k)))), H = b.hop, F = b.fly;
+    const b0 = { jay, x: b.x, y: b.y, mode, face: b.face, wait: b.wait | 0, peck: b.peck | 0, home: hashome ? b.home : 0, hashome, perch: perchIndex(b.perch),
+      hop: H ? { on: true, x0: H.x0, x1: H.x1, t: H.t } : NO_BHOP, fly: F ? { x0: F.x0, y0: F.y0, x1: F.x1, y1: F.y1, t: F.t, dur: F.dur, next: BIRD_MODE[F.then] } : NO_FLIGHT };
+    const w = { at: at ? { ok: true, x: at[0], y: at[1] } : { ok: false, x: 0, y: 0 }, homey: hashome ? landY(Math.floor(b.home)) : 0, land: landY(Math.max(0, Math.min(WW - 1, Math.floor(b.x)))), c0, ww: WW, land3,
+      rivers: S.rivers.filter(R => R.x - 0.5 < b.x + 2 && R.x + R.w + 0.5 > b.x - 2).map(R => ({ x0: R.x - 0.5, x1: R.x + R.w + 0.5 })), perches };
+    const r = { a: rand(), b: rand(), c: rand(), d: rand(), e: rand(), f: rand() }, g = { x: gx, y: gy };
+    const a = h && h.bird && !Q.has("jsbird") ? h.bird(b0, g, w, r) : songJS(b0, g, w, r), B = a.bird;
+    b.x = B.x; b.y = B.y; b.mode = BIRD_MODES[B.mode]; b.face = B.face; b.wait = B.wait; b.peck = B.peck; if (B.hashome) b.home = B.home;
+    if (B.perch !== b0.perch) b.perch = S.perches[B.perch];
+    b.hop = B.hop.on ? { x0: B.hop.x0, x1: B.hop.x1, t: B.hop.t } : null;
+    if (F || B.mode === 2) b.fly = { x0: B.fly.x0, y0: B.fly.y0, x1: B.fly.x1, y1: B.fly.y1, t: B.fly.t, dur: B.fly.dur, then: BIRD_MODES[B.fly.next] };
+    if (a.call) wildCall(mode === 0 ? (b.kind === "robin" ? "robin" : "chirp") : jay ? "jay" : b.kind === "robin" ? "robin" : "chirp", b.x, b.y);
+  }
+  // (what a duck's or a swan's mind is given, and its answer kept)
+  function swimStep(h, b, gx, gy, wet) {
+    const R = b.R, swan = b.kind === "swan", b0 = { swan, x: b.x, tx: b.tx, face: b.face, dab: b.dab | 0, wait: b.wait | 0 }, w = { x: R.x, w: R.w, level: R.level }, g = { x: gx, y: gy, wet: !!wet };
+    const r = { a: rand(), b: rand(), c: rand(), d: rand(), e: rand(), f: rand() };
+    const a = h && h.swim && !Q.has("jsbird") ? h.swim(b0, g, w, r) : swimJS(b0, g, w, r), B = a.bird;
+    b.x = B.x; b.tx = B.tx; b.face = B.face; b.dab = B.dab; b.wait = B.wait;
+    if (a.call) wildCall(swan ? "honk" : "quack", b0.x, R.level);
+  }
   function wildStep(h) {
     const g = S.g; if (!g || !S.birds) return; const gx = g.x / 1000, gy = g.y / 1000 - 0.5, wet = g.swim || g.under;
     // frogs (their minds Hazel's, Frog.step, 0.0.142)
@@ -2781,30 +2859,10 @@
         else if (b.mode === "fly") stepFlight(b);
         else if (b.mode === "rest") { if (--b.wait <= 0 || Math.hypot(b.x - gx, b.y - gy) < 3) { b.wait = 1500 + Math.floor(rand() * 2000); b.a = Math.atan2((b.y - (surf0[Math.round(b.cx)] - 9)) / 0.3, (b.x - b.cx) / 1.6) || 0; flyTo(b, b.cx + Math.cos(b.a) * b.r * 1.6, b.y - 3, "soar"); } }
         continue; }
-      if (b.kind === "duck" || b.kind === "swan") { const R = b.R; if (!viewNear(R.x + R.w / 2, 14)) continue; const near = Math.abs(b.x - gx) < (wet ? 3.5 : 2.2) && gy > R.level - 2.5;
-        if (near) { b.tx = gx < R.x + R.w / 2 ? R.x + R.w - 0.6 : R.x + 0.6; b.dab = 0; if (rand() < 0.02) wildCall(b.kind === "duck" ? "quack" : "honk", b.x, R.level); }
-        else if (--b.wait <= 0) { b.wait = 120 + Math.floor(rand() * 400); b.tx = R.x + 0.7 + rand() * (R.w - 1.4); if (b.kind === "duck" && rand() < 0.35) b.dab = 70 + Math.floor(rand() * 60); if (rand() < 0.15) wildCall(b.kind === "duck" ? "quack" : "honk", b.x, R.level); }
-        if (b.dab > 0) { b.dab--; continue; }
-        const sp = (near ? 0.04 : 0.012) * (b.kind === "swan" ? 0.8 : 1); if (Math.abs(b.tx - b.x) > 0.05) { b.face = b.tx > b.x ? 1 : -1; b.x += Math.sign(b.tx - b.x) * Math.min(sp, Math.abs(b.tx - b.x)); }
-        continue; }
+      // (0.0.143: the ducks' and swans' minds Hazel's, Bird.swim; the songbirds', Bird.step; the hawks' stay here, above)
+      if (b.kind === "duck" || b.kind === "swan") { if (viewNear(b.R.x + b.R.w / 2, 14)) swimStep(h, b, gx, gy, wet); continue; }
       if (!viewNear(b.mode === "fly" ? b.fly.x1 : b.x, 14) && !viewNear(b.x, 14)) continue;
-      const scare = Math.hypot(b.x - gx, b.y - gy) < (b.kind === "jay" ? 2.2 : 3);
-      if (b.mode === "fly") { stepFlight(b); continue; }
-      if (b.mode === "perch") { const at = perchAt(b.perch); if (!at) { b.mode = "ground"; b.home = b.x; continue; } b.x = at[0]; b.y = at[1];
-        if (scare || --b.wait <= 0) { b.wait = 200 + Math.floor(rand() * 500);
-          if (b.home != null && !scare && Math.hypot(b.home - gx, landY(Math.floor(b.home)) - gy) > 6) { flyTo(b, b.home, landY(Math.floor(b.home)), "ground"); continue; }
-          const opts = S.perches.filter(pr => pr !== b.perch && Math.abs(pr.px - b.x) < 16 && (() => { const a = perchAt(pr); return a && Math.abs(a[0] - b.x) < (scare ? 12 : 7) && Math.hypot(a[0] - gx, a[1] - gy) > 4; })());
-          if (opts.length) { const pr = opts[Math.floor(rand() * opts.length)], a = perchAt(pr); b.perch = pr; flyTo(b, a[0], a[1], "perch"); if (rand() < 0.4) wildCall(b.kind === "jay" ? "jay" : b.kind === "robin" ? "robin" : "chirp", b.x, b.y); } }
-        continue; }
-      // (on the ground: hops and pecks; the gnome near, up into the nearest tree away from it)
-      b.y = landY(Math.max(0, Math.min(WW - 1, Math.floor(b.x))));
-      if (scare) { const opts = S.perches.filter(pr => Math.abs(pr.px - b.x) < 16).map(pr => [pr, perchAt(pr)]).filter(([, a]) => a && Math.abs(a[0] - b.x) < 12 && Math.hypot(a[0] - gx, a[1] - gy) > 4).sort((p1, p2) => Math.abs(p1[1][0] - b.x) - Math.abs(p2[1][0] - b.x));
-        if (opts.length) { const [pr, a] = opts[Math.floor(rand() * Math.min(3, opts.length))]; b.perch = pr; b.wait = 300 + Math.floor(rand() * 300); flyTo(b, a[0], a[1], "perch"); wildCall(b.kind === "robin" ? "robin" : "chirp", b.x, b.y); continue; } }
-      if (b.hop) { b.hop.t += 1 / 10; b.x = b.hop.x0 + (b.hop.x1 - b.hop.x0) * Math.min(1, b.hop.t); if (b.hop.t >= 1) b.hop = null; continue; }
-      if (b.peck > 0) { b.peck--; continue; }
-      if (--b.wait <= 0) { b.wait = 20 + Math.floor(rand() * 90); if (rand() < 0.45) b.peck = 18 + Math.floor(rand() * 20);
-        else { const dx = (rand() < 0.5 ? -1 : 1) * (0.15 + rand() * 0.25), to = Math.abs(b.x + dx - b.home) > 3 ? b.x - dx : b.x + dx, c = Math.floor(to);
-          if (c > 0 && c < WW - 1 && !riverAt(to) && Math.abs(landY(c) - b.y) < 0.6) { b.face = to > b.x ? 1 : -1; b.hop = { x0: b.x, x1: to, t: 0 }; } } } }
+      songStep(h, b, gx, gy); }
   }
   function stepFlight(b) {
     const F = b.fly; F.t += 1 / F.dur; const t = Math.min(1, F.t), e = t * t * (3 - 2 * t), arc = Math.sin(Math.PI * t) * Math.min(2, Math.hypot(F.x1 - F.x0, F.y1 - F.y0) * 0.25);
@@ -5425,7 +5483,7 @@
   // (0.0.140: the levels: one built fresh, as the level check reads it; the vortex's journey)
   if (Q.has("test")) Object.assign(window.WorldTest, { LEVELS, levelOf, travel, vortexStep, rainbowsStep, catHeadFound, digOK,
     freshLevel: id => { S.level = String(id); S.seed = levelOf(id).seed; S.away = {}; S.points = 0; build(H(), S.seed); digButton(); return S.level; } });   // (0.0.127: the caverns)
-  if (Q.has("test")) Object.assign(window.WorldTest, { botItemOrder, timeSpeedRun, TP, wakeTill, wakeAll, waterStep, setRules, H, rideJS, rideStep, boulderJS, bouldersStep, pickupJS, pickups, windJS, windStep, bunnyJS, bunnyStep, bunniesStep, frogJS, frogStep, wildStep, keepWorld });   // (0.0.130: the speed run's order of the things; ⏱)
+  if (Q.has("test")) Object.assign(window.WorldTest, { botItemOrder, timeSpeedRun, TP, wakeTill, wakeAll, waterStep, setRules, H, rideJS, rideStep, boulderJS, bouldersStep, pickupJS, pickups, windJS, windStep, bunnyJS, bunnyStep, bunniesStep, frogJS, frogStep, wildStep, songJS, swimJS, songStep, swimStep, keepWorld });   // (0.0.130: the speed run's order of the things; ⏱)
   // (^ticket(873): the speed run's steps alone, timed, no drawing: up to n, while the run is on and not yet at its dig)
   if (Q.has("test")) Object.assign(window.WorldTest, { steps: (n, any) => { const h = H(); const t0 = performance.now(); let k = 0; for (; k < n && (any || (BOT.on && BOT.phase !== "dig")); k++) tick(h); return { k, ms: performance.now() - t0 }; } });   // (any: steps with or without the speed run)   // (0.0.115: the canvases kept, ^ticket(852))   // (0.0.112: the 🎮 controller, driven by hand where frames do not come)
   if (Q.has("test")) Object.assign(window.WorldTest, { snapshot, saveText, readSave, loadText, restartNow: () => restartNow(H()), askRestart, stopBot, digest, bot: on => { if (on !== BOT.on) $("run").click(); return BOT.on; }, carpetToggle, carpetHits, carpetTop, flyJS });
