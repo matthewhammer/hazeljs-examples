@@ -8,7 +8,7 @@ name: world save check
 on:
   workflow_dispatch:
   push:
-    paths: ["world/**", "shared/**", "dig/sound.js", "node/world-save-check.mjs", "node/level-check.mjs", "node/zine-check.mjs", "node/cdp.mjs", ".github/workflows/world-save.yml"]
+    paths: ["world/**", "shared/**", "dig/sound.js", "node/world-save-check.mjs", "node/level-check.mjs", "node/fly-check.mjs", "node/zine-check.mjs", "node/cdp.mjs", ".github/workflows/world-save.yml"]
 jobs:
   save-load:
     runs-on: ubuntu-latest
