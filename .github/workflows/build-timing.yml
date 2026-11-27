@@ -9,6 +9,10 @@ on:
         description: "name=url pairs, comma-separated"
         required: true
         default: "hazeljs=https://build.hazel.org/hazeljs/hazel-lib.js"
+      script:
+        description: "node/build-time.mjs (building the rules) or node/step-time.mjs (World.step's time)"
+        required: true
+        default: "node/build-time.mjs"
 jobs:
   time:
     runs-on: ubuntu-latest
@@ -30,6 +34,6 @@ jobs:
         run: |
           set +e
           for round in 1 2 3; do for d in "$RUNNER_TEMP"/libs/*/; do n=$(basename "$d")
-            node --stack-size=8000 node/build-time.mjs "$d/hazel-lib.js" "$n" 2>&1 | grep -v '^SLOW PARSE'
+            node --stack-size=8000 "${{ inputs.script }}" "$d/hazel-lib.js" "$n" 2>&1 | grep -v '^SLOW PARSE'
           done; done | tee timing.log
           { echo '## build timing'; echo '```'; cat timing.log; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
