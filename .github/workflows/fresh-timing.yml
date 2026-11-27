@@ -25,14 +25,15 @@ jobs:
           LIBS: ${{ inputs.libs }}
         run: |
           IFS=',' read -ra pairs <<< "$LIBS"
-          for p in "${pairs[@]}"; do n="${p%%=*}"; u="${p#*=}"; mkdir -p "libs/$n"; curl -fsSL -A "Mozilla/5.0" "$u" -o "libs/$n/hazel-lib.js"; echo "$n: $(wc -c < "libs/$n/hazel-lib.js") bytes from $u"; done
+          for p in "${pairs[@]}"; do n="${p%%=*}"; u="${p#*=}"; mkdir -p "$RUNNER_TEMP/libs/$n"; curl -fsSL -A "Mozilla/5.0" "$u" -o "$RUNNER_TEMP/libs/$n/hazel-lib.js"; echo "$n: $(wc -c < "$RUNNER_TEMP/libs/$n/hazel-lib.js") bytes from $u"; done
+          # (outside the repository: its package.json makes a .js file an ES module, and the library loads as a plain script)
       - name: Time them, interleaved
         shell: bash
         run: |
           set +e +o pipefail
           mkdir -p out
           for round in 1 2; do
-            for d in libs/*/; do n=$(basename "$d")
+            for d in "$RUNNER_TEMP"/libs/*/; do n=$(basename "$d")
               echo "== $n, round $round"
               node --stack-size=8000 --max-old-space-size=5000 node/fly-check.mjs "$d/hazel-lib.js" "out/${n}_$round.json" --fresh > "out/${n}_$round.txt" 2>&1
               code=$?
