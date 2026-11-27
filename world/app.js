@@ -130,10 +130,14 @@
   const rand = () => { seedRand = (seedRand * 1103515245 + 12345) & 0x7fffffff; return seedRand / 0x7fffffff; };
 
   // ---- building the world from Hazel's plan
+  // (0.0.147; Matthew, 2026-11-27, of the flying level: "less underground volume, going down less into the ground and more into the
+  // sky with the tile budget") a level's land lower than the seed's plan puts it, by d rows: its surface, its water table and
+  // every place (each place's y is a row), so all of it, and everything placed by hand under or over the land, keeps its shape
+  const lowered = (p, d) => !d ? p : { ...p, surface: p.surface.map(r => r + d), table: p.table.map(r => r + d), places: p.places.map(q => ({ ...q, y: q.y + d })) };
   function build(h, seed) {
-    const p = h.plan(seed); S.plan = p; seedRand = seed * 7 + 3;
     // (0.0.140) the level this world is: the first, as it always was; or one placed by hand from levels.json (N's, the second)
     const LV = levelOf(S.level) || levelOf("1") || {}, hand = S.level !== "1";
+    const p = lowered(h.plan(seed), hand ? LV.lower | 0 : 0); S.plan = p; seedRand = seed * 7 + 3;
     for (let k = 0; k <= 9; k++) { const gr = h.ground(k); PORES[k] = gr.pores / 100; FLOW[k] = gr.flow / 1000; CLING[k] = gr.cling / 100; DIG[k] = gr.dig;
       for (let t = 0; t < 4; t++) [60, WH - 3, WH - 1].forEach((r, b) => { DIGT[(t * 10 + k) * 3 + b] = h.dig_steps ? h.dig_steps(k, r, t) : t === 0 && b < 2 && k <= 5 ? gr.dig : 0; });
       COLOR[k] = "#" + gr.color.toString(16).padStart(6, "0"); NAME[k] = gr.name; }
@@ -304,7 +308,8 @@
         const score = n * 4 - (r - surf0[c]) - c / 30; if (n > 0 && (!best || score > best.score)) best = { c, r, score }; }   // (nearer home, the better: found early)
       if (best) S.items.push({ kind: "finder", x: best.c + 0.5, y: best.r + 0.5, taken: false }); }
     S.rainbows = []; S.beams = []; S.catNeed = 0;
-    if (hand) handMade(LV);   // (0.0.140: its caves, the tunnels to them, the cat heads, the rainbow clouds)
+    S.coins = []; S.coinTotal = 0;
+    if (hand) handMade(LV, h);   // (0.0.140: its caves, the tunnels to them, the cat heads, the rainbow clouds; 0.0.147: the pods, the coins)
     for (const R of S.rivers) holdRiver(R);
     for (let c = 0; c < WW; c++) top[c] = topOf(c);
     S.vortex = vortexOf(LV);   // (0.0.140: the doorway to the other level)
@@ -342,7 +347,7 @@
   // middle), shafts down to them from hatches in the land, a ladder all the way, and passages from one cave to another, three
   // tiles high, a ladder where they go down or up; the cat head gems; the rainbow clouds. Carved after the water is laid (the
   // ground water is deep there), so the tunnels are dry; a cave says whether it has a pond in its lowest row
-  function handMade(LV) {
+  function handMade(LV, h) {
     const carve = (c, r, b) => { if (!inside(c, r) || r >= WH - 4) return; const i = at(c, r);
       if (bg[i] === B_PLASTER || bg[i] === B_WOOD || bg[i] === B_STAIR || mat[i] === MASON || mat[i] === TIMBER) return;
       mat[i] = AIR; bg[i] = b; wat[i] = 0; gem[i] = 0; stone[i] = 0; root[i] = 0; shape[i] = 0; };
@@ -365,6 +370,31 @@
       across(ax, lx, A.floor);
       for (let r = Math.min(A.floor, B.floor) - 2; r <= Math.max(A.floor, B.floor); r++) for (const c of [lx, lx + 1]) { carve(c, r, B_DUG); if (inside(c, r) && mat[at(c, r)] === AIR) fix[at(c, r)] = F_LADDER; }
       across(lx, bx, B.floor); }
+    // (0.0.147; Matthew: "gnome house 'pods' underground, accessible by existing ladders") the pods: a gnome house of one room
+    // each, as a village's rooms are made (masonry round it, a timber floor, its furniture, a lamp), its stair two columns of
+    // ladder down from a hatch in the land at x, walled in masonry, a door from the stair's foot into the room; a power up in it
+    const set = (c, r, m, b) => { if (!inside(c, r)) return; const i = at(c, r); mat[i] = m; if (b != null) bg[i] = b; wat[i] = 0; gem[i] = 0; root[i] = 0; stone[i] = 0; shape[i] = 0; };
+    for (const P of (LV.pods && LV.pods.at) || []) {
+      const x0 = P.x, s0 = Math.min(surf0[x0], surf0[x0 + 1]), R = { kind: P.kind | 0, x: x0 + 3, y: s0 + P.deep, w: P.w || 8, h: 4, up: 0 }, bottom = R.y + 4;
+      for (let c = R.x - 1; c <= R.x + R.w; c++) for (let r = R.y - 1; r <= R.y + 4; r++) set(c, r, r === R.y + 4 ? TIMBER : MASON);
+      for (let c = R.x; c < R.x + R.w; c++) for (let r = R.y; r < R.y + 4; r++) set(c, r, AIR, [5, 10, 2, 12].includes(R.kind) ? B_WOOD : B_PLASTER);
+      R.things = h.furnish(R.kind, R.w); S.lamps.push({ x: R.x + R.w / 2, y: R.y + 0.7, r: 5.5 }); S.rooms.push(R);
+      for (let r = R.y + 1; r < R.y + 4; r++) { set(x0 + 2, r, AIR, B_PLASTER); fix[at(x0 + 2, r)] = F_DOOR; }
+      for (let r = s0 - 1; r < bottom; r++) { for (const c of [x0 - 1, x0 + 2]) { const i = at(c, r); if (r >= s0 && fix[i] !== F_DOOR) set(c, r, MASON); }
+        for (const c of [x0, x0 + 1]) { set(c, r, AIR, r >= s0 ? B_STAIR : B_NONE); fix[at(c, r)] = r === s0 ? F_HATCH : F_LADDER; } }
+      for (const c of [x0 - 1, x0, x0 + 1, x0 + 2]) set(c, bottom, MASON);
+      for (let c = x0 - 1; c <= x0 + 2; c++) surf0[c] = Math.max(surf0[c], s0);
+      if (P.item) S.items.push({ kind: P.item, x: R.x + R.w - 1.4, y: R.y + 3.35, taken: false }); }
+    // (0.0.147; Matthew: "put turning coins in the sky, a la Mario bros --- we collect flying/hovering coins in this level, not gems
+    // in the ground") the coins: groups of them over the land, each group's shape about its first column, so far over the land
+    // there; one that would be in something solid is left out
+    for (const G of (LV.coins && LV.coins.groups) || []) { const base = surf0[Math.min(WW - 1, G.x)] - G.up, n = G.n | 0;
+      for (let i = 0; i < n; i++) { const f = n > 1 ? i / (n - 1) : 0.5, a = 2 * Math.PI * i / n;
+        const [dx, dy] = G.shape === "arc" ? [i, -Math.round(Math.sin(Math.PI * f) * 2.4)] : G.shape === "ring" ? [2.2 + 2.2 * Math.cos(a), 2.2 * Math.sin(a)] : G.shape === "column" ? [0, -i] : G.shape === "wave" ? [i, -1.4 * Math.sin(i * 0.9)] : [i, 0];
+        const x = G.x + 0.5 + dx, y = base + 0.5 + dy, c = Math.floor(x), r = Math.floor(y);
+        if (!inside(c, r) || mat[at(c, r)] !== AIR || r >= surf0[c]) continue;
+        S.coins.push({ x, y, taken: false, ph: (i * 0.55 + G.x * 0.13) % 6.283 }); } }
+    S.coinTotal = S.coins.length;
     // the cat head gems: on a cave's floor, in its middle; or in the sky, so far over the land
     const CH = LV.catHeads; S.catNeed = CH ? CH.need || 10 : 0;
     for (const P of (CH && CH.at) || []) { const C = P.cave != null ? caves[P.cave] : null; if (P.cave != null && !C) continue;
@@ -1042,6 +1072,13 @@
     c.globalCompositeOperation = "source-over";
     const eye = c.createRadialGradient(0, 0, 0, 0, 0, R * 0.42); eye.addColorStop(0, "rgba(10,4,30,1)"); eye.addColorStop(1, "rgba(46,16,101,0)");
     c.fillStyle = eye; c.beginPath(); c.arc(0, 0, R * 0.42, 0, 7); c.fill();
+    // (0.0.147; Matthew: "label the portal from 'digging' (initial) level to 'flying' level, in both directions") over it, in words,
+    // the level it goes to
+    const T = levelOf(V.to);
+    if (T && T.label) { const label = (T.icon ? T.icon + " " : "") + T.label, fy = -R * 1.3 + Math.sin(t * 1.6) * s * 0.06;
+      c.font = `bold ${Math.round(0.5 * s)}px sans-serif`; c.textAlign = "center"; c.textBaseline = "middle"; const tw = c.measureText(label).width;
+      c.fillStyle = "rgba(46,16,101,0.82)"; c.beginPath(); c.roundRect(-tw / 2 - s * 0.25, fy - s * 0.36, tw + s * 0.5, s * 0.72, s * 0.25); c.fill();
+      c.strokeStyle = "#c4b5fd"; c.lineWidth = Math.max(1, s / 20); c.stroke(); c.fillStyle = "#f5f3ff"; c.fillText(label, 0, fy); }
     c.restore();
   }
   // (0.0.140) the rainbow clouds, in front: puffs washed in the rainbow's colours, a soft bob; and a burst's beams of rainbow light
@@ -1200,7 +1237,8 @@
     const h = H(), LV = levelOf(to); if (!h || !S.g || !LV) return;
     const from = S.level, g = S.g, carry = { hearts: S.hearts, carpet: !!S.carpet.have, carpetOn: !!S.carpet.on, tail: !!S.tail.have, tailOn: !!S.tail.on, jellyOn: !!(S.jelly && S.jelly.on), points: S.points | 0, hero: S.hero };
     const here = snapshot(); delete here.away;
-    const away = { ...S.away, [from]: here }, there = away[to]; delete away[to];
+    const away = { ...S.away, [from]: here }; let there = away[to]; delete away[to];
+    if (there && (there.levelV | 0) !== (LV.v | 0)) there = null;   // (0.0.147: left in an earlier shape of that level: made fresh)
     try { if (there) restore(h, { ...there, level: to, away }); else { S.level = to; S.seed = LV.seed; build(h, S.seed); S.away = away; } }
     catch (e) { console.error(e); restore(h, { ...here, level: from, away: S.away }); S.banner = { text: "🌀 The vortex would not take you: " + (e && e.message || e), t: performance.now() }; return; }
     const V = S.vortex, A = V ? V.arrive : { x: S.start.x / 1000, y: top[Math.floor(S.start.x / 1000)], face: 1 }, mine = {};
@@ -1216,6 +1254,9 @@
     S.cam.set = false; digButton();
     S.banner = { text: to === "1" ? "🌀 Home again: 🌍 " + LV.name : `🌀 🌈 ${LV.name}${LV.by ? ", " + LV.by.split(" ")[0] + "'s level" : ""}${LV.dig === false ? ": no digging here. Fly!" : ""}`, t: performance.now() };
     if (SND) SND.gem(); keepWorld();
+    // (0.0.147; Matthew: "when we load the flying level, pause game and have an on-screen popup explain what to do: collect cat
+    // heads, find the power ups, activate the jelly fish power, somehow")
+    if (LV.welcome && !BOT.on) powerNote(null, { label: LV.welcome.label, banner: LV.welcome.text });
   }
   // (0.0.140; N's level: "a new kind of rainbow foreground cloud that gives us points for hitting it while flying, any way we are
   // flying. It explodes with a celebration of rainbow gems and rainbow light beams") A rainbow cloud flown into, on the carpet or
@@ -1233,6 +1274,31 @@
         if (S.jelly && S.jelly.on) S.jelly.glowAt = performance.now(); }   // (0.0.146: a jellyfish soaks up its colours)
     }
   }
+  // (0.0.147) a coin touched, any way the gnome goes (flying, a jellyfish, on foot, on Clover): taken, a ding and a glint
+  function coinsStep() {
+    const g = S.g; if (!g || !S.coins || !S.coins.length || S.faintAt) return;
+    const gx = g.x / 1000, gy = g.y / 1000 - 0.55;
+    for (const C of S.coins) { if (C.taken || Math.abs(C.x - gx) > 0.8 || Math.abs(C.y - gy) > 1.0) continue;
+      C.taken = true; C.at = performance.now(); S.coinsGot = (S.coinsGot | 0) + 1;
+      if (SND && SND.coin) SND.coin(); else if (SND) SND.gem();
+      for (let i = 0; i < 6 && S.parts.length < 400; i++) S.parts.push({ x: C.x + (Math.random() - 0.5) * 0.3, y: C.y, vx: (Math.random() - 0.5) * 0.06, vy: -0.05 - Math.random() * 0.05, life: 14 + Math.random() * 10, col: i % 2 ? "#fde047" : "#f59e0b" }); }
+  }
+  // a turning coin: gold, its face narrowing to its edge and back as it turns, a rim, a mark on its face, a glint; one taken
+  // rises and fades a moment
+  function drawCoins(s, now, c0, c1, r0, r1) {
+    const c = ctx;
+    for (const C of S.coins) { if (C.x < c0 - 1 || C.x > c1 + 1 || C.y < r0 - 1 || C.y > r1 + 1) continue;
+      let lift = 0, alpha = 1; if (C.taken) { const age = (now - (C.at || 0)) / 400; if (!(age >= 0 && age < 1)) continue; lift = age * 0.9; alpha = 1 - age; }
+      const t = now / 260 + C.ph, k = Math.cos(t), rx = Math.max(0.06, Math.abs(k)) * 0.3 * s, ry = 0.36 * s, x = C.x * s, y = (C.y - lift + Math.sin(now / 700 + C.ph) * 0.05) * s;
+      c.save(); c.globalAlpha = alpha;
+      const gr = c.createLinearGradient(x - rx, y - ry, x + rx, y + ry); gr.addColorStop(0, "#fef08a"); gr.addColorStop(0.5, k > 0 ? "#facc15" : "#eab308"); gr.addColorStop(1, "#ca8a04");
+      c.fillStyle = gr; c.strokeStyle = "#a16207"; c.lineWidth = Math.max(1, s * 0.045);
+      c.beginPath(); c.ellipse(x, y, rx, ry, 0, 0, 7); c.fill(); c.stroke();
+      if (Math.abs(k) > 0.3) { c.strokeStyle = "rgba(161,98,7,0.75)"; c.lineWidth = Math.max(1, s * 0.035); c.beginPath(); c.ellipse(x, y, rx * 0.62, ry * 0.62, 0, 0, 7); c.stroke();
+        c.fillStyle = "rgba(161,98,7,0.85)"; c.fillRect(x - rx * 0.12, y - ry * 0.35, rx * 0.24, ry * 0.7); }
+      c.fillStyle = "rgba(255,255,255,0.8)"; c.beginPath(); c.ellipse(x - rx * 0.35, y - ry * 0.45, Math.max(1, rx * 0.18), ry * 0.14, -0.6, 0, 7); c.fill();
+      c.restore(); }
+  }
   function rainbowBurst(x, y, w) {
     for (let i = 0; i < 48 && S.confetti.length < 500; i++) { const a = Math.random() * 6.283, v = 3 + Math.random() * 7;
       S.confetti.push({ kind: 3, x: x + (Math.random() - 0.5) * w * 0.6, y: y + (Math.random() - 0.5), vx: Math.cos(a) * v, vy: Math.sin(a) * v - 4, rot: Math.random() * 6.3, vr: (Math.random() - 0.5) * 10, col: RAINBOW[i % 7], z: 0.17 + Math.random() * 0.12, ph: Math.random() * 6.3, t: 0 }); }
@@ -1248,7 +1314,7 @@
     if (S.faintAt && S.jelly && S.jelly.on) S.jelly.on = false;
     if (S.faintAt && S.tail && S.tail.on) Object.assign(S.tail, { fly: 0, lift: 0, flut: 0, meter: 0, rep: 0 });
     if (S.faintAt) { if (performance.now() - S.faintAt > 1800) { S.faintAt = 0; S.hearts = 5; S.g = { ...S.g, x: S.start.x, y: top[Math.floor(S.start.x / 1000)] * 1000, vx: 0, vy: 0, air: 600 }; S.cam.set = false; } }
-    else { if (BOT.on) { BOT.frames++; botStep(); tmark("the speed run's way"); } gnomeStep(h); tmark("the gnome"); rainbowsStep(); vortexStep(); tmark("rainbows, the vortex"); }
+    else { if (BOT.on) { BOT.frames++; botStep(); tmark("the speed run's way"); } gnomeStep(h); tmark("the gnome"); rainbowsStep(); coinsStep(); vortexStep(); tmark("rainbows, the vortex"); }
     bouldersStep(h); tmark("boulders");
     waterStep(); tmark("water");
     if (S.frame % 6 === 0) beaversStep(h); tmark("beavers");
@@ -4608,6 +4674,7 @@
     // going round it, drawn half again as large, bobbing, a sign over it with its name (and in the dark it glows: the lights,
     // below; off the screen, a pointer at the edge, in hud)
     if (S.vortex && !LINE) drawVortex(S.vortex, s, now);   // (0.0.140)
+    if (S.coins && S.coins.length && !LINE) drawCoins(s, now, c0, c1, r0, r1);   // (0.0.147)
     for (const it of S.items) { if (it.taken) continue; const x = it.x * s, y = it.y * s + Math.sin(now / 300) * 0.08 * s, pulse = 0.75 + 0.25 * Math.sin(now / 260);
       const halo = ctx.createRadialGradient(x, y, 0, x, y, s * 1.3 * pulse); halo.addColorStop(0, "rgba(255,236,150,0.85)"); halo.addColorStop(0.45, "rgba(255,214,90,0.35)"); halo.addColorStop(1, "rgba(255,214,90,0)");
       ctx.fillStyle = halo; ctx.beginPath(); ctx.arc(x, y, s * 1.3 * pulse, 0, 7); ctx.fill();
@@ -4856,7 +4923,7 @@
     return `${how}: ${about}  ·  ${need}  ·  ${wet}`;
   }
   // (0.0.140) the gems' words: in a level with cat head gems and no others, those; and the rainbow points, once there are any
-  const gemWords = () => (S.catNeed && !S.gemTotal ? `🐱 ${Math.min(S.catNeed, S.items.filter(t => t.kind === "cathead" && t.taken).length)} / ${S.catNeed}` : `💎 ${S.found || 0} / ${S.gemTotal || 0}`) + (S.points ? `  🌈 ${S.points}` : "");
+  const gemWords = () => (S.catNeed && !S.gemTotal ? `🐱 ${Math.min(S.catNeed, S.items.filter(t => t.kind === "cathead" && t.taken).length)} / ${S.catNeed}` : `💎 ${S.found || 0} / ${S.gemTotal || 0}`) + (S.coinTotal ? `  🪙 ${S.coins.filter(C => C.taken).length} / ${S.coinTotal}` : "") + (S.points ? `  🌈 ${S.points}` : "");
   function hud(now) {
     const W = cv.width, Hh = cv.height, k = Math.max(1, Math.min(2.2, W / 900)), g = S.g;
     ctx.save(); ctx.textAlign = "left"; ctx.textBaseline = "top";
@@ -5185,7 +5252,8 @@
       jelly: { on: !!(S.jelly && S.jelly.on), face: S.jelly && S.jelly.face < 0 ? -1 : 1 },   // (0.0.146)
       tail: { have: !!(S.tail && S.tail.have), on: !!(S.tail && S.tail.on) },
       ...(S.rules === "plain" ? { rules: "plain" } : {}),
-      level: S.level, away: S.away, points: S.points | 0, rainbows: (S.rainbows || []).map(R => [R.gone ? 1 : 0, R.back | 0]),   // (0.0.140)   // (0.0.133: ⚡, kept in the save once chosen)
+      level: S.level, levelV: (levelOf(S.level) || {}).v | 0, away: S.away, points: S.points | 0, rainbows: (S.rainbows || []).map(R => [R.gone ? 1 : 0, R.back | 0]),
+      coins: (S.coins || []).map(C => (C.taken ? 1 : 0)).join(""),   // (0.0.147)   // (0.0.140)   // (0.0.133: ⚡, kept in the save once chosen)
       tiles: tileBytes() };
   }
   async function saveText(snap) { return JSON.stringify(await packSave(snap)); }
@@ -5208,9 +5276,17 @@
   // (the world made again from the save's seed, then all that play changed put back; a save that does not fit, and the world
   // as it was is put back instead)
   function restore(h, d) {
+    // (0.0.147) a save made in an earlier shape of a level placed by hand (levels.json's v): its tiles and things are that shape's,
+    // so the level starts fresh, as on coming to it through the vortex, from the first level as the save left it
+    { const LVd = d && d.level && String(d.level) !== "1" ? levelOf(d.level) : null;
+      if (LVd && (LVd.v | 0) !== (d.levelV | 0) && d.away && d.away["1"] && !d.staleDone) {
+        const away = { ...d.away }; delete away["1"]; delete away[String(d.level)];
+        restore(h, { ...d.away["1"], level: "1", away, staleDone: true, hearts: d.hearts, points: d.points });
+        travel(String(d.level)); return; } }
     S.frame = d.frame; S.seed = d.seed; S.level = levelOf(d.level) ? String(d.level) : "1"; build(h, S.seed);   // (0.0.140: the level the save was in)
     S.away = d.away || {}; S.points = d.points | 0; digButton();
     if (Array.isArray(d.rainbows)) d.rainbows.forEach(([gone, back], k) => { const R = S.rainbows[k]; if (R) { R.gone = !!gone; R.back = back | 0; } });
+    if (typeof d.coins === "string" && d.coins.length === (S.coins || []).length) S.coins.forEach((C, k) => { C.taken = d.coins[k] === "1"; });   // (0.0.147)
     if (d.rules === "plain") setRules("plain");   // (0.0.133: a save made with ⚡ on turns it on)
     // (0.0.123: a save from before, v 6 or less, has the garden's three carrots, one after another, the first of Clover's things:
     // the one carrot now in the first one's place, the other two dropped)
@@ -5413,7 +5489,7 @@
       trees: js(S.trees.map(t => [t.x, t.alive, t.grow, t.fallAt, t.fallDir ?? null, t.regrow])), fallen: js(S.fallen.map(f => [f.x, S.trees.indexOf(f.t), f.k, f.F.trunk, [...f.F.gone]])),
       piles: js(S.piles), beavers: js(S.beavers.map(B => [B.b, B.px, B.py])), boulders: js(S.boulders), pebbles: js(S.pebbles),
       villagers: js(S.villagers.map(v => [v.id, v.n, v.nextAt])),
-      level: js({ level: S.level, points: S.points | 0, vortex: S.vortex ? [S.vortex.x, S.vortex.y, S.vortex.to] : null, rainbows: (S.rainbows || []).map(R => [R.x, R.y, !!R.gone, R.back | 0]),
+      level: js({ level: S.level, points: S.points | 0, vortex: S.vortex ? [S.vortex.x, S.vortex.y, S.vortex.to] : null, rainbows: (S.rainbows || []).map(R => [R.x, R.y, !!R.gone, R.back | 0]), coins: (S.coins || []).map(C => (C.taken ? 1 : 0)).join(""),
         away: Object.entries(S.away || {}).map(([k, a]) => [k, a.seed, a.frame, fnv(a.tiles), a.items, a.gnome]) }), ride: js({ ride: S.ride, mount: S.mount, carrots: S.carrots || 0 }), tail: js({ have: !!(S.tail && S.tail.have), on: !!(S.tail && S.tail.on) }), carpet: js({ have: !!(S.carpet && S.carpet.have), on: !!(S.carpet && S.carpet.on), face: S.carpet ? S.carpet.face : 1 }), jelly: js({ on: !!(S.jelly && S.jelly.on), face: S.jelly && S.jelly.face < 0 ? -1 : 1 }), rootsDone: js(S.rootPlan.map(t => t.done ? 1 : 0)), rootSets: S.rootSets.length + S.threadSets.length };
   }
   addEventListener("resize", () => draw());
@@ -5436,11 +5512,12 @@
   // where the library can, compiled; then the world made from its plan
   function drawStatus() {
     const st = $("status"), b = S.built;
-    if (!window.Hazel) { st.className = "status wait"; st.textContent = S.libFailed ? "Hazel did not load: check the connection, then reload." : "⏳ Loading Hazel, whose rules plan the world and move the gnome…"; return; }
+    if (!window.Hazel && !(b && b.ok && b.aot)) { st.className = "status wait"; st.textContent = S.libFailed ? "Hazel did not load: check the connection, then reload." : "⏳ Loading Hazel, whose rules plan the world and move the gnome…"; return; }
     if (!b) { st.className = "status wait"; st.textContent = "⏳ Building the rules…"; return; }
     if (b.ok) { const ms = S.stepMs.length ? (S.stepMs.reduce((a, v) => a + v, 0) / S.stepMs.length).toFixed(3) : "…";
       const fly = S.flyMs && S.flyMs.length ? `; the carpet's step (${S.flyBy === "JS" ? "the page's JavaScript" : "Hazel's Fly.step"}) about ${(S.flyMs.reduce((a, v) => a + v, 0) / S.flyMs.length).toFixed(3)} ms` : "";
       if (S.rules === "plain" && window.WorldPlain) { st.className = "status ok"; st.textContent = `⚡ The game's rules in plain JavaScript (⚙️ Advanced), the world planned by Hazel's: the gnome's step about ${ms} ms.`; return; }
+      if (b.aot) { st.className = "status ok"; st.textContent = `✓ Hazel's rules, compiled ahead of time by hazel-jit (${b.aot.at ? b.aot.at.slice(0, 10) : ""}, ${b.aot.lib || "a trial library"}), ready in ${b.ms.toFixed(0)} ms: the gnome's step about ${ms} ms${fly}.`; return; }
       st.className = "status ok"; st.textContent = b.compiled ? `✓ Hazel's rules, compiled by hazel-jit as the page loaded (${(b.ms / 1000).toFixed(1)} s, the hazeljs branch's build): the gnome's step about ${ms} ms${fly}.`
         : `✓ Hazel's rules, built by hazeljs ${S.lib === LIB_NPM ? "0.0.4" : ""} in ${(b.ms / 1000).toFixed(1)} s and interpreted${b.reason ? " (not compiled: " + b.reason + ")" : ""}: the gnome's step about ${ms} ms, so the world may go slowly.`; return; }
     st.className = "status no";
@@ -5476,6 +5553,27 @@
     const fullValue = () => { if (!full) { if (!window.Hazel) throw new Error("the kept rules could not take a call, and Hazel is not loaded yet"); full = window.Hazel.jitProgram(sp).value; } return full; };
     for (const k of Object.keys(saved.wrap)) v[k] = (0, eval)(saved.wrap[k])(cv[k], (...args) => fullValue()[k](...args));
     return v;
+  }
+  // (0.0.147; Matthew, 2026-11-27: "the jit has already been done, ahead of time, before loading on client machine") The rules
+  // compiled ahead of time: a GitHub job (.github/workflows/world-aot.yml, node/world-aot.mjs) builds them once with a library
+  // that can hand back the program as text (Hazel.jitProgramSaved, ^ticket(890)'s trial) and commits it as rules-aot.json, with
+  // a hash of the very text it was built from (the page's spec: the preamble, each module as the page lists it, the tail). A
+  // page whose rules are that text makes them from the file in a few milliseconds, as from rules this browser kept, and needs
+  // no build; the library still loads, for the editors (an edit builds as ever) and for a call the saved program cannot take.
+  // ?noaot: build as before
+  const textHash = t => { let x = 0x811c9dc5; for (let i = 0; i < t.length; i++) { x ^= t.charCodeAt(i); x = Math.imul(x, 0x01000193); } return (x >>> 0).toString(16) + ":" + t.length; };
+  async function useAotRules() {
+    if (!L || Q.has("interpreted") || Q.has("noaot")) return false;
+    const sp = L.spec(PROGRAM, TAIL), key = JSON.stringify(sp), t0 = performance.now();
+    let A; try { const r = await fetch("rules-aot.json", { cache: "no-cache" }); if (!r.ok) return false; A = await r.json(); } catch (e) { return false; }
+    if (!A || !A.saved || A.key !== textHash(key)) { if (A && A.key) console.info("Gnome world: rules-aot.json is for other rules text; building them"); return false; }
+    let v; try { v = rulesFromSaved(A.saved, sp, A.data); } catch (e) { console.warn("Gnome world: the rules compiled ahead of time did not run:", e); return false; }
+    if (typeof v.step !== "function" || typeof v.plan !== "function") return false;
+    S.built = { key, ok: true, compiled: true, reason: "", value: v, errors: [], threw: "", ms: performance.now() - t0, aot: A };
+    S.stepMs = [];
+    try { build(v, S.seed); } catch (e) { S.built = { ...S.built, ok: false, threw: "making the world: " + String(e && e.message || e) }; console.error(e); return false; }
+    if (!resumed) { resumed = true; if (KEEPS) { building(true, "↩️ Bringing back your world…"); resumeKept(H()); } }
+    drawStatus(); return true;
   }
   async function useSavedRules() {
     if (!SAVED_ON || !L || Q.has("interpreted") || (Q.has("test") && !Q.has("keep"))) return false;
@@ -5535,7 +5633,7 @@
     L.onChange(PROGRAM, () => { clearTimeout(timer); timer = setTimeout(() => buildSoon(buildRules), 350); });
     // (0.0.144) the rules this browser kept, if they are for these rules: the game begins at once; the library still loads, and
     // finding the rules built for this very text, does not build them again
-    try { if (await useSavedRules() && !S.resuming) building(false); } catch (e) { console.warn("Gnome world: the kept rules:", e); }
+    try { if ((await useAotRules() || await useSavedRules()) && !S.resuming) building(false); } catch (e) { console.warn("Gnome world: the rules compiled ahead of time, or kept:", e); }
     loadLib();
   } catch (e) {
     building(false);

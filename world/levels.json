@@ -45,99 +45,73 @@
      "y": 53,
      "face": -1
     }
-   }
+   },
+   "label": "Digging level",
+   "icon": "⛏️"
   },
   "2": {
-   "name": "The rainbow sky",
+   "name": "Flying level",
    "by": "N (his idea, 2026-11-26, through Matthew)",
    "seed": 1126,
    "dig": false,
    "since": "0.0.140",
-   "built": {
-    "version": "0.0.140",
-    "by": "the level check on 0.0.140's push (hazeljs-examples' world-save run 45883073732): both of two fresh builds the same in all 22 parts",
-    "parts": {
-     "seed": 1126,
-     "gemTotal": 0,
-     "rand": 7885,
-     "ground": "d1480d82",
-     "back": "23744f12",
-     "built": "594b6711",
-     "gems": "f0287dc5",
-     "stones": "14b78cd0",
-     "slopes": "9b2d5aad",
-     "tops": "4c3f305",
-     "water": "ab3abfd4",
-     "surface": "5b714eed",
-     "treeMask": "59e0af15",
-     "rivers": "ea5d29f3",
-     "dams": "40569d7e",
-     "things": "8b9d752",
-     "heartItems": "a93520f3",
-     "trees": "10dface1",
-     "beavers": "b4325d92",
-     "boulders": "741638a5",
-     "villagers": "9fbdf241",
-     "level": "4b666e80"
-    }
-   },
    "about": "(N's idea, through Matthew, 2026-11-26) \"He wants digging to be disabled. There is almost no underground structure, except for a gnome house with power ups, and caves with pre-existing tunnels to explore. In this level, there is no digging ability ... and no digging power ups. Instead, there are the flying power ups: carpet, cat tail. And to earn the cat tail, instead of getting it in one go, we collect 10 cat head powerup gems. The clouds include a new kind of rainbow foreground cloud that gives us points for hitting it while flying, any way we are flying. It explodes with a celebration of rainbow gems and rainbow light beams.\" The land, its rivers, trees and great trees are the seed's (World.plan), as in the first level; under the land only rock, its stones and the roots: no villages but the one house, no gems, no boulders, no ponds of clay, no caves but these.",
    "table": 196,
    "house": {
     "about": "the one gnome house: a hamlet's rooms (World.village), its stair down from a hatch at column 34; the magic carpet in its farthest room, a heart in its kitchen",
     "x": 34,
-    "deep": 11
+    "deep": 9
    },
    "caves": [
     {
      "x": 90,
-     "deep": 14,
+     "deep": 10,
      "w": 22,
-     "h": 7
+     "h": 6
     },
     {
      "x": 140,
-     "deep": 26,
+     "deep": 17,
      "w": 26,
-     "h": 8,
+     "h": 7,
      "pond": true
     },
     {
      "x": 290,
-     "deep": 18,
+     "deep": 11,
      "w": 20,
-     "h": 7
+     "h": 6
     },
     {
      "x": 345,
-     "deep": 30,
+     "deep": 19,
      "w": 28,
-     "h": 9,
+     "h": 8,
      "pond": true
     },
     {
      "x": 500,
-     "deep": 20,
+     "deep": 12,
      "w": 24,
-     "h": 7
+     "h": 6
     },
     {
      "x": 660,
-     "deep": 24,
+     "deep": 15,
      "w": 26,
-     "h": 8
+     "h": 7
     },
     {
      "x": 740,
-     "deep": 16,
+     "deep": 10,
      "w": 18,
      "h": 6
     },
     {
      "x": 860,
-     "deep": 28,
+     "deep": 18,
      "w": 24,
-     "h": 8,
+     "h": 7,
      "pond": true
     }
    ],
@@ -223,88 +197,93 @@
     ]
    },
    "rainbows": {
-    "about": "the rainbow clouds, in front of everything: flown into (on the carpet, or with the cat tail, in the air), each bursts into rainbow gems and beams of rainbow light, for points; it comes back a minute later, once out of sight",
+    "about": "the rainbow clouds, in front of everything: flown into (on the carpet, or with the cat tail, in the air), each bursts into rainbow gems and beams of rainbow light, for points; it comes back a minute later, once out of sight (0.0.147: Matthew, \"never saw the rainbow clouds we asked for in the sky\": they were all 12 to 40 rows over the land, out of sight from it, the first 50 columns from the start; now 6 to 20 rows up, one near the start)",
     "points": 100,
     "back": 3600,
     "at": [
      {
+      "x": 24,
+      "up": 7,
+      "w": 6
+     },
+     {
       "x": 60,
-      "up": 12,
+      "up": 6,
       "w": 6
      },
      {
       "x": 118,
-      "up": 20,
+      "up": 9,
       "w": 7
      },
      {
       "x": 176,
-      "up": 28,
+      "up": 14,
       "w": 8
      },
      {
       "x": 232,
-      "up": 16,
+      "up": 7,
       "w": 6
      },
      {
       "x": 290,
-      "up": 34,
+      "up": 18,
       "w": 9
      },
      {
       "x": 348,
-      "up": 22,
+      "up": 10,
       "w": 7
      },
      {
       "x": 410,
-      "up": 13,
+      "up": 6,
       "w": 6
      },
      {
       "x": 466,
-      "up": 30,
+      "up": 15,
       "w": 8
      },
      {
       "x": 520,
-      "up": 40,
+      "up": 20,
       "w": 9
      },
      {
       "x": 578,
-      "up": 19,
+      "up": 8,
       "w": 7
      },
      {
       "x": 636,
-      "up": 27,
+      "up": 12,
       "w": 8
      },
      {
       "x": 690,
-      "up": 14,
+      "up": 6,
       "w": 6
      },
      {
       "x": 746,
-      "up": 36,
+      "up": 16,
       "w": 9
      },
      {
       "x": 800,
-      "up": 21,
+      "up": 9,
       "w": 7
      },
      {
       "x": 850,
-      "up": 31,
+      "up": 13,
       "w": 8
      },
      {
       "x": 884,
-      "up": 12,
+      "up": 6,
       "w": 5
      }
     ]
@@ -318,7 +297,274 @@
      "x": 9.5,
      "face": 1
     }
-   }
+   },
+   "label": "Flying level",
+   "lower": 40,
+   "lowerAbout": "(0.0.147; Matthew, 2026-11-27: \"less underground volume, going down less into the ground and more into the sky with the tile budget\") the land lies this many rows lower than the seed's plan puts it (the surface, the water table and every place, by the same rows): 40 more rows of sky, and about half the ground under the land",
+   "pods": {
+    "about": "(0.0.147; Matthew: \"gnome house 'pods' underground, accessible by existing ladders\") a gnome house of one room each, its stair a ladder down from a hatch in the land at x, the room beside the stair's foot, a power up in it; at least 42 columns from a river, as the caves are",
+    "at": [
+     {
+      "x": 180,
+      "deep": 8,
+      "w": 9,
+      "kind": 10,
+      "item": "shoes"
+     },
+     {
+      "x": 540,
+      "deep": 9,
+      "w": 9,
+      "kind": 2,
+      "item": "flippers"
+     },
+     {
+      "x": 700,
+      "deep": 8,
+      "w": 9,
+      "kind": 11,
+      "item": "climber"
+     }
+    ]
+   },
+   "coins": {
+    "about": "(0.0.147; Matthew, 2026-11-27: \"put turning coins in the sky, a la Mario bros --- we collect flying/hovering coins in this level, not gems in the ground\") groups of turning coins over the land, x their first column, up the rows over the land there, n how many, shape row, arc, ring, column or wave; a coin is taken by touching it, flying or not; the low ones a jump reaches",
+    "groups": [
+     {
+      "x": 14,
+      "up": 4,
+      "n": 7,
+      "shape": "arc"
+     },
+     {
+      "x": 33,
+      "up": 8,
+      "n": 6,
+      "shape": "row"
+     },
+     {
+      "x": 59,
+      "up": 12,
+      "n": 8,
+      "shape": "ring"
+     },
+     {
+      "x": 81,
+      "up": 6,
+      "n": 5,
+      "shape": "column"
+     },
+     {
+      "x": 110,
+      "up": 16,
+      "n": 7,
+      "shape": "arc"
+     },
+     {
+      "x": 135,
+      "up": 10,
+      "n": 6,
+      "shape": "row"
+     },
+     {
+      "x": 156,
+      "up": 22,
+      "n": 9,
+      "shape": "wave"
+     },
+     {
+      "x": 184,
+      "up": 5,
+      "n": 7,
+      "shape": "arc"
+     },
+     {
+      "x": 208,
+      "up": 14,
+      "n": 6,
+      "shape": "row"
+     },
+     {
+      "x": 228,
+      "up": 26,
+      "n": 8,
+      "shape": "ring"
+     },
+     {
+      "x": 255,
+      "up": 4,
+      "n": 5,
+      "shape": "column"
+     },
+     {
+      "x": 278,
+      "up": 8,
+      "n": 7,
+      "shape": "arc"
+     },
+     {
+      "x": 297,
+      "up": 12,
+      "n": 6,
+      "shape": "row"
+     },
+     {
+      "x": 323,
+      "up": 6,
+      "n": 9,
+      "shape": "wave"
+     },
+     {
+      "x": 345,
+      "up": 16,
+      "n": 7,
+      "shape": "arc"
+     },
+     {
+      "x": 374,
+      "up": 10,
+      "n": 6,
+      "shape": "row"
+     },
+     {
+      "x": 399,
+      "up": 22,
+      "n": 8,
+      "shape": "ring"
+     },
+     {
+      "x": 420,
+      "up": 5,
+      "n": 5,
+      "shape": "column"
+     },
+     {
+      "x": 448,
+      "up": 14,
+      "n": 7,
+      "shape": "arc"
+     },
+     {
+      "x": 472,
+      "up": 26,
+      "n": 6,
+      "shape": "row"
+     },
+     {
+      "x": 492,
+      "up": 4,
+      "n": 9,
+      "shape": "wave"
+     },
+     {
+      "x": 519,
+      "up": 8,
+      "n": 7,
+      "shape": "arc"
+     },
+     {
+      "x": 542,
+      "up": 12,
+      "n": 6,
+      "shape": "row"
+     },
+     {
+      "x": 561,
+      "up": 6,
+      "n": 8,
+      "shape": "ring"
+     },
+     {
+      "x": 587,
+      "up": 16,
+      "n": 5,
+      "shape": "column"
+     },
+     {
+      "x": 609,
+      "up": 10,
+      "n": 7,
+      "shape": "arc"
+     },
+     {
+      "x": 638,
+      "up": 22,
+      "n": 6,
+      "shape": "row"
+     },
+     {
+      "x": 663,
+      "up": 5,
+      "n": 9,
+      "shape": "wave"
+     },
+     {
+      "x": 684,
+      "up": 14,
+      "n": 7,
+      "shape": "arc"
+     },
+     {
+      "x": 712,
+      "up": 26,
+      "n": 6,
+      "shape": "row"
+     },
+     {
+      "x": 736,
+      "up": 4,
+      "n": 8,
+      "shape": "ring"
+     },
+     {
+      "x": 756,
+      "up": 8,
+      "n": 5,
+      "shape": "column"
+     },
+     {
+      "x": 783,
+      "up": 12,
+      "n": 7,
+      "shape": "arc"
+     },
+     {
+      "x": 806,
+      "up": 6,
+      "n": 6,
+      "shape": "row"
+     },
+     {
+      "x": 825,
+      "up": 16,
+      "n": 9,
+      "shape": "wave"
+     },
+     {
+      "x": 851,
+      "up": 10,
+      "n": 7,
+      "shape": "arc"
+     },
+     {
+      "x": 873,
+      "up": 22,
+      "n": 6,
+      "shape": "row"
+     }
+    ]
+   },
+   "welcome": {
+    "label": "✈️ The flying level",
+    "text": "No digging here: fly! 🐱 Collect the 10 cat heads: they give you the cat tail. ⭐ Find the power ups in the gnome houses under the ground, down their ladders. 🪙 Catch the coins in the sky, and fly into the rainbow clouds 🌈. 🪼 Be the flying jellyfish: hold ↑ and press J."
+   },
+   "builtBefore": {
+    "version": "0.0.140",
+    "note": "0.0.140's record; the 0.0.147 reshape changes the world, so the level check prints a new record to take in"
+   },
+   "icon": "✈️",
+   "v": 2,
+   "vAbout": "the level's shape, counted up when it changes (0.0.147: 2, the reshape): a save made in an earlier shape of it starts it fresh"
   }
  }
 }

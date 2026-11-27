@@ -57,6 +57,7 @@
     jay: () => sfx(t => { tone("quarter", hz(84), hz(78), t, 0.2, 0.04); hiss(t, 0.18, 0.04, "bandpass", 3200); }),
     hawk: () => sfx(t => { tone("sine", hz(97), hz(87), t, 0.65, 0.05, 12); hiss(t, 0.5, 0.02, "highpass", 5000); }),
     quack: () => sfx(t => { for (let i = 0; i < 2; i++) { tone("quarter", hz(56), hz(52), t + i * 0.16, 0.11, 0.06); hiss(t + i * 0.16, 0.1, 0.04, "bandpass", 900); } }),
+    coin: () => sfx(t => { seq(t, [83, 88], 0.07, "quarter", 0.14); }, 0.05),   // (Gnome world 0.0.147: a coin in the sky)
     bloop: () => sfx(t => { tone("sine", hz(55), hz(79), t, 0.16, 0.16); hiss(t, 0.12, 0.05, "lowpass", 900); }),   // (Gnome world 0.0.146: a jellyfish's pulse)
     honk: () => sfx(t => { tone("triangle", hz(61), hz(59), t, 0.28, 0.07); tone("quarter", hz(61), hz(59), t, 0.28, 0.02); }),
   };

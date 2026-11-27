@@ -2,6 +2,18 @@
 
 Each version lists what the apps do as of that version. The newest version is first.
 
+## 0.0.147 (2026-11-27)
+
+- **Gnome world: the flying level, as N wants it** (^ticket(895); Matthew's list of 2026-11-27). N's level is now called the **flying level**, and the first level the **digging level**.
+  - **More sky, less ground.** The land lies 40 rows lower than the seed's plan puts it, with its rivers, trees, caves and everything placed by hand moving with it: 40 more rows of sky, and about half the ground under the land. No digging, as before.
+  - **Under the ground:** the caves, shallower, still reached by their ladders and passages, with five of the cat heads; and three new **gnome house pods**, one room each, down a ladder from a hatch in the land, each with a power up: the running shoes, the swim flippers, the super climbing gear. The magic carpet is still in the first house.
+  - **Coins in the sky:** 253 turning gold coins in 37 groups (rows, arcs, rings, columns, waves) over the land, taken by touching them, any way the gnome goes; counted beside the cat heads (🪙). No gems in the ground here.
+  - **The rainbow clouds**, which you never saw: they were all 12 to 40 rows over the land, out of sight from it, the nearest 50 columns from the start. Now 6 to 20 rows up, one over the start. The jellyfish bursts them too, and glows in their colours.
+  - **The portals say where they go:** "✈️ Flying level" over the digging level's portal, "⛏️ Digging level" over the flying level's.
+  - **A welcome on arriving:** the game pauses and says what to do (collect the 10 cat heads, find the power ups in the gnome houses under the ground, catch the coins and fly into the rainbow clouds, and be the flying jellyfish: hold ↑ and press J), with 🔊 Read aloud.
+  - A save made in the flying level's earlier shape starts it fresh, coming in from the digging level as the save left it.
+- **Gnome world: the rules compiled ahead of time** (Matthew: "the jit has already been done, ahead of time, before loading on client machine"). A GitHub job (`world aot`) compiles the rules once with a library that can save the compiled program as text (the night's trials, ^ticket(890)) and commits `world/rules-aot.json`; the page makes the rules from it in milliseconds when its rules are that very text, instead of building them for 4 to 16 seconds. The library still loads, for the editors and as a fallback; an edit builds as before; `?noaot` builds as before.
+
 ## 0.0.146 (2026-11-27)
 
 - **Gnome world: the flying jellyfish** (^ticket(892); N's ask, through Matthew: "when we press up and (another button, TBD), we turn into a flying jellyfish object ... they pulse their bodies to shoot up really fast like a rocket ... When not moving, they hover in the air and wave their arms below them gently, like there's a calm breeze"; and "The flying jellyfish form should also interact with the rainbow clouds"). Hold ↑ and press **J** (the jellyfish button on the touch pad, the right shoulder button on a controller): the gnome turns into a jellyfish, off whatever it rides. Let go and it hovers, its arms swaying in the breeze. Each press of ↑ is a pulse: its bell squeezes and it shoots up like a rocket, then coasts and its bell fills again; hold ↑ for a pulse every two thirds of a second, or press it again and again for faster ones. ← → lean it and drift it, and a pulse while leaning shoots it that way; ↓ lets it sink. It flies through water too. Flying into a rainbow cloud bursts it for points, as on the carpet, and the jellyfish glows in the rainbow's colours for twelve seconds, its pulses rings of rainbow light. J again (or R) turns it back into a gnome.

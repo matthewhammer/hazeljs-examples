@@ -1,0 +1,43 @@
+# Gnome world's rules compiled ahead of time (0.0.147; Matthew: "the jit has already been done, ahead of time, before loading on
+# client machine"): node/world-aot.mjs builds them once with a library that saves the compiled program as text, and this job
+# commits world/rules-aot.json when the rules (or the library) changed. The page uses it when its rules are that very text.
+name: world aot
+on:
+  push:
+    branches: [main]
+    paths: ["world/rules/**", "world/index.html", "world/app.js", "node/world-aot.mjs", ".github/workflows/world-aot.yml"]
+  workflow_dispatch:
+    inputs:
+      lib:
+        description: "the library to compile with: a URL to a hazel-lib.js that has Hazel.jitProgramSaved"
+        required: false
+        default: "https://build.hazel.org/trial/1126-night/hazel-lib.js"
+permissions:
+  contents: write
+concurrency:
+  group: world-aot
+  cancel-in-progress: false
+jobs:
+  aot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Compile Gnome world's rules ahead of time
+        env:
+          LIB: ${{ inputs.lib || 'https://build.hazel.org/trial/1126-night/hazel-lib.js' }}
+        run: |
+          curl -sfL -A "Mozilla/5.0" "$LIB" -o "$RUNNER_TEMP/hazel-lib.js"
+          node --stack-size=8000 node/world-aot.mjs "$RUNNER_TEMP/hazel-lib.js" world/rules-aot.json "$LIB"
+      - name: Commit it, if it changed
+        run: |
+          git add world/rules-aot.json
+          if git diff --cached --quiet; then echo "rules-aot.json unchanged"; exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -q -m "world/rules-aot.json: Gnome world's rules compiled ahead of time, for ${GITHUB_SHA::7}"
+          for i in 1 2 3; do git pull -q --rebase origin main && git push -q origin HEAD:main && exit 0; sleep 5; done
+          exit 1
