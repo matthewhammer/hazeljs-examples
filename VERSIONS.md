@@ -2,6 +2,11 @@
 
 Each version lists what the apps do as of that version. The newest version is first.
 
+## 0.0.145 (2026-11-26)
+
+- **Gnome world: kept rules let go when the library changes** (^ticket(890)). Rules kept by one build of the library were used again on every load, even once a newer library had loaded, so a page never took a library's improvements into its kept rules. Now, when the library loads and its build is not the one that made the kept rules, they are let go; the next load builds with the new library and keeps those (building at once would hold the game up for seconds). With the shipped library (no kept rules) nothing changes.
+  - Checked in the browser pane with tonight's trials merged (`?libat=trial/1126-night`): a load started from rules kept by the earlier trial library and let them go once the new library loaded; the next built (13.6 s, cold) and kept; the next had the rules ready 0.68 s after the page began loading, 15 ms to make them, and kept them.
+
 ## 0.0.144 (2026-11-26)
 
 - **Gnome world: the rules kept in the browser, ready at once on the next load, with a library that can keep them** (^ticket(890); for now only the trial library, by `?libat=trial/890-saved-program`; with the shipped library nothing changes). Building the rules is nearly all Hazel's type checking (^report(64)): 4 to 15 s on every load. A library that gives `Hazel.jitProgramSaved` hands back, beside the rules, the program as text (hazel-jit's JavaScript, its runtime, and each function's converters); the page keeps it in the browser, its key the rules' own text, with the rules' data (`World.styles`); and on the next load makes the rules from it before the library has even loaded, building again only when the rules change, or if a call must go the old way. `?libat=<branch>` loads the library built from that branch of Hazel (build.hazel.org) to try one; `?nosaved` neither keeps nor uses kept rules.

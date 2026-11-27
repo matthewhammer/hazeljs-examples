@@ -5327,7 +5327,13 @@
   function buildRulesNow() {
     if (!window.Hazel || !L) return;
     const sp = L.spec(PROGRAM, TAIL), key = JSON.stringify(sp);
-    if (S.built && S.built.key === key && !(S.built.saved && !S.built.ok)) return;   // (0.0.144: kept rules that failed are built afresh)
+    if (S.built && S.built.key === key && !(S.built.saved && !S.built.ok)) {
+      // (0.0.145) kept rules made by another build of the library than the one now loaded: let go, so the next load builds
+      // with this one and keeps that (built now, it would hold the game up for seconds)
+      if (S.built.saved && typeof S.built.saved === "string" && window.Hazel.build && S.built.saved !== window.Hazel.build)
+        keptDo("readwrite", st => st.delete("rules")).catch(() => {});
+      return;
+    }
     const t0 = performance.now(); let r, threw = "";
     const jit = typeof window.Hazel.jitProgram === "function" && !Q.has("interpreted");
     const keepIt = jit && SAVED_ON && typeof window.Hazel.jitProgramSaved === "function";
