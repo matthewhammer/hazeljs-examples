@@ -35,8 +35,8 @@
   if (window.visualViewport) { const vz = () => { const z = visualViewport.scale; WATCH.zoomMin = Math.min(WATCH.zoomMin, z); WATCH.zoomMax = Math.max(WATCH.zoomMax, z); if (Math.abs(z - 1) > 0.01) WATCH.zoomAt = performance.now(); };
     visualViewport.addEventListener("resize", vz); visualViewport.addEventListener("scroll", vz); }
   const LIB_JIT = "https://build.hazel.org/hazeljs/hazel-lib.js", LIB_NPM = "https://cdn.jsdelivr.net/npm/hazeljs@0.0.4/hazel-lib.js";
-  const PROGRAM = "world", MODULES = ["World", "Fly", "Tail", "Ride", "Boulder", "Pickup", "Wind"];
-  const TAIL = "(plan = World.plan, ground = World.ground, village = World.village, furnish = World.furnish, limbs = World.limbs, styles = World.styles, beaver = World.beaver, water_row = World.water_row, step = World.step, roots = World.roots, threads = World.threads, greet = World.greet, dig_steps = World.dig_steps, fly = Fly.step, tail = Tail.step, ride_pre = Ride.pre, ride_post = Ride.post, boulder = Boulder.step, pickup = Pickup.step, wind = Wind.step)";
+  const PROGRAM = "world", MODULES = ["World", "Fly", "Tail", "Ride", "Boulder", "Pickup", "Wind", "Bunny"];
+  const TAIL = "(plan = World.plan, ground = World.ground, village = World.village, furnish = World.furnish, limbs = World.limbs, styles = World.styles, beaver = World.beaver, water_row = World.water_row, step = World.step, roots = World.roots, threads = World.threads, greet = World.greet, dig_steps = World.dig_steps, fly = Fly.step, tail = Tail.step, ride_pre = Ride.pre, ride_post = Ride.post, boulder = Boulder.step, pickup = Pickup.step, wind = Wind.step, bunny = Bunny.step)";
   const KEY = "hazeljs-examples/world/";
   const Q = new URLSearchParams(location.search);
   const $ = id => document.getElementById(id);
@@ -123,7 +123,7 @@
   // once (the world's plan, its villages and trees); off unless chosen; kept on this device, and in a save made with it on
   let plainView = null, plainOf = null;
   const H = () => { if (!(S.built && S.built.ok)) return null; const v = S.built.value; if (S.rules !== "plain" || !window.WorldPlain) return v;
-    if (plainOf !== v) { plainOf = v; plainView = { ...v, step: window.WorldPlain.step, beaver: window.WorldPlain.beaver, water_row: window.WorldPlain.water_row, fly: undefined, tail: undefined, ride_pre: undefined, ride_post: undefined, boulder: undefined, pickup: undefined, wind: undefined }; }
+    if (plainOf !== v) { plainOf = v; plainView = { ...v, step: window.WorldPlain.step, beaver: window.WorldPlain.beaver, water_row: window.WorldPlain.water_row, fly: undefined, tail: undefined, ride_pre: undefined, ride_post: undefined, boulder: undefined, pickup: undefined, wind: undefined, bunny: undefined }; }
     return plainView; };
   function setRules(r) { S.rules = r === "plain" ? "plain" : "hazel"; keep("rules", S.rules); plainOf = null; const box = document.getElementById("rules-plain"); if (box) box.checked = S.rules === "plain"; if (typeof drawStatus === "function") drawStatus(); }
   let seedRand = 1;
@@ -1252,7 +1252,7 @@
     for (const B of S.beavers) B.px += (B.b.x / 100 - B.px) * 0.18;
     if (S.frame % 9 === 0) for (const d of S.ducts) if (d.kind === 3) S.smoke.push({ x: d.x + 0.5 + (rand() - 0.5) * 0.2, y: d.y0 - 2.2, r: 0.18, life: 0, drift: 0.004 + rand() * 0.006 });
     tmark("trees, hearts, smoke");
-    windStep(h); houseSmoke(); tmark("wind and smoke"); squirrelsStep(); tmark("squirrels"); pebblesStep(); tmark("pebbles"); villagersStep(h); tmark("villagers"); wildStep(); tmark("birds, frogs, bugs"); bunniesStep(); tmark("rabbits");
+    windStep(h); houseSmoke(); tmark("wind and smoke"); squirrelsStep(); tmark("squirrels"); pebblesStep(); tmark("pebbles"); villagersStep(h); tmark("villagers"); wildStep(); tmark("birds, frogs, bugs"); bunniesStep(h); tmark("rabbits");
     if (S.frame % 15 === 0) musicStep();
     for (const s of S.smoke) { s.y -= 0.012; s.x += s.drift + S.windNow * 0.02; s.r += 0.006; s.life++; }
     S.smoke = S.smoke.filter(s => s.life < 200);
@@ -2824,7 +2824,41 @@
     return null;
   }
   let cloverLook = 0;   // (steps till she looks for dry land again, none found)
-  function bunniesStep() {
+  // (0.0.141; piece 6 of ^report(64)'s plan, its first part: a wild bunny's mind is Hazel's, Bunny.step; here its twin in
+  // JavaScript, the same answers, for ⚡ and the check in Node. The page draws six random numbers for each wild bunny it steps,
+  // whether or not the bunny uses them (before 0.0.141 it drew them as it needed them), and gives them in with the land's
+  // height at seven columns round it (from c0, three to its left) and the rivers near it; a hop is { on, x0, x1, y0, y1, t, dur,
+  // h }, off when it is not hopping. A whole number cut toward zero (Math.trunc), as Hazel's int_of_float; the distance to the
+  // gnome by its square, against 3.5 tiles squared
+  const bunnyJS = (b, g, w, r) => {
+    const h = b.hop;
+    if (h.on) { const t = h.t + 1 / h.dur, x = h.x0 + (h.x1 - h.x0) * (t < 1 ? t : 1);
+      return t >= 1 ? { ...b, x, wait: b.flee ? 1 : 25 + Math.trunc(r.a * 120), hop: { ...h, on: false, t } } : { ...b, x, hop: { ...h, t } }; }
+    const by = w.land[3], dx = b.x - g.x, dy = by - g.y, flee = dx * dx + dy * dy < 12.25 && !g.riding;
+    const ear = r.b < 0.006 ? 0.45 : b.ear - 0.03 < 0 ? 0 : b.ear - 0.03;
+    if (b.nib > 0 && !flee) return { ...b, nib: b.nib - 1, ear, flee };
+    const wait = flee ? b.wait : b.wait - 1;
+    if (!flee && wait > 0) return { ...b, wait, ear, flee };
+    if (!flee && r.c < 0.45) return { ...b, wait: 40, nib: 60 + Math.trunc(r.d * 100), ear, flee };
+    const off = b.x - b.home, away = flee ? (b.x >= g.x ? 1 : -1) : Math.abs(off) > 5 ? (off < 0 ? 1 : -1) : r.e < 0.5 ? -1 : 1;
+    const to = b.x + away * (flee ? 1.5 + r.f * 0.8 : 0.5 + r.f * 0.7), c = Math.trunc(to), land = w.land[c - w.c0] ?? 0, rise = land - by;
+    if (c > 1 && c < w.ww - 2 && !w.rivers.some(v => to >= v.x0 && to < v.x1) && Math.abs(rise) < 1.3)
+      return { ...b, face: away, wait, ear, flee, hop: { on: true, x0: b.x, x1: to, y0: by, y1: land, t: 0, dur: flee ? 16 : 22, h: flee ? 0.9 : 0.45 } };
+    return { ...b, face: -away, wait: 40, ear, flee };
+  };
+  const NO_HOP = { on: false, x0: 0, x1: 0, y0: 0, y1: 0, t: 0, dur: 1, h: 0 };
+  // (what a wild bunny's mind is given: the bunny, the gnome, the land round it, its random numbers; and its answer kept)
+  function bunnyStep(h, b, gnome) {
+    const r = { a: rand(), b: rand(), c: rand(), d: rand(), e: rand(), f: rand() }, c0 = Math.floor(b.x) - 3, land = [];
+    for (let c = c0; c <= c0 + 6; c++) land.push(landY(Math.max(0, Math.min(WW - 1, c))));
+    const rivers = S.rivers.filter(R => R.x - 0.5 < b.x + 4 && R.x + R.w + 0.5 > b.x - 4).map(R => ({ x0: R.x - 0.5, x1: R.x + R.w + 0.5 }));
+    const H0 = b.hop, b0 = { x: b.x, home: b.home, face: b.face, wait: b.wait | 0, nib: b.nib | 0, ear: b.ear, flee: !!b.flee,
+      hop: H0 ? { on: true, x0: H0.x0, x1: H0.x1, y0: H0.y0, y1: H0.y1, t: H0.t, dur: H0.dur, h: H0.h } : NO_HOP }, w = { c0, ww: WW, land, rivers };
+    const a = h && h.bunny && !Q.has("jsbunny") ? h.bunny(b0, gnome, w, r) : bunnyJS(b0, gnome, w, r), A = a.hop;
+    b.x = a.x; b.face = a.face; b.wait = a.wait; b.nib = a.nib; b.ear = a.ear; b.flee = a.flee;
+    b.hop = A.on ? { x0: A.x0, x1: A.x1, y0: A.y0, y1: A.y1, t: A.t, dur: A.dur, h: A.h } : null;
+  }
+  function bunniesStep(h) {
     const g = S.g; if (!g || !S.bunnies) return; const gx = g.x / 1000, gy = g.y / 1000, riding = S.ride.on, M = S.mount;
     // (her hops to dry land: a tile a hop, seven steps each, along the way; drawn up along each hop's arc, drawClover)
     if (M && !riding && M.hop) { const J = M.hop, a = J.way[J.k], b = J.way[J.k + 1];
@@ -2839,17 +2873,9 @@
       if (r * 1000 > M.y) M.y = Math.min(r * 1000, M.y + 200);
       if (M.nib > 0) M.nib--; else if (--M.wait <= 0) { M.wait = 90 + Math.floor(rand() * 240); if (rand() < 0.55) M.nib = 50 + Math.floor(rand() * 70); else M.face = g.x > M.x ? 1 : -1; }
       M.ear = Math.max(0, M.ear - 0.03); if (rand() < 0.008) M.ear = 0.45; }
-    for (const b of S.bunnies) { if (!viewNear(b.x, 12)) continue;
-      if (b.hop) { const H = b.hop; H.t += 1 / H.dur; b.x = H.x0 + (H.x1 - H.x0) * Math.min(1, H.t); if (H.t >= 1) { b.hop = null; b.wait = b.flee ? 1 : 25 + Math.floor(rand() * 120); } continue; }
-      const by = landY(Math.max(0, Math.min(WW - 1, Math.floor(b.x)))), d = Math.hypot(b.x - gx, by - gy);
-      b.flee = d < 3.5 && !riding; b.ear = Math.max(0, b.ear - 0.03); if (rand() < 0.006) b.ear = 0.45;
-      if (b.nib > 0 && !b.flee) { b.nib--; continue; }
-      if (!b.flee && --b.wait > 0) continue;
-      if (!b.flee && rand() < 0.45) { b.nib = 60 + Math.floor(rand() * 100); b.wait = 40; continue; }
-      const away = b.flee ? (b.x >= gx ? 1 : -1) : Math.abs(b.x - b.home) > 5 ? Math.sign(b.home - b.x) : rand() < 0.5 ? -1 : 1;
-      const to = b.x + away * (b.flee ? 1.5 + rand() * 0.8 : 0.5 + rand() * 0.7), c = Math.floor(to);
-      if (c > 1 && c < WW - 2 && !riverAt(to) && Math.abs(landY(c) - by) < 1.3) { b.face = away; b.hop = { x0: b.x, x1: to, y0: by, y1: landY(c), t: 0, dur: b.flee ? 16 : 22, h: b.flee ? 0.9 : 0.45 }; }
-      else { b.face = -away; b.wait = 40; } }
+    // (the wild ones: each one in view, its mind Hazel's, Bunny.step, 0.0.141)
+    const gnome = { x: gx, y: gy, riding: !!riding };
+    for (const b of S.bunnies) if (viewNear(b.x, 12)) bunnyStep(h, b, gnome);
   }
   // (what World.step sees round Clover and the gnome: without the gear, outside a leap, a column beside her with water at her
   // feet or below them, before any ground, a wall. (0.0.106; Matthew: "there's a stuck state when we ride the rabbit into a hole
@@ -5370,7 +5396,7 @@
   // (0.0.140: the levels: one built fresh, as the level check reads it; the vortex's journey)
   if (Q.has("test")) Object.assign(window.WorldTest, { LEVELS, levelOf, travel, vortexStep, rainbowsStep, catHeadFound, digOK,
     freshLevel: id => { S.level = String(id); S.seed = levelOf(id).seed; S.away = {}; S.points = 0; build(H(), S.seed); digButton(); return S.level; } });   // (0.0.127: the caverns)
-  if (Q.has("test")) Object.assign(window.WorldTest, { botItemOrder, timeSpeedRun, TP, wakeTill, wakeAll, waterStep, setRules, H, rideJS, rideStep, boulderJS, bouldersStep, pickupJS, pickups, windJS, windStep, keepWorld });   // (0.0.130: the speed run's order of the things; ⏱)
+  if (Q.has("test")) Object.assign(window.WorldTest, { botItemOrder, timeSpeedRun, TP, wakeTill, wakeAll, waterStep, setRules, H, rideJS, rideStep, boulderJS, bouldersStep, pickupJS, pickups, windJS, windStep, bunnyJS, bunnyStep, bunniesStep, keepWorld });   // (0.0.130: the speed run's order of the things; ⏱)
   // (^ticket(873): the speed run's steps alone, timed, no drawing: up to n, while the run is on and not yet at its dig)
   if (Q.has("test")) Object.assign(window.WorldTest, { steps: (n, any) => { const h = H(); const t0 = performance.now(); let k = 0; for (; k < n && (any || (BOT.on && BOT.phase !== "dig")); k++) tick(h); return { k, ms: performance.now() - t0 }; } });   // (any: steps with or without the speed run)   // (0.0.115: the canvases kept, ^ticket(852))   // (0.0.112: the 🎮 controller, driven by hand where frames do not come)
   if (Q.has("test")) Object.assign(window.WorldTest, { snapshot, saveText, readSave, loadText, restartNow: () => restartNow(H()), askRestart, stopBot, digest, bot: on => { if (on !== BOT.on) $("run").click(); return BOT.on; }, carpetToggle, carpetHits, carpetTop, flyJS });

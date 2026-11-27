@@ -13,8 +13,8 @@ const BUILD_ONLY = process.argv.includes("--build-only"), NO_FLY = process.argv.
 await import(pathToFileURL(lib).href);
 const Hazel = globalThis.Hazel;
 const read = f => readFileSync(new URL("../world/rules/" + f, import.meta.url), "utf8").replace(/\s+$/, "");
-const modules = NO_FLY ? ["World"] : ["World", "Fly", "Tail", "Ride", "Boulder", "Pickup", "Wind"];   // (0.0.116: and the cat tail's flight, Tail.hz; 0.0.134: Clover's ride, Ride.hz)
-const tail = "(plan = World.plan, step = World.step" + (NO_FLY ? "" : ", fly = Fly.step, tail = Tail.step, ride_pre = Ride.pre, ride_post = Ride.post, boulder = Boulder.step, pickup = Pickup.step, wind = Wind.step") + ")";
+const modules = NO_FLY ? ["World"] : ["World", "Fly", "Tail", "Ride", "Boulder", "Pickup", "Wind", "Bunny"];   // (0.0.116: and the cat tail's flight, Tail.hz; 0.0.134: Clover's ride, Ride.hz)
+const tail = "(plan = World.plan, step = World.step" + (NO_FLY ? "" : ", fly = Fly.step, tail = Tail.step, ride_pre = Ride.pre, ride_post = Ride.post, boulder = Boulder.step, pickup = Pickup.step, wind = Wind.step, bunny = Bunny.step") + ")";
 const spec = { preamble: read("preamble.hz"), modules: modules.map(name => ({ name, text: read(name + ".hz") })), tail };
 const t0 = performance.now();
 const built = Hazel.jitProgram(spec);
@@ -167,5 +167,33 @@ wtime(windJS); wtime(windH); const wjs = wtime(windJS), whz = wtime(windH);
 console.log(`the wind: Wind.step the same as the page's windJS at ${wSame} of ${N * 3} steps of a wind blowing${wFirst ? "; first differs: " + JSON.stringify(wFirst) : ""} (new aims ${wseen.turns}, strong ones ${wseen.strong}, gusts ${wseen.gusts}, strongest ${wseen.top.toFixed(2)})`);
 console.log(`a step of the wind: the page's JavaScript ${wjs.toFixed(3)} µs, Hazel's Wind.step through the jit ${whz.toFixed(3)} µs (${(whz / wjs).toFixed(1)}×); of a 16.7 ms frame, ${(whz / 16670 * 100).toFixed(4)}%`);
 result.wind = { steps: N * 3, same: wSame, first: wFirst, seen: wseen, jsUs: wjs, hazelUs: whz };
+// (0.0.141) a wild bunny's mind, piece 6's first part: Hazel's Bunny.step against the page's bunnyJS. 20,000 made-up bunnies,
+// each stepped 30 times on (its answer carried on, the JavaScript's), on land of made-up heights with a river now and then, the
+// gnome near or far, riding or not, six random numbers a step as the page gives them; each step's answer compared
+const usrc = app.slice(app.indexOf("  const bunnyJS = (b, g, w, r) => {"), app.indexOf("  const NO_HOP = {"));
+const bunnyJS = new Function(usrc + "; return bunnyJS;")(), bunnyH = built.value.bunny;
+const ucanon = a => JSON.stringify([a.x, a.home, a.face, a.wait, a.nib, a.ear, a.flee, a.hop.on, a.hop.x0, a.hop.x1, a.hop.y0, a.hop.y1, a.hop.t, a.hop.dur, a.hop.h]);
+const UWW = 120, uland = Array.from({ length: UWW }, (_, c) => 40 + Math.round(3 * Math.sin(c / 5)) + (rnd() < 0.15 ? 0.5 : 0) + (rnd() < 0.04 ? 2 : 0));
+const urivers = [{ x0: 30 - 0.5, x1: 34 + 0.5 }, { x0: 77 - 0.5, x1: 78 + 0.5 }];
+const uworld = x => { const c0 = Math.floor(x) - 3, land = []; for (let c = c0; c <= c0 + 6; c++) land.push(uland[Math.max(0, Math.min(UWW - 1, c))]);
+  return { c0, ww: UWW, land, rivers: urivers.filter(v => v.x0 < x + 4 && v.x1 > x - 4) }; };
+const UNOHOP = { on: false, x0: 0, x1: 0, y0: 0, y1: 0, t: 0, dur: 1, h: 0 };
+let uSame = 0, uFirst = null, uSteps = 0; const uin = [], useen = { hops: 0, flees: 0, nibbles: 0, turned: 0, home: 0, ears: 0 };
+for (let i = 0; i < N; i++) { const home = 3 + rnd() * (UWW - 6);
+  let b = { x: home + (rnd() - 0.5) * 14, home, face: rnd() < 0.5 ? -1 : 1, wait: Math.floor(rnd() * 60) - 5, nib: rnd() < 0.3 ? Math.floor(rnd() * 20) : 0, ear: rnd() < 0.3 ? rnd() * 0.45 : 0, flee: rnd() < 0.2, hop: UNOHOP };
+  b.x = Math.max(2.2, Math.min(UWW - 3.2, b.x));
+  if (rnd() < 0.3) { const x1 = b.x + (rnd() - 0.5) * 4; b.hop = { on: true, x0: b.x, x1, y0: uland[Math.floor(b.x)], y1: uland[Math.floor(x1)] ?? 40, t: rnd(), dur: rnd() < 0.5 ? 16 : 22, h: 0.45 }; }
+  const gnome = { x: b.x + (rnd() - 0.5) * (rnd() < 0.5 ? 6 : 30), y: 40 + (rnd() - 0.5) * 4, riding: rnd() < 0.2 };
+  for (let k = 0; k < 30; k++) { const w = uworld(b.x), r = { a: rnd(), b: rnd(), c: rnd(), d: rnd(), e: rnd(), f: rnd() }; uin.push([b, gnome, w, r]); uSteps++;
+    const a1 = bunnyH(b, gnome, w, r), a2 = bunnyJS(b, gnome, w, r);
+    if (ucanon(a1) === ucanon(a2)) uSame++; else if (!uFirst) uFirst = { bunny: b, gnome, w, r, hazel: ucanon(a1), js: ucanon(a2) };
+    if (a2.hop.on && !b.hop.on) { useen.hops++; if (a2.flee) useen.flees++; if (Math.abs(b.x - b.home) > 5 && !a2.flee) useen.home++; }
+    if (a2.nib > b.nib) useen.nibbles++; if (!a2.hop.on && a2.wait === 40 && a2.face === -b.face && !b.hop.on && a2.nib === b.nib) useen.turned++; if (a2.ear === 0.45) useen.ears++;
+    b = a2; } }
+const utime = f => { const ts = []; for (let k = 0; k < 7; k++) { const t = performance.now(); for (const [b, g, w, r] of uin) f(b, g, w, r); ts.push((performance.now() - t) * 1000 / uin.length); } ts.sort((x, y) => x - y); return ts[3]; };
+utime(bunnyJS); utime(bunnyH); const ujs = utime(bunnyJS), uhz = utime(bunnyH);
+console.log(`a wild bunny's mind: Bunny.step the same as the page's bunnyJS at ${uSame} of ${uSteps} steps of 20,000 made-up bunnies${uFirst ? "; first differs: " + JSON.stringify(uFirst) : ""} (hops begun ${useen.hops}, running away ${useen.flees}, toward home ${useen.home}; nibbles ${useen.nibbles}; turned back ${useen.turned}; ears up ${useen.ears})`);
+console.log(`a step of a wild bunny: the page's JavaScript ${ujs.toFixed(3)} µs, Hazel's Bunny.step through the jit ${uhz.toFixed(3)} µs (${(uhz / ujs).toFixed(1)}×); of a 16.7 ms frame, ${(uhz / 16670 * 100).toFixed(4)}%`);
+result.bunny = { steps: uSteps, same: uSame, first: uFirst, seen: useen, jsUs: ujs, hazelUs: uhz };
 if (out) writeFileSync(out, JSON.stringify(result, null, 1));
-process.exit(same === N && tSame === N && rSame === N && bSame === N && pSame === N && pRealSame === N && wSame === N * 3 ? 0 : 1);
+process.exit(same === N && tSame === N && rSame === N && bSame === N && pSame === N && pRealSame === N && wSame === N * 3 && uSame === uSteps ? 0 : 1);

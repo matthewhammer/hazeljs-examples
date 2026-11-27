@@ -2,6 +2,11 @@
 
 Each version lists what the apps do as of that version. The newest version is first.
 
+## 0.0.141 (2026-11-26)
+
+- **Gnome world: a wild bunny's mind is Hazel's** (piece 6 of ^report(64)'s plan, its first part; Matthew: "porting the gnome world JS into Hazel, module by module ... let's profile the difference as we go"). `world/rules/Bunny.hz`, `Bunny.step`: each step, a wild bunny in view goes on along its hop, or runs from the gnome (within three and a half tiles, not riding Clover), or nibbles, or waits, or hops a little way about, back toward its home when it has wandered more than five tiles; never into a river, past the edges, or up or down more than a tile and a bit. The page gives it the bunny, the gnome, the land's height at seven columns round it, the rivers near it, and six random numbers from its own stream (it draws the six for each bunny it steps, whether or not the bunny uses them, so a seed's bunnies, and what draws after them, go differently from 0.0.140's; the world as built does not change, and both levels still match `levels.json`). Its twin in JavaScript, `bunnyJS`, stays in the page for ⚡ and the check; `?jsbunny` uses it. Clover stays the page's.
+  - Checked in Node (`node/fly-check.mjs`, also in the world save check on GitHub): 600,000 of 600,000 steps the same, 20,000 made-up bunnies each stepped 30 times (10,282 hops begun, 6,467 running away, 1,041 toward home, 3,715 nibbles); a step 0.445 µs in Hazel against 0.186 in JavaScript (2.4×). The program still builds at 965 KB of stack in Node. In the page: the 29 bunnies of world 7 on its own land, 87,000 steps the same both ways (0.365 µs against 0.172), and the game's own loop from one fresh world with the clock tied to its steps, Hazel's bunnies and the JavaScript's the same at every step (1,200 steps by one meadow, 900 by another).
+
 ## 0.0.140 (2026-11-26)
 
 - **Gnome world: levels, and N's level, 🌈 The rainbow sky** (Matthew: "N has an idea for a new gnome world level"; "I want the current 'default/start world' to be consistent in ongoing versions"; "let's be sure to save any seed numbers we use"; "let's be sure to save any structure not entirely determined by that seed number to the .json file").
