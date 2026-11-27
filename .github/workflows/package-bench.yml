@@ -18,6 +18,7 @@ jobs:
       fail-fast: false
       matrix:
         game: [checkers, go, minesweeper, mahjong, solitaire, mahjong-solitaire, pinball, downhill, bricks, snake, trails, starwave, bugs, dig]
+        lib: [hazeljs, memo16]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/checkout@v4
@@ -25,11 +26,13 @@ jobs:
           repository: hazelgrove/hazeljs
           ref: 3a4a1cdb2dc1f01135d9f0bc304eb19c4693658c
           path: pkg
-      - name: The library with all of today's changes merged (hazeljs at 2c4a61560f)
+      # (^ticket(681), 2026-11-26) the hazeljs branch's library, or the trial that links a page's object in the converters' memo
+      # only for conversions of 16 list elements or more (trial/681-memo-big)
+      - name: The library, ${{ matrix.lib }}
         run: |
-          curl -sfL -A "Mozilla/5.0" https://build.hazel.org/hazeljs/hazel-lib.js -o pkg/hazel-lib.js
+          if [ "${{ matrix.lib }}" = memo16 ]; then u=https://build.hazel.org/trial/681-memo-big/hazel-lib.js; else u=https://build.hazel.org/hazeljs/hazel-lib.js; fi
+          curl -sfL -A "Mozilla/5.0" "$u" -o pkg/hazel-lib.js
           grep -o 'build:"[0-9a-f]*"' pkg/hazel-lib.js | head -1
-          grep -q 'build:"2c4a61560f' pkg/hazel-lib.js
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -41,9 +44,9 @@ jobs:
         run: |
           ulimit -s unlimited || ulimit -s 65536
           set -o pipefail
-          node --stack-size=30000 --max-old-space-size=6000 node/package-bench.mjs ${{ matrix.game }} pkg bench/${{ matrix.game }}-4way.json --runs --aot-as-is | tee bench/${{ matrix.game }}-4way.txt
+          node --stack-size=30000 --max-old-space-size=6000 node/package-bench.mjs ${{ matrix.game }} pkg bench/${{ matrix.game }}-${{ matrix.lib }}.json --runs --aot-as-is --no-interp | tee bench/${{ matrix.game }}-${{ matrix.lib }}.txt
       - uses: actions/upload-artifact@v4
         if: ${{ always() }}
         with:
-          name: b4way-${{ matrix.game }}
+          name: b681-${{ matrix.game }}-${{ matrix.lib }}
           path: bench/
