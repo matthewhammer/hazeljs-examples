@@ -10,12 +10,20 @@ import { pathToFileURL } from "node:url";
 
 const lib = process.argv[2], out = process.argv[3] && !process.argv[3].startsWith("--") ? process.argv[3] : null;
 const BUILD_ONLY = process.argv.includes("--build-only"), NO_FLY = process.argv.includes("--no-fly");
+// (--fresh, ^report(64) #fresh: each piece timed again on inputs it has not seen, as the game gives them, each call a deep copy of
+// its own, made before the clock starts, beside the crossing alone: a Hazel function of the same type answering 0. The timings
+// without it pass the same objects again, which the library's converters remember)
+const FRESH_ON = process.argv.includes("--fresh");
 await import(pathToFileURL(lib).href);
 const Hazel = globalThis.Hazel;
 const read = f => readFileSync(new URL("../world/rules/" + f, import.meta.url), "utf8").replace(/\s+$/, "");
 const modules = NO_FLY ? ["World"] : ["World", "Fly", "Tail", "Ride", "Boulder", "Pickup", "Wind", "Bunny", "Frog", "Bird"];   // (0.0.116: and the cat tail's flight, Tail.hz; 0.0.134: Clover's ride, Ride.hz)
 const tail = "(plan = World.plan, step = World.step" + (NO_FLY ? "" : ", fly = Fly.step, tail = Tail.step, ride_pre = Ride.pre, ride_post = Ride.post, boulder = Boulder.step, pickup = Pickup.step, wind = Wind.step, bunny = Bunny.step, frog = Frog.step, bird = Bird.step, swim = Bird.swim") + ")";
-const spec = { preamble: read("preamble.hz"), modules: modules.map(name => ({ name, text: read(name + ".hz") })), tail };
+const sigOf = (name, fn) => read(name + ".hz").match(new RegExp("let " + fn + " : (.*?) -> \\(", "s"))[1];
+const CROSS = [["xpickup", "Pickup", "step", "(a, b, c)"], ["xbunny", "Bunny", "step", "(a, b, c, d)"], ["xfrog", "Frog", "step", "(a, b, c, d)"], ["xbird", "Bird", "step", "(a, b, c, d)"]];
+const crossText = "# the crossing alone (fly-check --fresh) #\n" + CROSS.map(([x, m, fn, args]) => `let ${x} : ${sigOf(m, fn)} -> Int = fun ${args} -> 0`).join(";\n");
+const spec = { preamble: read("preamble.hz"), modules: [...modules.map(name => ({ name, text: read(name + ".hz") })), ...(FRESH_ON && !NO_FLY ? [{ name: "Cross", text: crossText }] : [])],
+  tail: FRESH_ON && !NO_FLY ? tail.slice(0, -1) + ", " + CROSS.map(([x]) => `${x} = Cross.${x}`).join(", ") + ")" : tail };
 const t0 = performance.now();
 const built = Hazel.jitProgram(spec);
 const buildMs = performance.now() - t0;
@@ -55,8 +63,12 @@ console.log(`the same at ${same} of ${N} steps${first ? "; first differs at " + 
 const time = f => { const ts = []; for (let k = 0; k < 7; k++) { const s0 = performance.now(); for (let i = 0; i < N; i++) f(states[i][0], states[i][1], pads[i], states[i][2]); ts.push((performance.now() - s0) / N * 1000); }
   ts.sort((x, y) => x - y); return ts[3]; };
 time(flyJS); time(fly);
-const usJS = time(flyJS), usHazel = time(fly);
+const usJS = time(flyJS), usHazel = time(fly); const FLYIN = states.map((st, i) => [st[0], st[1], pads[i], st[2]]);
 console.log(`a step: the page's JavaScript ${usJS.toFixed(3)} µs, Hazel's Fly.step through the jit ${usHazel.toFixed(3)} µs (${(usHazel / usJS).toFixed(1)}×); of a 16.7 ms frame, ${(usHazel / 16700 * 100).toFixed(3)}%`);
+const freshTime = (f, list) => { const ts = []; for (let k = 0; k < 3; k++) { const copies = structuredClone(list); const t0 = performance.now(); for (const a of copies) f(...a); ts.push((performance.now() - t0) * 1000 / copies.length); } ts.sort((x, y) => x - y); return ts[1]; };
+const freshOut = {};
+const FRESH = (name, js, hz, x, list) => { if (!FRESH_ON) return; freshTime(js, list); freshTime(hz, list); const r = { js: freshTime(js, list), hazel: freshTime(hz, list), cross: x ? freshTime(x, list) : null };
+  freshOut[name] = r; console.log(`fresh, ${name}: JavaScript ${r.js.toFixed(3)} µs, Hazel ${r.hazel.toFixed(3)} µs (${(r.hazel / r.js).toFixed(1)}×)${r.cross != null ? `, the crossing alone ${r.cross.toFixed(3)} µs` : ""}, each call on objects it has not seen`); };
 const result = { when: new Date().toISOString(), node: process.version, build: Hazel.build, buildMs: Math.round(buildMs), steps: N, same, first, moved, stopped, usJS: +usJS.toFixed(4), usHazel: +usHazel.toFixed(4) };
 // (0.0.116) the cat tail's flight: Hazel's Tail.step against the page's tailJS, on 20,000 made-up gnomes (on the ground or in
 // the air, climbing or in the water, at any speed), keys and tails (the meter, the flight, the lift and the flutter at any count)
@@ -121,7 +133,7 @@ for (let i = 0; i < N; i++) {
   if (a2.wobble) bseen.wobble++; if (a2.boulder.falling && !b.falling) bseen.fell++; if (a2.landed) bseen.landed++; if (a2.hit) bseen.hit++;
 }
 const btime = f => { const ts = []; for (let k = 0; k < 7; k++) { const t = performance.now(); for (const [b, sv] of bin) f(b, sv); ts.push((performance.now() - t) * 1000 / bin.length); } ts.sort((x, y) => x - y); return ts[3]; };
-btime(boulderJS); btime(boulderH); const bjs = btime(boulderJS), bhz = btime(boulderH);
+btime(boulderJS); btime(boulderH); const bjs = btime(boulderJS), bhz = btime(boulderH); FRESH("the carpet", flyJS, fly, null, FLYIN); FRESH("a boulder", boulderJS, boulderH, null, bin);
 console.log(`the boulders: Boulder.step the same as the page's boulderJS at ${bSame} of ${N} made-up boulders${bFirst ? "; first differs: " + JSON.stringify(bFirst) : ""} (wobbles begun ${bseen.wobble}, falls begun ${bseen.fell}, landed ${bseen.landed}, hit the gnome ${bseen.hit})`);
 console.log(`a boulder's step: the page's JavaScript ${bjs.toFixed(3)} µs, Hazel's Boulder.step through the jit ${bhz.toFixed(3)} µs (${(bhz / bjs).toFixed(1)}×)`);
 result.boulder = { steps: N, same: bSame, first: bFirst, seen: bseen, jsUs: bjs, hazelUs: bhz };
@@ -147,7 +159,7 @@ for (let i = 0; i < N; i++) { const [me, things, hearts] = madeUp(3, 1 + Math.fl
 const pin = []; let pRealSame = 0, pRealTook = 0;
 for (let i = 0; i < N; i++) { const w = madeUp(900, 12, 26); pin.push(w); const a1 = pickupH(...w), a2 = pickupJS(...w); if (pcanon(a1) === pcanon(a2)) pRealSame++; if (a2.items.length || a2.hearts.length) pRealTook++; }
 const ptime = f => { const ts = []; for (let k = 0; k < 7; k++) { const t = performance.now(); for (const w of pin) f(w[0], w[1], w[2]); ts.push((performance.now() - t) * 1000 / pin.length); } ts.sort((x, y) => x - y); return ts[3]; };
-ptime(pickupJS); ptime(pickupH); const pjs = ptime(pickupJS), phz = ptime(pickupH);
+ptime(pickupJS); ptime(pickupH); const pjs = ptime(pickupJS), phz = ptime(pickupH); FRESH("picking up, as in a world", pickupJS, pickupH, built.value.xpickup, pin);
 console.log(`picking things up: Pickup.step the same as the page's pickupJS at ${pSame} of ${N} made-up steps close by${pFirst ? "; first differs: " + JSON.stringify(pFirst) : ""} (things taken ${pseen.things}, hearts ${pseen.hearts}, at ${pseen.steps} steps), and at ${pRealSame} of ${N} as in a world (twelve things, twenty-six hearts, over 900 tiles; something taken at ${pRealTook})`);
 console.log(`a step of picking up, as in a world: the page's JavaScript ${pjs.toFixed(3)} µs, Hazel's Pickup.step through the jit ${phz.toFixed(3)} µs (${(phz / pjs).toFixed(1)}×); of a 16.7 ms frame, ${(phz / 16670 * 100).toFixed(4)}%`);
 result.pickup = { steps: N, same: pSame, realSame: pRealSame, first: pFirst, seen: pseen, jsUs: pjs, hazelUs: phz };
@@ -163,7 +175,7 @@ for (let i = 0; i < N * 3; i++) { const r = { a: rnd(), b: rnd(), c: rnd(), d: r
   if (a2.wind.next !== wind.next) { wseen.turns++; if (Math.abs(a2.wind.aim) > 0.62 * 1.1) wseen.strong++; } if (Math.abs(a2.wind.gust) > Math.abs(wind.gust) * 0.975 + 1e-12) wseen.gusts++; wseen.top = Math.max(wseen.top, Math.abs(a2.now));
   wind = a2.wind; }
 const wtime = f => { const ts = []; for (let k = 0; k < 7; k++) { const t = performance.now(); for (const [w, i, r] of win) f(w, i, r); ts.push((performance.now() - t) * 1000 / win.length); } ts.sort((x, y) => x - y); return ts[3]; };
-wtime(windJS); wtime(windH); const wjs = wtime(windJS), whz = wtime(windH);
+wtime(windJS); wtime(windH); const wjs = wtime(windJS), whz = wtime(windH); FRESH("the wind", windJS, windH, null, win);
 console.log(`the wind: Wind.step the same as the page's windJS at ${wSame} of ${N * 3} steps of a wind blowing${wFirst ? "; first differs: " + JSON.stringify(wFirst) : ""} (new aims ${wseen.turns}, strong ones ${wseen.strong}, gusts ${wseen.gusts}, strongest ${wseen.top.toFixed(2)})`);
 console.log(`a step of the wind: the page's JavaScript ${wjs.toFixed(3)} µs, Hazel's Wind.step through the jit ${whz.toFixed(3)} µs (${(whz / wjs).toFixed(1)}×); of a 16.7 ms frame, ${(whz / 16670 * 100).toFixed(4)}%`);
 result.wind = { steps: N * 3, same: wSame, first: wFirst, seen: wseen, jsUs: wjs, hazelUs: whz };
@@ -191,7 +203,7 @@ for (let i = 0; i < N; i++) { const home = 3 + rnd() * (UWW - 6);
     if (a2.nib > b.nib) useen.nibbles++; if (!a2.hop.on && a2.wait === 40 && a2.face === -b.face && !b.hop.on && a2.nib === b.nib) useen.turned++; if (a2.ear === 0.45) useen.ears++;
     b = a2; } }
 const utime = f => { const ts = []; for (let k = 0; k < 7; k++) { const t = performance.now(); for (const [b, g, w, r] of uin) f(b, g, w, r); ts.push((performance.now() - t) * 1000 / uin.length); } ts.sort((x, y) => x - y); return ts[3]; };
-utime(bunnyJS); utime(bunnyH); const ujs = utime(bunnyJS), uhz = utime(bunnyH); uin.length = 0;
+utime(bunnyJS); utime(bunnyH); const ujs = utime(bunnyJS), uhz = utime(bunnyH); FRESH("a wild bunny", bunnyJS, bunnyH, built.value.xbunny, uin); uin.length = 0;
 console.log(`a wild bunny's mind: Bunny.step the same as the page's bunnyJS at ${uSame} of ${uSteps} steps of 20,000 made-up bunnies${uFirst ? "; first differs: " + JSON.stringify(uFirst) : ""} (hops begun ${useen.hops}, running away ${useen.flees}, toward home ${useen.home}; nibbles ${useen.nibbles}; turned back ${useen.turned}; ears up ${useen.ears})`);
 console.log(`a step of a wild bunny: the page's JavaScript ${ujs.toFixed(3)} µs, Hazel's Bunny.step through the jit ${uhz.toFixed(3)} µs (${(uhz / ujs).toFixed(1)}×); of a 16.7 ms frame, ${(uhz / 16670 * 100).toFixed(4)}%`);
 result.bunny = { steps: uSteps, same: uSame, first: uFirst, seen: useen, jsUs: ujs, hazelUs: uhz };
@@ -221,7 +233,7 @@ for (let i = 0; i < N; i++) { const level = 40 + rnd() * 4, rx = 10 + rnd() * 50
     if (a2.frog.mode === 2) fseen.swims++; if (a2.croak) fseen.croaks++; if (a2.ate >= 0) { fseen.ate++; lick = false; } else if (k % 7 === 0) lick = true; if (a2.plop) fseen.plops++;
     f = a2.frog; } }
 const ftime = fn => { const ts = []; for (let k = 0; k < 7; k++) { const t = performance.now(); for (const [f, g, w, r] of fin) fn(f, g, w, r); ts.push((performance.now() - t) * 1000 / fin.length); } ts.sort((x, y) => x - y); return ts[3]; };
-ftime(frogJS); ftime(frogH); const fjs = ftime(frogJS), fhz = ftime(frogH); fin.length = 0;
+ftime(frogJS); ftime(frogH); const fjs = ftime(frogJS), fhz = ftime(frogH); FRESH("a frog", frogJS, frogH, built.value.xfrog, fin); fin.length = 0;
 console.log(`a frog's mind: Frog.step the same as the page's frogJS at ${fSame} of ${fSteps} steps of 20,000 made-up frogs${fFirst ? "; first differs: " + JSON.stringify(fFirst) : ""} (jumps begun ${fseen.jumps}, away into the water ${fseen.fled}, pad to pad ${fseen.padHops}; swimming ${fseen.swims} steps; croaks ${fseen.croaks}; bugs eaten ${fseen.ate}; plops ${fseen.plops})`);
 console.log(`a step of a frog: the page's JavaScript ${fjs.toFixed(3)} µs, Hazel's Frog.step through the jit ${fhz.toFixed(3)} µs (${(fhz / fjs).toFixed(1)}×); of a 16.7 ms frame, ${(fhz / 16670 * 100).toFixed(4)}%`);
 result.frog = { steps: fSteps, same: fSame, first: fFirst, seen: fseen, jsUs: fjs, hazelUs: fhz };
@@ -263,12 +275,13 @@ for (let i = 0; i < N; i++) { const swan = rnd() < 0.3, w = { x: 20 + Math.floor
     if (wcanon2(a1) === wcanon2(a2)) dSame++; else if (!dFirst) dFirst = { bird: b, gnome, w, r, hazel: wcanon2(a1), js: wcanon2(a2) };
     if (a2.bird.wait > b.wait) dseen.turns++; if (a2.bird.dab > b.dab) dseen.dabs++; if (a2.call) dseen.calls++; b = a2.bird; } }
 const stime = (fn, list) => { const ts = []; for (let k = 0; k < 7; k++) { const t = performance.now(); for (const [b, g, w, r] of list) fn(b, g, w, r); ts.push((performance.now() - t) * 1000 / list.length); } ts.sort((x, y) => x - y); return ts[3]; };
-stime(songJS, sin_); stime(songH, sin_); const sjs = stime(songJS, sin_), shz = stime(songH, sin_); stime(swimJS, din); stime(swimH, din); const djs = stime(swimJS, din), dhz = stime(swimH, din); sin_.length = 0; din.length = 0;
+stime(songJS, sin_); stime(songH, sin_); const sjs = stime(songJS, sin_), shz = stime(songH, sin_); FRESH("a songbird", songJS, songH, built.value.xbird, sin_); FRESH("a duck or a swan", swimJS, swimH, null, din); stime(swimJS, din); stime(swimH, din); const djs = stime(swimJS, din), dhz = stime(swimH, din); sin_.length = 0; din.length = 0;
 console.log(`a songbird's mind: Bird.step the same as the page's songJS at ${sSame} of ${sSteps} steps of 20,000 made-up birds${sFirst ? "; first differs: " + JSON.stringify(sFirst).slice(0, 3000) : ""} (flights begun ${sseen.flights}, to a perch ${sseen.toPerch}, home ${sseen.home}; landed ${sseen.landed}; perches lost ${sseen.lost}; hops ${sseen.hops}; pecks ${sseen.pecks}; calls ${sseen.calls})`);
 console.log(`a step of a songbird: the page's JavaScript ${sjs.toFixed(3)} µs, Hazel's Bird.step through the jit ${shz.toFixed(3)} µs (${(shz / sjs).toFixed(1)}×)`);
 console.log(`a duck's or swan's mind: Bird.swim the same as the page's swimJS at ${dSame} of ${dSteps} steps of 20,000 made-up ducks and swans${dFirst ? "; first differs: " + JSON.stringify(dFirst) : ""} (new aims ${dseen.turns}, dabs ${dseen.dabs}, calls ${dseen.calls})`);
 console.log(`a step of a duck or swan: the page's JavaScript ${djs.toFixed(3)} µs, Hazel's Bird.swim through the jit ${dhz.toFixed(3)} µs (${(dhz / djs).toFixed(1)}×)`);
 result.bird = { steps: sSteps, same: sSame, first: sFirst, seen: sseen, jsUs: sjs, hazelUs: shz };
+result.fresh = FRESH_ON ? freshOut : undefined;
 result.swim = { steps: dSteps, same: dSame, first: dFirst, seen: dseen, jsUs: djs, hazelUs: dhz };
 if (out) writeFileSync(out, JSON.stringify(result, null, 1));
 process.exit(same === N && tSame === N && rSame === N && bSame === N && pSame === N && pRealSame === N && wSame === N * 3 && uSame === uSteps && fSame === fSteps && sSame === sSteps && dSame === dSteps ? 0 : 1);

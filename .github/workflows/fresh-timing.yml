@@ -1,0 +1,47 @@
+# (^ticket(681), ^report(64) #fresh) Gnome world's rules timed against their JavaScript twins with several builds of hazel-lib.js
+# (node/fly-check.mjs --fresh): every piece's same-answers check, its time on the same inputs again, and its time on fresh inputs,
+# as the game gives them, with the crossing alone; the builds run one after another, twice, interleaved. On GitHub's machines.
+# Run by hand: Actions, "fresh timing", Run workflow, naming the builds as name=url pairs.
+name: fresh timing
+on:
+  workflow_dispatch:
+    inputs:
+      libs:
+        description: "name=url pairs, comma-separated"
+        required: true
+        default: "hazeljs=https://build.hazel.org/hazeljs/hazel-lib.js"
+jobs:
+  time:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Download the builds
+        shell: bash
+        env:
+          LIBS: ${{ inputs.libs }}
+        run: |
+          IFS=',' read -ra pairs <<< "$LIBS"
+          for p in "${pairs[@]}"; do n="${p%%=*}"; u="${p#*=}"; mkdir -p "libs/$n"; curl -fsSL -A "Mozilla/5.0" "$u" -o "libs/$n/hazel-lib.js"; echo "$n: $(wc -c < "libs/$n/hazel-lib.js") bytes from $u"; done
+      - name: Time them, interleaved
+        shell: bash
+        run: |
+          mkdir -p out
+          for round in 1 2; do
+            for d in libs/*/; do n=$(basename "$d")
+              echo "== $n, round $round"
+              node --stack-size=8000 node/fly-check.mjs "$d/hazel-lib.js" "out/${n}_$round.json" --fresh 2>&1 | grep -v '^SLOW PARSE' | grep -E '^(fresh|built|the same|the cat|Clover|the boulders|picking|the wind|a wild|a frog|a songbird|a duck|not built)' | cut -c1-200
+              echo "exit ${PIPESTATUS[0]}"
+            done
+          done | tee timing.log
+          { echo '## fresh timing'; echo '```'; cat timing.log; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fresh-timing
+          path: |
+            timing.log
+            out/
