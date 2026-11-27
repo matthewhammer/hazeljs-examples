@@ -13,8 +13,8 @@ const BUILD_ONLY = process.argv.includes("--build-only"), NO_FLY = process.argv.
 await import(pathToFileURL(lib).href);
 const Hazel = globalThis.Hazel;
 const read = f => readFileSync(new URL("../world/rules/" + f, import.meta.url), "utf8").replace(/\s+$/, "");
-const modules = NO_FLY ? ["World"] : ["World", "Fly", "Tail", "Ride", "Boulder", "Pickup", "Wind", "Bunny"];   // (0.0.116: and the cat tail's flight, Tail.hz; 0.0.134: Clover's ride, Ride.hz)
-const tail = "(plan = World.plan, step = World.step" + (NO_FLY ? "" : ", fly = Fly.step, tail = Tail.step, ride_pre = Ride.pre, ride_post = Ride.post, boulder = Boulder.step, pickup = Pickup.step, wind = Wind.step, bunny = Bunny.step") + ")";
+const modules = NO_FLY ? ["World"] : ["World", "Fly", "Tail", "Ride", "Boulder", "Pickup", "Wind", "Bunny", "Frog"];   // (0.0.116: and the cat tail's flight, Tail.hz; 0.0.134: Clover's ride, Ride.hz)
+const tail = "(plan = World.plan, step = World.step" + (NO_FLY ? "" : ", fly = Fly.step, tail = Tail.step, ride_pre = Ride.pre, ride_post = Ride.post, boulder = Boulder.step, pickup = Pickup.step, wind = Wind.step, bunny = Bunny.step, frog = Frog.step") + ")";
 const spec = { preamble: read("preamble.hz"), modules: modules.map(name => ({ name, text: read(name + ".hz") })), tail };
 const t0 = performance.now();
 const built = Hazel.jitProgram(spec);
@@ -184,16 +184,46 @@ for (let i = 0; i < N; i++) { const home = 3 + rnd() * (UWW - 6);
   b.x = Math.max(2.2, Math.min(UWW - 3.2, b.x));
   if (rnd() < 0.3) { const x1 = b.x + (rnd() - 0.5) * 4; b.hop = { on: true, x0: b.x, x1, y0: uland[Math.floor(b.x)], y1: uland[Math.floor(x1)] ?? 40, t: rnd(), dur: rnd() < 0.5 ? 16 : 22, h: 0.45 }; }
   const gnome = { x: b.x + (rnd() - 0.5) * (rnd() < 0.5 ? 6 : 30), y: 40 + (rnd() - 0.5) * 4, riding: rnd() < 0.2 };
-  for (let k = 0; k < 30; k++) { const w = uworld(b.x), r = { a: rnd(), b: rnd(), c: rnd(), d: rnd(), e: rnd(), f: rnd() }; uin.push([b, gnome, w, r]); uSteps++;
+  for (let k = 0; k < 30; k++) { const w = uworld(b.x), r = { a: rnd(), b: rnd(), c: rnd(), d: rnd(), e: rnd(), f: rnd() }; if (uSteps % 6 === 0) uin.push([b, gnome, w, r]); uSteps++;
     const a1 = bunnyH(b, gnome, w, r), a2 = bunnyJS(b, gnome, w, r);
     if (ucanon(a1) === ucanon(a2)) uSame++; else if (!uFirst) uFirst = { bunny: b, gnome, w, r, hazel: ucanon(a1), js: ucanon(a2) };
     if (a2.hop.on && !b.hop.on) { useen.hops++; if (a2.flee) useen.flees++; if (Math.abs(b.x - b.home) > 5 && !a2.flee) useen.home++; }
     if (a2.nib > b.nib) useen.nibbles++; if (!a2.hop.on && a2.wait === 40 && a2.face === -b.face && !b.hop.on && a2.nib === b.nib) useen.turned++; if (a2.ear === 0.45) useen.ears++;
     b = a2; } }
 const utime = f => { const ts = []; for (let k = 0; k < 7; k++) { const t = performance.now(); for (const [b, g, w, r] of uin) f(b, g, w, r); ts.push((performance.now() - t) * 1000 / uin.length); } ts.sort((x, y) => x - y); return ts[3]; };
-utime(bunnyJS); utime(bunnyH); const ujs = utime(bunnyJS), uhz = utime(bunnyH);
+utime(bunnyJS); utime(bunnyH); const ujs = utime(bunnyJS), uhz = utime(bunnyH); uin.length = 0;
 console.log(`a wild bunny's mind: Bunny.step the same as the page's bunnyJS at ${uSame} of ${uSteps} steps of 20,000 made-up bunnies${uFirst ? "; first differs: " + JSON.stringify(uFirst) : ""} (hops begun ${useen.hops}, running away ${useen.flees}, toward home ${useen.home}; nibbles ${useen.nibbles}; turned back ${useen.turned}; ears up ${useen.ears})`);
 console.log(`a step of a wild bunny: the page's JavaScript ${ujs.toFixed(3)} µs, Hazel's Bunny.step through the jit ${uhz.toFixed(3)} µs (${(uhz / ujs).toFixed(1)}×); of a 16.7 ms frame, ${(uhz / 16670 * 100).toFixed(4)}%`);
 result.bunny = { steps: uSteps, same: uSame, first: uFirst, seen: useen, jsUs: ujs, hazelUs: uhz };
+// (0.0.142) a frog's mind, piece 6's second part: Hazel's Frog.step against the page's frogJS. 20,000 made-up frogs, each on a
+// made-up river with lily pads riding made-up waves (or none, and a bank), bugs about, the gnome near or far, in the water or
+// not, each stepped 30 times (its answer carried on, the JavaScript's), five random numbers a step; each step's answer compared
+const fsrc = app.slice(app.indexOf("  const frogJS = (f, g, w, r) => {"), app.indexOf("  const FROG_MODE = {"));
+const frogJS = new Function(fsrc + "; return frogJS;")(), frogH = built.value.frog;
+const fcanon = a => JSON.stringify([a.frog.x, a.frog.y, a.frog.mode, a.frog.face, a.frog.wait, a.frog.pad, Object.values(a.frog.jump), a.croak, a.ate, a.plop]);
+const FNOJ = { x0: 0, y0: 0, x1: 0, y1: 0, t: 0, dur: 1, h: 0, into: 0 };
+let fSame = 0, fFirst = null, fSteps = 0; const fin = [], fseen = { jumps: 0, fled: 0, padHops: 0, swims: 0, croaks: 0, ate: 0, plops: 0 };
+for (let i = 0; i < N; i++) { const level = 40 + rnd() * 4, rx = 10 + rnd() * 50, rw = 4 + rnd() * 14, np = rnd() < 0.2 ? 0 : 1 + Math.floor(rnd() * 6);
+  const padX = Array.from({ length: np }, () => rx + 0.5 + rnd() * (rw - 1)), ph = rnd() * 6;
+  const bank = np ? null : (rnd() < 0.5 ? rx - 0.5 : rx + rw + 0.5);
+  const startPad = np && rnd() < 0.7 ? Math.floor(rnd() * np) : -1, mode = startPad >= 0 ? 0 : rnd() < 0.5 ? 2 : 0;
+  let f = { x: startPad >= 0 ? padX[startPad] : bank ?? rx + rnd() * rw, y: level + (mode === 2 ? 0.55 : -0.04), mode, face: rnd() < 0.5 ? -1 : 1, wait: Math.floor(rnd() * 80) - 5, pad: startPad, jump: FNOJ };
+  if (rnd() < 0.2) { f.mode = 1; f.jump = { x0: f.x, y0: f.y, x1: f.x + (rnd() - 0.5) * 3, y1: level + 0.4, t: rnd(), dur: 24 + Math.floor(rnd() * 5), h: 0.6, into: rnd() < 0.5 ? 0 : 2 }; }
+  const gnome = { x: f.x + (rnd() - 0.5) * (rnd() < 0.6 ? 8 : 40), y: level - 1 + rnd() * 2, wet: rnd() < 0.3 };
+  let lick = rnd() < 0.7;
+  for (let k = 0; k < 30; k++) { const pads = padX.map((x, q) => ({ x, y: level - 0.04 + 0.05 * Math.sin(x * 1.9 + ph + k * 0.1) })), bx = bank ?? f.x;
+    const w = { level, rx, rw, land: level - 1.5, bank: bx, banky: level - 0.04 + 0.05 * Math.sin(bx * 1.9 + ph + k * 0.1), pads,
+      bugs: rnd() < 0.5 ? Array.from({ length: 1 + Math.floor(rnd() * 3) }, () => ({ x: f.x + (rnd() - 0.5) * 2.4, y: f.y - 0.4 + rnd() * 1.2 })) : [], lick };
+    const r = { a: rnd(), b: rnd(), c: rnd() < 0.05 ? rnd() * 0.004 : rnd(), d: rnd(), e: rnd() }; if (fSteps % 6 === 0) fin.push([f, gnome, w, r]); fSteps++;
+    const a1 = frogH(f, gnome, w, r), a2 = frogJS(f, gnome, w, r);
+    if (fcanon(a1) === fcanon(a2)) fSame++; else if (!fFirst) fFirst = { frog: f, gnome, w, r, hazel: fcanon(a1), js: fcanon(a2) };
+    if (a2.frog.mode === 1 && f.mode !== 1) { fseen.jumps++; if (a2.frog.jump.into === 2) fseen.fled++; else if (f.mode === 0) fseen.padHops++; }
+    if (a2.frog.mode === 2) fseen.swims++; if (a2.croak) fseen.croaks++; if (a2.ate >= 0) { fseen.ate++; lick = false; } else if (k % 7 === 0) lick = true; if (a2.plop) fseen.plops++;
+    f = a2.frog; } }
+const ftime = fn => { const ts = []; for (let k = 0; k < 7; k++) { const t = performance.now(); for (const [f, g, w, r] of fin) fn(f, g, w, r); ts.push((performance.now() - t) * 1000 / fin.length); } ts.sort((x, y) => x - y); return ts[3]; };
+ftime(frogJS); ftime(frogH); const fjs = ftime(frogJS), fhz = ftime(frogH); fin.length = 0;
+console.log(`a frog's mind: Frog.step the same as the page's frogJS at ${fSame} of ${fSteps} steps of 20,000 made-up frogs${fFirst ? "; first differs: " + JSON.stringify(fFirst) : ""} (jumps begun ${fseen.jumps}, away into the water ${fseen.fled}, pad to pad ${fseen.padHops}; swimming ${fseen.swims} steps; croaks ${fseen.croaks}; bugs eaten ${fseen.ate}; plops ${fseen.plops})`);
+console.log(`a step of a frog: the page's JavaScript ${fjs.toFixed(3)} µs, Hazel's Frog.step through the jit ${fhz.toFixed(3)} µs (${(fhz / fjs).toFixed(1)}×); of a 16.7 ms frame, ${(fhz / 16670 * 100).toFixed(4)}%`);
+result.frog = { steps: fSteps, same: fSame, first: fFirst, seen: fseen, jsUs: fjs, hazelUs: fhz };
 if (out) writeFileSync(out, JSON.stringify(result, null, 1));
-process.exit(same === N && tSame === N && rSame === N && bSame === N && pSame === N && pRealSame === N && wSame === N * 3 && uSame === uSteps ? 0 : 1);
+process.exit(same === N && tSame === N && rSame === N && bSame === N && pSame === N && pRealSame === N && wSame === N * 3 && uSame === uSteps && fSame === fSteps ? 0 : 1);

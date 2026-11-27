@@ -35,8 +35,8 @@
   if (window.visualViewport) { const vz = () => { const z = visualViewport.scale; WATCH.zoomMin = Math.min(WATCH.zoomMin, z); WATCH.zoomMax = Math.max(WATCH.zoomMax, z); if (Math.abs(z - 1) > 0.01) WATCH.zoomAt = performance.now(); };
     visualViewport.addEventListener("resize", vz); visualViewport.addEventListener("scroll", vz); }
   const LIB_JIT = "https://build.hazel.org/hazeljs/hazel-lib.js", LIB_NPM = "https://cdn.jsdelivr.net/npm/hazeljs@0.0.4/hazel-lib.js";
-  const PROGRAM = "world", MODULES = ["World", "Fly", "Tail", "Ride", "Boulder", "Pickup", "Wind", "Bunny"];
-  const TAIL = "(plan = World.plan, ground = World.ground, village = World.village, furnish = World.furnish, limbs = World.limbs, styles = World.styles, beaver = World.beaver, water_row = World.water_row, step = World.step, roots = World.roots, threads = World.threads, greet = World.greet, dig_steps = World.dig_steps, fly = Fly.step, tail = Tail.step, ride_pre = Ride.pre, ride_post = Ride.post, boulder = Boulder.step, pickup = Pickup.step, wind = Wind.step, bunny = Bunny.step)";
+  const PROGRAM = "world", MODULES = ["World", "Fly", "Tail", "Ride", "Boulder", "Pickup", "Wind", "Bunny", "Frog"];
+  const TAIL = "(plan = World.plan, ground = World.ground, village = World.village, furnish = World.furnish, limbs = World.limbs, styles = World.styles, beaver = World.beaver, water_row = World.water_row, step = World.step, roots = World.roots, threads = World.threads, greet = World.greet, dig_steps = World.dig_steps, fly = Fly.step, tail = Tail.step, ride_pre = Ride.pre, ride_post = Ride.post, boulder = Boulder.step, pickup = Pickup.step, wind = Wind.step, bunny = Bunny.step, frog = Frog.step)";
   const KEY = "hazeljs-examples/world/";
   const Q = new URLSearchParams(location.search);
   const $ = id => document.getElementById(id);
@@ -123,7 +123,7 @@
   // once (the world's plan, its villages and trees); off unless chosen; kept on this device, and in a save made with it on
   let plainView = null, plainOf = null;
   const H = () => { if (!(S.built && S.built.ok)) return null; const v = S.built.value; if (S.rules !== "plain" || !window.WorldPlain) return v;
-    if (plainOf !== v) { plainOf = v; plainView = { ...v, step: window.WorldPlain.step, beaver: window.WorldPlain.beaver, water_row: window.WorldPlain.water_row, fly: undefined, tail: undefined, ride_pre: undefined, ride_post: undefined, boulder: undefined, pickup: undefined, wind: undefined, bunny: undefined }; }
+    if (plainOf !== v) { plainOf = v; plainView = { ...v, step: window.WorldPlain.step, beaver: window.WorldPlain.beaver, water_row: window.WorldPlain.water_row, fly: undefined, tail: undefined, ride_pre: undefined, ride_post: undefined, boulder: undefined, pickup: undefined, wind: undefined, bunny: undefined, frog: undefined }; }
     return plainView; };
   function setRules(r) { S.rules = r === "plain" ? "plain" : "hazel"; keep("rules", S.rules); plainOf = null; const box = document.getElementById("rules-plain"); if (box) box.checked = S.rules === "plain"; if (typeof drawStatus === "function") drawStatus(); }
   let seedRand = 1;
@@ -1252,7 +1252,7 @@
     for (const B of S.beavers) B.px += (B.b.x / 100 - B.px) * 0.18;
     if (S.frame % 9 === 0) for (const d of S.ducts) if (d.kind === 3) S.smoke.push({ x: d.x + 0.5 + (rand() - 0.5) * 0.2, y: d.y0 - 2.2, r: 0.18, life: 0, drift: 0.004 + rand() * 0.006 });
     tmark("trees, hearts, smoke");
-    windStep(h); houseSmoke(); tmark("wind and smoke"); squirrelsStep(); tmark("squirrels"); pebblesStep(); tmark("pebbles"); villagersStep(h); tmark("villagers"); wildStep(); tmark("birds, frogs, bugs"); bunniesStep(h); tmark("rabbits");
+    windStep(h); houseSmoke(); tmark("wind and smoke"); squirrelsStep(); tmark("squirrels"); pebblesStep(); tmark("pebbles"); villagersStep(h); tmark("villagers"); wildStep(h); tmark("birds, frogs, bugs"); bunniesStep(h); tmark("rabbits");
     if (S.frame % 15 === 0) musicStep();
     for (const s of S.smoke) { s.y -= 0.012; s.x += s.drift + S.windNow * 0.02; s.r += 0.006; s.life++; }
     S.smoke = S.smoke.filter(s => s.life < 200);
@@ -2710,24 +2710,53 @@
     return [t.x + 0.5 + (pr.fx || 0) * hT + sway(t.seed, t.kind === 1 ? 0.6 : 1) * hT * 1.2 * fy * fy, surf0[t.x] - hT * fy];
   }
   const flyTo = (b, x1, y1, then) => { b.fly = { x0: b.x, y0: b.y, x1, y1, t: 0, dur: Math.max(30, Math.hypot(x1 - b.x, y1 - b.y) * (b.kind === "hawk" ? 9 : 6)), then }; b.mode = "fly"; b.face = x1 >= b.x ? 1 : -1; };
-  function wildStep() {
+  // (0.0.142; piece 6 of ^report(64)'s plan, its second part: a frog's mind is Hazel's, Frog.step; here its twin in JavaScript,
+  // the same answers, for ⚡ and the check in Node. The page draws five random numbers for each frog it steps, whether or not the
+  // frog uses them, and gives them in with its river: the water's level, its ends, the land under the frog, its bank, the
+  // river's pads each where it rides the waves now (the page's clock), the bugs near it, and whether its tongue is ready. A
+  // frog's mode is 0 sitting, 1 jumping, 2 swimming; its pad its place in the river's pads, or -1. The distance to the gnome by
+  // its square; a whole number cut toward zero (Math.trunc), as Hazel's int_of_float)
+  const frogJS = (f, g, w, r) => {
+    const ab = Math.abs, dx = f.x - g.x, dy = f.y - g.y, d2 = dx * dx + dy * dy, j = f.jump, none = { croak: false, ate: -1, plop: false };
+    if (f.mode === 1) { const t = j.t + 1 / j.dur, J = { ...j, t };
+      return t >= 1 ? { frog: { ...f, x: j.x1, y: j.y1, mode: j.into, wait: 40 + Math.trunc(r.a * 200), jump: J }, croak: false, ate: -1, plop: j.into === 2 && d2 < 100 }
+        : { frog: { ...f, x: j.x0 + (j.x1 - j.x0) * t, y: j.y0 + (j.y1 - j.y0) * t - Math.sin(3.141592653589793 * t) * j.h, jump: J }, ...none }; }
+    if (f.mode === 2) { const P = w.pads; let aim = -1;
+      if (P.length) { aim = 0; let d = ab(P[0].x - g.x); for (let k = 0; k < P.length; k++) if (ab(P[k].x - g.x) > d) { aim = k; d = ab(P[k].x - g.x); } }
+      const tx = aim >= 0 ? P[aim].x : w.bank, ty = w.level + 0.55, to = tx - f.x;
+      const x = f.x + (to > 0 ? 1 : to < 0 ? -1 : 0) * (0.035 < ab(to) ? 0.035 : ab(to)), y = f.y + (ty - f.y) * 0.08, face = tx >= f.x ? 1 : -1, there = ab(tx - x) < 0.05 && d2 > 16;
+      if (there && f.wait - 1 <= 0) return { frog: { ...f, x, y, mode: 1, face, wait: f.wait - 1, pad: aim, jump: { x0: x, y0: y, x1: tx, y1: aim >= 0 ? P[aim].y : w.banky, t: 0, dur: 24, h: 0.6, into: 0 } }, ...none };
+      return { frog: { ...f, x, y, mode: 2, face, wait: there ? f.wait - 1 : f.wait }, ...none }; }
+    const on = f.pad >= 0, p = on ? w.pads[f.pad] : null, x = on ? p.x : f.x, y = on ? p.y : w.land;
+    if (d2 < (g.wet ? 12.25 : 6.25)) { const away = x >= g.x ? 1 : -1, want = x + away * (0.8 + r.b * 0.8), lo = w.rx + 0.4, hi = w.rx + w.rw - 0.4, m = hi < want ? hi : want;
+      return { frog: { ...f, x, y, mode: 1, face: away, wait: 90, pad: -1, jump: { x0: x, y0: y, x1: lo > m ? lo : m, y1: w.level + 0.4, t: 0, dur: 26, h: 0.7, into: 2 } }, ...none }; }
+    const croak = r.c < 0.0035, ate = w.lick ? w.bugs.findIndex(b => ab(b.x - (x + f.face * 0.5)) < 0.7 && y - b.y > -0.2 && y - b.y < 1.2) : -1, wait = f.wait - 1;
+    if (wait <= 0 && on) { const others = []; w.pads.forEach((q, k) => { if (k !== f.pad && ab(q.x - x) < 2.6) others.push(k); });
+      const rest = 300 + Math.trunc(r.d * 600);
+      if (others.length) { const k = others[Math.trunc(r.e * others.length)], q = w.pads[k];
+        return { frog: { ...f, x, y, mode: 1, face: q.x >= x ? 1 : -1, wait: rest, pad: k, jump: { x0: x, y0: y, x1: q.x, y1: q.y, t: 0, dur: 28, h: 0.75, into: 0 } }, croak, ate, plop: false }; }
+      return { frog: { ...f, x, y, mode: 0, wait: rest }, croak, ate, plop: false }; }
+    return { frog: { ...f, x, y, mode: 0, wait }, croak, ate, plop: false };
+  };
+  const FROG_MODE = { sit: 0, jump: 1, swim: 2 }, FROG_MODES = ["sit", "jump", "swim"], NO_JUMP = { x0: 0, y0: 0, x1: 0, y1: 0, t: 0, dur: 1, h: 0, into: 0 };
+  // (what a frog's mind is given, and its answer kept: the frog, its sounds, the bug it eats)
+  function frogStep(h, f, gx, gy, wet, now) {
+    const R = f.R, P = R.plants.flatMap(pl => pl.kind === "lily" ? pl.pads : []), pads = P.map(q => ({ x: q.x, y: waterY(R, q.x, now) - 0.04 }));
+    const r = { a: rand(), b: rand(), c: rand(), d: rand(), e: rand() }, bank = f.bank ?? f.x, J = f.jump, near = S.bugs.filter(b => !b.gone && Math.abs(b.x - f.x) < 3);
+    const f0 = { x: f.x, y: f.y, mode: FROG_MODE[f.mode], face: f.face, wait: f.wait | 0, pad: f.pad ? P.indexOf(f.pad) : -1,
+      jump: J ? { x0: J.x0, y0: J.y0, x1: J.x1, y1: J.y1, t: J.t, dur: J.dur, h: J.h, into: FROG_MODE[J.into] } : NO_JUMP };
+    const w = { level: R.level, rx: R.x, rw: R.w, land: landY(Math.floor(f.x)), bank, banky: waterY(R, bank, now) - 0.04, pads, bugs: near.map(b => ({ x: b.x, y: b.y })), lick: S.frame - f.tongue > 60 };
+    const a = h && h.frog && !Q.has("jsfrog") ? h.frog(f0, { x: gx, y: gy, wet: !!wet }, w, r) : frogJS(f0, { x: gx, y: gy, wet: !!wet }, w, r), F = a.frog, A = F.jump;
+    f.x = F.x; f.y = F.y; f.mode = FROG_MODES[F.mode]; f.face = F.face; f.wait = F.wait; f.pad = F.pad >= 0 ? P[F.pad] : null;
+    if (J || F.mode === 1) f.jump = { x0: A.x0, y0: A.y0, x1: A.x1, y1: A.y1, t: A.t, dur: A.dur, h: A.h, into: FROG_MODES[A.into] };
+    if (a.plop && SND && S.frame - (WILD.plopAt || 0) > 30) { WILD.plopAt = S.frame; SND.splash(); }
+    if (a.croak) { f.croak = S.frame; wildCall("croak", f.x, f.y); }
+    if (a.ate >= 0) { const b = near[a.ate]; f.tongue = S.frame; f.tx = b.x; f.ty = b.y; b.gone = S.frame; }
+  }
+  function wildStep(h) {
     const g = S.g; if (!g || !S.birds) return; const gx = g.x / 1000, gy = g.y / 1000 - 0.5, wet = g.swim || g.under;
-    // frogs
-    for (const f of S.frogs) { if (!viewNear(f.x)) continue; const R = f.R, d = Math.hypot(f.x - gx, f.y - gy);
-      if (f.mode === "jump") { const J = f.jump; J.t += 1 / J.dur; f.x = J.x0 + (J.x1 - J.x0) * J.t; f.y = J.y0 + (J.y1 - J.y0) * J.t - Math.sin(Math.PI * Math.min(1, J.t)) * J.h;
-        if (J.t >= 1) { f.x = J.x1; f.y = J.y1; f.mode = J.into; if (J.into === "swim" && SND && d < 10 && S.frame - (WILD.plopAt || 0) > 30) { WILD.plopAt = S.frame; SND.splash(); } f.wait = 40 + Math.floor(rand() * 200); } continue; }
-      if (f.mode === "swim") { const pads = R.plants.flatMap(P => P.kind === "lily" ? P.pads : []), aim = pads.length ? pads.reduce((a, b) => Math.abs(b.x - gx) > Math.abs(a.x - gx) ? b : a) : null;
-        const tx = aim ? aim.x : f.bank ?? f.x, ty = R.level + 0.55; f.face = tx >= f.x ? 1 : -1; f.x += Math.sign(tx - f.x) * Math.min(0.035, Math.abs(tx - f.x)); f.y += (ty - f.y) * 0.08;
-        if (Math.abs(tx - f.x) < 0.05 && d > 4 && --f.wait <= 0) { f.pad = aim; f.jump = { x0: f.x, y0: f.y, x1: tx, y1: waterY(R, tx, performance.now()) - 0.04, t: 0, dur: 24, h: 0.6, into: "sit" }; f.mode = "jump"; } continue; }
-      // (sitting: riding its pad on the waves, or on the bank)
-      if (f.pad) { f.x = f.pad.x; f.y = waterY(R, f.pad.x, performance.now()) - 0.04; } else f.y = landY(Math.floor(f.x));
-      if (d < (wet ? 3.5 : 2.5)) { const away = f.x >= gx ? 1 : -1, tx = Math.max(R.x + 0.4, Math.min(R.x + R.w - 0.4, f.x + away * (0.8 + rand() * 0.8)));
-        f.face = away; f.jump = { x0: f.x, y0: f.y, x1: tx, y1: R.level + 0.4, t: 0, dur: 26, h: 0.7, into: "swim" }; f.mode = "jump"; f.pad = null; f.wait = 90; continue; }
-      if (rand() < 0.0035) { f.croak = S.frame; wildCall("croak", f.x, f.y); }
-      const bug = S.bugs.find(b => !b.gone && Math.abs(b.x - (f.x + f.face * 0.5)) < 0.7 && f.y - b.y > -0.2 && f.y - b.y < 1.2);
-      if (bug && S.frame - f.tongue > 60) { f.tongue = S.frame; f.tx = bug.x; f.ty = bug.y; bug.gone = S.frame; }
-      if (--f.wait <= 0 && f.pad) { f.wait = 300 + Math.floor(rand() * 600); const pads = R.plants.flatMap(P => P.kind === "lily" ? P.pads : []).filter(p => p !== f.pad && Math.abs(p.x - f.x) < 2.6);
-        if (pads.length) { const to = pads[Math.floor(rand() * pads.length)]; f.face = to.x >= f.x ? 1 : -1; f.jump = { x0: f.x, y0: f.y, x1: to.x, y1: waterY(R, to.x, performance.now()) - 0.04, t: 0, dur: 28, h: 0.75, into: "sit" }; f.mode = "jump"; f.pad = to; } } }
+    // frogs (their minds Hazel's, Frog.step, 0.0.142)
+    { const now = performance.now(); for (const f of S.frogs) if (viewNear(f.x)) frogStep(h, f, gx, gy, wet, now); }
     // insects
     for (const b of S.bugs) { if (!viewNear(b.hx)) continue;
       if (b.gone) { if (S.frame - b.gone > 900) { b.gone = 0; b.x = b.hx; b.y = b.hy - 1.5; } continue; }
@@ -5396,7 +5425,7 @@
   // (0.0.140: the levels: one built fresh, as the level check reads it; the vortex's journey)
   if (Q.has("test")) Object.assign(window.WorldTest, { LEVELS, levelOf, travel, vortexStep, rainbowsStep, catHeadFound, digOK,
     freshLevel: id => { S.level = String(id); S.seed = levelOf(id).seed; S.away = {}; S.points = 0; build(H(), S.seed); digButton(); return S.level; } });   // (0.0.127: the caverns)
-  if (Q.has("test")) Object.assign(window.WorldTest, { botItemOrder, timeSpeedRun, TP, wakeTill, wakeAll, waterStep, setRules, H, rideJS, rideStep, boulderJS, bouldersStep, pickupJS, pickups, windJS, windStep, bunnyJS, bunnyStep, bunniesStep, keepWorld });   // (0.0.130: the speed run's order of the things; ⏱)
+  if (Q.has("test")) Object.assign(window.WorldTest, { botItemOrder, timeSpeedRun, TP, wakeTill, wakeAll, waterStep, setRules, H, rideJS, rideStep, boulderJS, bouldersStep, pickupJS, pickups, windJS, windStep, bunnyJS, bunnyStep, bunniesStep, frogJS, frogStep, wildStep, keepWorld });   // (0.0.130: the speed run's order of the things; ⏱)
   // (^ticket(873): the speed run's steps alone, timed, no drawing: up to n, while the run is on and not yet at its dig)
   if (Q.has("test")) Object.assign(window.WorldTest, { steps: (n, any) => { const h = H(); const t0 = performance.now(); let k = 0; for (; k < n && (any || (BOT.on && BOT.phase !== "dig")); k++) tick(h); return { k, ms: performance.now() - t0 }; } });   // (any: steps with or without the speed run)   // (0.0.115: the canvases kept, ^ticket(852))   // (0.0.112: the 🎮 controller, driven by hand where frames do not come)
   if (Q.has("test")) Object.assign(window.WorldTest, { snapshot, saveText, readSave, loadText, restartNow: () => restartNow(H()), askRestart, stopBot, digest, bot: on => { if (on !== BOT.on) $("run").click(); return BOT.on; }, carpetToggle, carpetHits, carpetTop, flyJS });
