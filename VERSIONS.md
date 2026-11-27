@@ -2,6 +2,11 @@
 
 Each version lists what the apps do as of that version. The newest version is first.
 
+## 0.0.148 (2026-11-27)
+
+- **Gnome world: the rules compiled ahead of time are live** (^ticket(895)). The world aot job compiled them on 0.0.147's push (8.3 s on GitHub, with the night's trial library; 24 functions, 510 KB; made again from the text, the same at 15 of 15 calls) and committed `world/rules-aot.json`, now kept for playing offline too.
+  - The save's digest names the coins only in a level that has them, so the digging level's record stands as it was; the flying level's new shape is recorded in `levels.json` (all 22 parts, from the level check on 0.0.147's push).
+
 ## 0.0.147 (2026-11-27)
 
 - **Gnome world: the flying level, as N wants it** (^ticket(895); Matthew's list of 2026-11-27). N's level is now called the **flying level**, and the first level the **digging level**.

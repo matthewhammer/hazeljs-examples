@@ -5489,7 +5489,7 @@
       trees: js(S.trees.map(t => [t.x, t.alive, t.grow, t.fallAt, t.fallDir ?? null, t.regrow])), fallen: js(S.fallen.map(f => [f.x, S.trees.indexOf(f.t), f.k, f.F.trunk, [...f.F.gone]])),
       piles: js(S.piles), beavers: js(S.beavers.map(B => [B.b, B.px, B.py])), boulders: js(S.boulders), pebbles: js(S.pebbles),
       villagers: js(S.villagers.map(v => [v.id, v.n, v.nextAt])),
-      level: js({ level: S.level, points: S.points | 0, vortex: S.vortex ? [S.vortex.x, S.vortex.y, S.vortex.to] : null, rainbows: (S.rainbows || []).map(R => [R.x, R.y, !!R.gone, R.back | 0]), coins: (S.coins || []).map(C => (C.taken ? 1 : 0)).join(""),
+      level: js({ level: S.level, points: S.points | 0, vortex: S.vortex ? [S.vortex.x, S.vortex.y, S.vortex.to] : null, rainbows: (S.rainbows || []).map(R => [R.x, R.y, !!R.gone, R.back | 0]), ...(S.coins && S.coins.length ? { coins: S.coins.map(C => (C.taken ? 1 : 0)).join("") } : {}),
         away: Object.entries(S.away || {}).map(([k, a]) => [k, a.seed, a.frame, fnv(a.tiles), a.items, a.gnome]) }), ride: js({ ride: S.ride, mount: S.mount, carrots: S.carrots || 0 }), tail: js({ have: !!(S.tail && S.tail.have), on: !!(S.tail && S.tail.on) }), carpet: js({ have: !!(S.carpet && S.carpet.have), on: !!(S.carpet && S.carpet.on), face: S.carpet ? S.carpet.face : 1 }), jelly: js({ on: !!(S.jelly && S.jelly.on), face: S.jelly && S.jelly.face < 0 ? -1 : 1 }), rootsDone: js(S.rootPlan.map(t => t.done ? 1 : 0)), rootSets: S.rootSets.length + S.threadSets.length };
   }
   addEventListener("resize", () => draw());
