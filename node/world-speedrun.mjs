@@ -44,10 +44,18 @@ const SETUP = way => `(() => {
   // real clock, kept aside first)
   const realNow = window.__realNow = performance.now.bind(performance); performance.now = () => S.frame * (1000 / 60);
   const V = S.built.value, R = window.__R = { way: ${JSON.stringify(way)}, calls: {}, ms: {}, samples: [], swapped: [] };
-  if (R.way === "plain") for (const k of ["step", "beaver", "water_row"]) { V[k] = WorldPlain[k]; R.swapped.push(k); }
+  // (2026-11-27, ^ticket(896)) the plain way is the page's own ⚡, every piece in its JavaScript (the gnome's step, the beavers', the
+  // river's level from plain.js; the carpet, the tail, Clover's ride, the boulders, picking up, the wind, the bunnies, frogs and birds
+  // by the page's twins), as a player chooses it in ⚙️ Advanced. Till then this swapped only step, beaver and water_row, and the
+  // other pieces, Hazel's since 0.0.107 to 0.0.143, stayed Hazel's in the "plain" run. Set for every way, as the choice is kept
+  // in the browser's storage, which the pages share
+  T.setRules(R.way === "plain" ? "plain" : "hazel");
   for (const k of Object.keys(V)) { const f = V[k]; if (typeof f !== "function") continue; R.calls[k] = 0; R.ms[k] = 0;
     V[k] = function (...a) { const t = realNow(); const r = f.apply(this, a); R.ms[k] += realNow() - t; R.calls[k]++; return r; }; }
   window.__pickG = g => (${JSON.stringify(GN)}).map(k => (typeof g[k] === "boolean" ? (g[k] ? 1 : 0) : g[k]));
+  if (R.way === "plain") { for (const k of ["step", "beaver", "water_row"]) { const f = WorldPlain[k]; R.calls[k] = 0; R.ms[k] = 0;
+      WorldPlain[k] = function (...a) { const t = realNow(); const r = f.apply(this, a); R.ms[k] += realNow() - t; R.calls[k]++; return r; }; }
+    T.setRules("plain"); R.swapped.push("every piece (⚡: plain.js and the page's twins; the twins' own time not counted in the rules)"); }
   if (R.way === "jit") { const st = V.step; let n = 0; V.step = (g, nn, p) => { const r = st(g, nn, p); if (++n % ${SAMPLE} === 0) R.samples.push([{ ...g }, { ...nn }, { ...p }, __pickG(r)]); return r; }; }
   T.bot(true); return { seed: S.seed, hero: S.hero, compiled: !!S.built.compiled, buildMs: Math.round(S.built.ms || 0), swapped: R.swapped, view: (cv.width / T.tile()).toFixed(3) + " by " + (cv.height / T.tile()).toFixed(3) + " tiles, " + cv.width + "×" + cv.height + " px" }; })()`;
 // (the world's fingerprint: FNV-1a over what the run changes)
@@ -100,20 +108,26 @@ try {
   // ---- 2. plain JavaScript: the whole run
   const P = await run(C, "plain", 0);
   // ---- 3. the interpreter: four minutes at most
-  const I = await run(C, "interpreted", INTERP_MS);
+  await P.page.eval("(WorldTest.setRules('hazel'), true)");   // (the ⚡ choice is kept in storage: off again for the pages after)
+  // (2026-11-27, ^ticket(896)) the interpreter's run, if it runs: on 0.0.148 its page lost its rules before the run began (a step
+  // threw: the interpreter's calls of a function typed on its let took whole numbers as Ints where Floats are declared, and
+  // stopped). Its failure is logged, and the two other ways are kept
+  let I = null; try { I = await run(C, "interpreted", INTERP_MS); } catch (e) { log("interpreted: FAILED, the runs of the other two kept: " + String(e && e.message || e).split("\n")[0]); }
   // ---- the runs compared, fingerprint by fingerprint
   const cmp = (a, b) => { const n = Math.min(a.prints.length, b.prints.length); for (let i = 0; i < n; i++) if (a.prints[i][1] !== b.prints[i][1] || a.prints[i][0] !== b.prints[i][0]) return { same: i, of: n, parted: a.prints[i][0] }; return { same: n, of: n }; };
-  const jp = cmp(J, P), ji = cmp(J, I);
+  const jp = cmp(J, P), ji = I ? cmp(J, I) : { same: 0, of: 0, parted: null };
   log(`compared, a fingerprint each ${CHUNK} steps: plain JS the same as hazel-jit at ${jp.same} of ${jp.of}${jp.parted != null ? ` (parted by step ${jp.parted})` : ""}; the interpreter the same at ${ji.same} of ${ji.of}${ji.parted != null ? ` (parted by step ${ji.parted})` : ""}`);
   // ---- 4. the rules alone, replayed: fresh pages, nothing wrapped
   const RJ = await openWay(C, "jit"); await RJ.eval(`(window.__samples = ${JSON.stringify(samples)}, window.__pickG = g => (${JSON.stringify(GN)}).map(k => (typeof g[k] === "boolean" ? (g[k] ? 1 : 0) : g[k])), true)`);
   await RJ.eval(`new Promise((ok, no) => { const s = document.createElement("script"); s.src = "plain.js?v=" + Date.now(); s.onload = () => ok(true); s.onerror = no; document.head.append(s); })`);
   const rj = await RJ.eval(REPLAY("WorldTest.S.built.value.step", REPLAY_MS)), rp = await RJ.eval(REPLAY("WorldPlain.step", REPLAY_MS));
+  let ri = null; try {
   const RI = await openWay(C, "interpreted"); await RI.eval(`(window.__samples = ${JSON.stringify(samples)}, window.__pickG = g => (${JSON.stringify(GN)}).map(k => (typeof g[k] === "boolean" ? (g[k] ? 1 : 0) : g[k])), true)`);
-  const ri = await RI.eval(REPLAY("WorldTest.S.built.value.step", REPLAY_INTERP_MS));
-  for (const [name, r] of [["jit", rj], ["plain", rp], ["interpreted", ri]]) log(`World.step alone, ${name}: ${r.us.toFixed(2)} µs a call (${r.calls} calls); answers the same as hazel-jit's at ${r.same} of ${r.checked} samples${r.first ? `; first not at ${r.first.at}: want ${JSON.stringify(r.first.want)}, got ${JSON.stringify(r.first.got)}` : ""}`);
+  ri = await RI.eval(REPLAY("WorldTest.S.built.value.step", REPLAY_INTERP_MS));
+  } catch (e) { log("World.step alone, interpreted: FAILED: " + String(e && e.message || e).split("\n")[0]); }
+  for (const [name, r] of [["jit", rj], ["plain", rp], ["interpreted", ri]].filter(([, r]) => r)) log(`World.step alone, ${name}: ${r.us.toFixed(2)} µs a call (${r.calls} calls); answers the same as hazel-jit's at ${r.same} of ${r.checked} samples${r.first ? `; first not at ${r.first.at}: want ${JSON.stringify(r.first.want)}, got ${JSON.stringify(r.first.got)}` : ""}`);
   const strip = w => ({ info: w.info, done: w.done, steps: w.steps, ms: +w.ms.toFixed(1), chunks: w.chunks, prints: w.prints, state: w.state, rules: w.rules });
-  Object.assign(result, { browser: lib.ua, samples: samples.length, ways: { jit: strip(J), plain: strip(P), interpreted: strip(I) }, compared: { plain: jp, interpreted: ji }, replay: { jit: rj, plain: rp, interpreted: ri } });
+  Object.assign(result, { browser: lib.ua, samples: samples.length, ways: { jit: strip(J), plain: strip(P), interpreted: I ? strip(I) : null }, compared: { plain: jp, interpreted: ji }, replay: { jit: rj, plain: rp, interpreted: ri } });
   if (!J.done) { log("FAIL: the hazel-jit run did not finish the speed run"); code = 1; }
   if (jp.same !== jp.of || !P.done) { log("FAIL: plain JavaScript's run is not the same as hazel-jit's"); code = 1; }
   if (rp.same !== rp.checked) { log("FAIL: plain JavaScript's World.step answers differ"); code = 1; }
