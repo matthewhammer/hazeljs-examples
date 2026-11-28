@@ -2,6 +2,14 @@
 
 Each version lists what the apps do as of that version. The newest version is first.
 
+## 0.0.150 (2026-11-27)
+
+- **Gnome world: the water cheaper and the speed run's way by A*, each also written in Hazel, off by default** (^ticket(904), ^ticket(905), ^report(69)). On one GitHub runner the speed run takes 56.9 s where it took 65.1 s, at 60 frames a second.
+  - The water's two passes rewritten to do the same arithmetic in fewer steps: every tile's water and every block's waking the same to the bit as 0.0.149's.
+  - The run's way by A* over a window round the gnome and its target (32 tiles, then 128, then the old search over the whole world): about half the old search's time, each tile worked out as the search reaches it.
+  - 💧 **The water in Hazel** (`world/rules/Water.hz`) and 🧭 **the way in Hazel** (`world/rules/Path.hz`), under ⚙️ Advanced, "🔬 For measuring", or `?water=hazel` and `?way=hazel`: the same water to the bit and the very same ways as the page's JavaScript, held to it by the world save check on every push; about 13 and 28 times the time, so off by default.
+  - `?wateps=0.001` tries the water with seepage of under a thousandth of a tile left to sleep: the run 2.2 times as fast, but tunnels and caves less flooded. Not the game's, for now.
+
 ## 0.0.149 (2026-11-27)
 
 - **Gnome world: the speed run's frames kept to the screen's sixtieth of a second, and its long frames spread out** (^ticket(902), ^report(68); Matthew, demoing it in a video call: "the frame rate was very poor, and the 'worst time' reported in the HUD was hundreds of ms"). Timed frame by frame on GitHub, before and after on one runner: in a 1920×1080 window on a 2× screen the median frame goes from 30 to 60 fps; at 1280×800 the frames that miss a refresh go from 46% to 14%, the worst from 250 to 67 ms; with the CPU slowed 4×, 20 to 30 fps. Not Hazel: its compiled rules are under 2% of the page's time, and with every piece in ⚡ plain JavaScript the frames are the same.
