@@ -2,6 +2,10 @@
 
 Each version lists what the apps do as of that version. The newest version is first.
 
+## 0.0.156 (2026-11-28)
+
+- **Gnome world: Hazel's random numbers four times as cheap** (^ticket(907)). Folk.hz rounds the seed's product to 53 bits by a short search over the nine sizes it can have, not by counting its bits one at a time: a draw takes about 0.7 µs where it took about 3, the same numbers as the page's. The insects in Hazel take half the time they did.
+
 ## 0.0.155 (2026-11-28)
 
 - **Gnome world: the villagers walking, the squirrels, the insects and the hawks in Hazel, for measuring** (^ticket(907), the last of three). `world/rules/Folk.hz`: a villager standing, walking within its reach and busy in its room; a squirrel along its tree's limbs, sitting with an acorn, and fleeing the gnome by the way that leads furthest from it; the dragonflies, bees and butterflies about the water and the flowers; the hawks soaring, resting in the great trees and put up by the gnome. Under ⚙️ Advanced, "🐿️", or `?folk=hazel`; off by default. Hazel draws the page's own chances (its random numbers worked out in Hazel, the seed handed in and back), so every creature does just what the page's own would: held by the world save check on every push, 900 steps of all of them.

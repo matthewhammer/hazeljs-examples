@@ -34,6 +34,8 @@ const SETUPS_904 = [
 const SETUPS_907 = [
   { name: "js", rules: "hazel", w: 1280, h: 800, dpr: 1, cpu: 1 },
   { name: "plan-hazel", q: "&plan=hazel", rules: "hazel", w: 1280, h: 800, dpr: 1, cpu: 1 },
+  { name: "rivers-hazel", q: "&rivers=hazel", rules: "hazel", w: 1280, h: 800, dpr: 1, cpu: 1 },
+  { name: "folk-hazel", q: "&folk=hazel", rules: "hazel", w: 1280, h: 800, dpr: 1, cpu: 1 },
   { name: "all-hazel", q: "&plan=hazel&way=hazel&water=hazel&rivers=hazel&folk=hazel", rules: "hazel", w: 1280, h: 800, dpr: 1, cpu: 1 },
 ];
 const SETUPS_902 = [

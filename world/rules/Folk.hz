@@ -1,7 +1,7 @@
 # The villagers walking, the squirrels, the insects and the hawks, a step at a time (^ticket(907); Matthew, 2026-11-28: "opt-in for Hazel (default off): the villagers walking, the squirrels, the hawks and insects"). Off unless chosen (⚙️ Advanced, or ?folk=hazel): the page's JavaScript (villagerMove, squirrelsJS, bugsJS, hawkJS) is the default and the twin, and these give the very same answers (WorldTest.folkSame). Their chances are the page's own: the page's random numbers (rand) worked out here as the page works them out, from its seed, which comes in and goes back, so each draws exactly where and as the page would. Calls nothing in World #
 # ---- The page's random numbers: the seed times 1103515245, plus 12345, each in JavaScript's 64-bit floats (so rounded to 53 bits when it is bigger, ties to even), then its last 31 bits; the number, the seed over 2147483647. The same as the page's for every one of 2.3 million seeds tried #
-let bits : Int -> Int = fun x -> if x <= 0 then 0 else 1 + bits(x / 2);
-let r53 : Int -> Int = fun x -> (let e = bits(x) in if e <= 53 then x else (let p = 2 ** (e - 53) in let q = x / p in let rem = x - q * p in let half = p / 2 in if rem > half || (rem == half && q - (q / 2) * 2 == 1) then (q + 1) * p else q * p));
+let two53 : Int = 2 ** 53;
+let r53 : Int -> Int = fun x -> if x < two53 then x else (let up : (Int, Int) -> Int = fun (p, lim) -> if x < lim then p else up(p * 2, lim * 2) in let p = up(2, two53 * 2) in let q = x / p in let rem = x - q * p in let half = p / 2 in if rem > half || (rem == half && q - (q / 2) * 2 == 1) then (q + 1) * p else q * p);
 let rand : Int -> (u = Float, s = Int) = fun s -> (let t = r53(r53(s * 1103515245) + 12345) in let n = t - (t / 2147483648) * 2147483648 in (u = float_of_int(n) /. 2147483647., s = n));
 let whole : Float -> Int = fun x -> int_of_float(floor(x));
 let fabs : Float -> Float = fun x -> if x <. 0. then 0. -. x else x;
