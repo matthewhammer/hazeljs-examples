@@ -1,15 +1,13 @@
-# The villagers walking, the squirrels, the insects and the hawks, a step at a time (^ticket(907); Matthew, 2026-11-28: "opt-in for Hazel (default off): the villagers walking, the squirrels, the hawks and insects"). Off unless chosen (⚙️ Advanced, or ?folk=hazel): the page's JavaScript (villagerMove, squirrelsJS, bugsJS, hawkJS) is the default and the twin, and these give the very same answers (WorldTest.folkSame). Their chances are the page's own: the page's random numbers (rand) worked out here as the page works them out, from its seed, which comes in and goes back, so each draws exactly where and as the page would. Calls nothing in World #
-# ---- The page's random numbers: the seed times 1103515245, plus 12345, each in JavaScript's 64-bit floats (so rounded to 53 bits when it is bigger, ties to even), then its last 31 bits; the number, the seed over 2147483647. The same as the page's for every one of 2.3 million seeds tried #
-let two53 : Int = 2 ** 53;
-let r53 : Int -> Int = fun x -> if x < two53 then x else (let up : (Int, Int) -> Int = fun (p, lim) -> if x < lim then p else up(p * 2, lim * 2) in let p = up(2, two53 * 2) in let q = x / p in let rem = x - q * p in let half = p / 2 in if rem > half || (rem == half && q - (q / 2) * 2 == 1) then (q + 1) * p else q * p);
-let rand : Int -> (u = Float, s = Int) = fun s -> (let t = r53(r53(s * 1103515245) + 12345) in let n = t - (t / 2147483648) * 2147483648 in (u = float_of_int(n) /. 2147483647., s = n));
-let whole : Float -> Int = fun x -> int_of_float(floor(x));
+# The villagers walking, the squirrels, the insects and the hawks, a step at a time (^ticket(907); Matthew, 2026-11-28: "opt-in for Hazel (default off): the villagers walking, the squirrels, the hawks and insects"). Off unless chosen (⚙️ Advanced, or ?folk=hazel): the page's JavaScript (villagerMove, squirrelsJS, bugsJS, hawkJS) is the default and the twin, and these give the very same answers (WorldTest.folkSame). Their chances are the page's own: the page's random numbers (rand) worked out here as the page works them out, from its seed, which comes in and goes back, so each draws exactly where and as the page would. Its numbers are all Floats, under `use Float in`, as JavaScript's are all doubles (Matthew, 2026-11-28: "Float, use Float in"; 0.0.157), so compiled it is JavaScript's own arithmetic, with none of exact integers' checks. Calls nothing in World #
+# ---- The page's random numbers, in Floats, as the page works them out (JavaScript's numbers are doubles): the seed times 1103515245, plus 12345, each rounded as a double, then its last 31 bits, which for a whole number is its remainder by 2^31; the number, the seed over 2147483647. The same as the page's, as it is the very same arithmetic #
+let rand : Float -> (u = Float, s = Float) = fun s -> use Float in (let n = float_mod(s * 1103515245 + 12345, 2147483648) in (u = n / 2147483647, s = n));
+let whole : Float -> Float = fun x -> floor(x);
 let fabs : Float -> Float = fun x -> if x <. 0. then 0. -. x else x;
 let dist : (Float, Float) -> Float = fun (dx, dy) -> sqrt(dx *. dx +. dy *. dy);
 let fsign : Float -> Float = fun d -> if d >. 0. then 1. else if d <. 0. then 0. -. 1. else 0.;
 # ---- A villager walking (villagerMove): standing a while, walking to a place within its reach (a to b), busy in its room or standing when it gets there. Its mode: 0 standing, 1 walking, 2 busy. fresh, its first step (its reach just found); talking, the gnome talking with it; land, whether it walks on the land, its height at each column from c0 (lands) #
-let walk : ((x = Float, y = Float, face = Int, mode = Int, timer = Int, to = Float, step = Int, busy = Bool, fresh = Bool), Float, Float, Bool, Bool, Int, [Float], Int) -> (x = Float, y = Float, face = Int, mode = Int, timer = Int, to = Float, step = Int, s = Int) = fun (v, a, b, talking, land, c0, lands, s0) ->
-  let nthf : ([Float], Int) -> Float = fun (xs, i) -> case xs | [] => 0. | z :: zs => if i <= 0 then z else nthf(zs, i - 1) end in
+let walk : ((x = Float, y = Float, face = Float, mode = Float, timer = Float, to = Float, step = Float, busy = Bool, fresh = Bool), Float, Float, Bool, Bool, Float, [Float], Float) -> (x = Float, y = Float, face = Float, mode = Float, timer = Float, to = Float, step = Float, s = Float) = fun (v, a, b, talking, land, c0, lands, s0) -> use Float in
+  let nthf : ([Float], Float) -> Float = fun (xs, i) -> case xs | [] => 0. | z :: zs => if i <= 0 then z else nthf(zs, i - 1) end in
   let r0 = (if v.fresh then rand(s0) else (u = 0., s = s0)) in
   let mode = (if v.fresh then 0 else v.mode) in let timer = (if v.fresh then 60 + whole(r0.u *. 300.) else v.timer) in let s = r0.s in
   if talking then (x = v.x, y = v.y, face = v.face, mode = 0, timer = (if timer > 90 then timer else 90), to = v.to, step = v.step, s = s)
@@ -28,15 +26,15 @@ let walk : ((x = Float, y = Float, face = Int, mode = Int, timer = Int, to = Flo
       let to = (if fabs(to0 -. v.x) <. 0.5 then (if v.x <. (a +. b) /. 2. then b else a) else to0) in
       (x = v.x, y = v.y, face = v.face, mode = 1, timer = t, to = to, step = v.step, s = r1.s)));
 # ---- A squirrel (squirrelsStep): along the limbs of its tree (a graph of points, each with its neighbours, handed in 32 to a chunk, so a point is found in a few dozen steps, not a thousand), sitting a while, running on to a neighbour (not back the way it came, if it can help it), and, the gnome near, fleeing along the limbs to the point furthest from it within thirty points, not passing close by it; nowhere to go, it scolds #
-let squirrel : ((at = Int, to = Int, prev = Int, f = Float, wait = Int, sat = Bool, acorn = Bool), [[(x = Float, y = Float)]], [[[Int]]], Float, Float, Int) -> (at = Int, to = Int, prev = Int, f = Float, wait = Int, sat = Bool, acorn = Bool, scared = Bool, scold = Bool, s = Int) = fun (q, ptc, nbc, gx, gy, s0) ->
-  let nthp : ([(x = Float, y = Float)], Int) -> (x = Float, y = Float) = fun (xs, i) -> case xs | [] => (x = 0., y = 0.) | z :: zs => if i <= 0 then z else nthp(zs, i - 1) end in
-  let nthn : ([[Int]], Int) -> [Int] = fun (xs, i) -> case xs | [] => [] | z :: zs => if i <= 0 then z else nthn(zs, i - 1) end in
-  let chp : ([[(x = Float, y = Float)]], Int) -> [(x = Float, y = Float)] = fun (xs, i) -> case xs | [] => [] | z :: zs => if i <= 0 then z else chp(zs, i - 1) end in
-  let chn : ([[[Int]]], Int) -> [[Int]] = fun (xs, i) -> case xs | [] => [] | z :: zs => if i <= 0 then z else chn(zs, i - 1) end in
-  let pt : Int -> (x = Float, y = Float) = fun i -> nthp(chp(ptc, i / 32), i - (i / 32) * 32) in
-  let ns : Int -> [Int] = fun i -> nthn(chn(nbc, i / 32), i - (i / 32) * 32) in
-  let nthi : ([Int], Int) -> Int = fun (xs, i) -> case xs | [] => 0 - 1 | z :: zs => if i <= 0 then z else nthi(zs, i - 1) end in
-  let count : ([Int], Int) -> Int = fun (xs, k) -> case xs | [] => k | _ :: zs => count(zs, k + 1) end in
+let squirrel : ((at = Float, to = Float, prev = Float, f = Float, wait = Float, sat = Bool, acorn = Bool), [[(x = Float, y = Float)]], [[[Float]]], Float, Float, Float) -> (at = Float, to = Float, prev = Float, f = Float, wait = Float, sat = Bool, acorn = Bool, scared = Bool, scold = Bool, s = Float) = fun (q, ptc, nbc, gx, gy, s0) -> use Float in
+  let nthp : ([(x = Float, y = Float)], Float) -> (x = Float, y = Float) = fun (xs, i) -> case xs | [] => (x = 0., y = 0.) | z :: zs => if i <= 0 then z else nthp(zs, i - 1) end in
+  let nthn : ([[Float]], Float) -> [Float] = fun (xs, i) -> case xs | [] => [] | z :: zs => if i <= 0 then z else nthn(zs, i - 1) end in
+  let chp : ([[(x = Float, y = Float)]], Float) -> [(x = Float, y = Float)] = fun (xs, i) -> case xs | [] => [] | z :: zs => if i <= 0 then z else chp(zs, i - 1) end in
+  let chn : ([[[Float]]], Float) -> [[Float]] = fun (xs, i) -> case xs | [] => [] | z :: zs => if i <= 0 then z else chn(zs, i - 1) end in
+  let pt : Float -> (x = Float, y = Float) = fun i -> nthp(chp(ptc, floor(i / 32)), i - floor(i / 32) * 32) in
+  let ns : Float -> [Float] = fun i -> nthn(chn(nbc, floor(i / 32)), i - floor(i / 32) * 32) in
+  let nthi : ([Float], Float) -> Float = fun (xs, i) -> case xs | [] => 0 - 1 | z :: zs => if i <= 0 then z else nthi(zs, i - 1) end in
+  let count : ([Float], Float) -> Float = fun (xs, k) -> case xs | [] => k | _ :: zs => count(zs, k + 1) end in
   let pa = pt(q.at) in let pb = pt(q.to) in
   let x = pa.x +. (pb.x -. pa.x) *. q.f in let y = pa.y +. (pb.y -. pa.y) *. q.f in
   let scared = dist(x -. gx, y -. gy) <. 4.5 in
@@ -49,14 +47,14 @@ let squirrel : ((at = Int, to = Int, prev = Int, f = Float, wait = Int, sat = Bo
     else (let at = moved.at in let here = pt(at) in let opts = ns(at) in
       if scared then
         (# the points reached, each with the point it was reached from and how far along: breadth first, from here #
-         let seen : ([(n = Int, par = Int, dep = Int)], Int) -> (found = Bool, par = Int, dep = Int) = fun (xs, n) -> case xs | [] => (found = false, par = 0 - 1, dep = 0) | z :: zs => if z.n == n then (found = true, par = z.par, dep = z.dep) else seen(zs, n) end in
-         let bfs : ([Int], [Int], [(n = Int, par = Int, dep = Int)], Int, Float) -> (got = [(n = Int, par = Int, dep = Int)], best = Int) = fun (queue, later, got, best, bd) ->
+         let seen : ([(n = Float, par = Float, dep = Float)], Float) -> (found = Bool, par = Float, dep = Float) = fun (xs, n) -> case xs | [] => (found = false, par = 0 - 1, dep = 0) | z :: zs => if z.n == n then (found = true, par = z.par, dep = z.dep) else seen(zs, n) end in
+         let bfs : ([Float], [Float], [(n = Float, par = Float, dep = Float)], Float, Float) -> (got = [(n = Float, par = Float, dep = Float)], best = Float) = fun (queue, later, got, best, bd) ->
            case queue
-           | [] => (case later | [] => (got = got, best = best) | _ => (let rv : ([Int], [Int]) -> [Int] = fun (r, t) -> case r | [] => t | w :: ws => rv(ws, w :: t) end in bfs(rv(later, []), [], got, best, bd)) end)
+           | [] => (case later | [] => (got = got, best = best) | _ => (let rv : ([Float], [Float]) -> [Float] = fun (r, t) -> case r | [] => t | w :: ws => rv(ws, w :: t) end in bfs(rv(later, []), [], got, best, bd)) end)
            | u :: rest =>
              (let du = seen(got, u).dep in
               if du >= 30 then bfs(rest, later, got, best, bd)
-              else (let step : ([Int], [Int], [(n = Int, par = Int, dep = Int)], Int, Float) -> (later = [Int], got = [(n = Int, par = Int, dep = Int)], best = Int, bd = Float) = fun (ms, lt, gt, b2, d2) ->
+              else (let step : ([Float], [Float], [(n = Float, par = Float, dep = Float)], Float, Float) -> (later = [Float], got = [(n = Float, par = Float, dep = Float)], best = Float, bd = Float) = fun (ms, lt, gt, b2, d2) ->
                   case ms
                   | [] => (later = lt, got = gt, best = b2, bd = d2)
                   | m :: more =>
@@ -68,40 +66,40 @@ let squirrel : ((at = Int, to = Int, prev = Int, f = Float, wait = Int, sat = Bo
                 let r = step(ns(u), later, got, best, bd) in bfs(rest, r.later, r.got, r.best, r.bd)))
            end in
          let found = bfs([at], [], [(n = at, par = 0 - 1, dep = 0)], at, dist(here.x -. gx, here.y -. gy) +. 0.3) in
-         let back : Int -> Int = fun st -> if st == at || seen(found.got, st).par == at then st else back(seen(found.got, st).par) in
+         let back : Float -> Float = fun st -> if st == at || seen(found.got, st).par == at then st else back(seen(found.got, st).par) in
          let to = back(found.best) in
          (at = at, to = to, prev = moved.prev, f = moved.f, wait = (if to == at then 10 else wait0), sat = sat0, acorn = q.acorn, scared = true, scold = to == at, s = s0))
       else (let r1 = rand(s0) in
         if r1.u <. 0.03 then (let r2 = rand(r1.s) in let r3 = rand(r2.s) in
           (at = at, to = at, prev = moved.prev, f = moved.f, wait = 50 + whole(r2.u *. 170.), sat = true, acorn = r3.u <. 0.45, scared = false, scold = false, s = r3.s))
-        else (let fwd : ([Int], [Int]) -> [Int] = fun (xs, acc) -> case xs | [] => acc | z :: zs => fwd(zs, (if z != moved.prev then z :: acc else acc)) end in
-          let rv : ([Int], [Int]) -> [Int] = fun (r, t) -> case r | [] => t | w :: ws => rv(ws, w :: t) end in
+        else (let fwd : ([Float], [Float]) -> [Float] = fun (xs, acc) -> case xs | [] => acc | z :: zs => fwd(zs, (if z != moved.prev then z :: acc else acc)) end in
+          let rv : ([Float], [Float]) -> [Float] = fun (r, t) -> case r | [] => t | w :: ws => rv(ws, w :: t) end in
           let fw = rv(fwd(opts, []), []) in let from = (case fw | [] => opts | _ => fw end) in let n = count(from, 0) in
           if n == 0 then (at = at, to = at, prev = moved.prev, f = moved.f, wait = wait0, sat = false, acorn = q.acorn, scared = false, scold = false, s = r1.s)
-          else (let r2 = rand(r1.s) in (at = at, to = nthi(from, whole(r2.u *. float_of_int(n))), prev = moved.prev, f = moved.f, wait = wait0, sat = false, acorn = q.acorn, scared = false, scold = false, s = r2.s))))));
+          else (let r2 = rand(r1.s) in (at = at, to = nthi(from, whole(r2.u *. (n))), prev = moved.prev, f = moved.f, wait = wait0, sat = false, acorn = q.acorn, scared = false, scold = false, s = r2.s))))));
 # ---- An insect near the view (wildStep's insects): a dragonfly darting to a place over the water near its home and hovering, bobbing; a bee or a butterfly wandering, now and then to a flower (flowers: those within its range, each its column and the land's height there), fleeing the gnome, resting on the flower a while; one eaten (gone) back after 900 steps. kind: 0 a dragonfly, 1 a bee, 2 a butterfly #
-let bug : ((x = Float, y = Float, vx = Float, vy = Float, tx = Float, ty = Float, wait = Int, rest = Int, land = Bool, face = Int, gone = Int, kind = Int, id = Int, hx = Float, hy = Float, hw = Float), Float, Float, Int, [(x = Int, ly = Float)], Int) -> (x = Float, y = Float, vx = Float, vy = Float, tx = Float, ty = Float, wait = Int, rest = Int, land = Bool, face = Int, gone = Int, s = Int) = fun (b, gx, gy, frame, flowers, s0) ->
+let bug : ((x = Float, y = Float, vx = Float, vy = Float, tx = Float, ty = Float, wait = Float, rest = Float, land = Bool, face = Float, gone = Float, kind = Float, id = Float, hx = Float, hy = Float, hw = Float), Float, Float, Float, [(x = Float, ly = Float)], Float) -> (x = Float, y = Float, vx = Float, vy = Float, tx = Float, ty = Float, wait = Float, rest = Float, land = Bool, face = Float, gone = Float, s = Float) = fun (b, gx, gy, frame, flowers, s0) -> use Float in
   let same = (x = b.x, y = b.y, vx = b.vx, vy = b.vy, tx = b.tx, ty = b.ty, wait = b.wait, rest = b.rest, land = b.land, face = b.face, gone = b.gone, s = s0) in
   if b.gone != 0 then (if frame - b.gone > 900 then (x = b.hx, y = b.hy -. 1.5, vx = b.vx, vy = b.vy, tx = b.tx, ty = b.ty, wait = b.wait, rest = b.rest, land = b.land, face = b.face, gone = 0, s = s0) else same)
   else if b.kind == 0 then
     (let w = b.wait - 1 in
      let r = (if w <= 0 then (let r1 = rand(s0) in let r2 = rand(r1.s) in let r3 = rand(r2.s) in (tx = b.hx +. (r1.u -. 0.5) *. 2. *. b.hw, ty = b.hy -. 0.35 -. r2.u *. 1.6, wait = 30 + whole(r3.u *. 90.), s = r3.s)) else (tx = b.tx, ty = b.ty, wait = w, s = s0)) in
-     let bob = sin(float_of_int(frame) /. 7. +. float_of_int(b.id)) *. 0.004 in
+     let bob = sin((frame) /. 7. +. (b.id)) *. 0.004 in
      let k = (if dist(r.tx -. b.x, r.ty -. b.y) >. 0.05 then 0.12 else 0.) in
      let x = b.x +. (r.tx -. b.x) *. k in let y = b.y +. ((r.ty -. b.y) *. k +. bob) in
      (x = x, y = y, vx = b.vx, vy = b.vy, tx = r.tx, ty = r.ty, wait = r.wait, rest = b.rest, land = b.land, face = (if fabs(r.tx -. x) >. 0.05 then (if r.tx >. x then 1 else 0 - 1) else b.face), gone = 0, s = r.s))
   else if b.rest > 0 then (x = b.x, y = b.y, vx = b.vx, vy = b.vy, tx = b.tx, ty = b.ty, wait = b.wait, rest = b.rest - 1, land = b.land, face = b.face, gone = 0, s = s0)
   else (let bee = b.kind == 1 in let fast = (if bee then 0.05 else 0.03) in let flee = dist(b.x -. gx, b.y -. gy) <. 1.5 in
     let w = b.wait - 1 in
-    let nthf : ([(x = Int, ly = Float)], Int) -> (x = Int, ly = Float) = fun (xs, i) -> case xs | [] => (x = 0, ly = 0.) | z :: zs => if i <= 0 then z else nthf(zs, i - 1) end in
-    let count : ([(x = Int, ly = Float)], Int) -> Int = fun (xs, k) -> case xs | [] => k | _ :: zs => count(zs, k + 1) end in
+    let nthf : ([(x = Float, ly = Float)], Float) -> (x = Float, ly = Float) = fun (xs, i) -> case xs | [] => (x = 0, ly = 0.) | z :: zs => if i <= 0 then z else nthf(zs, i - 1) end in
+    let count : ([(x = Float, ly = Float)], Float) -> Float = fun (xs, k) -> case xs | [] => k | _ :: zs => count(zs, k + 1) end in
     let t = (if w > 0 then (wait = w, tx = b.tx, ty = b.ty, land = b.land, s = s0)
       else (let r1 = rand(s0) in let wait = (if bee then 20 else 50) + whole(r1.u *. 80.) in
         let pick = (if !flee then (let r2 = rand(r1.s) in (go = r2.u <. (if bee then 0.35 else 0.2), s = r2.s)) else (go = false, s = r1.s)) in
         if pick.go then
           (let n = count(flowers, 0) in
-           if n > 0 then (let r3 = rand(pick.s) in let f = nthf(flowers, whole(r3.u *. float_of_int(n))) in let r4 = rand(r3.s) in
-             (wait = wait, tx = float_of_int(f.x) +. 0.5 +. (r4.u -. 0.5) *. 0.4, ty = f.ly -. 0.5, land = true, s = r4.s))
+           if n > 0 then (let r3 = rand(pick.s) in let f = nthf(flowers, whole(r3.u *. (n))) in let r4 = rand(r3.s) in
+             (wait = wait, tx = (f.x) +. 0.5 +. (r4.u -. 0.5) *. 0.4, ty = f.ly -. 0.5, land = true, s = r4.s))
            else (wait = wait, tx = b.tx, ty = b.ty, land = b.land, s = pick.s))
         else (let r3 = rand(pick.s) in let r4 = rand(r3.s) in (wait = wait, tx = b.hx +. (r3.u -. 0.5) *. 2. *. b.hw, ty = b.hy -. 0.5 -. r4.u *. 2.2, land = false, s = r4.s)))) in
     let ra = rand(t.s) in let vx1 = b.vx +. (fsign(t.tx -. b.x) *. fast *. 0.12 +. (ra.u -. 0.5) *. 0.01) in
@@ -117,20 +115,20 @@ let angle : (Float, Float) -> Float = fun (y, x) ->
   # (the page's Math.atan2, as fdlibm works it from atan, without its last correction; the page's twin works it the same way) #
   if x ==. 0. then (if y >. 0. then pi /. 2. else if y <. 0. then 0. -. pi /. 2. else 0.)
   else (let z = atan(fabs(y /. x)) in if x >. 0. then (if y <. 0. then 0. -. z else z) else (if y <. 0. then z -. pi else pi -. z));
-let hawk : ((x = Float, y = Float, cx = Float, a = Float, r = Float, face = Int, wait = Int, mode = Int, x0 = Float, y0 = Float, x1 = Float, y1 = Float, t = Float, dur = Float, next = Int), Float, Float, Int, [Float], Float, [(x = Float, foot = Float, h = Float)], Int) -> (x = Float, y = Float, cx = Float, a = Float, face = Int, wait = Int, mode = Int, x0 = Float, y0 = Float, x1 = Float, y1 = Float, t = Float, dur = Float, next = Int, rest = Int, call = Bool, s = Int) = fun (b, gx, gy, c0, grounds, low, greats, s0) ->
-  let nthf : ([Float], Int) -> Float = fun (xs, i) -> case xs | [] => 0. | z :: zs => if i <= 0 then z else nthf(zs, i - 1) end in
+let hawk : ((x = Float, y = Float, cx = Float, a = Float, r = Float, face = Float, wait = Float, mode = Float, x0 = Float, y0 = Float, x1 = Float, y1 = Float, t = Float, dur = Float, next = Float), Float, Float, Float, [Float], Float, [(x = Float, foot = Float, h = Float)], Float) -> (x = Float, y = Float, cx = Float, a = Float, face = Float, wait = Float, mode = Float, x0 = Float, y0 = Float, x1 = Float, y1 = Float, t = Float, dur = Float, next = Float, rest = Float, call = Bool, s = Float) = fun (b, gx, gy, c0, grounds, low, greats, s0) -> use Float in
+  let nthf : ([Float], Float) -> Float = fun (xs, i) -> case xs | [] => 0. | z :: zs => if i <= 0 then z else nthf(zs, i - 1) end in
   let cx = b.cx +. (gx -. b.cx) *. 0.0015 in
   let ground = nthf(grounds, whole(cx +. 0.5) - c0) in
   let fmax : (Float, Float) -> Float = fun (p, q) -> if p >. q then p else q in let fmin : (Float, Float) -> Float = fun (p, q) -> if p <. q then p else q in
   # (a flight from where it is to x1, y1, ending in next) #
-  let fly : (Float, Float, Float, Float, Int) -> (x0 = Float, y0 = Float, x1 = Float, y1 = Float, t = Float, dur = Float, next = Int, face = Int) = fun (x, y, x1, y1, next) -> (x0 = x, y0 = y, x1 = x1, y1 = y1, t = 0., dur = fmax(30., dist(x1 -. x, y1 -. y) *. 9.), next = next, face = (if x1 >=. x then 1 else 0 - 1)) in
+  let fly : (Float, Float, Float, Float, Float) -> (x0 = Float, y0 = Float, x1 = Float, y1 = Float, t = Float, dur = Float, next = Float, face = Float) = fun (x, y, x1, y1, next) -> (x0 = x, y0 = y, x1 = x1, y1 = y1, t = 0., dur = fmax(30., dist(x1 -. x, y1 -. y) *. 9.), next = next, face = (if x1 >=. x then 1 else 0 - 1)) in
   if b.mode == 0 then
     (let a = b.a +. 0.006 in let base = fmin(ground, low) -. 9. in
      let nx = cx +. cos(a) *. b.r *. 1.6 in let ny = base +. sin(a) *. b.r *. 0.3 in
      let face = (if nx >=. b.x then 1 else 0 - 1) in let w = b.wait - 1 in
      if w > 0 then (x = nx, y = ny, cx = cx, a = a, face = face, wait = w, mode = 0, x0 = b.x0, y0 = b.y0, x1 = b.x1, y1 = b.y1, t = b.t, dur = b.dur, next = b.next, rest = 0 - 1, call = false, s = s0)
-     else (let near : ([(x = Float, foot = Float, h = Float)], Int, Int, Float) -> Int = fun (gs, i, best, bd) -> case gs | [] => best | g :: more => (let d = fabs(g.x -. nx) in if d <. 30. && d <. bd then near(more, i + 1, i, d) else near(more, i + 1, best, bd)) end in
-       let nthg : ([(x = Float, foot = Float, h = Float)], Int) -> (x = Float, foot = Float, h = Float) = fun (gs, i) -> case gs | [] => (x = 0., foot = 0., h = 0.) | g :: more => if i <= 0 then g else nthg(more, i - 1) end in
+     else (let near : ([(x = Float, foot = Float, h = Float)], Float, Float, Float) -> Float = fun (gs, i, best, bd) -> case gs | [] => best | g :: more => (let d = fabs(g.x -. nx) in if d <. 30. && d <. bd then near(more, i + 1, i, d) else near(more, i + 1, best, bd)) end in
+       let nthg : ([(x = Float, foot = Float, h = Float)], Float) -> (x = Float, foot = Float, h = Float) = fun (gs, i) -> case gs | [] => (x = 0., foot = 0., h = 0.) | g :: more => if i <= 0 then g else nthg(more, i - 1) end in
        let k = near(greats, 0, 0 - 1, 1000000000.) in
        if k < 0 then (x = nx, y = ny, cx = cx, a = a, face = face, wait = 900, mode = 0, x0 = b.x0, y0 = b.y0, x1 = b.x1, y1 = b.y1, t = b.t, dur = b.dur, next = b.next, rest = 0 - 1, call = false, s = s0)
        else (let g = nthg(greats, k) in let f = fly(nx, ny, g.x +. 0.5, g.foot -. g.h *. 0.74 -. 0.9, 2) in

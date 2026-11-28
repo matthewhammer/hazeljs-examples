@@ -2,6 +2,10 @@
 
 Each version lists what the apps do as of that version. The newest version is first.
 
+## 0.0.157 (2026-11-28)
+
+- **Gnome world: the creatures in Hazel in Floats, about ten times as fast** (^ticket(909); Matthew, 2026-11-28: "Float, use Float in"). Folk.hz's numbers are all Floats under `use Float in`, as JavaScript's are all doubles, so compiled they are JavaScript's own arithmetic, with none of exact integers' checks; the page's random numbers are its own steps in doubles. An insect's step in Hazel takes about 0.37 µs where it took 4.7; every villager, squirrel, insect and hawk the same as the page's, as before.
+
 ## 0.0.156 (2026-11-28)
 
 - **Gnome world: Hazel's random numbers four times as cheap** (^ticket(907)). Folk.hz rounds the seed's product to 53 bits by a short search over the nine sizes it can have, not by counting its bits one at a time: a draw takes about 0.7 µs where it took about 3, the same numbers as the page's. The insects in Hazel take half the time they did.
