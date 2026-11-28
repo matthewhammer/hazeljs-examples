@@ -1,12 +1,43 @@
-# hazeljs-examples: Hazel activities
+# hazeljs-examples: apps and games with rules in Hazel
 
-**▶ Try it at https://matthewhammer.org/hazeljs-examples/**: the ancient oracles (the [I Ching](https://matthewhammer.org/hazeljs-examples/i-ching/), the [Tarot](https://matthewhammer.org/hazeljs-examples/tarot/), [astrology](https://matthewhammer.org/hazeljs-examples/astrology/)), one-player games, games against Hazel AI opponents, and a physics simulation ([pinball](https://matthewhammer.org/hazeljs-examples/pinball/)). The old address, https://matthewhammer.org/hazeljs-oracles/, sends each page to its new one.
+**▶ Try it at https://matthewhammer.org/hazeljs-examples/**: the ancient oracles (the [I Ching](https://matthewhammer.org/hazeljs-examples/i-ching/), the [Tarot](https://matthewhammer.org/hazeljs-examples/tarot/), [astrology](https://matthewhammer.org/hazeljs-examples/astrology/)), one-player games (Solitaire, Minesweeper, Snake, Gnome dig and more), games against Hazel opponents (Go, Checkers, Mahjong, Light trails), physics simulations ([pinball](https://matthewhammer.org/hazeljs-examples/pinball/), Downhill, Bricks), a [Petri net](https://matthewhammer.org/hazeljs-examples/petri-net/), and [Gnome world](https://matthewhammer.org/hazeljs-examples/world/), the largest. The old address, https://matthewhammer.org/hazeljs-oracles/, sends each page to its new one.
 
-**Small apps whose rules are written in [Hazel](https://hazel.org) and run by [hazeljs](https://www.npmjs.com/package/hazeljs): ancient oracles, one-player games, Hazel AI opponents, and a physics simulation.** Each is its own app, on its own page: the reading on one side, revealed a step at a time, and on the other the Hazel program that makes it, in Hazel's own editor. The page passes the program random numbers, or a birth's time and place, and draws what it answers; edit the program and the page builds it again. While it has an error or a hole, the I Ching's and the Tarot's own JavaScript answers instead, and the page says which did (astrology has no such fallback: its sky is Hazel's alone).
+**Web apps, each a JavaScript page with some of its rules written in [Hazel](https://hazel.org) and run by [hazeljs](https://www.npmjs.com/package/hazeljs).** How much of each is Hazel varies a great deal:
+
+- **The oracles and the smaller games**: the rules are Hazel and the page draws what they answer. The program is on the page in Hazel's own editor; edit it and the page builds it again. While it has an error or a hole, the I Ching's and the Tarot's own JavaScript answers instead, and the page says which did.
+- **Gnome world**: Hazel is the smaller part. By default, Hazel makes the world's plan and takes the gnome's every step. Five more pieces can be switched to Hazel, each off by default. The drawing, sound, input, saving and the rest are JavaScript. Hazel is 14% of the game's own code, and 22% of the code that is not drawing ([^report(70)](https://matthewhammer.org/hazel/reports/070/)).
+
+**How the Hazel runs.** Compiled to JavaScript by hazel-jit: ahead of time (each game's `compiled.js`, Gnome world's `rules-aot.json`), or as the page loads. hazeljs's interpreter runs it when the rules are edited, have a hole, or are asked for with `?interpreted=1`. On the 14 games timed four ways, compiled Hazel takes about 3.8 times plain JavaScript's time, and the interpreter about 4,000 times compiled Hazel's ([^report(65)](https://matthewhammer.org/hazel/reports/065/)). Every app also runs offline once loaded.
 
 It is the third example app for `hazeljs`, after [Messed Up Dress Up](https://matthewhammer.org/kids-choice-games/dress-up/) and hazeljs-petri-example, whose Petri net simulator has since joined the apps here, at `petri-net/`, with its history.
 
-> **Experimental.** `hazeljs` is a 0.0.x prototype, and Hazel's tile editor comes from a branch build of Hazel.
+> **Experimental.** `hazeljs` is a 0.0.x prototype; Gnome world loads a branch build of Hazel's library (the `hazeljs` branch, from build.hazel.org), and Hazel's tile editor comes from a branch build too.
+
+## Gnome world: JavaScript and Hazel, so far
+
+Gnome world is where this repository measures what Hazel costs beside JavaScript in a large game. The numbers below come from the Hazel reports, which say how each was measured. Most are from one machine or one GitHub runner at a time, so read them as sizes, not exact figures.
+
+**In the game as it is, compiled Hazel costs little.** The world's plan and the gnome's step are Hazel. The 44,933 steps of the 🏃 speed run take 25.5 s with them compiled, 24.7 s with the same rules in plain JavaScript (⚡ under ⚙️ Advanced), and about 4.2 minutes interpreted. Compiled, the rules are 1.3% of the run ([^report(65)](https://matthewhammer.org/hazel/reports/065/)). The pieces in Hazel are small beside the drawing and the water, which are JavaScript.
+
+**More of the game can be switched to Hazel, a piece at a time, each with a JavaScript twin.** Under ⚙️ Advanced, or by a query, Hazel takes over the water (💧 `Water.hz`), the speed run's way (🧭 `Path.hz`), its planning (🗺️ `Plan.hz`), the rivers, pumps and rain (🌧️ `Rivers.hz`), and the villagers, squirrels, insects and hawks (🐿️ `Folk.hz`). The page's own JavaScript stays the default and is each one's twin. The world save check runs both from one state on every push and finds the same answers to the bit, including the same random numbers ([^report(69)](https://matthewhammer.org/hazel/reports/069/), [^report(70)](https://matthewhammer.org/hazel/reports/070/)).
+
+**Each such piece takes longer in Hazel, from about as long as its twin to 26 times as long (0.0.156).** With one of the three newest on, the speed run takes about what it did: 19.0 s, 21.6 s and 21.1 s against 20.0 s. With every option on, the water in Hazel among them, it does not finish in two minutes. The water in Hazel alone is about half the page's busy time.
+
+**Where the gap comes from** ([^report(71)](https://matthewhammer.org/hazel/reports/071/)):
+
+- **Exact integers.** Hazel's `Int` is exact. Compiled, each addition or multiplication checks that it stays a safe integer and goes to a BigInt past 2^53. Since 0.0.157 and 0.0.158, `Folk.hz`, `Path.hz` and `Rivers.hz` write their numbers as Floats under `use Float in`, as JavaScript's are doubles, with every answer the same. An insect's step in Hazel went from 4.7 µs to 0.37 µs; the page's own JavaScript takes about 0.11 µs.
+- **Crossing into compiled code and back.** A record of plain values crosses as the page's own object. A list does not: compiled code holds it as a chain of cells, so each call rebuilds the page's array as cells and the answer back as an array. That is from a few percent to about three quarters of a call's time.
+- **No arrays.** Where JavaScript reads and writes an array, the Hazel builds trees: `Path.hz` keeps the search window's tiles and its best costs in balanced trees. Its 20 searches take 49 ms in Floats (58 in Ints) against about 5 ms in JavaScript, so its time is in the trees, not the numbers.
+
+**Underway: lists as arrays in compiled code** ([^ticket(909)](https://matthewhammer.org/hazel/reports/071/#next)). A trial build of hazel-jit (`trial/909-segments-pkg`) holds a list as an array segment as well as cells. A page's array then goes in with no copy, `length` and `nth` take one step, and `map` and `filter` are loops. Every twin's answers are the same under it. Measured in one browser against the build the page loads: a water step takes 1.6 ms instead of 2.4 ms, and a search for the way 2.6 ms instead of 4.3 ms. The squirrels, which walk the same short lists over and over, are still slower than with cells (0.052 ms a step against 0.031). The trial is not yet in the build the page loads; try it with `?libat=trial/909-segments-pkg`.
+
+| A piece, in one browser (0.0.158) | JavaScript | Hazel, the page's build | Hazel, lists as arrays (trial) |
+|---|---|---|---|
+| the water, a step | 0.07 to 0.10 ms | 2.4 ms | 1.6 ms |
+| the way to a gem, a search | 0.21 to 0.25 ms | 4.3 ms | 2.6 ms |
+| the rivers, a dry step | about 0.005 ms | 0.053 ms | 0.035 ms |
+| the 80 villagers, 14 squirrels, 70 insects and 2 hawks, a step | 0.02 to 0.03 ms | 0.12 ms | 0.12 ms |
+| the order of the 12 things to find (once a run) | 3.5 to 5 ms | 93 ms | 76 ms |
 
 ## The oracles
 
@@ -26,7 +57,7 @@ cd hazeljs-examples
 python3 -m http.server 8000 --bind 127.0.0.1
 ```
 
-Then open http://localhost:8000/. The pages load `hazeljs` from npm through jsDelivr, so nothing needs installing for them. The Tarot's woodcut faces are a git submodule (`tarot/woodcut`); in a clone made without `--recurse-submodules`, `git submodule update --init` fetches them.
+Then open http://localhost:8000/. Most pages run their rules compiled ahead of time (`compiled.js`) and load `hazeljs` from npm through jsDelivr only to edit them or run them interpreted; Gnome world loads the `hazeljs` branch's build of Hazel's library from build.hazel.org (npm's 0.0.4 if it cannot), so nothing needs installing for them. The Tarot's woodcut faces are a git submodule (`tarot/woodcut`); in a clone made without `--recurse-submodules`, `git submodule update --init` fetches them.
 
 The I Ching in Node, with the odds of each line by each method and what a cast costs:
 
