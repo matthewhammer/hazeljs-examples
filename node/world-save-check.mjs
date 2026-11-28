@@ -78,6 +78,11 @@ try {
   if (TW.water.jsWaterDiffers || TW.water.jsWakeDiffers) fail.push(`the water's passes: the page's differ from 0.0.149's at ${TW.water.jsWaterDiffers} tiles, ${TW.water.jsWakeDiffers} wakings`);
   if (TW.water.hazelMs == null || TW.water.hazelWaterDiffers || TW.water.hazelWakeDiffers) fail.push(`the water in Hazel: ${TW.water.hazelMs == null ? "not built" : `differs at ${TW.water.hazelWaterDiffers} tiles, ${TW.water.hazelWakeDiffers} wakings`}`);
   if (TW.way.same !== TW.way.n) fail.push(`the way in Hazel: the same as wayJS on ${TW.way.same} of ${TW.way.n}${TW.way.firstDiff ? "; first: " + JSON.stringify(TW.way.firstDiff) : ""}`);
+  // ---- (^ticket(907)) the speed run's planning by Plan.hz against the page's: the order of all the things, the trees' parts, the gems
+  // nearest first, the dig's chunk from several chunks and chances
+  const PS = await A.eval("WorldTest.planSame()");
+  log(`🗺️ the planning: the order of ${PS.order && PS.order.n} things ${PS.order && PS.order.same ? "the same" : "DIFFERS"}, the trees' ${PS.trees && PS.trees.n} parts ${PS.trees && PS.trees.same ? "the same" : "DIFFER"}, ${PS.nearest && PS.nearest.n} gems nearest first ${PS.nearest && PS.nearest.same ? "the same" : "DIFFER"}, the dig's chunk the same at ${PS.chunksSame} of ${PS.chunks}; ms ${JSON.stringify(PS.ms)}`);
+  if (!PS.order || !PS.order.same || !PS.trees.same || !PS.nearest.same || PS.chunksSame !== PS.chunks) fail.push("the planning in Hazel (Plan.hz) differs from the page's: " + JSON.stringify({ order: PS.order, trees: PS.trees, nearest: PS.nearest, chunks: [PS.chunksSame, PS.chunks] }).slice(0, 600));
   // ---- 2. read, then save
   const before = await A.eval(`(async () => { const T = WorldTest; T.stopBot(); T.S.asking = true; const d = T.digest(); window.__save = await T.saveText(T.snapshot()); return d; })()`);
   const text = await A.eval("window.__save");

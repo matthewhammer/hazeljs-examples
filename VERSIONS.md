@@ -2,6 +2,11 @@
 
 Each version lists what the apps do as of that version. The newest version is first.
 
+## 0.0.153 (2026-11-28)
+
+- **Gnome world: the speed run's planning in Hazel, for measuring** (^ticket(907), the first of three: Matthew, "opt-in for Hazel (default off)"). `world/rules/Plan.hz`: the order of the things to find (Held and Karp's way, every order of twelve things weighed), the great trees' parts, the gems and a chunk's tiles nearest first, and the dig's next chunk. Under ⚙️ Advanced, "🗺️ the speed run's planning in Hazel", or `?plan=hazel`; off by default. The same answers as the page's own, held to it by the world save check on every push; a whole run planned by Hazel the same as one planned by the page. The order of the things takes about 73 ms in Hazel against 4 in JavaScript, once a run.
+  - The water's pass across starts the same way in every world made, so a run made twice is the same twice.
+
 ## 0.0.152 (2026-11-28)
 
 - **Gnome world: the flying level as N and Matthew asked** (their list of 2026-11-28).

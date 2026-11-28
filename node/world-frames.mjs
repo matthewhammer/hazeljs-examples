@@ -30,6 +30,12 @@ const SETUPS_904 = [
   { name: "way-hazel", q: "&way=hazel", rules: "hazel", w: 1280, h: 800, dpr: 1, cpu: 1 },
   { name: "wateps-1e-3", q: "&wateps=0.001", rules: "hazel", w: 1280, h: 800, dpr: 1, cpu: 1 },
 ];
+// (^ticket(907)) the page as it is, and with each of the newer Hazel options, and all of them
+const SETUPS_907 = [
+  { name: "js", rules: "hazel", w: 1280, h: 800, dpr: 1, cpu: 1 },
+  { name: "plan-hazel", q: "&plan=hazel", rules: "hazel", w: 1280, h: 800, dpr: 1, cpu: 1 },
+  { name: "all-hazel", q: "&plan=hazel&way=hazel&water=hazel&rivers=hazel&folk=hazel", rules: "hazel", w: 1280, h: 800, dpr: 1, cpu: 1 },
+];
 const SETUPS_902 = [
   { name: "before", dir: B148, rules: "hazel", w: 1280, h: 800, dpr: 1, cpu: 1 },
   { name: "after", rules: "hazel", w: 1280, h: 800, dpr: 1, cpu: 1 },
@@ -43,7 +49,7 @@ const SETUPS_902 = [
   // own, as it has no record of its own)
   { name: "then-0.0.103", old: "0.0.103", rules: "hazel", w: 1280, h: 800, dpr: 1, cpu: 1 },
 ];
-const SETUPS = ((process.env.SETS || "904") === "902" ? SETUPS_902 : SETUPS_904).filter(s => !ONLY || ONLY.includes(s.name));
+const SETUPS = ({ "902": SETUPS_902, "904": SETUPS_904, "907": SETUPS_907 }[process.env.SETS || "907"] || SETUPS_907).filter(s => !ONLY || ONLY.includes(s.name));
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 fs.mkdirSync(OUT, { recursive: true });
 const logLines = [], log = (...a) => { const s = a.join(" "); console.log(s); logLines.push(s); };

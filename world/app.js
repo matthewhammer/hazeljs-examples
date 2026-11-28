@@ -35,8 +35,8 @@
   if (window.visualViewport) { const vz = () => { const z = visualViewport.scale; WATCH.zoomMin = Math.min(WATCH.zoomMin, z); WATCH.zoomMax = Math.max(WATCH.zoomMax, z); if (Math.abs(z - 1) > 0.01) WATCH.zoomAt = performance.now(); };
     visualViewport.addEventListener("resize", vz); visualViewport.addEventListener("scroll", vz); }
   const LIB_JIT = "https://build.hazel.org/hazeljs/hazel-lib.js", LIB_NPM = "https://cdn.jsdelivr.net/npm/hazeljs@0.0.4/hazel-lib.js";
-  const PROGRAM = "world", MODULES = ["World", "Fly", "Tail", "Ride", "Boulder", "Pickup", "Wind", "Bunny", "Frog", "Bird", "Jelly", "Water", "Path"];
-  const TAIL = "(plan = World.plan, ground = World.ground, village = World.village, furnish = World.furnish, limbs = World.limbs, styles = World.styles, beaver = World.beaver, water_row = World.water_row, step = World.step, roots = World.roots, threads = World.threads, greet = World.greet, dig_steps = World.dig_steps, fly = Fly.step, tail = Tail.step, ride_pre = Ride.pre, ride_post = Ride.post, boulder = Boulder.step, pickup = Pickup.step, wind = Wind.step, bunny = Bunny.step, frog = Frog.step, bird = Bird.step, swim = Bird.swim, jelly = Jelly.step, water_down = Water.down, water_across = Water.across, way = Path.way)";
+  const PROGRAM = "world", MODULES = ["World", "Fly", "Tail", "Ride", "Boulder", "Pickup", "Wind", "Bunny", "Frog", "Bird", "Jelly", "Water", "Path", "Plan"];
+  const TAIL = "(plan = World.plan, ground = World.ground, village = World.village, furnish = World.furnish, limbs = World.limbs, styles = World.styles, beaver = World.beaver, water_row = World.water_row, step = World.step, roots = World.roots, threads = World.threads, greet = World.greet, dig_steps = World.dig_steps, fly = Fly.step, tail = Tail.step, ride_pre = Ride.pre, ride_post = Ride.post, boulder = Boulder.step, pickup = Pickup.step, wind = Wind.step, bunny = Bunny.step, frog = Frog.step, bird = Bird.step, swim = Bird.swim, jelly = Jelly.step, water_down = Water.down, water_across = Water.across, way = Path.way, plan_order = Plan.order, plan_trees = Plan.trees, plan_nearest = Plan.nearest, plan_chunk = Plan.chunk)";
   const KEY = "hazeljs-examples/world/";
   const Q = new URLSearchParams(location.search);
   const $ = id => document.getElementById(id);
@@ -131,7 +131,7 @@
   // once (the world's plan, its villages and trees); off unless chosen; kept on this device, and in a save made with it on
   let plainView = null, plainOf = null;
   const H = () => { if (!(S.built && S.built.ok)) return null; const v = S.built.value; if (S.rules !== "plain" || !window.WorldPlain) return v;
-    if (plainOf !== v) { plainOf = v; plainView = { ...v, step: window.WorldPlain.step, beaver: window.WorldPlain.beaver, water_row: window.WorldPlain.water_row, fly: undefined, tail: undefined, ride_pre: undefined, ride_post: undefined, boulder: undefined, pickup: undefined, wind: undefined, bunny: undefined, frog: undefined, bird: undefined, swim: undefined, jelly: undefined, water_down: undefined, water_across: undefined, way: undefined }; }
+    if (plainOf !== v) { plainOf = v; plainView = { ...v, step: window.WorldPlain.step, beaver: window.WorldPlain.beaver, water_row: window.WorldPlain.water_row, fly: undefined, tail: undefined, ride_pre: undefined, ride_post: undefined, boulder: undefined, pickup: undefined, wind: undefined, bunny: undefined, frog: undefined, bird: undefined, swim: undefined, jelly: undefined, water_down: undefined, water_across: undefined, way: undefined, plan_order: undefined, plan_trees: undefined, plan_nearest: undefined, plan_chunk: undefined }; }
     return plainView; };
   function setRules(r) { S.rules = r === "plain" ? "plain" : "hazel"; keep("rules", S.rules); plainOf = null; const box = document.getElementById("rules-plain"); if (box) box.checked = S.rules === "plain"; if (typeof drawStatus === "function") drawStatus(); }
   let seedRand = 1;
@@ -343,6 +343,7 @@
     for (const v of S.villages) { const mine = S.rooms.filter(R => R.x >= v.x0 && R.x < v.x1), R = mine.find(R => R.kind === 1) || mine[0];
       if (R) S.heartItems.push({ x: R.x + R.w * 0.5, y: R.y + 3.3, taken: false }); }
     for (const hs of S.houses) if (!hs.small) S.heartItems.push({ x: hs.x + 0.5 + hs.side * 0.6, y: hs.row - 0.55, taken: false });
+    sweep = 1; wetFrom = 0;   // (0.0.153: the water's pass across goes the same way in every world made, so a run repeats exactly)
     S.works = new Map(); S.hearts = 5; S.hurtAt = -1e9; S.faintAt = 0; S.cam.set = false; S.smoke = []; S.parts = []; S.pebbles = []; S.piles = []; S.fallen = []; S.talk = null; hushTalk(); rootChunks.clear(); S.minimapAt = -1e9; S.rain = 0; S.rainAt = S.frame + 60 * 60; S.banner = { text: hand ? "🌈 " + LV.name : "🌍 Gnome world", t: performance.now() };
   }
   const riverAt = x => S.rivers.find(R => x >= R.x - 0.5 && x < R.x + R.w + 0.5) || null;
@@ -799,6 +800,15 @@
     // house in the second level")
     jelly: { icon: "🪼", label: "🪼 flying jellyfish", what: "🪼 the flying jellyfish", banner: "🪼 The flying jellyfish! Hold ↓ and press R to turn into it: ↑ pulses you up like a rocket (hold it to keep pulsing), ← → lean and drift, ↓ sinks, let go and you hover. R again to change back" },
   };
+  // (^ticket(907)) the speed run's planning in Hazel (rules/Plan.hz): off by default (⚙️ Advanced, or ?plan=hazel); the page's own,
+  // below, is the twin, and the same answers (WorldTest.planSame)
+  const PLAN = { hazel: Q.get("plan") === "hazel" || (Q.get("plan") !== "js" && kept("plan", "js") === "hazel"), calls: 0, ms: 0 };
+  const planH = () => { const h = H(); return PLAN.hazel && h && h.plan_order ? h : null; };
+  const planOrder = (left, gc, gr) => { const h = planH(); if (!h) return botItemOrder(left, gc, gr);
+    const t0 = performance.now(), ix = h.plan_order(left.map(it => ({ x: it.x, y: it.y, kind: it.kind })), gc, gr); PLAN.calls++; PLAN.ms += performance.now() - t0; return ix.map(i => left[i]); };
+  const planTreesOf = gc => { const h = planH(); if (!h) return null;
+    const t0 = performance.now(), out = h.plan_trees(S.greats.map(G => ({ x: G.x, foot: G.foot, h: G.h, kind: G.kind, half: G.half, limbs: G.limbs.map(L => ({ y: L.y, side: L.side, len: L.len, house: L.house })) })), S.bridges.map(b => ({ row: b.row, x0: b.x0, x1: b.x1 })), gc);
+    PLAN.calls++; PLAN.ms += performance.now() - t0; return out.map(t => ({ c: t.c, r: t.r, what: t.what, part: true })); };
   const BOT = { on: false, phase: "", queue: [], cur: null, path: [], k: 0, lastCell: -1, still: 0, tries: 0, skipped: [], frames: 0, t0: 0, items: 0, parts: 0, partsAll: 0, gems: 0, gemsAll: 0, report: null,
     digAll: 0, digLeft: 0, digSkip: new Set(), digPass: 1, digT0: 0, chunks: 0, rng: 1, sayAt: 0 };
   const dist = new Float64Array(NN), prev = new Int32Array(NN), heapI = new Int32Array(NN * 8), heapD = new Float64Array(NN * 8);   // (64-bit: in 32, a cost a hair lower rounded back to the same, and two tiles went on "improving" each other until the search's limit)
@@ -947,8 +957,8 @@
   }
   function botTargets(phase) {
     const g = S.g, gc = g.x / 1000, gr = g.y / 1000;
-    if (phase === "items") return botItemOrder(S.items.filter(it => !it.taken), gc, gr).map(it => ({ c: Math.floor(it.x), r: Math.floor(it.y), what: ITEM[it.kind].what, item: it }));
-    if (phase === "trees") { const out = [];
+    if (phase === "items") return planOrder(S.items.filter(it => !it.taken), gc, gr).map(it => ({ c: Math.floor(it.x), r: Math.floor(it.y), what: ITEM[it.kind].what, item: it }));
+    if (phase === "trees") { const hz = planTreesOf(gc); if (hz) return hz; const out = [];
       for (const G of [...S.greats].sort((a, b) => Math.abs(a.x - gc) - Math.abs(b.x - gc))) {
         const name = G.kind === 31 ? "the stair tree" : "a great tree";
         out.push({ c: G.x, r: G.foot - 1, what: `${name}: its foot`, part: true });
@@ -984,14 +994,17 @@
     if (!open && BOT.digSkip.size && BOT.digPass < 2) { BOT.digPass = 2; BOT.digSkip.clear(); ({ left, open } = digCount()); }
     if (!open) return [];
     const g = S.g, cc = Math.max(0, Math.min(DIG_CW - 1, Math.floor(g.x / 1000 / DIG_CH))), cr = Math.max(0, Math.min(DIG_CR - 1, Math.floor((g.y - 1) / 1000 / DIG_CH)));
-    let pick = [];
+    const hz = planH(); let k;
+    if (hz) { const u = digRand(), t0 = performance.now(); k = hz.plan_chunk(Array.from(left), DIG_CW, cc, cr, u); PLAN.calls++; PLAN.ms += performance.now() - t0; }
+    else { let pick = [];
     if (left[cr * DIG_CW + cc]) pick = [cr * DIG_CW + cc];
     else for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const x = cc + dx, y = cr + dy;
       if ((dx || dy) && x >= 0 && x < DIG_CW && y >= 0 && y < DIG_CR && left[y * DIG_CW + x]) pick.push(y * DIG_CW + x); }
     if (!pick.length) { let best = Infinity;
       for (let k = 0; k < left.length; k++) if (left[k]) { const x = k % DIG_CW, y = (k - x) / DIG_CW, d = Math.abs(x - cc) + Math.abs(y - cr) * 1.5;
         if (d < best) { best = d; pick = [k]; } else if (d === best) pick.push(k); } }
-    const k = pick[Math.floor(digRand() * pick.length)], x0 = (k % DIG_CW) * DIG_CH, y0 = Math.floor(k / DIG_CW) * DIG_CH, out = [];
+    k = pick[Math.floor(digRand() * pick.length)]; }
+    const x0 = (k % DIG_CW) * DIG_CH, y0 = Math.floor(k / DIG_CW) * DIG_CH, out = [];
     for (let r = y0; r < Math.min(WH, y0 + DIG_CH); r++) for (let c = x0; c < Math.min(WW, x0 + DIG_CH); c++) { const i = at(c, r); if (digCan(i) && !BOT.digSkip.has(i)) out.push({ c, r, what: "⛏️ a tile", digAt: i }); }
     BOT.chunks++; return out;
   }
@@ -1006,7 +1019,9 @@
         if (i >= order.length) { botFinish(); return false; }
         if (order[i] === "dig") botRunDone();
         BOT.phase = order[i]; BOT.queue = botTargets(BOT.phase); if (BOT.phase === "trees") BOT.partsAll = BOT.queue.length; continue; }
-      if (BOT.phase === "gems" || BOT.phase === "dig") BOT.queue.sort((a, b) => Math.abs(a.c - gc) + Math.abs(a.r - gr) * 1.5 - Math.abs(b.c - gc) - Math.abs(b.r - gr) * 1.5);
+      if (BOT.phase === "gems" || BOT.phase === "dig") { const h = planH();
+        if (h) { const t0 = performance.now(), ix = h.plan_nearest(BOT.queue.map(t => ({ c: t.c, r: t.r })), gc, gr); PLAN.calls++; PLAN.ms += performance.now() - t0; const q = BOT.queue; BOT.queue = ix.map(i => q[i]); }
+        else BOT.queue.sort((a, b) => Math.abs(a.c - gc) + Math.abs(a.r - gr) * 1.5 - Math.abs(b.c - gc) - Math.abs(b.r - gr) * 1.5); }
       const t = BOT.queue.shift(); if (t.gemAt != null && !gem[t.gemAt]) continue; if (t.item && t.item.taken) continue; if (t.digAt != null && !digCan(t.digAt)) continue;
       BOT.cur = t; BOT.tries = 0; BOT.avoid = new Set(); tmark("the speed run's way"); BOT.path = botPlan(t.c, t.r, null) || []; tmark("its path search"); BOT.k = 0; BOT.still = 0;
       if (!BOT.path.length && !(gc === t.c && gr === t.r)) { botSkip(t); continue; }
@@ -1022,6 +1037,28 @@
     S.banner = { text: `🏃 Speed run: ${BOT.report.time} · ${BOT.report.items} things · ${BOT.report.treeParts} tree parts · 💎 ${BOT.report.gems}`, t: performance.now() + 3000 };
     BOT.sayAt = performance.now() + 6500; BOT.digT0 = BOT.frames; BOT.digAll = 0; BOT.digLeft = 0; BOT.digSkip = new Set(); BOT.digPass = 1; BOT.chunks = 0;
     BOT.rng = ((S.seed | 0) * 7919 + 104729) & 0x7fffffff || 1;
+  }
+  // (tests, ^ticket(907): the planning both ways on this world: the order of all the things (from where the gnome is), the trees'
+  // parts, the gems nearest first, and the dig's chunk from the gnome's chunk and from others, for several chances)
+  function planSame() {
+    const h = H(), out = { order: null, trees: null, nearest: null, chunks: 0, chunksSame: 0, ms: {} };
+    if (!h || !h.plan_order) return { built: false };
+    const g = S.g, gc = g.x / 1000, gr = g.y / 1000, J = x => JSON.stringify(x), time = (k, f) => { const t0 = performance.now(), v = f(); out.ms[k] = +((out.ms[k] || 0) + performance.now() - t0).toFixed(2); return v; };
+    const things = S.items.slice(0, 13);
+    const oj = time("orderJS", () => botItemOrder(things, gc, gr)).map(it => things.indexOf(it)), oh = time("orderHazel", () => h.plan_order(things.map(it => ({ x: it.x, y: it.y, kind: it.kind })), gc, gr));
+    out.order = { n: things.length, same: J(oj) === J(oh), js: oj, hazel: oh };
+    const wasOn = PLAN.hazel; PLAN.hazel = false; const tj = time("treesJS", () => botTargets("trees")); PLAN.hazel = true; const th = time("treesHazel", () => botTargets("trees")); PLAN.hazel = wasOn;
+    out.trees = { n: tj.length, same: J(tj) === J(th) };
+    const ic = Math.floor(gc), ir = Math.floor((g.y - 1) / 1000), gems = []; for (let i = 0; i < NN; i++) if (gem[i]) gems.push({ c: i % WW, r: Math.floor(i / WW) });
+    const nj = time("nearestJS", () => gems.map((t, i) => ({ ...t, i })).sort((a, b) => Math.abs(a.c - ic) + Math.abs(a.r - ir) * 1.5 - Math.abs(b.c - ic) - Math.abs(b.r - ir) * 1.5).map(t => t.i));
+    const nh = time("nearestHazel", () => h.plan_nearest(gems, ic, ir)); out.nearest = { n: gems.length, same: J(nj) === J(nh) };
+    const { left } = digCount(), L = Array.from(left);
+    for (const [cc, cr] of [[0, 0], [5, 3], [40, 20], [DIG_CW - 1, DIG_CR - 1], [Math.floor(gc / DIG_CH), Math.floor(ir / DIG_CH)]]) for (const u of [0, 0.37, 0.999]) {
+      let pick = []; if (left[cr * DIG_CW + cc]) pick = [cr * DIG_CW + cc];
+      else for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const x = cc + dx, y = cr + dy; if ((dx || dy) && x >= 0 && x < DIG_CW && y >= 0 && y < DIG_CR && left[y * DIG_CW + x]) pick.push(y * DIG_CW + x); }
+      if (!pick.length) { let best = Infinity; for (let k = 0; k < left.length; k++) if (left[k]) { const x = k % DIG_CW, y = (k - x) / DIG_CW, d = Math.abs(x - cc) + Math.abs(y - cr) * 1.5; if (d < best) { best = d; pick = [k]; } else if (d === best) pick.push(k); } }
+      const kj = pick.length ? pick[Math.floor(u * pick.length)] : -1, kh = time("chunkHazel", () => h.plan_chunk(L, DIG_CW, cc, cr, u)); out.chunks++; if (kj === kh) out.chunksSame++; }
+    return out;
   }
   function botFinish() {
     BOT.on = false; for (const k in S.keys) S.keys[k] = false;
@@ -6013,10 +6050,11 @@
   const hzBox = (id, on, words, set) => { const row = document.createElement("label"); row.className = "speed-row rules-row"; const box = document.createElement("input"); box.type = "checkbox"; box.id = id; box.checked = on;
     row.append(box, document.createTextNode(" " + words)); box.addEventListener("change", () => set(box.checked)); return row; };
   const hzWater = hzBox("water-hazel", WATER.hazel, "💧 the water in Hazel (Water.hz): the same water, about 13 times the time", on => { WATER.hazel = on; keep("water", on ? "hazel" : "js"); });
+  const hzPlan = hzBox("plan-hazel", PLAN.hazel, "🗺️ the speed run's planning in Hazel (Plan.hz): the order of the things, the trees' parts, the nearest gem, the dig's next chunk", on => { PLAN.hazel = on; keep("plan", on ? "hazel" : "js"); });
   const hzWay = hzBox("way-hazel", WAY.hazelOn, "🧭 the speed run's way in Hazel (Path.hz): the same ways, about 25 times the time", on => { WAY.hazelOn = on; keep("way", on ? "hazel" : "js"); });
   const hzHint = document.createElement("p"); hzHint.className = "muted speed-hint"; hzHint.textContent = "Each gives every tile the very same water, and the speed run the very same way, as the page's JavaScript does; they are here to profile and measure Hazel against it (^report(69)). Slow: the water in Hazel makes each step of the world about 13 times as long, and the way about 25 times. ?water=hazel and ?way=hazel turn them on for one visit.";
   if (window.OracleAdvanced) window.OracleAdvanced.panel({
-    extras: [rlCap, rlRow, rlHint, hzCap, hzWater, hzWay, hzHint, bugCap, bugRow, bugOut, bugHint, tpCap, tpRow, tpOut, tpHint],
+    extras: [rlCap, rlRow, rlHint, hzCap, hzWater, hzWay, hzPlan, hzHint, bugCap, bugRow, bugOut, bugHint, tpCap, tpRow, tpOut, tpHint],
     holder: $("advanced"), name: "Gnome world", built: () => S.built, libAt: () => 0, keysIn: null,
     mode: () => ({ asked: S.built && S.built.compiled ? "compiled" : "interpreted", error: null }),
     about: "600 of the gnome's steps through Hazel, running and jumping",
@@ -6040,7 +6078,7 @@
   if (Q.has("test")) Object.assign(window.WorldTest, { LEVELS, levelOf, travel, vortexStep, rainbowsStep, catHeadFound, digOK,
     freshLevel: id => { S.level = String(id); S.seed = levelOf(id).seed; S.away = {}; S.points = 0; build(H(), S.seed); digButton(); return S.level; } });   // (0.0.127: the caverns)
   if (Q.has("test")) Object.assign(window.WorldTest, { waterSame, waterPasses, waterPassesRef, WATER, PORES, FLOW, CLING, root });   // (^ticket(904))
-  if (Q.has("test")) Object.assign(window.WorldTest, { WAY, wayJS, wayCode, wayWindow, rockSet, botPlanOld, waySame });   // (^ticket(905))
+  if (Q.has("test")) Object.assign(window.WorldTest, { WAY, wayJS, wayCode, wayWindow, rockSet, botPlanOld, waySame, PLAN, planSame });   // (^ticket(905))
   if (Q.has("test")) Object.assign(window.WorldTest, { botItemOrder, timeSpeedRun, TP, wakeTill, wakeAll, waterStep, setRules, H, rideJS, rideStep, boulderJS, bouldersStep, pickupJS, pickups, windJS, windStep, bunnyJS, bunnyStep, bunniesStep, frogJS, frogStep, wildStep, songJS, swimJS, songStep, swimStep, keepWorld });   // (0.0.130: the speed run's order of the things; ⏱)
   // (^ticket(873): the speed run's steps alone, timed, no drawing: up to n, while the run is on and not yet at its dig)
   if (Q.has("test")) Object.assign(window.WorldTest, { steps: (n, any) => { const h = H(); const t0 = performance.now(); let k = 0; for (; k < n && (any || (BOT.on && BOT.phase !== "dig")); k++) tick(h); return { k, ms: performance.now() - t0 }; } });   // (any: steps with or without the speed run)   // (0.0.115: the canvases kept, ^ticket(852))   // (0.0.112: the 🎮 controller, driven by hand where frames do not come)

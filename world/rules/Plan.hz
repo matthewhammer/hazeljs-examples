@@ -1,0 +1,144 @@
+# The speed run's planning (^ticket(907); Matthew, 2026-11-28: "let's focus on these next, opt-in for Hazel (default off): ... the speed run's planning (the order of things, its targets, the dig's chunks)"). Off unless chosen (⚙️ Advanced, or ?plan=hazel): the page's JavaScript (botItemOrder, botTargets, botNext's ordering, digChunk) is the default and the twin, and these give the very same answers (WorldTest.planSame). Calls nothing in World #
+let fabs : Float -> Float = fun x -> if x <. 0. then 0. -. x else x;
+let bit : (Int, Int) -> Bool = fun (m, j) -> (let q = m / (2 ** j) in q - (q / 2) * 2 == 1);
+# A list sorted by a key, ties kept in the order they came (a merge sort: as the page's Array sort, which keeps them so too) #
+let sortby : ([(k = Float, i = Int)]) -> [(k = Float, i = Int)] = fun xs ->
+  let merge : ([(k = Float, i = Int)], [(k = Float, i = Int)], [(k = Float, i = Int)]) -> [(k = Float, i = Int)] = fun (a, b, acc) ->
+    case (a, b)
+    | ([], _) => (let back : ([(k = Float, i = Int)], [(k = Float, i = Int)]) -> [(k = Float, i = Int)] = fun (r, t) -> case r | [] => t | y :: ys => back(ys, y :: t) end in back(acc, b))
+    | (_, []) => (let back : ([(k = Float, i = Int)], [(k = Float, i = Int)]) -> [(k = Float, i = Int)] = fun (r, t) -> case r | [] => t | y :: ys => back(ys, y :: t) end in back(acc, a))
+    | (x :: xs2, y :: ys2) => if y.k <. x.k then merge(a, ys2, y :: acc) else merge(xs2, b, x :: acc)
+    end in
+  let split : ([(k = Float, i = Int)], [(k = Float, i = Int)], [(k = Float, i = Int)], Int) -> (l = [(k = Float, i = Int)], r = [(k = Float, i = Int)]) = fun (xs2, l, r, n) ->
+    case xs2 | [] => (l = l, r = r) | x :: rest => if n > 0 then split(rest, x :: l, r, n - 1) else split(rest, l, x :: r, 0) end in
+  let rev : ([(k = Float, i = Int)], [(k = Float, i = Int)]) -> [(k = Float, i = Int)] = fun (r, t) -> case r | [] => t | y :: ys => rev(ys, y :: t) end in
+  let sort : ([(k = Float, i = Int)], Int) -> [(k = Float, i = Int)] = fun (ys, n) ->
+    if n <= 1 then ys
+    else (let h = n / 2 in let p = split(ys, [], [], h) in merge(sort(rev(p.l, []), h), sort(rev(p.r, []), n - h), [])) in
+  let count : ([(k = Float, i = Int)], Int) -> Int = fun (ys, n) -> case ys | [] => n | _ :: rest => count(rest, n + 1) end in
+  sort(xs, count(xs, 0));
+# The order of the things to find (botItemOrder, 0.0.130): the cheapest round of them all from where the gnome is (x, y), each order weighed by Held and Karp's way, a step across a tile counted 1, up or down 1.6, across 0.45 once the running shoes are had; the good digger before the super digger. Each set of things had is worked out from the sets one smaller, a set at a time, in the order of their numbers: for each thing last, the cheapest way, and the thing before it (the first of the cheapest, as the page's own way gives). The answer, the things' places in the list, in the order to get them #
+let order : ([(x = Float, y = Float, kind = String)], Float, Float) -> [Int] = fun (things, gx, gy) ->
+  type Sets = + SLeaf + SNode(Sets, Int, [(c = Float, from = Int)], Sets, Int) in
+  let count : ([(x = Float, y = Float, kind = String)], Int) -> Int = fun (ys, k) -> case ys | [] => k | _ :: rest => count(rest, k + 1) end in
+  let n = count(things, 0) in
+  let inf = 1. /. 0. in
+  let nth : ([(x = Float, y = Float, kind = String)], Int) -> (x = Float, y = Float, kind = String) = fun (xs, i) -> case xs | [] => (x = 0., y = 0., kind = "") | z :: zs => if i <= 0 then z else nth(zs, i - 1) end in
+  let find : ([(x = Float, y = Float, kind = String)], String, Int) -> Int = fun (xs, k, i) -> case xs | [] => 0 - 1 | z :: zs => if z.kind == k then i else find(zs, k, i + 1) end in
+  let shoes = find(things, "shoes", 0) in let good = find(things, "good", 0) in let sup = find(things, "super", 0) in
+  # where the a-th place is: 0 the gnome, then the things #
+  let px : Int -> Float = fun a -> if a == 0 then gx +. 0.5 else nth(things, a - 1).x in
+  let py : Int -> Float = fun a -> if a == 0 then gy +. 0.5 else nth(things, a - 1).y in
+  let cost : (Int, Int, Bool) -> Float = fun (a, b, fast) -> fabs(px(a) -. px(b)) *. (if fast then 0.45 else 1.) +. fabs(py(a) -. py(b)) *. 1.6 in
+  # the sets worked out so far, by their numbers (a balanced tree) #
+  let height : Sets -> Int = fun t -> case t | SLeaf => 0 | SNode(_, _, _, _, hh) => hh end in
+  let node : (Sets, Int, [(c = Float, from = Int)], Sets) -> Sets = fun (l, k, v, r) -> (let hl = height(l) in let hr = height(r) in SNode(l, k, v, r, (if hl > hr then hl else hr) + 1)) in
+  let tilt : (Sets, Int, [(c = Float, from = Int)], Sets) -> Sets = fun (l, k, v, r) ->
+    if height(r) > height(l) + 1 then
+      (case r
+       | SNode(rl, rk, rv, rr, _) => if height(rr) >= height(rl) then node(node(l, k, v, rl), rk, rv, rr)
+         else (case rl | SNode(rll, rlk, rlv, rlr, _) => node(node(l, k, v, rll), rlk, rlv, node(rlr, rk, rv, rr)) | SLeaf => node(l, k, v, r) end)
+       | SLeaf => node(l, k, v, r)
+       end)
+    else node(l, k, v, r) in
+  # (the sets come in the order of their numbers, so a new one always goes to the right) #
+  let put : (Sets, Int, [(c = Float, from = Int)]) -> Sets = fun (t, k, v) ->
+    case t | SLeaf => SNode(SLeaf, k, v, SLeaf, 1) | SNode(l, key, kv, r, _) => tilt(l, key, kv, put(r, k, v)) end in
+  let get : (Sets, Int) -> [(c = Float, from = Int)] = fun (t, k) ->
+    case t | SLeaf => [] | SNode(l, key, kv, r, _) => if k < key then get(l, k) else if k > key then get(r, k) else kv end in
+  let at : ([(c = Float, from = Int)], Int) -> (c = Float, from = Int) = fun (xs, i) -> case xs | [] => (c = inf, from = 0 - 1) | z :: zs => if i <= 0 then z else at(zs, i - 1) end in
+  # the cheapest way to the set m with thing k last #
+  let entry : (Sets, Int, Int) -> (c = Float, from = Int) = fun (t, m, k) ->
+    if !bit(m, k) then (c = inf, from = 0 - 1)
+    else if m == 2 ** k then (c = (if k != sup || good < 0 then cost(0, k + 1, false) else inf), from = 0 - 1)
+    else (let prev = m - 2 ** k in
+      if k == sup && good >= 0 && !bit(prev, good) then (c = inf, from = 0 - 1)
+      else (let fast = shoes >= 0 && bit(prev, shoes) in let row = get(t, prev) in
+        let best : (Int, (c = Float, from = Int)) -> (c = Float, from = Int) = fun (j, acc) ->
+          if j >= n then acc
+          else if !bit(prev, j) then best(j + 1, acc)
+          else (let w = at(row, j).c +. cost(j + 1, k + 1, fast) in best(j + 1, (if w <. acc.c then (c = w, from = j) else acc))) in
+        best(0, (c = inf, from = 0 - 1)))) in
+  let rowof : (Sets, Int, Int, [(c = Float, from = Int)]) -> [(c = Float, from = Int)] = fun (t, m, k, acc) ->
+    if k < 0 then acc else rowof(t, m, k - 1, entry(t, m, k) :: acc) in
+  let full = 2 ** n - 1 in
+  let fill : (Sets, Int) -> Sets = fun (t, m) -> if m > full then t else fill(put(t, m, rowof(t, m, n - 1, [])), m + 1) in
+  if n <= 1 then (if n == 1 then [0] else [])
+  else (let t = fill(SLeaf, 1) in let last = get(t, full) in
+    let pick : (Int, (c = Float, j = Int)) -> (c = Float, j = Int) = fun (j, acc) -> if j >= n then acc else (let v = at(last, j).c in pick(j + 1, (if v <. acc.c then (c = v, j = j) else acc))) in
+    let e = pick(0, (c = inf, j = 0 - 1)).j in
+    let up : (Int, Int, [Int]) -> [Int] = fun (m, j, acc) -> if j < 0 then acc else up(m - 2 ** j, at(get(t, m), j).from, j :: acc) in
+    if e < 0 then (let all : (Int, [Int]) -> [Int] = fun (i, acc) -> if i < 0 then acc else all(i - 1, i :: acc) in all(n - 1, []))
+    else up(full, e, []));
+# The parts of every great tree to climb to (botTargets, its trees), the nearest tree across first: its foot; for each limb, from the lowest, where it leaves the trunk, its end (a house, a bird house, or its end), and over the rope bridge from it, the tall tree's house and back; then up into its crown. Each part a tile (c, r) and its words #
+let trees : ([(x = Int, foot = Int, h = Int, kind = Int, half = Int, limbs = [(y = Int, side = Int, len = Int, house = Int)])], [(row = Int, x0 = Int, x1 = Int)], Float) -> [(c = Int, r = Int, what = String)] = fun (greats, bridges, gc) ->
+  let nthg : ([(x = Int, foot = Int, h = Int, kind = Int, half = Int, limbs = [(y = Int, side = Int, len = Int, house = Int)])], Int) -> (x = Int, foot = Int, h = Int, kind = Int, half = Int, limbs = [(y = Int, side = Int, len = Int, house = Int)]) = fun (xs, i) ->
+    case xs | [] => (x = 0, foot = 0, h = 0, kind = 0, half = 0, limbs = []) | z :: zs => if i <= 0 then z else nthg(zs, i - 1) end in
+  let nthl : ([(y = Int, side = Int, len = Int, house = Int)], Int) -> (y = Int, side = Int, len = Int, house = Int) = fun (xs, i) ->
+    case xs | [] => (y = 0, side = 0, len = 0, house = 0) | z :: zs => if i <= 0 then z else nthl(zs, i - 1) end in
+  let keyed : ([(x = Int, foot = Int, h = Int, kind = Int, half = Int, limbs = [(y = Int, side = Int, len = Int, house = Int)])], Int, [(k = Float, i = Int)]) -> [(k = Float, i = Int)] = fun (xs, i, acc) ->
+    case xs | [] => acc | g :: gs => keyed(gs, i + 1, (k = fabs(float_of_int(g.x) -. gc), i = i) :: acc) end in
+  let rev : ([(k = Float, i = Int)], [(k = Float, i = Int)]) -> [(k = Float, i = Int)] = fun (r, t) -> case r | [] => t | y :: ys => rev(ys, y :: t) end in
+  let bridge : ([(row = Int, x0 = Int, x1 = Int)], Int, Int, Int) -> (found = Bool, row = Int, x0 = Int, x1 = Int) = fun (bs, row, side, gx) ->
+    case bs | [] => (found = false, row = 0, x0 = 0, x1 = 0) | b :: rest => if b.row == row && (if side > 0 then b.x0 >= gx else b.x1 <= gx) then (found = true, row = b.row, x0 = b.x0, x1 = b.x1) else bridge(rest, row, side, gx) end in
+  let limbs : ((x = Int, foot = Int, h = Int, kind = Int, half = Int, limbs = [(y = Int, side = Int, len = Int, house = Int)]), String, [(k = Float, i = Int)], [(c = Int, r = Int, what = String)]) -> [(c = Int, r = Int, what = String)] = fun (g, name, ls, acc) ->
+    case ls
+    | [] => acc
+    | o :: rest =>
+      (let l = nthl(g.limbs, o.i) in let row = g.foot - l.y - 1 in let fin = g.x + l.side * (g.half + l.len - 1) in
+       let up = string_of_int(l.y) ++ " m up" in
+       let a1 = (c = fin, r = row, what = name ++ ": the " ++ (if l.house >= 0 && l.house < 100 then "house" else if l.house >= 100 then "bird house" else "end") ++ " on limb " ++ up) ::
+                (c = g.x + l.side * (g.half + 1), r = row, what = name ++ ": limb " ++ up) :: acc in
+       let br = bridge(bridges, g.foot - l.y, l.side, g.x) in
+       let a2 = (if br.found then (c = fin, r = row, what = name ++ ": back over the bridge") :: (c = (if l.side > 0 then br.x1 + 2 else br.x0 - 3), r = row, what = name ++ ": across the rope bridge, the tall tree's house") :: a1 else a1) in
+       limbs(g, name, rest, a2))
+    end in
+  let each : ([(k = Float, i = Int)], [(c = Int, r = Int, what = String)]) -> [(c = Int, r = Int, what = String)] = fun (gs, acc) ->
+    case gs
+    | [] => acc
+    | o :: rest =>
+      (let g = nthg(greats, o.i) in let name = (if g.kind == 31 then "the stair tree" else "a great tree") in
+       let ky : ([(y = Int, side = Int, len = Int, house = Int)], Int, [(k = Float, i = Int)]) -> [(k = Float, i = Int)] = fun (xs, i, a) -> case xs | [] => a | l :: ls => ky(ls, i + 1, (k = float_of_int(l.y), i = i) :: a) end in
+       let a1 = (c = g.x, r = g.foot - 1, what = name ++ ": its foot") :: acc in
+       let a2 = limbs(g, name, sortby(rev(ky(g.limbs, 0, []), [])), a1) in
+       each(rest, (c = g.x, r = g.foot - g.h + 2, what = name ++ ": up into its crown") :: a2))
+    end in
+  let back : ([(c = Int, r = Int, what = String)], [(c = Int, r = Int, what = String)]) -> [(c = Int, r = Int, what = String)] = fun (r, t) -> case r | [] => t | y :: ys => back(ys, y :: t) end in
+  back(each(sortby(rev(keyed(greats, 0, []), [])), []), []);
+# The targets left, the nearest first (botNext's ordering of the gems and of a chunk's tiles): by the tiles across, and one and a half for each tile up or down, from the gnome's tile; ties as they came. The answer, their places in the list #
+let nearest : ([(c = Int, r = Int)], Int, Int) -> [Int] = fun (ts, gc, gr) ->
+  let ab : Int -> Int = fun v -> if v < 0 then 0 - v else v in
+  let keyed : ([(c = Int, r = Int)], Int, [(k = Float, i = Int)]) -> [(k = Float, i = Int)] = fun (xs, i, acc) ->
+    case xs | [] => acc | t :: rest => keyed(rest, i + 1, (k = float_of_int(ab(t.c - gc)) +. float_of_int(ab(t.r - gr)) *. 1.5, i = i) :: acc) end in
+  let rev : ([(k = Float, i = Int)], [(k = Float, i = Int)]) -> [(k = Float, i = Int)] = fun (r, t) -> case r | [] => t | y :: ys => rev(ys, y :: t) end in
+  map(sortby(rev(keyed(ts, 0, []), [])), fun o -> o.i);
+# The dig's next chunk (digChunk, 0.0.119): of the world's chunks of 8 by 8 tiles (w across), how many tiles each has left to dig (left), the gnome's chunk (cc, cr), and a chance (u, 0 to 1, the page's to draw): the gnome's own chunk if it has some left; else one of the eight round it that have some, by the chance; else, by the chance, one of the nearest that have some (by the chunks across, and one and a half for each up or down). The answer, the chunk's place (-1, none left) #
+let chunk : ([Int], Int, Int, Int, Float) -> Int = fun (left, w, cc, cr, u) ->
+  let count : ([Int], Int) -> Int = fun (ys, k) -> case ys | [] => k | _ :: rest => count(rest, k + 1) end in
+  let h = count(left, 0) / w in
+  let scan : ([Int], Int, (own = Bool, near = [Int], best = Float, far = [Int])) -> (own = Bool, near = [Int], best = Float, far = [Int]) = fun (xs, k, acc) ->
+    case xs
+    | [] => acc
+    | v :: rest =>
+      if v <= 0 then scan(rest, k + 1, acc)
+      else (let x = k - (k / w) * w in let y = k / w in let dx = x - cc in let dy = y - cr in
+        let own = acc.own || (dx == 0 && dy == 0) in
+        let near = (if (dx != 0 || dy != 0) && dx >= 0 - 1 && dx <= 1 && dy >= 0 - 1 && dy <= 1 then k :: acc.near else acc.near) in
+        let d = float_of_int(if dx < 0 then 0 - dx else dx) +. float_of_int(if dy < 0 then 0 - dy else dy) *. 1.5 in
+        scan(rest, k + 1, (own = own, near = near, best = (if d <. acc.best then d else acc.best), far = (if d <. acc.best then [k] else if d ==. acc.best then k :: acc.far else acc.far))))
+    end in
+  let s = scan(left, 0, (own = false, near = [], best = 1. /. 0., far = [])) in
+  let rev : ([Int], [Int]) -> [Int] = fun (r, t) -> case r | [] => t | y :: ys => rev(ys, y :: t) end in
+  let nthi : ([Int], Int) -> Int = fun (xs, i) -> case xs | [] => 0 - 1 | z :: zs => if i <= 0 then z else nthi(zs, i - 1) end in
+  # the eight round it, in the page's order: up a row first, then across #
+  let around = (let cands = rev(s.near, []) in
+    let order : (Int, Int, [Int]) -> [Int] = fun (dy, dx, acc) ->
+      if dy > 1 then rev(acc, [])
+      else if dx > 1 then order(dy + 1, 0 - 1, acc)
+      else (let x = cc + dx in let y = cr + dy in let k = y * w + x in
+        let has : [Int] -> Bool = fun ks -> case ks | [] => false | z :: zs => z == k || has(zs) end in
+        order(dy, dx + 1, (if (dx != 0 || dy != 0) && x >= 0 && x < w && y >= 0 && y < h && has(cands) then k :: acc else acc))) in
+    order(0 - 1, 0 - 1, [])) in
+  if s.own then cr * w + cc
+  else (let pick = (case around | [] => rev(s.far, []) | _ => around end) in
+    case pick | [] => 0 - 1 | _ => nthi(pick, int_of_float(floor(u *. float_of_int(count(pick, 0))))) end)
