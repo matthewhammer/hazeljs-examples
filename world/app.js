@@ -792,9 +792,9 @@
   const digCan = i => { const m = mat[i]; return m !== AIR && digSteps(m, (i / WW) | 0, S.g.tool) > 0; };
   const digRand = () => { BOT.rng = (BOT.rng * 1103515245 + 12345) & 0x7fffffff; return BOT.rng / 0x80000000; };
   // (every tile still to dig, by chunk; those waiting for the second time round not counted in the chunks)
-  function digCount() { const left = new Int32Array(DIG_CW * DIG_CR); let all = 0, open = 0;
+  function digCount() { tmark("the speed run's way"); const left = new Int32Array(DIG_CW * DIG_CR); let all = 0, open = 0;
     for (let i = 0; i < NN; i++) if (digCan(i)) { all++; if (BOT.digSkip.has(i)) continue; const c = i % WW, r = (i - c) / WW; left[((r / DIG_CH) | 0) * DIG_CW + ((c / DIG_CH) | 0)]++; open++; }
-    BOT.digLeft = all; if (!BOT.digAll) BOT.digAll = all; return { left, open }; }
+    BOT.digLeft = all; if (!BOT.digAll) BOT.digAll = all; tmark("the dig's count"); return { left, open }; }
   function digChunk() {
     let { left, open } = digCount();
     if (!open && BOT.digSkip.size && BOT.digPass < 2) { BOT.digPass = 2; BOT.digSkip.clear(); ({ left, open } = digCount()); }
@@ -824,7 +824,7 @@
         BOT.phase = order[i]; BOT.queue = botTargets(BOT.phase); if (BOT.phase === "trees") BOT.partsAll = BOT.queue.length; continue; }
       if (BOT.phase === "gems" || BOT.phase === "dig") BOT.queue.sort((a, b) => Math.abs(a.c - gc) + Math.abs(a.r - gr) * 1.5 - Math.abs(b.c - gc) - Math.abs(b.r - gr) * 1.5);
       const t = BOT.queue.shift(); if (t.gemAt != null && !gem[t.gemAt]) continue; if (t.item && t.item.taken) continue; if (t.digAt != null && !digCan(t.digAt)) continue;
-      BOT.cur = t; BOT.tries = 0; BOT.avoid = new Set(); BOT.path = botPlan(t.c, t.r, null) || []; BOT.k = 0; BOT.still = 0;
+      BOT.cur = t; BOT.tries = 0; BOT.avoid = new Set(); tmark("the speed run's way"); BOT.path = botPlan(t.c, t.r, null) || []; tmark("its path search"); BOT.k = 0; BOT.still = 0;
       if (!BOT.path.length && !(gc === t.c && gr === t.r)) { botSkip(t); continue; }
       return true; }
   }
@@ -871,7 +871,7 @@
     { const px = g.x / 1000, py = g.y / 1000; if (!BOT.anchor || BOT.k > BOT.anchor.k || Math.hypot(px - BOT.anchor.x, py - BOT.anchor.y) > 1.5 || g.dt > 0) { BOT.anchor = { x: px, y: py, k: BOT.k }; BOT.still = 0; } else BOT.still++; }
     if (BOT.still > 240) { BOT.still = 0; BOT.tries++; const wp = BOT.path[BOT.k]; if (wp != null) BOT.avoid.add(wp);
       if (BOT.tries > 4) { botSkip(t); BOT.cur = null; return; }
-      BOT.path = botPlan(t.c, t.r, BOT.avoid) || []; BOT.k = 0; if (!BOT.path.length) { botSkip(t); BOT.cur = null; return; } }
+      tmark("the speed run's way"); BOT.path = botPlan(t.c, t.r, BOT.avoid) || []; tmark("its path search"); BOT.k = 0; if (!BOT.path.length) { botSkip(t); BOT.cur = null; return; } }
     for (let j = BOT.k; j < Math.min(BOT.path.length, BOT.k + 4); j++) if (BOT.path[j] === here) BOT.k = j + 1;
     if (BOT.anchor && BOT.k < BOT.anchor.k) BOT.anchor.k = BOT.k;   // (a new way: its steps counted from here)
     const wp = BOT.path[Math.min(BOT.k, BOT.path.length - 1)]; if (wp == null) { BOT.cur = null; return; }
@@ -4980,7 +4980,7 @@
   // last second; and the drawing in parts (pmark: each part's time, smoothed over a second), the three costliest shown. F hides it
   const PERF = { on: true, frames: [], ticks: [], draws: [], parts: {}, last: 0, name: null };
   function pmark(name) { if (PERF.flush) realCtx.getImageData(0, 0, 1, 1);   // (testing: the GPU's work finished before each section is timed)
-    const t = performance.now(); if (PERF.name) PERF.parts[PERF.name] = (PERF.parts[PERF.name] || 0) * 0.95 + (t - PERF.last) * 0.05; PERF.name = name; PERF.last = t; }
+    const t = performance.now(); if (PERF.name) { PERF.parts[PERF.name] = (PERF.parts[PERF.name] || 0) * 0.95 + (t - PERF.last) * 0.05; if (PERF.raw) PERF.raw[PERF.name] = (PERF.raw[PERF.name] || 0) + t - PERF.last; } PERF.name = name; PERF.last = t; }
   function drawPerf() {
     if (!PERF.on || !PERF.frames.length) return; const c = ctx, avg = a => a.reduce((x, y) => x + y, 0) / Math.max(1, a.length);
     const fr = avg(PERF.frames), fps = 1000 / Math.max(1, fr), worst = Math.max(...PERF.frames), top = Object.entries(PERF.parts).sort((a, b) => b[1] - a[1]).slice(0, 3);
@@ -4998,10 +4998,18 @@
     if (!h || !S.g || document.hidden || S.asking || (P && P.paused())) { lastT = t; timedDraw(); return; }
     acc += Math.min(100, t - (lastT || t)) * 60 / 1000; lastT = t;
     let n = 0; const tt = performance.now();
-    try { if (BOT.on) { const tq = performance.now(); while (performance.now() - tq < 12 && BOT.on) { tick(h); n++; } acc = 0; } else while (acc >= 1 && n < 4) { tick(h); acc -= 1; n++; } } catch (e) { S.built = { ...S.built, ok: false, threw: String(e && e.message || e) }; drawStatus(); console.error(e); return; }
+    // (^ticket(902): a test's record of each frame, PERF.rec an array: its steps, the slowest of them and, with ⏱'s parts on
+    // (TP.on), where that one's time went; the drawing's parts; the speed run's phase. Off, a step is only tick(h))
+    const REC = PERF.rec; let tmax = 0, tpart = null;
+    const one = !REC ? tick : hh => { const a = performance.now(), before = TP.on ? { ...TP.ms } : null; tick(hh); const d = performance.now() - a;
+      if (d > tmax) { tmax = d; if (before) { tpart = {}; for (const k in TP.ms) { const v = TP.ms[k] - (before[k] || 0); if (v >= 0.05) tpart[k] = +v.toFixed(2); } } } };
+    try { if (BOT.on) { const tq = performance.now(); while (performance.now() - tq < 12 && BOT.on) { one(h); n++; } acc = 0; } else while (acc >= 1 && n < 4) { one(h); acc -= 1; n++; } } catch (e) { S.built = { ...S.built, ok: false, threw: String(e && e.message || e) }; drawStatus(); console.error(e); return; }
     if (n >= 4 && !BOT.on) acc = 0;
-    PERF.ticks.push(performance.now() - tt); if (PERF.ticks.length > 60) PERF.ticks.shift();
-    timedDraw();
+    const tms = performance.now() - tt; PERF.ticks.push(tms); if (PERF.ticks.length > 60) PERF.ticks.shift();
+    if (REC) PERF.raw = {};
+    const d0 = performance.now(); timedDraw();
+    if (REC) { REC.push({ t: +t.toFixed(1), gap: PERF.frames.length ? +PERF.frames[PERF.frames.length - 1].toFixed(1) : 0, n, ticks: +tms.toFixed(2), tmax: +tmax.toFixed(2), tpart, draw: +(performance.now() - d0).toFixed(2),
+      dparts: Object.fromEntries(Object.entries(PERF.raw).filter(([, v]) => v >= 0.2).map(([k, v]) => [k, +v.toFixed(2)])), phase: BOT.on ? BOT.phase : "", frame: S.frame }); PERF.raw = null; }
   }
   // (a scene in line art: the frame drawn through the line canvas, onto a canvas of its own)
   function lineScene(x, y) { const keep = S.camFix; S.camFix = { x, y }; LINE = true; ctx = lineCtx(realCtx); realCtx.save(); realCtx.setTransform(1, 0, 0, 1, 0, 0); realCtx.fillStyle = "#fff"; realCtx.fillRect(0, 0, cv.width, cv.height); realCtx.restore();

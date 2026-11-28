@@ -1,0 +1,34 @@
+# (^ticket(902); Matthew, 2026-11-27: "when I was demoing gnome world (while using zoom), I used the 'speed run' button and I
+# noticed that the frame rate was very poor, and the 'worst time' reported in the HUD was hundreds of ms") Gnome world's 🏃
+# speed run as the page plays it, its frames and their drawing, each frame recorded and the page's thread sampled, in four
+# setups, on one GitHub runner in headless Chrome (never on the laptop): node/world-frames.mjs. The log names the worst frames
+# and what they spent; the artifact world-frames holds each frame's record and the summary.
+name: world speed run, frame by frame
+on:
+  workflow_dispatch:
+  push:
+    branches: ["perf/902-**"]
+jobs:
+  frames:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: The machine
+        run: |
+          mkdir -p world-frames
+          { nproc; grep -m1 'model name' /proc/cpuinfo; node --version; google-chrome --version; } | tee world-frames/machine.txt
+      - name: Serve the site
+        run: |
+          python3 -m http.server 8000 --bind 127.0.0.1 > server.log 2>&1 &
+          sleep 1
+      - name: The speed run, frame by frame
+        run: node node/world-frames.mjs http://127.0.0.1:8000/ world-frames
+      - uses: actions/upload-artifact@v4
+        if: ${{ always() }}
+        with:
+          name: world-frames
+          path: world-frames/
