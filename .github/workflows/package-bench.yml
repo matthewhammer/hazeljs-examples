@@ -25,13 +25,13 @@ jobs:
           repository: hazelgrove/hazeljs
           ref: 3a4a1cdb2dc1f01135d9f0bc304eb19c4693658c
           path: pkg
-      # (^ticket(681), 2026-11-26) both libraries on the same machine: the hazeljs branch's (pkg) and the trial that links a page's
-      # object in the converters' memo only for conversions of 16 list elements or more (pkg2, trial/681-memo-big)
+      # (^ticket(909), 2026-11-28) both libraries on the same machine: the hazeljs branch's (pkg, lists as cells) and the trial with
+      # lists as array segments as well as cells (pkg2, trial/909-segments-pkg)
       - name: The two libraries
         run: |
           cp -r pkg pkg2
           curl -sfL -A "Mozilla/5.0" https://build.hazel.org/hazeljs/hazel-lib.js -o pkg/hazel-lib.js
-          curl -sfL -A "Mozilla/5.0" https://build.hazel.org/trial/681-memo-big/hazel-lib.js -o pkg2/hazel-lib.js
+          curl -sfL -A "Mozilla/5.0" https://build.hazel.org/trial/909-segments-pkg/hazel-lib.js -o pkg2/hazel-lib.js
           grep -o 'build:"[0-9a-f]*"' pkg/hazel-lib.js | head -1; grep -o 'build:"[0-9a-f]*"' pkg2/hazel-lib.js | head -1
       - uses: actions/setup-node@v4
         with:
@@ -51,5 +51,5 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: ${{ always() }}
         with:
-          name: b681-${{ matrix.game }}
+          name: b909-${{ matrix.game }}
           path: bench/
