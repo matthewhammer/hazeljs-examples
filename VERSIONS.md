@@ -2,6 +2,15 @@
 
 Each version lists what the apps do as of that version. The newest version is first.
 
+## 0.0.149 (2026-11-27)
+
+- **Gnome world: the speed run's frames kept to the screen's sixtieth of a second, and its long frames spread out** (^ticket(902), ^report(68); Matthew, demoing it in a video call: "the frame rate was very poor, and the 'worst time' reported in the HUD was hundreds of ms"). Timed frame by frame on GitHub, before and after on one runner: in a 1920×1080 window on a 2× screen the median frame goes from 30 to 60 fps; at 1280×800 the frames that miss a refresh go from 46% to 14%, the worst from 250 to 67 ms; with the CPU slowed 4×, 20 to 30 fps. Not Hazel: its compiled rules are under 2% of the page's time, and with every piece in ⚡ plain JavaScript the frames are the same.
+  - The speed run's steps take what a frame leaves after its drawing (14 ms less the drawing, 4 to 12 ms), not a fixed 12 ms; where drawing is heavy the run takes a little longer to finish, and at 1280×800 it is faster.
+  - A frame paints 4 ms of new pictures (trees, great trees, houses, patches of roots); the rest wait a frame or two. A dug patch of roots is painted again at most four times a second.
+  - The overview map is drawn on the clock (every 0.75 s; a quarter second after a dig), not every 45 steps, which was every frame of the speed run; and drawn as one pass of packed colors, the same pixels.
+  - The dig's count once a real second; numbers formatted by one formatter made as the page loads.
+  - For tests, a record of each frame (`PERF.rec`), and the GitHub job `world speed run, frame by frame` (`node/world-frames.mjs`).
+
 ## 0.0.148 (2026-11-27)
 
 - **Gnome world: the rules compiled ahead of time are live** (^ticket(895)). The world aot job compiled them on 0.0.147's push (8.3 s on GitHub, with the night's trial library; 24 functions, 510 KB; made again from the text, the same at 15 of 15 calls) and committed `world/rules-aot.json`, now kept for playing offline too.
