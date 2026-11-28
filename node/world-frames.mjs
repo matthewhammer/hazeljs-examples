@@ -22,6 +22,10 @@ const SETUPS = [
   { name: "plain", rules: "plain", w: 1280, h: 800, dpr: 1, cpu: 1 },
   { name: "hazel-2x-full", rules: "hazel", w: 1920, h: 1080, dpr: 2, cpu: 1 },
   { name: "hazel-cpu4", rules: "hazel", w: 1280, h: 800, dpr: 1, cpu: 4 },
+  // (then: Gnome world 0.0.103 of 2026-11-24, ^report(64)'s "then", before its pieces were moved into Hazel: checked out by the
+  // workflow under old/0.0.103/, its rules built at load by today's library; its frames timed by a requestAnimationFrame of our
+  // own, as it has no record of its own)
+  { name: "then-0.0.103", old: "0.0.103", rules: "hazel", w: 1280, h: 800, dpr: 1, cpu: 1 },
 ].filter(s => !ONLY || ONLY.includes(s.name));
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 fs.mkdirSync(OUT, { recursive: true });
@@ -58,7 +62,8 @@ const nameOf = n => { const cf = n.callFrame; return `${cf.functionName || "(ano
 async function runSetup(C, U) {
   const p = await C.open("about:blank", U.name);
   await p.send("Emulation.setDeviceMetricsOverride", { width: U.w, height: U.h, deviceScaleFactor: U.dpr, mobile: false });
-  await p.send("Page.navigate", { url: BASE + "world/?test=1" });
+  await p.send("Page.navigate", { url: BASE + (U.old ? `old/${U.old}/` : "") + "world/?test=1" });
+  if (U.old) return runOld(p, U);
   const t0 = Date.now(); for (;;) { let ok = false; try { ok = await p.eval(READY); } catch (e) { /* navigating */ } if (ok) break; if (Date.now() - t0 > 300000) throw new Error(`${U.name}: the rules not built after 300 s`); await sleep(500); }
   const info = await p.eval(`(() => { const T = WorldTest, S = T.S; T.restartNow(); T.setRules(${JSON.stringify(U.rules)}); S.asking = false; T.PERF.on = true;
     const cv = document.getElementById("world"); return { seed: S.seed, aot: !!(S.built && S.built.aot), compiled: !!S.built.compiled, canvas: cv.width + "×" + cv.height, tile: T.tile(), dpr: devicePixelRatio, rules: S.rules }; })()`);
@@ -81,6 +86,27 @@ async function runSetup(C, U) {
   return { U, info, ...R, profile: P, mark0 };
 }
 
+// (an old page: its frames timed by our own requestAnimationFrame, the run started by its 🏃 button, the thread sampled the same way)
+async function runOld(p, U) {
+  const t0 = Date.now(); for (;;) { let ok = false; try { ok = await p.eval("!!(window.WorldTest && WorldTest.S && WorldTest.S.g && WorldTest.S.built && WorldTest.S.built.ok && document.getElementById('run'))"); } catch (e) { /* navigating */ }
+    if (ok) break; if (Date.now() - t0 > 300000) throw new Error(`${U.name}: the rules not built after 300 s`); await sleep(500); }
+  const info = await p.eval(`(() => { const S = WorldTest.S, cv = document.getElementById("world"); S.asking = false; return { seed: S.seed, compiled: !!S.built.compiled, canvas: cv.width + "×" + cv.height, tile: WorldTest.tile ? WorldTest.tile() : 0, built: Math.round(S.built.ms || 0) }; })()`);
+  log(`== ${U.name}: ${U.w}×${U.h} CSS px at ${U.dpr}x (canvas ${info.canvas}, a tile ${info.tile} px); Gnome world ${U.old}, its rules ${info.compiled ? "compiled by hazel-jit" : "interpreted"} at load (${info.built} ms) by today's library; seed ${info.seed}`);
+  await sleep(1500);
+  await p.send("Profiler.enable"); await p.send("Profiler.setSamplingInterval", { interval: SAMPLE_US }); await p.send("Profiler.start");
+  const mark0 = await p.eval(MARK);
+  await p.eval(`(() => { window.__rec = []; let last = 0; const loop = t => { if (last) __rec.push({ t: +last.toFixed(1), gap: +(t - last).toFixed(1) }); last = t; requestAnimationFrame(loop); }; requestAnimationFrame(loop);
+    document.getElementById("run").click(); return true; })()`);
+  const w0 = Date.now(); let last = 0;
+  for (;;) { await sleep(1000); const st = await p.eval(`(() => ({ on: document.getElementById("run").getAttribute("aria-pressed") === "true", n: __rec.length, phase: (WorldTest.BOT || {}).phase || "" }))()`);
+    const el = Date.now() - w0; if (el - last >= 15000) { last = el; log(`  ${f1(el / 1000)} s: phase ${st.phase || "-"}, ${st.n} frames`); }
+    if (!st.on || el > RUN_MS || (st.phase === "dig")) break; }
+  const R = await p.eval(`(() => { const rec = __rec.slice(); __rec.length = 0; const B = WorldTest.BOT || {}, S = WorldTest.S; const draws = (WorldTest.PERF || {}).draws || [];
+    return { rec: rec.map((r, i) => ({ ...r, gap: i ? rec[i - 1].gap : 0 })), report: B.report || null, phase: B.phase || "", items: S.items.filter(i => i.taken).length + "/" + S.items.length, gems: (B.gems || 0) + "/" + (B.gemsAll || 0), parts: (B.parts || 0) + "/" + (B.partsAll || 0), tp: {} }; })()`);
+  const P = (await p.send("Profiler.stop")).profile; p.ws.close();
+  return { U, info, ...R, profile: P, mark0, old: true };
+}
+
 function analyze(X) {
   const { U, rec, profile: P, mark0 } = X;
   // ---- the frames
@@ -88,6 +114,7 @@ function analyze(X) {
   const over = ms => gaps.filter(g => g > ms).length;
   log(`${U.name}: ${rec.length} frames recorded; the run: things ${X.items}, tree parts ${X.parts}, gems ${X.gems}, at phase ${X.phase || "(done)"}${X.report ? `; its time ${X.report.time}, real ${f1(X.report.realMs / 1000)} s` : ""}`);
   log(`  frame gap: median ${f1(q(gaps, 0.5))} ms (${f1(1000 / Math.max(1, q(gaps, 0.5)))} fps), p90 ${f1(q(gaps, 0.9))}, p99 ${f1(q(gaps, 0.99))}, worst ${f1(Math.max(...gaps))}; over 16.7 ms ${over(16.7)} of ${n}, over 33 ${over(33.4)}, over 50 ${over(50)}, over 100 ${over(100)}, over 200 ${over(200)}`);
+  if (X.old) return analyzeOld(X, gaps, over);
   const ticks = rec.map(r => r.ticks), draws = rec.map(r => r.draw), ns = rec.map(r => r.n), tmax = rec.map(r => r.tmax);
   const bud = rec.map(r => r.budget).filter(x => x > 0), put = rec.length ? (rec[rec.length - 1].put || 0) - (rec[0].put || 0) : 0, painted = rec.length ? (rec[rec.length - 1].painted || 0) - (rec[0].painted || 0) : 0;
   log(`  the steps' budget a frame: ${bud.length ? `median ${f1(q(bud, 0.5))} ms, from ${f1(Math.min(...bud))} to ${f1(Math.max(...bud))}` : "fixed (12 ms, before 0.0.149)"}; pictures painted ${painted}, put off to a later frame ${put}`);
@@ -127,6 +154,25 @@ function analyze(X) {
     steps: { median: q(ticks, 0.5), n: q(ns, 0.5), tmaxMedian: q(tmax, 0.5), tmaxP99: q(tmax, 0.99), tmaxWorst: Math.max(...tmax) }, drawing: { median: q(draws, 0.5), p99: q(draws, 0.99), worst: Math.max(...draws) },
     tp: Object.fromEntries(tpAll), draw: Object.fromEntries(dAll), kinds: Object.fromEntries(kinds), busyMs: total, top: [...self].sort((a, b) => b[1] - a[1]).slice(0, 60).map(([id, v]) => [nameOf(byId.get(id)), +v.toFixed(1)]), worst, calibrated: off != null,
     run: { items: X.items, parts: X.parts, gems: X.gems, phase: X.phase, report: X.report }, budget: bud.length ? { median: q(bud, 0.5), min: Math.min(...bud), max: Math.max(...bud) } : null, painted, put };
+}
+
+function analyzeOld(X, gaps, over) {
+  const { U, rec, profile: P, mark0 } = X, { byId, ts } = profileTimes(P);
+  const self = new Map(), kinds = new Map(); let total = 0; const add = (m, k, v) => m.set(k, (m.get(k) || 0) + v);
+  for (let i = 0; i < P.samples.length; i++) { const node = byId.get(P.samples[i]), dt = (P.timeDeltas[i + 1] || SAMPLE_US) / 1000; if (node.callFrame.functionName === "(idle)") continue; add(self, node.id, dt); add(kinds, kindOf(node), dt); total += dt; }
+  log(`  the page's thread, sampled (${(total / 1000).toFixed(1)} s busy; idle left out): ` + [...kinds].sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${f1(100 * v / total)}%`).join(" · "));
+  log(`  its top functions, self time: ` + [...self].sort((a, b) => b[1] - a[1]).slice(0, 18).map(([id, v]) => `${nameOf(byId.get(id))} ${f1(100 * v / total)}%`).join(" · "));
+  let markUs = null; for (let i = 0; i < P.samples.length; i++) if (byId.get(P.samples[i]).callFrame.functionName === "__worldFramesMark") { markUs = ts[i]; break; }
+  const off = markUs == null ? null : markUs / 1000 - mark0, worst = [];
+  const idx = rec.map((r, i) => i).filter(i => i + 1 < rec.length).sort((a, b) => rec[b + 1].gap - rec[a + 1].gap).slice(0, 12);
+  log(`  the 12 worst frames (sampled functions, ms):`);
+  for (const i of idx) { const r = rec[i], span = rec[i + 1].gap; let top = [];
+    if (off != null) { const a = (r.t + off) * 1000, b = (rec[i + 1].t + off) * 1000, m = new Map();
+      for (let j = 0; j < ts.length; j++) { if (ts[j] < a) continue; if (ts[j] > b) break; const node = byId.get(P.samples[j]); if (node.callFrame.functionName === "(idle)") continue; add(m, nameOf(node), (P.timeDeltas[j + 1] || SAMPLE_US) / 1000); }
+      top = [...m].sort((x, y) => y[1] - x[1]).slice(0, 5).map(([k, v]) => `${k} ${f1(v)}`); }
+    worst.push({ at: r.t, span, top }); log(`   ${f1(span)} ms at ${f1(r.t / 1000)} s${top.length ? ": " + top.join(", ") : ""}`); }
+  return { setup: U, info: X.info, frames: rec.length, gaps: { median: q(gaps, 0.5), p90: q(gaps, 0.9), p99: q(gaps, 0.99), worst: Math.max(...gaps), over: { 16.7: over(16.7), 33: over(33.4), 50: over(50), 100: over(100), 200: over(200) } },
+    kinds: Object.fromEntries(kinds), busyMs: total, top: [...self].sort((a, b) => b[1] - a[1]).slice(0, 60).map(([id, v]) => [nameOf(byId.get(id)), +v.toFixed(1)]), worst, calibrated: off != null, run: { items: X.items, parts: X.parts, gems: X.gems, phase: X.phase, report: X.report } };
 }
 
 const result = { when: new Date().toISOString(), base: BASE, runMs: RUN_MS, digMs: DIG_MS, sampleUs: SAMPLE_US, setups: {} };

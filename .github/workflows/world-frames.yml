@@ -14,6 +14,8 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -21,6 +23,9 @@ jobs:
         run: |
           mkdir -p world-frames
           { nproc; grep -m1 'model name' /proc/cpuinfo; node --version; google-chrome --version; } | tee world-frames/machine.txt
+      - name: Gnome world as it was (0.0.103, 2026-11-24), beside today's
+        run: |
+          mkdir -p old && git worktree add old/0.0.103 02b73ab
       - name: Serve the site
         run: |
           python3 -m http.server 8000 --bind 127.0.0.1 > server.log 2>&1 &
