@@ -1,29 +1,29 @@
-# The speed run's way, by A* (^ticket(905); ^report(68), What next, step 5: "Find the run's way by A* rather than by searching the whole world from the gnome outward, so a long search does not make a long step"; Matthew, 2026-11-27: "in Hazel"). The page hands over a window of the world round the gnome and its target, a number for each tile, row by row; the answer is the way, the tiles from the first step to the target, each as its place in the window (none, no way within the window: the page tries a wider one). Each tile's number: the cost of going into it in thousandths of a step (0, no way in: rock no digger digs, a boulder, outside the window; 1000 open; 1600 shallow water without the diving gear, 40000 deep; digging, 1000 more for each eleven steps of it), times 8; plus 4 where it is ground, 2 where the gnome can climb in it, 1 where it can stand on what is under it. The moves, as the page's search had them: across, from a tile it can hold on to (ground, a climb, a stand); down; up a climb, or into ground over a tile it holds on to, 300 more; up by a jump from a stand, 1500 more, or across and up onto a stand, 1800 more. A* goes nearest-first by the cost so far and a guess of what is left, 1000 for each tile across and down, which is never more than the way costs, so the way found is a cheapest one; among those, the next tile taken is the one with the least estimate and then the least place, so the page's JavaScript twin (wayJS) finds the very same way. Its own types are inside it, as the world's program has as many definitions as the browser lets it build #
-let way : ([Int], Int, Int, Int, Int, [Int], Int) -> [Int] = fun (codes, w, h, s, t, avoid, limit) ->
-  type Grid = + GLeaf + GNode(Grid, Int, Grid) in
-  type Best = + BLeaf + BNode(Best, Int, Int, Int, Best, Int) in
-  type Heap = + HE + HN(Int, Int, Int, [Heap]) in
-  let md : (Int, Int) -> Int = fun (a, b) -> a - (a / b) * b in
+# The speed run's way, by A* (^ticket(905); ^report(68), What next, step 5: "Find the run's way by A* rather than by searching the whole world from the gnome outward, so a long search does not make a long step"; Matthew, 2026-11-27: "in Hazel"). Its numbers are Floats, under `use Float in` (Matthew, 2026-11-28: "Float, use Float in"): every one a whole number far under 2^53, so exact, and a division the floor of the quotient, exact for whole numbers of that size; compiled, it is JavaScript's own arithmetic. The page hands over a window of the world round the gnome and its target, a number for each tile, row by row; the answer is the way, the tiles from the first step to the target, each as its place in the window (none, no way within the window: the page tries a wider one). Each tile's number: the cost of going into it in thousandths of a step (0, no way in: rock no digger digs, a boulder, outside the window; 1000 open; 1600 shallow water without the diving gear, 40000 deep; digging, 1000 more for each eleven steps of it), times 8; plus 4 where it is ground, 2 where the gnome can climb in it, 1 where it can stand on what is under it. The moves, as the page's search had them: across, from a tile it can hold on to (ground, a climb, a stand); down; up a climb, or into ground over a tile it holds on to, 300 more; up by a jump from a stand, 1500 more, or across and up onto a stand, 1800 more. A* goes nearest-first by the cost so far and a guess of what is left, 1000 for each tile across and down, which is never more than the way costs, so the way found is a cheapest one; among those, the next tile taken is the one with the least estimate and then the least place, so the page's JavaScript twin (wayJS) finds the very same way. Its own types are inside it, as the world's program has as many definitions as the browser lets it build #
+let way : ([Float], Float, Float, Float, Float, [Float], Float) -> [Float] = fun (codes, w, h, s, t, avoid, limit) -> use Float in
+  type Grid = + GLeaf + GNode(Grid, Float, Grid) in
+  type Best = + BLeaf + BNode(Best, Float, Float, Float, Best, Float) in
+  type Heap = + HE + HN(Float, Float, Float, [Heap]) in
+  let md : (Float, Float) -> Float = fun (a, b) -> a - floor(a / b) * b in
   let n = w * h in
   # the window's tiles as a tree balanced by halves, made once: a tile by its place in log time #
-  let build : (Int, [Int]) -> (t = Grid, rest = [Int]) = fun (k, xs) ->
+  let build : (Float, [Float]) -> (t = Grid, rest = [Float]) = fun (k, xs) ->
     if k <= 0 then (t = GLeaf, rest = xs)
-    else (let kl = k / 2 in let left = build(kl, xs) in
+    else (let kl = floor(k / 2) in let left = build(kl, xs) in
       case left.rest
       | [] => (t = left.t, rest = [])
       | x :: more => (let right = build(k - kl - 1, more) in (t = GNode(left.t, x, right.t), rest = right.rest))
       end) in
   let grid = build(n, codes).t in
-  let get : (Grid, Int, Int) -> Int = fun (g, i, k) ->
+  let get : (Grid, Float, Float) -> Float = fun (g, i, k) ->
     case g
     | GLeaf => 0
-    | GNode(l, x, r) => (let kl = k / 2 in if i < kl then get(l, i, kl) else if i == kl then x else get(r, i - kl - 1, k - kl - 1))
+    | GNode(l, x, r) => (let kl = floor(k / 2) in if i < kl then get(l, i, kl) else if i == kl then x else get(r, i - kl - 1, k - kl - 1))
     end in
-  let code : (Int, Int) -> Int = fun (c, r) -> if c < 0 || c >= w || r < 0 || r >= h then 0 else get(grid, r * w + c, n) in
+  let code : (Float, Float) -> Float = fun (c, r) -> if c < 0 || c >= w || r < 0 || r >= h then 0 else get(grid, r * w + c, n) in
   # the best cost found to each tile and the tile it was reached from: a balanced tree (AVL) by place #
-  let height : Best -> Int = fun b -> case b | BLeaf => 0 | BNode(_, _, _, _, _, hh) => hh end in
-  let node : (Best, Int, Int, Int, Best) -> Best = fun (l, k, g, p, r) -> (let hl = height(l) in let hr = height(r) in BNode(l, k, g, p, r, (if hl > hr then hl else hr) + 1)) in
-  let tilt : (Best, Int, Int, Int, Best) -> Best = fun (l, k, g, p, r) ->
+  let height : Best -> Float = fun b -> case b | BLeaf => 0 | BNode(_, _, _, _, _, hh) => hh end in
+  let node : (Best, Float, Float, Float, Best) -> Best = fun (l, k, g, p, r) -> (let hl = height(l) in let hr = height(r) in BNode(l, k, g, p, r, (if hl > hr then hl else hr) + 1)) in
+  let tilt : (Best, Float, Float, Float, Best) -> Best = fun (l, k, g, p, r) ->
     let hl = height(l) in let hr = height(r) in
     if hl > hr + 1 then
       (case l
@@ -46,13 +46,13 @@ let way : ([Int], Int, Int, Int, Int, [Int], Int) -> [Int] = fun (codes, w, h, s
        | BLeaf => node(l, k, g, p, r)
        end)
     else node(l, k, g, p, r) in
-  let put : (Best, Int, Int, Int) -> Best = fun (b, k, g, p) ->
+  let put : (Best, Float, Float, Float) -> Best = fun (b, k, g, p) ->
     case b
     | BLeaf => BNode(BLeaf, k, g, p, BLeaf, 1)
     | BNode(l, key, bg, bp, r, hh) => if k < key then tilt(put(l, k, g, p), key, bg, bp, r) else if k > key then tilt(l, key, bg, bp, put(r, k, g, p)) else BNode(l, k, g, p, r, hh)
     end in
   # the best cost to a tile (-1, none yet) and the tile before it #
-  let best : (Best, Int) -> (g = Int, p = Int) = fun (b, k) ->
+  let best : (Best, Float) -> (g = Float, p = Float) = fun (b, k) ->
     case b
     | BLeaf => (g = 0 - 1, p = 0 - 1)
     | BNode(l, key, bg, bp, r, _) => if k < key then best(l, k) else if k > key then best(r, k) else (g = bg, p = bp)
@@ -67,20 +67,20 @@ let way : ([Int], Int, Int, Int, Int, [Int], Int) -> [Int] = fun (codes, w, h, s
   let pairs : ([Heap], [Heap]) -> [Heap] = fun (ks, acc) ->
     case ks | [] => acc | x :: more => (case more | [] => x :: acc | y :: rest => pairs(rest, meld(x, y) :: acc) end) end in
   let gather : ([Heap], Heap) -> Heap = fun (hs, acc) -> case hs | [] => acc | x :: rest => gather(rest, meld(x, acc)) end in
-  let absi : Int -> Int = fun x -> if x < 0 then 0 - x else x in
-  let tc = md(t, w) in let tr = t / w in
-  let guess : Int -> Int = fun i -> 1000 * (absi(md(i, w) - tc) + absi(i / w - tr)) in
-  let avoided : ([Int], Int) -> Bool = fun (xs, i) -> case xs | [] => false | y :: ys => y == i || avoided(ys, i) end in
+  let absi : Float -> Float = fun x -> if x < 0 then 0 - x else x in
+  let tc = md(t, w) in let tr = floor(t / w) in
+  let guess : Float -> Float = fun i -> 1000 * (absi(md(i, w) - tc) + absi(floor(i / w) - tr)) in
+  let avoided : ([Float], Float) -> Bool = fun (xs, i) -> case xs | [] => false | y :: ys => y == i || avoided(ys, i) end in
   # a move into (c2, r2), extra more than going in: the heap and the best costs as they are after it #
-  let go : ((heap = Heap, b = Best), Int, Int, Int, Int, Int) -> (heap = Heap, b = Best) = fun (st, from, d, c2, r2, extra) ->
-    let e = code(c2, r2) / 8 in
+  let go : ((heap = Heap, b = Best), Float, Float, Float, Float, Float) -> (heap = Heap, b = Best) = fun (st, from, d, c2, r2, extra) ->
+    let e = floor(code(c2, r2) / 8) in
     if e <= 0 then st
     else (let j = r2 * w + c2 in
       if avoided(avoid, j) then st
       else (let nd = d + e + extra in let old = best(st.b, j).g in
         if old >= 0 && nd >= old then st
         else (heap = meld(st.heap, HN(nd + guess(j), j, nd, [])), b = put(st.b, j, nd, from)))) in
-  let search : (Heap, Best, Int) -> Best = fun (heap, b, seen) ->
+  let search : (Heap, Best, Float) -> Best = fun (heap, b, seen) ->
     case heap
     | HE => b
     | HN(_, i, d, kids) =>
@@ -88,22 +88,22 @@ let way : ([Int], Int, Int, Int, Int, [Int], Int) -> [Int] = fun (codes, w, h, s
       else (let rest = gather(pairs(kids, []), HE) in
         if d > best(b, i).g then search(rest, b, seen)
         else if i == t then b
-        else (let c = md(i, w) in let r = i / w in let here = code(c, r) in
-          let solid = md(here / 4, 2) == 1 in let climb = md(here / 2, 2) == 1 in let stand = md(here, 2) == 1 in
+        else (let c = md(i, w) in let r = floor(i / w) in let here = code(c, r) in
+          let solid = md(floor(here / 4), 2) == 1 in let climb = md(floor(here / 2), 2) == 1 in let stand = md(here, 2) == 1 in
           let held = climb || stand || solid in
           let s0 = (heap = rest, b = b) in
           let s1 = (if held then go(go(s0, i, d, c - 1, r, 0), i, d, c + 1, r, 0) else s0) in
           let s2 = go(s1, i, d, c, r + 1, 0) in
           let above = code(c, r - 1) in
-          let s3 = (if climb || (md(above / 4, 2) == 1 && held) then go(s2, i, d, c, r - 1, 300)
+          let s3 = (if climb || (md(floor(above / 4), 2) == 1 && held) then go(s2, i, d, c, r - 1, 300)
             else if stand then
               (let s4 = go(s2, i, d, c, r - 1, 1500) in
-               let up = (r - 1 >= 0 && md(above / 4, 2) == 0) in
+               let up = (r - 1 >= 0 && md(floor(above / 4), 2) == 0) in
                let s5 = (if up && c - 1 >= 0 && md(code(c - 1, r - 1), 2) == 1 then go(s4, i, d, c - 1, r - 1, 1800) else s4) in
                if up && c + 1 < w && md(code(c + 1, r - 1), 2) == 1 then go(s5, i, d, c + 1, r - 1, 1800) else s5)
             else s2) in
           search(s3.heap, s3.b, seen + 1)))
     end in
   let done = search(HN(guess(s), s, 0, []), put(BLeaf, s, 0, 0 - 1), 0) in
-  let back : (Int, [Int]) -> [Int] = fun (i, acc) -> if i == s || i < 0 then acc else back(best(done, i).p, i :: acc) in
+  let back : (Float, [Float]) -> [Float] = fun (i, acc) -> if i == s || i < 0 then acc else back(best(done, i).p, i :: acc) in
   if best(done, t).g < 0 then [] else back(t, [])

@@ -1,18 +1,18 @@
-# The rivers held at their level, the villages' pumps, the rain and the drying, a step at a time (^ticket(907); Matthew, 2026-11-28: "opt-in for Hazel (default off): ... the rivers held at their level, the pumps and the rain"). Off unless chosen (⚙️ Advanced, or ?rivers=hazel): the page's JavaScript (holdRiver and the end of waterStep) is the default and the twin, and these give every tile the very same water (WorldTest.riversSame). The page draws the rain's chances (as it always has: one when a shower starts, one for each of the 24 drops a step while it rains) and hands them in; each amount is rounded as the page stores it, a 32-bit float (Water.hz's f32). Calls nothing in World #
+# The rivers held at their level, the villages' pumps, the rain and the drying, a step at a time (^ticket(907); Matthew, 2026-11-28: "opt-in for Hazel (default off): ... the rivers held at their level, the pumps and the rain"). Off unless chosen (⚙️ Advanced, or ?rivers=hazel): the page's JavaScript (holdRiver and the end of waterStep) is the default and the twin, and these give every tile the very same water (WorldTest.riversSame). The page draws the rain's chances (as it always has: one when a shower starts, one for each of the 24 drops a step while it rains) and hands them in; each amount is rounded as the page stores it, a 32-bit float (Water.hz's f32). Its numbers are Floats, under `use Float in`, as the page's are doubles (Matthew, 2026-11-28: "Float, use Float in"). Calls nothing in World #
 let f32 : Float -> Float = fun x -> (let t = x *. 536870913. in t -. (t -. x));
 # A river held at its level: the open tiles of its bed and banks, from four rows over its level down to its bed, each its row and its water; the answer for each, whether it is set (full under the level, empty over it: it was more than a ten-thousandth off) #
-let hold : ([(r = Int, w = Float)], Int) -> [Bool] = fun (cells, level) ->
+let hold : ([(r = Float, w = Float)], Float) -> [Bool] = fun (cells, level) -> use Float in
   map(cells, fun c -> (let want = (if c.r >= level then 1. else 0.) in let d = c.w -. want in (if d <. 0. then 0. -. d else d) >. 0.0001));
 # The pumps: each room's and stair's water drawn down by 0.004 a step; the answer, each tile's water #
 let pump : [Float] -> [Float] = fun ws -> map(ws, fun w -> if w >. 0. then f32(if w -. 0.004 >. 0. then w -. 0.004 else 0.) else w);
 # Whether a shower begins this step: none falling, and its time come #
-let starts : (Int, Int, Int) -> Bool = fun (rain, at, now) -> rain <= 0 && now > at;
+let starts : (Float, Float, Float) -> Bool = fun (rain, at, now) -> use Float in rain <= 0 && now > at;
 # A shower's length (14 seconds of steps) and the step the next may begin, from a chance (0 to 1): 100 to 180 seconds on #
-let next : (Int, Float) -> (rain = Int, at = Int) = fun (now, u) -> (rain = 14 * 60, at = now + (100 + int_of_float(floor(u *. 80.))) * 60);
+let next : (Float, Float) -> (rain = Float, at = Float) = fun (now, u) -> use Float in (rain = 14 * 60, at = now + (100 + floor(u *. 80.)) * 60);
 # The drops of a step of rain, in order, each where it lands: the tile at the top of its column (its place, its pores, its water), whether it is no more than two rows under the land as made, and the tile over it (its place, whether it is open, its water). A drop soaks a porous top by 0.06; on rock, it wets the open tile over it by 0.03. A tile met again sees its water as the drops before left it. The answer, the tiles changed, in order: each place and its water #
-let rain : [(i = Int, pores = Float, w = Float, land = Bool, j = Int, open = Bool, wj = Float)] -> [(i = Int, w = Float)] = fun drops ->
-  let seen : ([(i = Int, w = Float)], Int, Float) -> Float = fun (done, i, w) -> case done | [] => w | d :: rest => if d.i == i then d.w else seen(rest, i, w) end in
-  let go : ([(i = Int, pores = Float, w = Float, land = Bool, j = Int, open = Bool, wj = Float)], [(i = Int, w = Float)]) -> [(i = Int, w = Float)] = fun (ds, done) ->
+let rain : [(i = Float, pores = Float, w = Float, land = Bool, j = Float, open = Bool, wj = Float)] -> [(i = Float, w = Float)] = fun drops -> use Float in
+  let seen : ([(i = Float, w = Float)], Float, Float) -> Float = fun (done, i, w) -> case done | [] => w | d :: rest => if d.i == i then d.w else seen(rest, i, w) end in
+  let go : ([(i = Float, pores = Float, w = Float, land = Bool, j = Float, open = Bool, wj = Float)], [(i = Float, w = Float)]) -> [(i = Float, w = Float)] = fun (ds, done) ->
     case ds
     | [] => done
     | d :: rest =>
@@ -21,7 +21,7 @@ let rain : [(i = Int, pores = Float, w = Float, land = Bool, j = Int, open = Boo
       else if d.open then (let w = seen(done, d.j, d.wj) +. 0.03 in go(rest, (i = d.j, w = f32(if w <. 1. then w else 1.)) :: done))
       else go(rest, done)
     end in
-  let rev : ([(i = Int, w = Float)], [(i = Int, w = Float)]) -> [(i = Int, w = Float)] = fun (r, t) -> case r | [] => t | y :: ys => rev(ys, y :: t) end in
+  let rev : ([(i = Float, w = Float)], [(i = Float, w = Float)]) -> [(i = Float, w = Float)] = fun (r, t) -> case r | [] => t | y :: ys => rev(ys, y :: t) end in
   rev(go(drops, []), []);
 # The drying, every half second: at the top of each column, a porous tile wetter than a quarter dries by 0.004; the open tile over it, a puddle under a fifth and not a river's, by 0.01. Each column: whether it has a top, the top tile's pores and water, whether there is a tile over it, its water, and whether a river is there. The answer, each column's two waters #
 let dry : [(has = Bool, pores = Float, w = Float, up = Bool, wj = Float, river = Bool)] -> [(w = Float, wj = Float)] = fun cols ->

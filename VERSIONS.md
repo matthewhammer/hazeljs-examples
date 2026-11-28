@@ -2,6 +2,10 @@
 
 Each version lists what the apps do as of that version. The newest version is first.
 
+## 0.0.158 (2026-11-28)
+
+- **Gnome world: the way and the rivers in Hazel in Floats too** (^ticket(909)). `Path.hz` (A* over the window) and `Rivers.hz` write their numbers as Floats under `use Float in`, as `Folk.hz` does since 0.0.157: every one a whole number far under 2^53, so exact, and a division the floor of its quotient. The same ways and the same water as the page's. Path.hz's 20 searches take 49 ms where they took 58 with Ints: its time is its trees (no arrays in Hazel), not its numbers.
+
 ## 0.0.157 (2026-11-28)
 
 - **Gnome world: the creatures in Hazel in Floats, about ten times as fast** (^ticket(909); Matthew, 2026-11-28: "Float, use Float in"). Folk.hz's numbers are all Floats under `use Float in`, as JavaScript's are all doubles, so compiled they are JavaScript's own arithmetic, with none of exact integers' checks; the page's random numbers are its own steps in doubles. An insect's step in Hazel takes about 0.37 µs where it took 4.7; every villager, squirrel, insect and hawk the same as the page's, as before.
