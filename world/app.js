@@ -819,8 +819,11 @@
   }
   // (the boulders' tiles, as boulderAt finds them, once for a search)
   function rockSet() { const R = new Set(); for (const b of S.boulders) { if (inside(b.c, b.r)) R.add(at(b.c, b.r)); if (b.falling && b.oy > 0 && inside(b.c, b.r + 1)) R.add(at(b.c, b.r + 1)); } return R; }
-  // the twin of Path.way, the same steps with arrays: a binary heap ordered by estimate, then place
+  // the twin of Path.way, the same steps with arrays: a binary heap ordered by estimate, then place. codes: the window's numbers,
+  // an array, or a function of (column, row) in the window that gives each as the search reaches it (the page's own search: a
+  // way to the next tile looks at a few tiles, not the 4,225 of its window)
   function wayJS(codes, w, h, s, t, avoid, limit) {
+    const at0 = typeof codes === "function" ? codes : (c, r) => codes[r * w + c];
     const n = w * h, best = new Float64Array(n).fill(-1), prev = new Int32Array(n).fill(-1), tc = t % w, tr = (t - tc) / w;
     const HF = [], HI = [], HG = []; let hn = 0;
     const less = (a, b) => HF[a] < HF[b] || (HF[a] === HF[b] && HI[a] < HI[b]);
@@ -828,7 +831,7 @@
     const push = (f, i, g) => { HF[hn] = f; HI[hn] = i; HG[hn] = g; let j = hn++; while (j > 0) { const p = (j - 1) >> 1; if (!less(j, p)) break; swap(j, p); j = p; } };
     const pop = () => { hn--; swap(0, hn); let j = 0; for (;;) { const a = 2 * j + 1, b = a + 1; let m = j; if (a < hn && less(a, m)) m = a; if (b < hn && less(b, m)) m = b; if (m === j) break; swap(j, m); j = m; } return hn; };
     const guess = i => { const c = i % w; return 1000 * (Math.abs(c - tc) + Math.abs((i - c) / w - tr)); };
-    const code = (c, r) => (c < 0 || c >= w || r < 0 || r >= h) ? 0 : codes[r * w + c];
+    const code = (c, r) => (c < 0 || c >= w || r < 0 || r >= h) ? 0 : at0(c, r);
     const go = (from, d, c2, r2, extra) => { const e = code(c2, r2) >> 3; if (e <= 0) return; const j = r2 * w + c2; if (avoid.has(j)) return;
       const nd = d + e + extra, old = best[j]; if (old >= 0 && nd >= old) return; best[j] = nd; prev[j] = from; push(nd + guess(j), j, nd); };
     best[s] = 0; push(guess(s), s, 0); let seen = 0;
@@ -874,11 +877,13 @@
     if (sc === tc && sr === tr) return [];
     const rocks = rockSet(), h = H(), byHazel = WAY.hazelOn && !!(h && h.way);
     for (let k = 0; k < 2; k++) { const m = [32, 128][k], Wn = wayWindow(sc, sr, tc, tr, m), n = Wn.w * Wn.h;
-      const codes = new Int32Array(n); for (let r = 0; r < Wn.h; r++) for (let c = 0; c < Wn.w; c++) codes[r * Wn.w + c] = wayCode(Wn.c0 + c, Wn.r0 + r, rocks);
+      // (for Hazel, every tile of the window, handed over as a list; for wayJS, each tile as the search reaches it, kept)
+      const memo = new Int32Array(n).fill(-1), lazy = (c, r) => { const k = r * Wn.w + c; let v = memo[k]; if (v < 0) v = memo[k] = wayCode(Wn.c0 + c, Wn.r0 + r, rocks); return v; };
+      let codes = null; if (byHazel) { codes = new Array(n); for (let r = 0; r < Wn.h; r++) for (let c = 0; c < Wn.w; c++) codes[r * Wn.w + c] = wayCode(Wn.c0 + c, Wn.r0 + r, rocks); }
       const s = (sr - Wn.r0) * Wn.w + (sc - Wn.c0), t = (tr - Wn.r0) * Wn.w + (tc - Wn.c0), av = [];
       if (avoid) for (const j of avoid) { const c = j % WW, r = (j - c) / WW; if (c >= Wn.c0 && c < Wn.c0 + Wn.w && r >= Wn.r0 && r < Wn.r0 + Wn.h) av.push((r - Wn.r0) * Wn.w + (c - Wn.c0)); }
       const t0 = performance.now(), hz = byHazel;
-      const p = hz ? h.way(Array.from(codes), Wn.w, Wn.h, s, t, av, n * 2) : wayJS(codes, Wn.w, Wn.h, s, t, new Set(av), n * 2);
+      const p = hz ? h.way(codes, Wn.w, Wn.h, s, t, av, n * 2) : wayJS(lazy, Wn.w, Wn.h, s, t, new Set(av), n * 2);
       const dt = performance.now() - t0; WAY.ms += dt; if (hz) { WAY.hazel++; WAY.hazelMs += dt; } else WAY.js++; WAY.windows[k]++;
       if (p.length) return p.map(i => at(Wn.c0 + i % Wn.w, Wn.r0 + ((i / Wn.w) | 0)));
     }
