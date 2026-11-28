@@ -79,7 +79,10 @@
     const b = document.createElement("canvas"); b.width = b.height = 1; b._blank = true; return b;   // (drawn as next to nothing; let go of with the caches)
   }
   function dropCanvas(cv) { if (!cv || !cv._px) return; CANVAS.px -= cv._px; cv._px = 0; cv.width = cv.height = 0; CANVAS.freed++; }
-  const SND = window.DigSound || null;   // (Gnome dig's music and sounds, dig/sound.js)
+  const SND = window.DigSound || null;
+  // (^ticket(902)) numbers with their thousands marked, by one formatter made as the page loads: the first toLocaleString sets up
+  // the browser's number formats (12 ms in Node on the laptop), and the HUD's first line of the speed run's dig took a 70 ms frame
+  const NUMF = new Intl.NumberFormat(); NUMF.format(1234);   // (Gnome dig's music and sounds, dig/sound.js)
 
   // ---- the world's tiles: what is there (mat), its water (wat: for ground, the share of its pores full; for air, the share of
   // the tile full of water), what is behind an open tile (bg), what is on it (fix), a gem in it, roots in it, a digging's cracks
@@ -580,7 +583,7 @@
     else if (SND && S.frame - (S.digSndAt || 0) > 2) { S.lastFill = SND.digFill ? SND.digFill() : (SND.dig(), null); S.digSndAt = S.frame; }   // (0.0.128: a drum fill on the beat)
     for (let k = 0; k < 7; k++) S.parts.push({ x: c + 0.5, y: r + 0.5, vx: (rand() - 0.5) * 0.12, vy: -rand() * 0.12, life: 30 + rand() * 20, col: COLOR[m] });
     if (r <= top[c]) top[c] = topOf(c);
-    S.minimapAt = -1e9;
+    S.minimapDirty = true;   // (^ticket(902): the map drawn again soon, not at once)
   }
   // (a sloped tile's ground, the triangle under its diagonal, as a path; and the height of its diagonal at a point across it)
   function slopeTri(c2, x, y, s, k) { c2.beginPath(); if (k === 1) { c2.moveTo(x, y + s + 0.5); c2.lineTo(x + s + 0.5, y); c2.lineTo(x + s + 0.5, y + s + 0.5); } else { c2.moveTo(x, y); c2.lineTo(x + s + 0.5, y + s + 0.5); c2.lineTo(x, y + s + 0.5); } c2.closePath(); }
@@ -843,7 +846,7 @@
     BOT.on = false; for (const k in S.keys) S.keys[k] = false;
     if (BOT.phase === "dig") { const R = BOT.report || botReport();
       R.dig = { time: runTime(BOT.frames - BOT.digT0), dug: BOT.digAll - BOT.digLeft, of: BOT.digAll, left: BOT.digLeft, chunks: BOT.chunks, all: runTime(BOT.frames), realMs: Math.round(performance.now() - BOT.t0) }; BOT.report = R;
-      S.banner = { text: `⛏️ The whole world dug: ${R.dig.dug.toLocaleString()} tiles in ${R.dig.time}${R.dig.left ? ` (${R.dig.left} out of reach)` : ""} · 🏃 ${R.dig.all} in all`, t: performance.now() + 4000 };
+      S.banner = { text: `⛏️ The whole world dug: ${NUMF.format(R.dig.dug)} tiles in ${R.dig.time}${R.dig.left ? ` (${R.dig.left} out of reach)` : ""} · 🏃 ${R.dig.all} in all`, t: performance.now() + 4000 };
       S.party = { t: performance.now(), burst: false }; if (SND) { SND.cleared(); if (SND.musicOn) SND.celebrate(); }
       console.log("speed run and dig", R); }
     else { BOT.report = botReport(); S.banner = { text: `🏃 Speed run: ${BOT.report.time} · ${BOT.report.items} things · ${BOT.report.treeParts} tree parts · 💎 ${BOT.report.gems}`, t: performance.now() }; console.log("speed run", BOT.report); }
@@ -859,7 +862,9 @@
     const g = S.g, gc = Math.floor(g.x / 1000), gr0 = Math.floor((g.y - 1) / 1000), gr = inside(gc, gr0) && shape[at(gc, gr0)] ? gr0 - 1 : gr0, here = at(gc, gr);
     for (const k in S.keys) S.keys[k] = false;
     if (BOT.sayAt && performance.now() > BOT.sayAt) { BOT.sayAt = 0; S.banner = { text: "⛏️ And now: dig up the whole world, every tile a digger can dig", t: performance.now() + 1500 }; }
-    if (BOT.phase === "dig" && BOT.frames % 60 === 0) digCount();   // (the count for the run's line, once a second of the run)
+    // (the count for the run's line: once a second, ^ticket(902) of the real clock; once each 60 steps of the run was 24 times a
+    // second in the speed run, every tile of the world each time)
+    if (BOT.phase === "dig" && !(performance.now() - (BOT.countT || 0) < 1000)) { BOT.countT = performance.now(); digCount(); }
     if (!BOT.cur && !botNext()) return;
     const t = BOT.cur;
     const done = t.gemAt != null ? !gem[t.gemAt] : t.item ? t.item.taken : t.digAt != null ? !digCan(t.digAt) : Math.abs(gc - t.c) <= 0 && Math.abs(gr - t.r) <= 0;
@@ -1205,6 +1210,7 @@
   // (sprite: painted at the tile's size), a band is copied as it is, a tenth the cost. As many bands as keep each step to two and a half
   // pixels or so (80 at most), so that the bend still reads as a curve
   function drawSwaying(sp, x, y, k, lean, tassels = false, n = 6) {
+    if (sp.deferred) return;
     const f = T / sp.res * k, w = sp.w, h = sp.h, hT = h / sp.res * k, one = Math.abs(f - 1) < 0.001;
     const push = v => (tassels ? Math.max(0, (v - 0.12) / 0.88) ** 1.3 * 1.6 + (1 - v) * 0.3 : (1 - v) * (1 - v)) * lean * hT * T;   // (v: 0 at the top, 1 at the foot)
     const X = x - sp.ox * T * k, Y = y - sp.oy * T * k, RX = Math.round(X), RY = Math.round(Y);
@@ -1465,9 +1471,15 @@
   const dirtyRootsAt = (c, r) => { const ch = rootChunks.get(Math.floor(c / RCH) + "," + Math.floor(r / RCH)); if (ch) ch.dirty = true; };
   const dirtyRootsX = (x0, x1) => { for (const [k, ch] of rootChunks) { const cx = +k.split(",")[0]; if ((cx + 1) * RCH >= x0 && cx * RCH <= x1) ch.dirty = true; } };
   function dropChunk(ch) { if (!ch) return; dropCanvas(ch.ground); dropCanvas(ch.back); dropCanvas(ch.front); ch.ground = ch.back = ch.front = null; }
+  const NO_ROOTS = { ground: null, back: null, front: null };
   function rootChunk(cx, cy) {
     const k = cx + "," + cy, res = Math.min(T, TCAP); let ch = rootChunks.get(k);
     if (ch && ch.res === res && !ch.dirty) { rootChunks.delete(k); rootChunks.set(k, ch); return ch; }
+    // (^ticket(902)) a patch whose tiles were dug is painted again a quarter of a second after its last painting at the soonest
+    // (the gnome digging, in the speed run every frame, had it painted every frame), and over the frame's budget, later
+    if (ch && PAINT.on && ((ch.res === res && ch.dirty && performance.now() - (ch.at || 0) < 250) || !paintOK())) { if (!paintOK()) PAINT.put++; return ch; }
+    if (!ch && !paintOK()) { PAINT.put++; return NO_ROOTS; }
+    const pt0 = performance.now();
     const x0 = cx * RCH, y0 = cy * RCH, W = Math.ceil(RCH * res), sets = S.rootSets.filter(R => R.x1 >= x0 - 1 && R.x0 <= x0 + RCH + 1), tsets = S.threadSets.filter(R => R.x1 >= x0 - 1 && R.x0 <= x0 + RCH + 1);
     if (ch) dropChunk(ch);
     const mk = () => newCanvas(W, W), tmp = mk(), tg = tmp.getContext("2d");
@@ -1491,8 +1503,9 @@
       strokeLines(fg, sets, "rgba(5,2,1,0.45)", 1.05, res * 0.05, res * 0.07, 5, false, res); strokeLines(fg, sets, "#5b3a22", 1, 0, 0, 5, false, res); strokeLines(fg, sets, "#8a6440", 0.35, -res * 0.012, -res * 0.012, 5, false, res);
       fg.setTransform(1, 0, 0, 1, 0, 0); mask(fg, dug); }
     dropCanvas(tmp);
-    ch = { res, ground, back, front, dirty: false }; rootChunks.set(k, ch);
+    ch = { res, ground, back, front, dirty: false, at: performance.now() }; rootChunks.set(k, ch);
     while (rootChunks.size > (IOS ? 10 : 30)) { const k0 = rootChunks.keys().next().value; dropChunk(rootChunks.get(k0)); rootChunks.delete(k0); }
+    PAINT.ms += performance.now() - pt0;
     return ch;
   }
   function drawRootChunks(c0, c1, r0, r1, s, which) {
@@ -1982,6 +1995,17 @@
     return P;
   }
   const spriteCache = new Map(), SPRITES = { painted: 0, strips: 0 };
+  // (^ticket(902); Matthew, 2026-11-27, demoing the 🏃 speed run: "the frame rate was very poor, and the 'worst time' reported in
+  // the HUD was hundreds of ms") A frame's painting of new pictures, budgeted: the speed run sweeps the view across the world
+  // several times as fast as a player, and each tree, great tree, house or patch of roots coming into view was painted in the
+  // frame that first showed it, several at once: up to 150 ms of a frame on a GitHub runner, and more with the CPU slowed. Now,
+  // in the page's own frames (timedDraw), once a frame has painted PAINT.budget ms of pictures, the rest wait for the next frame
+  // (the first of a frame is always painted, so each comes in its turn): one not yet painted is not drawn for a frame or two, or
+  // its older picture is (a patch of roots before a tile was dug, a picture at the size before a resize). Drawing for the
+  // booklet, the tests and the zine is never put off
+  const PAINT = { on: false, ms: 0, budget: 4, put: 0 };
+  const paintOK = () => !PAINT.on || PAINT.ms < PAINT.budget;
+  const DEFERRED = { deferred: true, w: 0, h: 0, ox: 0, oy: 0, res: 1, T: 0 };
   // (0.0.102: the trees three times as tall) A very big picture (over 6 million pixels: a great tree, the tall trees by it) is
   // kept in strips eight tiles tall, each painted the first time it is drawn, so only the strips in view are painted and held;
   // at most 40 million pixels of strips are kept (the oldest let go): a great tree a hundred tiles tall would be 15 million
@@ -2005,6 +2029,8 @@
     if (LINE) key = "line:" + key;
     let sp = spriteCache.get(key);
     if (sp && sp.T === T) { spriteCache.delete(key); spriteCache.set(key, sp); return sp; }
+    if (!paintOK()) { PAINT.put++; return sp || DEFERRED; }   // (^ticket(902): the frame's painting done; the older picture, or none, this frame)
+    const pt0 = performance.now();
     forget(sp);
     const res = Math.min(T, LINE ? 64 : TCAP), W = Math.ceil(wT * res), Hp = Math.ceil(hT * res);
     if (W * Hp > BIG_PX) sp = { strips: [], sh: STRIP_T * res, w: W, h: Hp, ox, oy, res, T, key, paint, line: LINE };
@@ -2014,23 +2040,28 @@
       sp = { cv: c, ox, oy, res, T, w: W, h: Hp }; wholePx += W * Hp; }
     spriteCache.set(key, sp);
     while ((spriteCache.size > SPRITES_KEPT || wholePx > WHOLE_BUDGET) && spriteCache.size > 1) { const k0 = spriteCache.keys().next().value; forget(spriteCache.get(k0)); spriteCache.delete(k0); }
+    PAINT.ms += performance.now() - pt0;
     return sp;
   }
   function stripOf(sp, i) {
     const k = sp.key + "#" + i; let cv = sp.strips[i];
     if (cv) { const e = strips.get(k); strips.delete(k); strips.set(k, e); return cv; }
+    if (!paintOK()) { PAINT.put++; return null; }   // (^ticket(902): painted in a later frame)
+    const pt0 = performance.now();
     SPRITES.painted++; SPRITES.strips++;
     const h = Math.min(sp.sh, sp.h - i * sp.sh); cv = newCanvas(sp.w, h);
     const g0 = cv.getContext("2d"), g = sp.line ? lineCtx(g0) : g0; g0.translate(sp.ox * sp.res, sp.oy * sp.res - i * sp.sh); sp.paint(g, sp.res);
     sp.strips[i] = cv; strips.set(k, { sp, i, px: sp.w * h }); stripPx += sp.w * h;
     while (stripPx > STRIP_BUDGET && strips.size > 1) { const [k0, e] = strips.entries().next().value; strips.delete(k0); dropCanvas(e.sp.strips[e.i]); e.sp.strips[e.i] = null; stripPx -= e.px; }
+    PAINT.ms += performance.now() - pt0;
     return cv;
   }
   // (a picture's rows sy to sy + sh drawn at dx, dy, scaled by f: from its canvas, or from the strips they fall in)
   function blitRows(sp, sy, sh, dx, dy, f) {
+    if (sp.deferred) return;
     if (!sp.strips) { if (f === 1) ctx.drawImage(sp.cv, 0, sy, sp.w, sh, dx, dy, sp.w, sh); else ctx.drawImage(sp.cv, 0, sy, sp.w, sh, dx, dy, sp.w * f, sh * f); return; }
     for (let i = Math.floor(sy / sp.sh), e = sy + sh; i * sp.sh < e; i++) { const a = Math.max(sy, i * sp.sh), b = Math.min(e, (i + 1) * sp.sh, sp.h); if (b <= a) continue;
-      const cv = stripOf(sp, i); if (f === 1) ctx.drawImage(cv, 0, a - i * sp.sh, sp.w, b - a, dx, dy + (a - sy), sp.w, b - a); else ctx.drawImage(cv, 0, a - i * sp.sh, sp.w, b - a, dx, dy + (a - sy) * f, sp.w * f, (b - a) * f); }
+      const cv = stripOf(sp, i); if (!cv) continue; if (f === 1) ctx.drawImage(cv, 0, a - i * sp.sh, sp.w, b - a, dx, dy + (a - sy), sp.w, b - a); else ctx.drawImage(cv, 0, a - i * sp.sh, sp.w, b - a, dx, dy + (a - sy) * f, sp.w * f, (b - a) * f); }
   }
   const drawSprite = (sp, x, y, k = 1) => { const f = T / sp.res * k; blitRows(sp, 0, sp.h, x - sp.ox * T * k, y - sp.oy * T * k, f); };
   const TREE_LOOK = { 0: { wide: 1.05 }, 2: { wide: 0.8, bark: "#e9e4dc", marks: true, greens: ["#4d7c0f", "#5a8f2a", "#6aa832", "#7cbf3a", "#93d04a"] },
@@ -4934,7 +4965,7 @@
     const where = g && (g.swim || g.under) ? (g.under ? "🫧 under the water" : "🏊 swimming") : depth > 1 ? `🕳️ ${depth} m down` : depth < -2 ? `🌳 ${-depth} m up` : "🌿 on the land";
     const gx = g ? g.x / 1000 : 0, place = (S.places.find(p => gx >= p.x0 && gx <= p.x1 && (!p.under || depth > 3)) || { name: "" }).name;
     const wv = S.windNow || 0, wa = Math.abs(wv), windWord = wa < 0.15 ? "calm" : wa < 0.45 ? "a breeze" : wa < 0.8 ? "windy" : "a gale", arrows = wa < 0.15 ? "" : (wv > 0 ? "→" : "←").repeat(wa < 0.45 ? 1 : wa < 0.8 ? 2 : 3);
-    const runWord = BOT.on && BOT.phase === "dig" ? `🏃 ${Math.floor(BOT.frames / 3600)}:${String(Math.floor(BOT.frames / 60) % 60).padStart(2, "0")} · ⛏️ ${(BOT.digAll - BOT.digLeft).toLocaleString()} of ${BOT.digAll.toLocaleString()} dug (${BOT.digAll ? Math.floor((BOT.digAll - BOT.digLeft) * 100 / BOT.digAll) : 0}%)  `
+    const runWord = BOT.on && BOT.phase === "dig" ? `🏃 ${Math.floor(BOT.frames / 3600)}:${String(Math.floor(BOT.frames / 60) % 60).padStart(2, "0")} · ⛏️ ${NUMF.format(BOT.digAll - BOT.digLeft)} of ${NUMF.format(BOT.digAll)} dug (${BOT.digAll ? Math.floor((BOT.digAll - BOT.digLeft) * 100 / BOT.digAll) : 0}%)  `
       : BOT.on ? `🏃 ${Math.floor(BOT.frames / 3600)}:${String(Math.floor(BOT.frames / 60) % 60).padStart(2, "0")} · ${BOT.phase} · ${BOT.items + S.items.filter(i => i.taken).length - BOT.items}/${S.items.length} · 🌳 ${BOT.parts}/${BOT.partsAll || "?"} · 💎 ${BOT.gems}/${BOT.gemsAll || "?"}  ` : "";
     { const mb = $("mount"), riding = !!(S.ride && S.ride.on), flying = !!(S.carpet && S.carpet.on), tailed = !!(S.tail && S.tail.on), show = riding || flying || tailed || nearClover() || !!(S.carpet && S.carpet.have) || !!(S.tail && S.tail.have);
       if (mb) { if (mb.hidden === show) mb.hidden = !show; const which = riding ? "clover" : flying ? "carpet" : tailed ? "tail" : nextRide(), icon = which === "carpet" ? "🧞" : which === "tail" ? "🐈" : "🐇", on = String(riding || flying || tailed);
@@ -4954,7 +4985,10 @@
     if (S.banner && now - S.banner.t < 3500) { const f = Math.min(1, (3500 - (now - S.banner.t)) / 500); ctx.globalAlpha = f; ctx.font = `bold ${Math.round(24 * k)}px sans-serif`; ctx.textAlign = "center";
       const bw = ctx.measureText(S.banner.text).width; pill(W / 2 - bw / 2 - 16 * k, Hh * 0.18, bw + 32 * k, 40 * k); ctx.fillStyle = "#fff"; ctx.fillText(S.banner.text, W / 2, Hh * 0.18 + 8 * k); ctx.globalAlpha = 1; }
     if (S.map && g) {
-      if (S.frame - S.minimapAt > 45) { minimap(); S.minimapAt = S.frame; }
+      // (^ticket(902)) on the clock, not the world's steps: every 45 steps was every frame of the speed run (24 steps or so a frame),
+      // all 57,344 tiles each time, and each tile dug had it drawn again at once; now every 0.75 s, and a quarter of a second
+      // after a tile is dug at the soonest (a new world, or one loaded, at once)
+      if (S.minimapAt === -1e9 || now - (S.minimapT || 0) > 750 || (S.minimapDirty && now - (S.minimapT || 0) > 250)) { minimap(); S.minimapAt = S.frame; S.minimapT = now; S.minimapDirty = false; }
       const mw = Math.min(W * 0.3, 340 * k), mh = mw * WH / WW, mx = W - mw - 10 * k, my = 10 * k + (document.documentElement.classList.contains("oracle-fs") ? 40 * k : 0);
       ctx.globalAlpha = 0.88; ctx.imageSmoothingEnabled = true; ctx.drawImage(map2Cv, mx, my, mw, mh); ctx.globalAlpha = 1;
       ctx.strokeStyle = "#fff"; ctx.lineWidth = 1.5; ctx.strokeRect(mx + S.cam.x / WW * mw, my + S.cam.y / WH * mh, VW / WW * mw, VH / WH * mh);
@@ -5003,18 +5037,24 @@
     const REC = PERF.rec; let tmax = 0, tpart = null;
     const one = !REC ? tick : hh => { const a = performance.now(), before = TP.on ? { ...TP.ms } : null; tick(hh); const d = performance.now() - a;
       if (d > tmax) { tmax = d; if (before) { tpart = {}; for (const k in TP.ms) { const v = TP.ms[k] - (before[k] || 0); if (v >= 0.05) tpart[k] = +v.toFixed(2); } } } };
-    try { if (BOT.on) { const tq = performance.now(); while (performance.now() - tq < 12 && BOT.on) { one(h); n++; } acc = 0; } else while (acc >= 1 && n < 4) { one(h); acc -= 1; n++; } } catch (e) { S.built = { ...S.built, ok: false, threw: String(e && e.message || e) }; drawStatus(); console.error(e); return; }
+    // (^ticket(902)) The speed run steps the world as fast as the page can: till 0.0.148, for 12 ms of every frame, then the drawing,
+    // so a frame whose drawing took more than 4.7 ms missed the screen's sixtieth of a second, and on a big screen or a busy
+    // laptop the run went at 30 frames a second. Now its steps take what a frame leaves after its drawing (smoothed): 14 ms in
+    // all, at least 4 ms of steps and at most 12; the run goes a little slower where drawing costs more, and keeps 60
+    try { if (BOT.on) { const tq = performance.now(), budget = Math.max(4, Math.min(12, 14 - (PERF.drawAvg || 4))); PERF.stepBudget = budget; while (performance.now() - tq < budget && BOT.on) { one(h); n++; } acc = 0; } else while (acc >= 1 && n < 4) { one(h); acc -= 1; n++; } } catch (e) { S.built = { ...S.built, ok: false, threw: String(e && e.message || e) }; drawStatus(); console.error(e); return; }
     if (n >= 4 && !BOT.on) acc = 0;
     const tms = performance.now() - tt; PERF.ticks.push(tms); if (PERF.ticks.length > 60) PERF.ticks.shift();
     if (REC) PERF.raw = {};
     const d0 = performance.now(); timedDraw();
     if (REC) { REC.push({ t: +t.toFixed(1), gap: PERF.frames.length ? +PERF.frames[PERF.frames.length - 1].toFixed(1) : 0, n, ticks: +tms.toFixed(2), tmax: +tmax.toFixed(2), tpart, draw: +(performance.now() - d0).toFixed(2),
-      dparts: Object.fromEntries(Object.entries(PERF.raw).filter(([, v]) => v >= 0.2).map(([k, v]) => [k, +v.toFixed(2)])), phase: BOT.on ? BOT.phase : "", frame: S.frame }); PERF.raw = null; }
+      dparts: Object.fromEntries(Object.entries(PERF.raw).filter(([, v]) => v >= 0.2).map(([k, v]) => [k, +v.toFixed(2)])), phase: BOT.on ? BOT.phase : "", frame: S.frame,
+      budget: BOT.on ? +(PERF.stepBudget || 0).toFixed(1) : 0, put: PAINT.put, painted: SPRITES.painted }); PERF.raw = null; }
   }
   // (a scene in line art: the frame drawn through the line canvas, onto a canvas of its own)
   function lineScene(x, y) { const keep = S.camFix; S.camFix = { x, y }; LINE = true; ctx = lineCtx(realCtx); realCtx.save(); realCtx.setTransform(1, 0, 0, 1, 0, 0); realCtx.fillStyle = "#fff"; realCtx.fillRect(0, 0, cv.width, cv.height); realCtx.restore();
     try { draw(); } finally { LINE = false; ctx = realCtx; S.camFix = keep; } const out = document.createElement("canvas"); out.width = cv.width; out.height = cv.height; out.getContext("2d").drawImage(cv, 0, 0); return out; }
-  function timedDraw() { const t0 = performance.now(); PERF.name = null; draw(); pmark(null); PERF.draws.push(performance.now() - t0); if (PERF.draws.length > 60) PERF.draws.shift(); drawPerf(); }
+  function timedDraw() { const t0 = performance.now(); PERF.name = null; PAINT.on = !LINE; PAINT.ms = 0; try { draw(); } finally { PAINT.on = false; } pmark(null); const d = performance.now() - t0; PERF.draws.push(d); if (PERF.draws.length > 60) PERF.draws.shift();
+    PERF.drawAvg = PERF.drawAvg == null ? d : PERF.drawAvg * 0.8 + Math.min(d, 30) * 0.2; drawPerf(); }
   requestAnimationFrame(frame);
 
   // ---- the keys and the buttons

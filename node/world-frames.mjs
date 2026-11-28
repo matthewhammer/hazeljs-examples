@@ -89,6 +89,8 @@ function analyze(X) {
   log(`${U.name}: ${rec.length} frames recorded; the run: things ${X.items}, tree parts ${X.parts}, gems ${X.gems}, at phase ${X.phase || "(done)"}${X.report ? `; its time ${X.report.time}, real ${f1(X.report.realMs / 1000)} s` : ""}`);
   log(`  frame gap: median ${f1(q(gaps, 0.5))} ms (${f1(1000 / Math.max(1, q(gaps, 0.5)))} fps), p90 ${f1(q(gaps, 0.9))}, p99 ${f1(q(gaps, 0.99))}, worst ${f1(Math.max(...gaps))}; over 16.7 ms ${over(16.7)} of ${n}, over 33 ${over(33.4)}, over 50 ${over(50)}, over 100 ${over(100)}, over 200 ${over(200)}`);
   const ticks = rec.map(r => r.ticks), draws = rec.map(r => r.draw), ns = rec.map(r => r.n), tmax = rec.map(r => r.tmax);
+  const bud = rec.map(r => r.budget).filter(x => x > 0), put = rec.length ? (rec[rec.length - 1].put || 0) - (rec[0].put || 0) : 0, painted = rec.length ? (rec[rec.length - 1].painted || 0) - (rec[0].painted || 0) : 0;
+  log(`  the steps' budget a frame: ${bud.length ? `median ${f1(q(bud, 0.5))} ms, from ${f1(Math.min(...bud))} to ${f1(Math.max(...bud))}` : "fixed (12 ms, before 0.0.149)"}; pictures painted ${painted}, put off to a later frame ${put}`);
   log(`  a frame's steps: median ${f1(q(ticks, 0.5))} ms (${q(ns, 0.5)} steps), the slowest step in a frame: median ${f1(q(tmax, 0.5))} ms, p99 ${f1(q(tmax, 0.99))}, worst ${f1(Math.max(...tmax))}; drawing: median ${f1(q(draws, 0.5))} ms, p99 ${f1(q(draws, 0.99))}, worst ${f1(Math.max(...draws))}`);
   // by phase
   const phases = [...new Set(rec.map(r => r.phase))];
@@ -124,7 +126,7 @@ function analyze(X) {
   return { setup: U, info: X.info, frames: rec.length, gaps: { median: q(gaps, 0.5), p90: q(gaps, 0.9), p99: q(gaps, 0.99), worst: Math.max(...gaps), over: { 16.7: over(16.7), 33: over(33.4), 50: over(50), 100: over(100), 200: over(200) } },
     steps: { median: q(ticks, 0.5), n: q(ns, 0.5), tmaxMedian: q(tmax, 0.5), tmaxP99: q(tmax, 0.99), tmaxWorst: Math.max(...tmax) }, drawing: { median: q(draws, 0.5), p99: q(draws, 0.99), worst: Math.max(...draws) },
     tp: Object.fromEntries(tpAll), draw: Object.fromEntries(dAll), kinds: Object.fromEntries(kinds), busyMs: total, top: [...self].sort((a, b) => b[1] - a[1]).slice(0, 60).map(([id, v]) => [nameOf(byId.get(id)), +v.toFixed(1)]), worst, calibrated: off != null,
-    run: { items: X.items, parts: X.parts, gems: X.gems, phase: X.phase, report: X.report } };
+    run: { items: X.items, parts: X.parts, gems: X.gems, phase: X.phase, report: X.report }, budget: bud.length ? { median: q(bud, 0.5), min: Math.min(...bud), max: Math.max(...bud) } : null, painted, put };
 }
 
 const result = { when: new Date().toISOString(), base: BASE, runMs: RUN_MS, digMs: DIG_MS, sampleUs: SAMPLE_US, setups: {} };
