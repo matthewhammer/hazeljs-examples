@@ -98,7 +98,12 @@
   // is at the block's edge (they may follow); a tile dug, the rain, a river's level changing, the pumps wake theirs; all of them
   // as the world is made or loaded. Asleep, a block's water stays as it is: still, or moving less than that. Where it never
   // stops (a river's water seeping down through sand toward the village's pumps, which draw it off), its blocks stay awake
-  const WAKE_FOR = 90, QEPS = 1e-4, WSH = 3, WM = 7, WBC = Math.ceil(WW / 8), wakeTill = new Int32Array(WBC * Math.ceil(WH / 8));
+  // (0.0.151, ^ticket(904); Matthew, 2026-11-27, choosing from ^report(69): "Yes, a thousandth") Water moving keeps its block awake only
+  // when a tile's move in a step is more than a thousandth of a tile (WAKE_EPS; a ten-thousandth till 0.0.150): most of the water's
+  // work had been seepage under a thousandth, from the rivers toward the villages' pumps, and now it settles a second and a half
+  // after it is left alone, till digging, the rain or a river wakes it. The speed run 2.2 times as fast; tunnels and caves fill more
+  // slowly (24% fewer open tiles flooded after 10,000 steps). QEPS stays a river's own test of a tile not at its level
+  const WAKE_FOR = 90, QEPS = 1e-4, WAKE_EPS = 1e-3, WSH = 3, WM = 7, WBC = Math.ceil(WW / 8), wakeTill = new Int32Array(WBC * Math.ceil(WH / 8));
   const wakeNear = (c, r, t = S.frame + WAKE_FOR) => { if (c < 0 || c >= WW || r < 0 || r >= WH) return; const k = (r >> WSH) * WBC + (c >> WSH), cm = c & WM, rm = r & WM; wakeTill[k] = t;
     if (cm === 0) { if (c > 0) wakeTill[k - 1] = t; } else if (cm === WM && c + 1 < WW) wakeTill[k + 1] = t;
     if (rm === 0) { if (r > 0) wakeTill[k - WBC] = t; } else if (rm === WM && r + 1 < WH) wakeTill[k + WBC] = t; };
@@ -501,7 +506,7 @@
         const room = (1 - wat[b]) * pb; if (room <= 0.0001) continue;
         const k = Math.min(1, Math.min(FLOW[ma], FLOW[mb]) * (root[a] ? 1 + root[a] * 1.5 : 1));
         const qv = Math.min(free * k, room);
-        wat[a] -= qv / pa; wat[b] += qv / pb; if (qv > QEPS) { wakeNear(c, r, wt); if ((r & WM) === WM) wakeNear(c, r + 1, wt); } } } }
+        wat[a] -= qv / pa; wat[b] += qv / pb; if (qv > WATER.eps) { wakeNear(c, r, wt); if ((r & WM) === WM) wakeNear(c, r + 1, wt); } } } }
     const sweep = sw;
     for (let r = wetFrom; r < WH - 1; r++) { const base = r * WW, rb = (r >> WSH) * WBC;
       for (let nb = 0; nb < WBC; nb++) { const bc = sweep > 0 ? nb : WBC - 1 - nb; if (wakeTill[rb + bc] < fr) continue; const cA = bc << WSH, cB = Math.min(WW, cA + 8);
@@ -514,7 +519,7 @@
           if (mn === AIR && ma !== AIR && wat[a] < 0.9) continue;
           const k = Math.min(1, Math.min(FLOW[ma], FLOW[mn]) * 0.5 * (root[a] ? 2 : 1));
           const qv = (wat[a] - sn) * Math.min(pa, pn) * 0.5 * k;
-          wat[a] -= qv / pa; wat[n2] += qv / pn; if (qv > QEPS) wakeNear(c, r, wt); } } } }
+          wat[a] -= qv / pa; wat[n2] += qv / pn; if (qv > WATER.eps) wakeNear(c, r, wt); } } } }
   }
   // (^ticket(904); ^report(68): the water was 88% to 93% of the speed run's steps) The two passes, each a tile's arithmetic as
   // before to the bit, with the world's arrays and the ground's numbers held in locals and Math.min written out as comparisons
@@ -550,9 +555,9 @@
   // handed to Water.down (over the row under it) and Water.across (in the pass's way, with the tile either side, which takes
   // and does not give), the answers written back and the water round each tile that moved woken: every tile's water the same
   // to the bit (WorldTest.waterSame). For profiling and the reports: a call for each block of each row, every step
-  // (eps: the least a tile's move that keeps the water round it awake, a ten-thousandth of a tile; ?wateps= tries another, for
-  // measuring: ^ticket(904) found most of the water's work to be seepage of under a thousandth of a tile a step)
-  const WATER = { hazel: Q.get("water") === "hazel" || (Q.get("water") !== "js" && kept("water", "js") === "hazel"), calls: 0, eps: +(Q.get("wateps") || QEPS) };
+  // (eps: the least a tile's move that keeps the water round it awake, a thousandth of a tile since 0.0.151; ?wateps= tries another,
+  // for measuring (?wateps=0.0001, the water of 0.0.150 and before); Water.hz wakes at a thousandth)
+  const WATER = { hazel: Q.get("water") === "hazel" || (Q.get("water") !== "js" && kept("water", "js") === "hazel"), calls: 0, eps: +(Q.get("wateps") || WAKE_EPS) };
   function waterPassesHazel(h, fr, wt, sw) {
     const W = wat, M = mat, P = PORES, F = FLOW, CL = CLING, RT = root, WK = wakeTill, from = wetFrom;
     for (let r = WH - 2; r >= from; r--) { const base = r * WW, rb = (r >> WSH) * WBC, edge = (r & WM) === WM;

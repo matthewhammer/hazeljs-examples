@@ -2,6 +2,10 @@
 
 Each version lists what the apps do as of that version. The newest version is first.
 
+## 0.0.151 (2026-11-27)
+
+- **Gnome world: seepage left to settle** (^ticket(904); Matthew, choosing from ^report(69): "Yes, a thousandth"). Water moving keeps its block awake only when a tile's move in a step is more than a thousandth of a tile, not a ten-thousandth: the slow seepage from the rivers toward the villages' pumps, most of the water's work, now settles a second and a half after it is left alone, till digging, the rain or a river wakes it. The water about five times as cheap a step, the speed run about 2.2 times as fast (25.8 s against 56.9 on GitHub, ^report(69)); tunnels and caves fill more slowly (24% fewer open tiles flooded after 10,000 steps). `?wateps=0.0001` gives the water of 0.0.150 and before, for comparing; Water.hz wakes at a thousandth too.
+
 ## 0.0.150 (2026-11-27)
 
 - **Gnome world: the water cheaper and the speed run's way by A*, each also written in Hazel, off by default** (^ticket(904), ^ticket(905), ^report(69)). On one GitHub runner the speed run takes 56.9 s where it took 65.1 s, at 60 frames a second.
