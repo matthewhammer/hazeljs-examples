@@ -2,6 +2,14 @@
 
 Each version lists what the apps do as of that version. The newest version is first.
 
+## 0.0.152 (2026-11-28)
+
+- **Gnome world: the flying level as N and Matthew asked** (their list of 2026-11-28).
+  - **Any touch bursts a rainbow cloud**: on foot, falling from a tree onto it, riding Clover, as well as flying.
+  - **Digging is the digging level's alone.** In the flying level nothing digs: not ↓, not running into a wall, not ↑, not the dig button, on foot or on Clover, whatever diggers you have. (The gnome's step had still dug there with ↓, ↑ and sideways; only the dig button was off.)
+  - **The flying jellyfish is a power up to find**, in a gnome house of its own under the flying level (down a ladder from a hatch, about column 290), and ridden like the others: **hold ↓ and press R** (or the controller's ride button), and R again to change back. The ride screen (R alone) has it as ▼. The J key, the 🪼 button and the controller's jellyfish button are gone. Once found, it goes with you to the digging level too.
+  - The flying level's shape is counted up (3): a save made in its earlier shape starts it fresh.
+
 ## 0.0.151 (2026-11-27)
 
 - **Gnome world: seepage left to settle** (^ticket(904); Matthew, choosing from ^report(69): "Yes, a thousandth"). Water moving keeps its block awake only when a tile's move in a step is more than a thousandth of a tile, not a ten-thousandth: the slow seepage from the rivers toward the villages' pumps, most of the water's work, now settles a second and a half after it is left alone, till digging, the rain or a river wakes it. The water about five times as cheap a step, the speed run about 2.2 times as fast (25.8 s against 56.9 on GitHub, ^report(69)); tunnels and caves fill more slowly (24% fewer open tiles flooded after 10,000 steps). `?wateps=0.0001` gives the water of 0.0.150 and before, for comparing; Water.hz wakes at a thousandth too.

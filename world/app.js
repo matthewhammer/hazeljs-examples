@@ -280,7 +280,7 @@
     // made before it had one fewer (restore lets it in); after the super digger, the last before it
     S.carpet = { have: false, on: false, vx: 0, vy: 0, face: 1, ph: 0, wisps: null };
     S.tail = { have: false, on: false, meter: 0, fly: 0, lift: 0, flut: 0, rep: 0 };   // (0.0.116: the cat tail, N's)
-    S.jelly = { on: false, vx: 0, vy: 0, beat: 0, lean: 0, face: 1, glowAt: -1e9, rings: [] };   // (0.0.146: the flying jellyfish, N's; anyone can be one)
+    S.jelly = { have: false, on: false, vx: 0, vy: 0, beat: 0, lean: 0, face: 1, glowAt: -1e9, rings: [] };   // (0.0.146: the flying jellyfish, N's; 0.0.152: found in a gnome house of the flying level)
     { const v = [...S.villages].sort((a, b) => b.x1 - a.x1)[0], mine = v ? S.rooms.filter(R => R.x >= v.x0 && R.x < v.x1) : [];
       const R = mine.sort((a, b) => (b.x + b.w) - (a.x + a.w) || b.y - a.y)[0];
       if (R) S.items.push({ kind: "carpet", x: R.x + R.w - 1.4, y: R.y + 3.35, taken: false }); }
@@ -424,8 +424,14 @@
     if (ay == null) ay = top[Math.floor(ax)];
     return { x, y, to: V.to, arrive: { x: ax, y: ay, face: (V.arrive && V.arrive.face) || 1 }, armed: false };
   }
-  const digOK = () => { const L = levelOf(S.level); return !L || L.dig !== false; };
-  function digButton() { const b = document.querySelector('[data-k="dig"]'); if (b) b.hidden = !digOK(); }
+  // (0.0.152; N and Matthew: "digging in this level is globally disabled, even with clover, no matter the power ups"; "only the
+  // first of the two levels permits any digging in the ground") Digging is the first level's alone. Elsewhere the gnome's step
+  // (World.step) is shown every kind of ground a digger digs (1 to 7) as the gnomes' masonry (8), which none digs, its slopes kept:
+  // so ↓, running into a wall, ↑, the dig button, on foot or on Clover, with whatever diggers, dig nothing (DIG_ON, set with the
+  // level). Till 0.0.151 only the dig button asked, and the gnome's step dug ↓, ↑ and sideways in the flying level
+  const digOK = () => S.level === "1";
+  let DIG_ON = true;
+  function digButton() { DIG_ON = digOK(); const b = document.querySelector('[data-k="dig"]'); if (b) b.hidden = !DIG_ON; }
   function holdRiver(R) {
     for (let k = 0; k < R.w; k++) { const c = R.x + k; for (let r = Math.min(R.level, R.natural) - 4; r < R.bed[k]; r++) { if (r < 0) continue; const i = at(c, r);
       if (mat[i] === AIR && bg[i] === B_NONE) { const w = r >= R.level ? 1 : 0; if (Math.abs(wat[i] - w) > QEPS) { wat[i] = w; wakeNear(c, r); } } } }
@@ -632,7 +638,7 @@
   function code(c, r) {
     if (!inside(c, r)) return 8;   // (0.0.95: masonry, which nothing digs; it was granite, which the diggers dig)
     const i = at(c, r), m = mat[i];
-    if (m !== AIR) return m + 64 * shape[i];
+    if (m !== AIR) return (DIG_ON || m > 7 ? m : MASON) + 64 * shape[i];   // (0.0.152: no digging off the first level)
     // (what is there, its water and whether it can be climbed, each worked out apart and then added: a platform across a tree's
     // trunk stays climbable with the pack; it had lost its climbing to the platform, and the gnome stuck under it)
     const what = boulderAt(c, r) ? 10 : fix[i] === F_PLAT || fix[i] === F_BRIDGE || fix[i] === F_HATCH ? 11 : 0;
@@ -789,6 +795,9 @@
     // (0.0.140; N's level: "to earn the cat tail, instead of getting it in one go, we collect 10 cat head powerup gems")
     cathead: { icon: "🐱", label: "🐱 cat head gem", what: "🐱 a cat head gem", banner: "🐱 A cat head gem! Find all ten, and the cat tail is yours" },
     shoes: { icon: "👟", label: "👟 running shoes", what: "👟 the running shoes", banner: "👟 The running shoes: hold 💨 (or Shift) to dash, up to full speed in a flash" },
+    // (0.0.152; N and Matthew: "let's drop the letter J and make the jelly fish a power up to get, like the carpet; it's in a gnome
+    // house in the second level")
+    jelly: { icon: "🪼", label: "🪼 flying jellyfish", what: "🪼 the flying jellyfish", banner: "🪼 The flying jellyfish! Hold ↓ and press R to turn into it: ↑ pulses you up like a rocket (hold it to keep pulsing), ← → lean and drift, ↓ sinks, let go and you hover. R again to change back" },
   };
   const BOT = { on: false, phase: "", queue: [], cur: null, path: [], k: 0, lastCell: -1, still: 0, tries: 0, skipped: [], frames: 0, t0: 0, items: 0, parts: 0, partsAll: 0, gems: 0, gemsAll: 0, report: null,
     digAll: 0, digLeft: 0, digSkip: new Set(), digPass: 1, digT0: 0, chunks: 0, rng: 1, sayAt: 0 };
@@ -1156,7 +1165,7 @@
     const m = { x: me.x, y: me.y, hearts: me.hearts, gear: me.gear, tool: me.tool, kit: me.kit, pack: me.pack, carrots: me.carrots }, items = [], hs = [];
     for (let i = 0; i < things.length; i++) { const t = things[i]; if (t.taken || !near(t.x, t.y)) continue; items.push(i); const k = t.kind;
       if (k === "climb") m.pack = true; else if (k === "gear") m.gear = true; else if (k === "carrot") m.carrots++;
-      else if (k === "carpet" || k === "tail" || k === "finder" || k === "cathead") { /* the page's */ }
+      else if (k === "carpet" || k === "tail" || k === "finder" || k === "cathead" || k === "jelly") { /* the page's */ }
       else if (KITS[k]) m.kit |= KITS[k]; else m.tool |= k === "super" ? 2 : 1; }   // (0.0.138: both diggers kept, 3)
     for (let i = 0; i < hearts.length && m.hearts < 5; i++) { const h = hearts[i]; if (!h.taken && near(h.x, h.y)) { hs.push(i); m.hearts++; } }
     return { me: m, items, hearts: hs };
@@ -1180,6 +1189,7 @@
       if (it.kind === "cathead") { catHeadFound(it); continue; }   // (0.0.140: no card for each; the tenth gives the cat tail)
       if (it.kind === "carpet") { S.carpet.have = true; useRide("carpet"); }
       else if (it.kind === "tail") { S.tail.have = true; useRide("tail"); }
+      else if (it.kind === "jelly") { S.jelly.have = true; useRide("jelly"); }   // (0.0.152)
       else if (it.kind === "finder") GEMAIM.at = -1e9;   // (0.0.126: had, it looks for the nearest gem at once)
       powerNote(it.kind, (it.kind === "good" || it.kind === "super") && m.tool === 3 ? BOTH_DIGGERS : null); }
     // a heart, walked into, gives back one heart (not with all five: it stays for later)
@@ -1413,7 +1423,7 @@
   }
   function travel(to) {
     const h = H(), LV = levelOf(to); if (!h || !S.g || !LV) return;
-    const from = S.level, g = S.g, carry = { hearts: S.hearts, carpet: !!S.carpet.have, carpetOn: !!S.carpet.on, tail: !!S.tail.have, tailOn: !!S.tail.on, jellyOn: !!(S.jelly && S.jelly.on), points: S.points | 0, hero: S.hero };
+    const from = S.level, g = S.g, carry = { hearts: S.hearts, carpet: !!S.carpet.have, carpetOn: !!S.carpet.on, tail: !!S.tail.have, tailOn: !!S.tail.on, jelly: !!(S.jelly && S.jelly.have), jellyOn: !!(S.jelly && S.jelly.on), points: S.points | 0, hero: S.hero };
     const here = snapshot(); delete here.away;
     const away = { ...S.away, [from]: here }; let there = away[to]; delete away[to];
     if (there && (there.levelV | 0) !== (LV.v | 0)) there = null;   // (0.0.147: left in an earlier shape of that level: made fresh)
@@ -1425,7 +1435,7 @@
     S.hearts = carry.hearts; S.points = carry.points;
     S.carpet.have = S.carpet.have || carry.carpet; S.carpet.on = carry.carpetOn && S.carpet.have;
     S.tail.have = S.tail.have || carry.tail; S.tail.on = carry.tailOn && S.tail.have;
-    if (S.jelly) { S.jelly.on = carry.jellyOn; S.jelly.vx = S.jelly.vy = S.jelly.beat = S.jelly.lean = 0; }
+    if (S.jelly) { S.jelly.have = S.jelly.have || carry.jelly; S.jelly.on = carry.jellyOn && S.jelly.have; S.jelly.vx = S.jelly.vy = S.jelly.beat = S.jelly.lean = 0; }
     if (S.ride) S.ride.on = false;
     if (HEROES[carry.hero] && S.hero !== carry.hero) { S.hero = carry.hero; keep("hero", S.hero); heroPicker(); }
     if (V) V.armed = false;
@@ -1442,10 +1452,12 @@
   const RAINBOW = ["#ef4444", "#f97316", "#facc15", "#22c55e", "#3b82f6", "#6366f1", "#a855f7"];
   function rainbowsStep() {
     if (!S.rainbows || !S.rainbows.length) return;
-    const g = S.g, flying = !!g && !S.faintAt && ((S.carpet && S.carpet.on) || (S.jelly && S.jelly.on) || (S.tail && S.tail.on && !g.ground && !g.climb && !g.swim));
+    // (0.0.152; N and Matthew: "anytime the gnome hits a rainbow cloud, it collides and explodes --- not just the magic carpet; e.g.,
+    // falling from a tree onto it, or riding clover should count too") any touch bursts it: on foot, falling, on Clover, flying
+    const g = S.g, touching = !!g && !S.faintAt;
     for (const R of S.rainbows) {
       if (R.gone) { if (S.frame >= R.back && S.cam.set && (R.x + R.w < S.cam.x - 1 || R.x - R.w > S.cam.x + VW + 1 || R.y + 2 < S.cam.y || R.y - 2 > S.cam.y + VH)) R.gone = false; continue; }
-      if (!flying) continue;
+      if (!touching) continue;
       const dx = (g.x / 1000 - R.x) / (R.w / 2 + 0.4), dy = (g.y / 1000 - 0.5 - R.y) / (R.w * 0.3 + 0.6);   // (as big as it is drawn)
       if (dx * dx + dy * dy <= 1) { R.gone = true; R.back = S.frame + (S.rainbowBack || 3600); S.points = (S.points | 0) + (S.rainbowPts || 100);
         popWord(`🌈 +${S.rainbowPts || 100}`, R.x, R.y - 1.2); rainbowBurst(R.x, R.y, R.w); if (SND) SND.gem();
@@ -3438,13 +3450,7 @@
     J.on = true; J.vx = J.vy = J.beat = J.lean = 0; J.face = g.face < 0 ? -1 : 1;
     S.g = { ...g, y: Math.round(y * 1000), vx: 0, vy: 0, ground: false, climb: false, swim: false, under: false, dc: -1, dr: -1, dt: 0 };
     jellyPoof(S.g);
-    say("🪼 A flying jellyfish! ↑ pulses you up like a rocket (hold it to keep pulsing), ← → lean and drift, ↓ sinks, and let go to hover. J to change back");
-  }
-  // (↑ held and J: a jellyfish; J as one: a gnome again; J alone otherwise: how to)
-  function jellyCombo() {
-    if (!S.jelly || !S.g) return;
-    if (S.jelly.on || S.keys.up) { jellyToggle(); return; }
-    S.banner = { text: "🪼 Hold ↑ and press J (🪼) to turn into a flying jellyfish", t: performance.now() };
+    say("🪼 A flying jellyfish! ↑ pulses you up like a rocket (hold it to keep pulsing), ← → lean and drift, ↓ sinks, and let go to hover. R to change back");
   }
   // (twelve seconds of a rainbow cloud's colours, the last two fading)
   const jellyGlow = () => { const t = (performance.now() - ((S.jelly && S.jelly.glowAt) || -1e9)) / 12000; return t < 0 || t >= 1 ? 0 : t < 0.83 ? 1 : (1 - t) / 0.17; };
@@ -3545,10 +3551,10 @@
     Object.assign(T, { on: true, meter: 0, fly: 0, lift: 0, flut: 0, rep: 0 }); say("🐈 The cat tail! Jump, and keep pressing jump in the air, or hold it, to fly up (R to take it off)");
   }
   // (Clover not yet won over, near, with a carrot in hand: R gives it to her, whatever is chosen, as 🎒 cannot choose her till then)
-  const nextRide = () => { const M = S.mount, ok = { clover: nearClover() && !!M && (M.tame || S.carrots > 0), carpet: !!(S.carpet && S.carpet.have), tail: !!(S.tail && S.tail.have) };
+  const nextRide = () => { const M = S.mount, ok = { clover: nearClover() && !!M && (M.tame || S.carrots > 0), carpet: !!(S.carpet && S.carpet.have), tail: !!(S.tail && S.tail.have), jelly: !!(S.jelly && S.jelly.have) };
     if (ok.clover && !M.tame) return "clover";   // (her carrot first)
     if (ok[S.use]) return S.use;
-    return ok.clover ? "clover" : ok.carpet ? "carpet" : ok.tail ? "tail" : "clover"; };
+    return ok.clover ? "clover" : ok.carpet ? "carpet" : ok.tail ? "tail" : ok.jelly ? "jelly" : "clover"; };
   // (0.0.117; Matthew, playing with N: the 🎒 screen "doesn't work. it's pretty broken and frustrating. Instead of this screen, N
   // wants to use a button combo: dpad Left + ride/on/off button = get on rabbit (get off carpet, off tail); dpad Right +
   // ride/on/off button = get on carpet (get off rabbit, off tail); dpad Down + ride/on/off button = use tail, and get off
@@ -3556,14 +3562,18 @@
   // the pad or the controller: ◀ Clover, ▶ the carpet, ▲ the cat tail: off whatever else you are on, then on that one (the same
   // again: off it). Alone: off what you are on, or else on the one used last (or whichever you can). (0.0.120; Matthew: "the cat
   // tail should be item/on/off + dpad UP. dpad down is always dig, on the ground, and it overrides our intent": ▲, was ▼)
-  const rideHave = which => (which === "carpet" ? !!(S.carpet && S.carpet.have) : which === "tail" ? !!(S.tail && S.tail.have) : !!(S.mount && S.mount.tame));
-  const rideOn = () => (S.ride && S.ride.on ? "clover" : S.carpet && S.carpet.on ? "carpet" : S.tail && S.tail.on ? "tail" : null);
-  const RIDE_TOGGLE = { clover: () => rideToggle(), carpet: () => carpetToggle(), tail: () => tailToggle() };
-  const rideWanted = () => { const k = S.keys; return k.left && !k.right ? "clover" : k.right && !k.left ? "carpet" : k.up && !k.down ? "tail" : null; };
+  // (0.0.152; N and Matthew: "integrate with the direction arrow pad plus 'ride' button ... isn't there an unused arrow?") ▼ and the
+  // ride button: the flying jellyfish, once found. ▼ alone still digs on the ground, in the first level; with the ride button it is
+  // the jellyfish's, and the jellyfish lifts off at once
+  const rideHave = which => (which === "carpet" ? !!(S.carpet && S.carpet.have) : which === "tail" ? !!(S.tail && S.tail.have) : which === "jelly" ? !!(S.jelly && S.jelly.have) : !!(S.mount && S.mount.tame));
+  const rideOn = () => (S.ride && S.ride.on ? "clover" : S.carpet && S.carpet.on ? "carpet" : S.tail && S.tail.on ? "tail" : S.jelly && S.jelly.on ? "jelly" : null);
+  const RIDE_TOGGLE = { clover: () => rideToggle(), carpet: () => carpetToggle(), tail: () => tailToggle(), jelly: () => jellyToggle() };
+  const rideWanted = () => { const k = S.keys; return k.left && !k.right ? "clover" : k.right && !k.left ? "carpet" : k.up && !k.down ? "tail" : k.down && !k.up ? "jelly" : null; };
   function rideOnto(which) {
     const say = text => { S.banner = { text, t: performance.now() }; };
     if (which === "carpet" && !rideHave("carpet")) { say("🧞 No magic carpet yet: it lies in the farthest room of the hamlet, far right, underground"); return; }
     if (which === "tail" && !rideHave("tail")) { say("🐈 No cat tail yet: it lies in the tree house farthest left"); return; }
+    if (which === "jelly" && !rideHave("jelly")) { say("🪼 No flying jellyfish yet: it waits in a gnome house under the flying level, down a ladder from a hatch"); return; }
     if (which === "clover" && !nearClover()) { say("🐇 Clover isn't near: she waits where you left her (◀ and R, beside her)"); return; }
     RIDE_TOGGLE[which]();   // (its own on or off: on, as nothing is on now)
     if (rideOn() === which) useRide(which);
@@ -3573,8 +3583,8 @@
   // Clover, ▶ the carpet, ▲ the cat tail; a tap on one (begun on it: not the tap that opened the screen, which the 0.0.113 screen
   // took as a choice), or that way on the keyboard or a controller, gets on it at once; the ride button again, B, start or
   // Escape shuts it. With one at hand, the button gets on it; with none, says why
-  const RIDES = { clover: ["🐇", "Clover", "◀"], carpet: ["🧞", "the magic carpet", "▶"], tail: ["🐈", "the cat tail", "▲"] };
-  const ridesCan = () => { const M = S.mount; return { clover: nearClover() && !!M && (M.tame || S.carrots > 0), carpet: rideHave("carpet"), tail: rideHave("tail") }; };
+  const RIDES = { clover: ["🐇", "Clover", "◀"], carpet: ["🧞", "the magic carpet", "▶"], tail: ["🐈", "the cat tail", "▲"], jelly: ["🪼", "the flying jellyfish", "▼"] };
+  const ridesCan = () => { const M = S.mount; return { clover: nearClover() && !!M && (M.tame || S.carrots > 0), carpet: rideHave("carpet"), tail: rideHave("tail"), jelly: rideHave("jelly") }; };
   const RIDEPOP = { dlg: null, at: 0, down: null, btns: {} };
   const ridePopOpen = () => !!(RIDEPOP.dlg && RIDEPOP.dlg.open);
   function ridePick(which) {
@@ -3596,9 +3606,9 @@
         const note = el("span", "gw-rides-note"), b = el("button", "gw-rides-pick gw-rides-" + id, [el("span", "gw-rides-icon", icon), el("span", "gw-rides-name", name), el("span", "gw-rides-way", way), note]);
         b.type = "button"; tap(b, () => ridePick(id)); grid.append(b); RIDEPOP.btns[id] = { b, note }; }
       const none = el("button", "gw-rides-none", "✕ none"); none.type = "button"; tap(none, () => ridePop(false));
-      dlg.append(el("p", "gw-ask-q", "Which one?"), grid, el("p", "muted gw-rides-how", "Tap one, or press its way: ◀ ▶ ▲. Next time: hold that way and press the ride button."), none);
+      dlg.append(el("p", "gw-ask-q", "Which one?"), grid, el("p", "muted gw-rides-how", "Tap one, or press its way: ◀ ▶ ▲ ▼. Next time: hold that way and press the ride button."), none);
       dlg.addEventListener("keydown", e => { e.stopPropagation();
-        const k = e.key, pick = k === "ArrowLeft" || k === "a" || k === "A" ? "clover" : k === "ArrowRight" || k === "d" || k === "D" ? "carpet" : k === "ArrowUp" || k === "w" || k === "W" ? "tail" : null;
+        const k = e.key, pick = k === "ArrowLeft" || k === "a" || k === "A" ? "clover" : k === "ArrowRight" || k === "d" || k === "D" ? "carpet" : k === "ArrowUp" || k === "w" || k === "W" ? "tail" : k === "ArrowDown" || k === "s" || k === "S" ? "jelly" : null;
         if (pick) { e.preventDefault(); ridePick(pick); } else if (k === "r" || k === "R" || k === "e" || k === "E") { e.preventDefault(); ridePop(false); } });
       const after = () => { S.asking = false; RIDEPOP.down = null; };
       dlg.addEventListener("cancel", after); dlg.addEventListener("close", after);
@@ -3606,12 +3616,11 @@
     }
     const can = ridesCan();
     for (const [id, { b, note }] of Object.entries(RIDEPOP.btns)) { b.disabled = false; b.classList.toggle("off", !can[id]);
-      note.textContent = can[id] ? (id === "clover" && !S.mount.tame ? "her carrot first 🥕" : "") : id === "carpet" ? "not found yet" : id === "tail" ? "not found yet" : rideHave("clover") ? "not near" : "find her a carrot 🥕"; }
+      note.textContent = can[id] ? (id === "clover" && !S.mount.tame ? "her carrot first 🥕" : "") : id === "carpet" || id === "tail" || id === "jelly" ? "not found yet" : rideHave("clover") ? "not near" : "find her a carrot 🥕"; }
     for (const k in S.keys) S.keys[k] = false;
     S.asking = true; RIDEPOP.at = performance.now(); RIDEPOP.down = null; RIDEPOP.dlg.showModal();
   }
   function mountToggle(want = rideWanted()) {
-    if (S.jelly && S.jelly.on) { jellyToggle(); if (!want || (S.jelly && S.jelly.on)) return; }   // (0.0.146: a jellyfish first changes back)
     const on = rideOn();
     if (!want) { if (on) { RIDE_TOGGLE[on](); return; }
       const can = ridesCan(), n = Object.keys(can).filter(k => can[k]);
@@ -5148,11 +5157,11 @@
     const wv = S.windNow || 0, wa = Math.abs(wv), windWord = wa < 0.15 ? "calm" : wa < 0.45 ? "a breeze" : wa < 0.8 ? "windy" : "a gale", arrows = wa < 0.15 ? "" : (wv > 0 ? "→" : "←").repeat(wa < 0.45 ? 1 : wa < 0.8 ? 2 : 3);
     const runWord = BOT.on && BOT.phase === "dig" ? `🏃 ${Math.floor(BOT.frames / 3600)}:${String(Math.floor(BOT.frames / 60) % 60).padStart(2, "0")} · ⛏️ ${NUMF.format(BOT.digAll - BOT.digLeft)} of ${NUMF.format(BOT.digAll)} dug (${BOT.digAll ? Math.floor((BOT.digAll - BOT.digLeft) * 100 / BOT.digAll) : 0}%)  `
       : BOT.on ? `🏃 ${Math.floor(BOT.frames / 3600)}:${String(Math.floor(BOT.frames / 60) % 60).padStart(2, "0")} · ${BOT.phase} · ${BOT.items + S.items.filter(i => i.taken).length - BOT.items}/${S.items.length} · 🌳 ${BOT.parts}/${BOT.partsAll || "?"} · 💎 ${BOT.gems}/${BOT.gemsAll || "?"}  ` : "";
-    { const mb = $("mount"), riding = !!(S.ride && S.ride.on), flying = !!(S.carpet && S.carpet.on), tailed = !!(S.tail && S.tail.on), show = riding || flying || tailed || nearClover() || !!(S.carpet && S.carpet.have) || !!(S.tail && S.tail.have);
-      if (mb) { if (mb.hidden === show) mb.hidden = !show; const which = riding ? "clover" : flying ? "carpet" : tailed ? "tail" : nextRide(), icon = which === "carpet" ? "🧞" : which === "tail" ? "🐈" : "🐇", on = String(riding || flying || tailed);
-        if (mb.textContent !== icon) { mb.textContent = icon; mb.title = which === "carpet" ? "The magic carpet: on or off (R)" : which === "tail" ? "The cat tail: on or off (R)" : "Ride Clover the rabbit: on or off (R); a carrot first"; }
+    { const mb = $("mount"), riding = !!(S.ride && S.ride.on), flying = !!(S.carpet && S.carpet.on), tailed = !!(S.tail && S.tail.on), jellied = !!(S.jelly && S.jelly.on), show = riding || flying || tailed || jellied || nearClover() || !!(S.carpet && S.carpet.have) || !!(S.tail && S.tail.have) || !!(S.jelly && S.jelly.have);
+      if (mb) { if (mb.hidden === show) mb.hidden = !show; const which = riding ? "clover" : flying ? "carpet" : tailed ? "tail" : jellied ? "jelly" : nextRide(), icon = which === "carpet" ? "🧞" : which === "tail" ? "🐈" : which === "jelly" ? "🪼" : "🐇", on = String(riding || flying || tailed || jellied);
+        if (mb.textContent !== icon) { mb.textContent = icon; mb.title = which === "carpet" ? "The magic carpet: on or off (R)" : which === "tail" ? "The cat tail: on or off (R)" : which === "jelly" ? "The flying jellyfish: on or off (▼ and R)" : "Ride Clover the rabbit: on or off (R); a carrot first"; }
         if (mb.getAttribute("aria-pressed") !== on) mb.setAttribute("aria-pressed", on); } }
-    const line = `${runWord}${hearts}  ${gemWords()}${S.carrots ? "  🥕 " + S.carrots : ""}${S.ride && S.ride.on ? "  🐇" : ""}${S.carpet && S.carpet.have ? (S.carpet.on ? "  🧞 flying" : "  🧞") : ""}${S.tail && S.tail.on ? (S.tail.fly > 0 ? "  🐈 flying" : "  🐈") : ""}  🍃 ${windWord} ${arrows}  ${where}${g && g.gear ? "  🤿" : ""}${hasFinder() ? "  🧭" : ""}${g && g.climbPack ? "  🧗" : ""}${g && g.tool ? (g.tool >= 3 ? "  ⛏️⚒️" : g.tool >= 2 ? "  ⚒️" : "  ⛏️") : ""}${place ? "  ·  " + place : ""}`;
+    const line = `${runWord}${hearts}  ${gemWords()}${S.carrots ? "  🥕 " + S.carrots : ""}${S.ride && S.ride.on ? "  🐇" : ""}${S.carpet && S.carpet.have ? (S.carpet.on ? "  🧞 flying" : "  🧞") : ""}${S.tail && S.tail.on ? (S.tail.fly > 0 ? "  🐈 flying" : "  🐈") : ""}${S.jelly && S.jelly.have ? (S.jelly.on ? "  🪼 flying" : "  🪼") : ""}  🍃 ${windWord} ${arrows}  ${where}${g && g.gear ? "  🤿" : ""}${hasFinder() ? "  🧭" : ""}${g && g.climbPack ? "  🧗" : ""}${g && g.tool ? (g.tool >= 3 ? "  ⛏️⚒️" : g.tool >= 2 ? "  ⚒️" : "  ⛏️") : ""}${place ? "  ·  " + place : ""}`;
     const tw = ctx.measureText(line).width;
     pill(10 * k, 10 * k, tw + 20 * k, 30 * k); ctx.fillStyle = "#fff"; ctx.fillText(line, 20 * k, 15 * k);
     let below = 46 * k;
@@ -5250,7 +5259,6 @@
     else if (e.key === "b" || e.key === "B") { e.preventDefault(); buildHere(); }
     else if (e.key === "r" || e.key === "R" || e.key === "e" || e.key === "E") { e.preventDefault(); mountToggle(); }
     else if (e.key === "c" || e.key === "C") { e.preventDefault(); mountToggle("carpet"); }   // (the booklet's key for the carpet)
-    else if (e.key === "j" || e.key === "J") { e.preventDefault(); jellyCombo(); }   // (0.0.146: with ↑ held, the flying jellyfish)
     else if (e.key === "l" || e.key === "L") { e.preventDefault(); if (S.note) readNote(); else listen(); }
   });
   // (0.0.104) a tap or a click on the listen button in a villager's bubble
@@ -5267,7 +5275,6 @@
   }
   { const b = $("build"); if (b) b.addEventListener("pointerdown", e => { e.preventDefault(); buildHere(); }); }
   { const b = $("mount"); if (b) b.addEventListener("pointerdown", e => { e.preventDefault(); mountToggle(); }); }
-  { const b = $("jelly"); if (b) b.addEventListener("pointerdown", e => { e.preventDefault(); jellyCombo(); }); }   // (0.0.146: with ⬆️ held, the flying jellyfish)
   // (0.0.130; Matthew: "let's have a 'dig everything' automation, next to the 'speed run' button, that's just digging up the
   // whole world, randomly, for fun. When we enable this button, if the gnome doesn't have the full dig/swim capabilities, let's
   // just add them, as if we got them ourselves. It's like a cheat code.") 🕳️: the good and the super digger, the diving gear and
@@ -5297,20 +5304,19 @@
   // its buttons its own way), or 🎯 set one action's button (the next one pressed). Each pad's layout is kept by its name and put
   // back whenever it connects. Polled each frame while one is connected, never without one.
   const PAD_ACTIONS = [["jump", "⬆️ jump (as ↑)"], ["dash", "💨 dash, held (as Shift)"], ["dig", "⛏️ dig (as X)"], ["build", "🪵 build (as B)"],
-                       ["ride", "🐇🧞🐈 on or off; with ◀ Clover, ▶ the carpet, ▲ the cat tail (as R)"], ["jelly", "🪼 with ▲ held: the flying jellyfish; again, a gnome (as J)"],
+                       ["ride", "🐇🧞🐈🪼 on or off; with ◀ Clover, ▶ the carpet, ▲ the cat tail, ▼ the flying jellyfish (as R)"],
                        ["listen", "🔊 a villager's words aloud (as L)"], ["pause", "⏸ pause, or go on (as the space bar)"], ["map", "🗺️ the map, shown or hidden (as M)"]];
-  const PAD_USUAL = { jump: 0, dash: 2, dig: 1, build: 3, ride: 4, jelly: 5, listen: 8, pause: 9, map: -1 };
+  const PAD_USUAL = { jump: 0, dash: 2, dig: 1, build: 3, ride: 4, listen: 8, pause: 9, map: -1 };
   const PAD_TEACH = [["B", "B, the bottom button"], ["A", "A, the right one"], ["X", "X, the top one"], ["Y", "Y, the left one"],
                      ["L", "L, the left shoulder"], ["R", "R, the right shoulder"], ["select", "select"], ["start", "start"]];
-  const PAD_FROM_TEACH = { jump: "B", dig: "A", build: "X", dash: "Y", ride: "L", jelly: "R", listen: "select", pause: "start" };
+  const PAD_FROM_TEACH = { jump: "B", dig: "A", build: "X", dash: "Y", ride: "L", listen: "select", pause: "start" };
   const PAD_PLACES = ["bottom", "right", "left", "top", "left shoulder", "right shoulder", "left trigger", "right trigger", "select", "start", "left stick", "right stick", "up", "down", "left", "right", "home"];
   const PAD = { id: "", name: "", mapping: "", down: new Set(), held: {}, learn: null, teach: null, loop: 0, buttons: { ...PAD_USUAL }, ui: null, lastSx: 0, was12: false, was14: false, was15: false };
   const padButtonName = i => !(i >= 0) ? "—" : PAD.mapping === "standard" && PAD_PLACES[i] ? `${PAD_PLACES[i]} (button ${i})` : `button ${i}`;
   const padLayouts = () => { const all = kept("pads", {}); return all && typeof all === "object" ? all : {}; };
   function padKeepLayout() { if (!PAD.id) return; const all = padLayouts(); all[PAD.id] = { ...PAD.buttons }; keep("pads", all); }
   function padUse(id) { const k = padLayouts()[id]; PAD.buttons = { ...PAD_USUAL, ...(k && typeof k === "object" ? k : {}) }; PAD.id = id;
-    delete PAD.buttons.carpet; delete PAD.buttons.items;
-    if (k && typeof k === "object" && k.jelly === undefined && Object.entries(PAD.buttons).some(([a, b]) => a !== "jelly" && b === PAD.buttons.jelly)) PAD.buttons.jelly = -1; }   // (0.0.146: a layout from before the jellyfish, its button already some other action's: none)   // (a layout from 0.0.112 or 0.0.113: their 🧞 and 🎒 buttons are gone)
+    delete PAD.buttons.carpet; delete PAD.buttons.items; delete PAD.buttons.jelly; }   // (0.0.152: the jellyfish is the ride button's, with ▼)   // (0.0.146: a layout from before the jellyfish, its button already some other action's: none)   // (a layout from 0.0.112 or 0.0.113: their 🧞 and 🎒 buttons are gone)
   function padTaught() {
     const G = PAD.teach.got, at = k => (Number.isInteger(G[k]) ? G[k] : -1);
     for (const [a, k] of Object.entries(PAD_FROM_TEACH)) PAD.buttons[a] = at(k);
@@ -5359,7 +5365,6 @@
         for (const k in want) if (want[k] !== !!PAD.held[k]) { PAD.held[k] = want[k]; if (want[k] && k === "up" && !S.keys.up) S.jumpQueued = true; S.keys[k] = want[k]; }
         if (hit("build")) buildHere();
         if (hit("ride")) mountToggle();
-        if (hit("jelly")) jellyCombo();
         if (hit("listen")) listen();
         if (hit("map")) toggleMap();
         if (hit("pause") && PZ) { padLetGo(); PZ.set(true); }
@@ -5478,7 +5483,7 @@
       villagers: S.villagers.map(v => ({ n: v.n, nextAt: v.nextAt })), roots: S.rootPlan.flatMap((t, k) => t.done ? [k] : []),
       ride: plain(S.ride), mount: plain(S.mount), carrots: S.carrots || 0,
       carpet: { have: !!(S.carpet && S.carpet.have), on: !!(S.carpet && S.carpet.on), face: S.carpet ? S.carpet.face : 1 },
-      jelly: { on: !!(S.jelly && S.jelly.on), face: S.jelly && S.jelly.face < 0 ? -1 : 1 },   // (0.0.146)
+      jelly: { have: !!(S.jelly && S.jelly.have), on: !!(S.jelly && S.jelly.on), face: S.jelly && S.jelly.face < 0 ? -1 : 1 },   // (0.0.146; 0.0.152: had)
       tail: { have: !!(S.tail && S.tail.have), on: !!(S.tail && S.tail.on) },
       ...(S.rules === "plain" ? { rules: "plain" } : {}),
       level: S.level, levelV: (levelOf(S.level) || {}).v | 0, away: S.away, points: S.points | 0, rainbows: (S.rainbows || []).map(R => [R.gone ? 1 : 0, R.back | 0]),
@@ -5545,7 +5550,7 @@
     if (d.ride) S.ride = { ...d.ride, safe: d.ride.safe ? { ...d.ride.safe } : null }; if (d.mount) S.mount = { ...d.mount }; S.carrots = d.carrots || 0;
     S.carpet = { have: !!(d.carpet && d.carpet.have), on: !!(d.carpet && d.carpet.on), vx: 0, vy: 0, face: d.carpet && d.carpet.face < 0 ? -1 : 1, ph: 0, wisps: null };
     S.tail = { have: !!(d.tail && d.tail.have), on: !!(d.tail && d.tail.on), meter: 0, fly: 0, lift: 0, flut: 0, rep: 0 };   // (0.0.116; a save from before has none)
-    S.jelly = { on: !!(d.jelly && d.jelly.on), vx: 0, vy: 0, beat: 0, lean: 0, face: d.jelly && d.jelly.face < 0 ? -1 : 1, glowAt: -1e9, rings: [] };   // (0.0.146; a save from before: a gnome)
+    S.jelly = { have: !!(d.jelly && d.jelly.have), on: !!(d.jelly && d.jelly.on && d.jelly.have), vx: 0, vy: 0, beat: 0, lean: 0, face: d.jelly && d.jelly.face < 0 ? -1 : 1, glowAt: -1e9, rings: [] };   // (0.0.146; a save from before: a gnome; 0.0.152: one from before 0.0.152 has none)
     if (HEROES[d.hero]) { S.hero = d.hero; keep("hero", S.hero); heroPicker(); }
     if (S.level === "1") keep("seed", S.seed);   // (0.0.140: the first level's seed, the one the page opens with)
     if (S.vortex) S.vortex.armed = false;
@@ -5591,14 +5596,14 @@
     S.hearts = d.hearts > 0 ? d.hearts : 5;
     const n = Math.min((d.items || []).length, S.items.length); for (let k = 0; k < n; k++) if (d.items[k]) S.items[k].taken = true;
     const g = S.g, tool = g.tool | 0, has = { gear: !!g.gear, climb: !!g.climbPack, shoes: kitHas(g, "shoes"), flippers: kitHas(g, "flippers"), climber: kitHas(g, "climber"),
-      super: tool >= 2, good: (tool & 1) === 1, carpet: !!(d.carpet && d.carpet.have), tail: !!(d.tail && d.tail.have) };
+      super: tool >= 2, good: (tool & 1) === 1, carpet: !!(d.carpet && d.carpet.have), tail: !!(d.tail && d.tail.have), jelly: !!(d.jelly && d.jelly.have) };
     for (const it of S.items) if (has[it.kind]) it.taken = true;
     if (tool < 3 && S.items.some(it => it.kind === "good" && it.taken) && S.items.some(it => it.kind === "super" && it.taken)) S.g = { ...S.g, tool: 3 };
     if (d.heartItems && d.heartItems.length === (S.heartItems || []).length) d.heartItems.forEach((t, k) => { S.heartItems[k].taken = !!t; });
     if (d.ride) S.ride = { ...d.ride, safe: null }; if (d.mount) S.mount = { ...d.mount }; S.carrots = d.carrots || 0;
     S.carpet = { have: !!(d.carpet && d.carpet.have), on: !!(d.carpet && d.carpet.on), vx: 0, vy: 0, face: d.carpet && d.carpet.face < 0 ? -1 : 1, ph: 0, wisps: null };
     S.tail = { have: !!(d.tail && d.tail.have), on: !!(d.tail && d.tail.on), meter: 0, fly: 0, lift: 0, flut: 0, rep: 0 };
-    S.jelly = { on: !!(d.jelly && d.jelly.on), vx: 0, vy: 0, beat: 0, lean: 0, face: d.jelly && d.jelly.face < 0 ? -1 : 1, glowAt: -1e9, rings: [] };   // (0.0.146; a save from before: a gnome)
+    S.jelly = { have: !!(d.jelly && d.jelly.have), on: !!(d.jelly && d.jelly.on && d.jelly.have), vx: 0, vy: 0, beat: 0, lean: 0, face: d.jelly && d.jelly.face < 0 ? -1 : 1, glowAt: -1e9, rings: [] };   // (0.0.146; a save from before: a gnome; 0.0.152: one from before 0.0.152 has none)
     let left = 0; for (let i = 0; i < NN; i++) if (gem[i]) left++;
     S.found = d.found || 0; S.gemTotal = S.found + left;
     const newGems = ranked.slice(0, leave).map(([R, i]) => ({ c: i % WW, r: Math.floor(i / WW), far: R }));
@@ -5719,7 +5724,7 @@
       piles: js(S.piles), beavers: js(S.beavers.map(B => [B.b, B.px, B.py])), boulders: js(S.boulders), pebbles: js(S.pebbles),
       villagers: js(S.villagers.map(v => [v.id, v.n, v.nextAt])),
       level: js({ level: S.level, points: S.points | 0, vortex: S.vortex ? [S.vortex.x, S.vortex.y, S.vortex.to] : null, rainbows: (S.rainbows || []).map(R => [R.x, R.y, !!R.gone, R.back | 0]), ...(S.coins && S.coins.length ? { coins: S.coins.map(C => (C.taken ? 1 : 0)).join("") } : {}),
-        away: Object.entries(S.away || {}).map(([k, a]) => [k, a.seed, a.frame, fnv(a.tiles), a.items, a.gnome]) }), ride: js({ ride: S.ride, mount: S.mount, carrots: S.carrots || 0 }), tail: js({ have: !!(S.tail && S.tail.have), on: !!(S.tail && S.tail.on) }), carpet: js({ have: !!(S.carpet && S.carpet.have), on: !!(S.carpet && S.carpet.on), face: S.carpet ? S.carpet.face : 1 }), jelly: js({ on: !!(S.jelly && S.jelly.on), face: S.jelly && S.jelly.face < 0 ? -1 : 1 }), rootsDone: js(S.rootPlan.map(t => t.done ? 1 : 0)), rootSets: S.rootSets.length + S.threadSets.length };
+        away: Object.entries(S.away || {}).map(([k, a]) => [k, a.seed, a.frame, fnv(a.tiles), a.items, a.gnome]) }), ride: js({ ride: S.ride, mount: S.mount, carrots: S.carrots || 0 }), tail: js({ have: !!(S.tail && S.tail.have), on: !!(S.tail && S.tail.on) }), carpet: js({ have: !!(S.carpet && S.carpet.have), on: !!(S.carpet && S.carpet.on), face: S.carpet ? S.carpet.face : 1 }), jelly: js({ have: !!(S.jelly && S.jelly.have), on: !!(S.jelly && S.jelly.on), face: S.jelly && S.jelly.face < 0 ? -1 : 1 }), rootsDone: js(S.rootPlan.map(t => t.done ? 1 : 0)), rootSets: S.rootSets.length + S.threadSets.length };
   }
   addEventListener("resize", () => draw());
   const P = window.HazelPause ? window.HazelPause.make({ into: $("new").parentElement, over: $("world").parentElement,
@@ -6030,7 +6035,7 @@
   if (Q.has("test")) Object.assign(window.WorldTest, { SKYC, skyClouds, cloudArt, storminess });   // (0.0.125: the sky)
   if (Q.has("test")) Object.assign(window.WorldTest, { GEMAIM, gemAim, hasFinder, gemCompass, HEADTOP, draw, keepWorldNow, mergeText, saveText, snapshot });   // (0.0.126: the gem finder)
   if (Q.has("test")) Object.assign(window.WorldTest, { CAVE, CAVEFX, caveLife });
-  if (Q.has("test")) Object.assign(window.WorldTest, { jellyJS, jellyStep, jellyToggle, jellyCombo, jellyGlow, drawJelly });   // (0.0.146)
+  if (Q.has("test")) Object.assign(window.WorldTest, { jellyJS, jellyStep, jellyToggle, jellyGlow, drawJelly });   // (0.0.146)
   // (0.0.140: the levels: one built fresh, as the level check reads it; the vortex's journey)
   if (Q.has("test")) Object.assign(window.WorldTest, { LEVELS, levelOf, travel, vortexStep, rainbowsStep, catHeadFound, digOK,
     freshLevel: id => { S.level = String(id); S.seed = levelOf(id).seed; S.away = {}; S.points = 0; build(H(), S.seed); digButton(); return S.level; } });   // (0.0.127: the caverns)

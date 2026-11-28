@@ -8,7 +8,7 @@ let step : ((x = Float, y = Float, hearts = Int, gear = Bool, tool = Int, kit = 
     (if kind == "climb" then (x = m.x, y = m.y, hearts = m.hearts, gear = m.gear, tool = m.tool, kit = m.kit, pack = true, carrots = m.carrots)
      else if kind == "gear" then (x = m.x, y = m.y, hearts = m.hearts, gear = true, tool = m.tool, kit = m.kit, pack = m.pack, carrots = m.carrots)
      else if kind == "carrot" then (x = m.x, y = m.y, hearts = m.hearts, gear = m.gear, tool = m.tool, kit = m.kit, pack = m.pack, carrots = m.carrots + 1)
-     else if kind == "carpet" || kind == "tail" || kind == "finder" || kind == "cathead" then m
+     else if kind == "carpet" || kind == "tail" || kind == "finder" || kind == "cathead" || kind == "jelly" then m
      else if kind == "shoes" then (x = m.x, y = m.y, hearts = m.hearts, gear = m.gear, tool = m.tool, kit = with_bit(m.kit, 1), pack = m.pack, carrots = m.carrots)
      else if kind == "flippers" then (x = m.x, y = m.y, hearts = m.hearts, gear = m.gear, tool = m.tool, kit = with_bit(m.kit, 2), pack = m.pack, carrots = m.carrots)
      else if kind == "climber" then (x = m.x, y = m.y, hearts = m.hearts, gear = m.gear, tool = m.tool, kit = with_bit(m.kit, 4), pack = m.pack, carrots = m.carrots)

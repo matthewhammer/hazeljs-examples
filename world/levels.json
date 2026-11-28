@@ -324,6 +324,13 @@
       "w": 9,
       "kind": 11,
       "item": "climber"
+     },
+     {
+      "x": 290,
+      "deep": 8,
+      "w": 9,
+      "kind": 5,
+      "item": "jelly"
      }
     ]
    },
@@ -556,31 +563,31 @@
    },
    "welcome": {
     "label": "✈️ The flying level",
-    "text": "No digging here: fly! 🐱 Collect the 10 cat heads: they give you the cat tail. ⭐ Find the power ups in the gnome houses under the ground, down their ladders. 🪙 Catch the coins in the sky, and fly into the rainbow clouds 🌈. 🪼 Be the flying jellyfish: hold ↑ and press J."
+    "text": "No digging here: fly! 🐱 Collect the 10 cat heads: they give you the cat tail. ⭐ Find the power ups in the gnome houses under the ground, down their ladders: one of them is the 🪼 flying jellyfish (then hold ↓ and press R). 🪙 Catch the coins in the sky, and bump into the rainbow clouds 🌈."
    },
    "icon": "✈️",
-   "v": 2,
-   "vAbout": "the level's shape, counted up when it changes (0.0.147: 2, the reshape): a save made in an earlier shape of it starts it fresh",
+   "v": 3,
+   "vAbout": "the level's shape, counted up when it changes (0.0.147: 2, the reshape; 0.0.152: 3, the flying jellyfish's gnome house): a save made in an earlier shape of it starts it fresh",
    "built": {
-    "version": "0.0.147",
-    "by": "the level check on 0.0.147's push (hazeljs-examples' world-save run 46024899816): both of two fresh builds the same in all 22 parts, the flying level's new shape (its land 40 rows lower, its pods, its coins)",
+    "version": "0.0.152",
+    "by": "the browser pane on the laptop (Gnome world 0.0.152, ?test=1: WorldTest.freshLevel(2) and digest, twice, the same), the flying jellyfish's gnome house added",
     "parts": {
      "seed": 1126,
      "gemTotal": 0,
      "rand": 7885,
-     "ground": "7ae24ece",
-     "back": "3d7b2b78",
-     "built": "c15e0fb7",
+     "ground": "a647dd59",
+     "back": "b456d62b",
+     "built": "49f2a1ef",
      "gems": "f0287dc5",
      "stones": "64bba973",
      "slopes": "a06a1a8b",
-     "tops": "fc409074",
-     "water": "632212c2",
+     "tops": "f74732d4",
+     "water": "5da524fa",
      "surface": "83c65fa4",
      "treeMask": "86e9af15",
      "rivers": "f1e04973",
      "dams": "40569d7e",
-     "things": "d2d0880a",
+     "things": "3bcc819",
      "heartItems": "2ac6794",
      "trees": "10dface1",
      "beavers": "b4325d92",
