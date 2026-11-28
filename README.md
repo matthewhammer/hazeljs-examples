@@ -29,15 +29,17 @@ Gnome world is where this repository measures what Hazel costs beside JavaScript
 - **Crossing into compiled code and back.** A record of plain values crosses as the page's own object. A list does not: compiled code holds it as a chain of cells, so each call rebuilds the page's array as cells and the answer back as an array. That is from a few percent to about three quarters of a call's time.
 - **No arrays.** Where JavaScript reads and writes an array, the Hazel builds trees: `Path.hz` keeps the search window's tiles and its best costs in balanced trees. Its 20 searches take 49 ms in Floats (58 in Ints) against about 5 ms in JavaScript, so its time is in the trees, not the numbers.
 
-**Underway: lists as arrays in compiled code** ([^ticket(909)](https://matthewhammer.org/hazel/reports/071/#next)). A trial build of hazel-jit (`trial/909-segments-pkg`) holds a list as an array segment as well as cells. A page's array then goes in with no copy, `length` and `nth` take one step, and `map` and `filter` are loops. Every twin's answers are the same under it. Measured in one browser against the build the page loads: a water step takes 1.6 ms instead of 2.4 ms, and a search for the way 2.6 ms instead of 4.3 ms. The squirrels, which walk the same short lists over and over, are still slower than with cells (0.052 ms a step against 0.031). The trial is not yet in the build the page loads; try it with `?libat=trial/909-segments-pkg`.
+**Underway: lists as arrays in compiled code** ([^ticket(909)](https://matthewhammer.org/hazel/reports/071/#next)). A trial build of hazel-jit (`trial/909-segments-pkg`) holds a list as an array segment as well as cells. A page's array then goes in with no copy, `length` and `nth` take one step, and `map` and `filter` are loops. Every twin's answers are the same under it. Measured in one browser against the build the page loads: a water step takes 1.6 ms instead of 2.4 ms, and a search for the way 2.6 ms instead of 4.3 ms. The squirrels, which walk short lists they build as they go, are still slower than with cells (0.048 ms a step against 0.031). On the 14 other games, whose lists are short, segments take about 8% longer than cells for now, every answer the same. The trial is not yet in the build the page loads; try it with `?libat=trial/909-segments-pkg`.
+
+**Why the gap is still large.** Not the arithmetic: in Floats, compiled Hazel does JavaScript's own. It is how the data is held and handed over. The water calls Hazel 4,600 times a step, a row of 8 to 10 tiles each; per call, the page builds fresh records (about 10 to 13 ns), the converters check them (20 to 30 ns), and the compiled code makes new records and a new list (20 to 30 ns), where JavaScript updates its typed arrays in place in about 10 ns a row. The way builds a balanced tree of its 5,000-tile window for every search; read by `nth` from the page's own array (with segments), a search takes 0.98 ms instead of 1.81 ms, still about 4 times JavaScript's, as its best costs and its heap are persistent trees where JavaScript writes into arrays. Closing it is about data: coarser calls, arrays read in place, and arrays updated in place ([^report(71) #why](https://matthewhammer.org/hazel/reports/071/#why)).
 
 | A piece, in one browser (0.0.158) | JavaScript | Hazel, the page's build | Hazel, lists as arrays (trial) |
 |---|---|---|---|
-| the water, a step | 0.07 to 0.10 ms | 2.4 ms | 1.6 ms |
-| the way to a gem, a search | 0.21 to 0.25 ms | 4.3 ms | 2.6 ms |
+| the water, a step (a fresh world, most water moving) | 0.07 to 0.10 ms | 2.4 ms | 1.6 ms |
+| the way to a gem, a search | 0.21 to 0.25 ms | 4.3 ms | 2.9 ms |
 | the rivers, a dry step | about 0.005 ms | 0.053 ms | 0.035 ms |
 | the 80 villagers, 14 squirrels, 70 insects and 2 hawks, a step | 0.02 to 0.03 ms | 0.12 ms | 0.12 ms |
-| the order of the 12 things to find (once a run) | 3.5 to 5 ms | 93 ms | 76 ms |
+| the order of the 12 things to find (once a run) | 3.5 to 5 ms | 93 ms | 70 ms |
 
 ## The oracles
 
