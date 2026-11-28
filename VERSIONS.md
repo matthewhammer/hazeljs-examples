@@ -2,6 +2,10 @@
 
 Each version lists what the apps do as of that version. The newest version is first.
 
+## 0.0.159 (2026-11-28)
+
+- **Gnome world: `?libat=` builds the rules with the library it names** (^ticket(909)). The rules compiled ahead of time (`rules-aot.json`) were used whenever they matched the rules text, whatever library `?libat=` loaded, so a trial library was measured on another library's program. They are skipped under `?libat=` now.
+
 ## 0.0.158 (2026-11-28)
 
 - **Gnome world: the way and the rivers in Hazel in Floats too** (^ticket(909)). `Path.hz` (A* over the window) and `Rivers.hz` write their numbers as Floats under `use Float in`, as `Folk.hz` does since 0.0.157: every one a whole number far under 2^53, so exact, and a division the floor of its quotient. The same ways and the same water as the page's. Path.hz's 20 searches take 49 ms where they took 58 with Ints: its time is its trees (no arrays in Hazel), not its numbers.

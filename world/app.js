@@ -5966,7 +5966,8 @@
   // ?noaot: build as before
   const textHash = t => { let x = 0x811c9dc5; for (let i = 0; i < t.length; i++) { x ^= t.charCodeAt(i); x = Math.imul(x, 0x01000193); } return (x >>> 0).toString(16) + ":" + t.length; };
   async function useAotRules() {
-    if (!L || Q.has("interpreted") || Q.has("noaot")) return false;
+    // (^ticket(909)) ?libat names a library to try: its own build of the rules, never the file another library compiled
+    if (!L || Q.has("interpreted") || Q.has("noaot") || Q.has("libat")) return false;
     const sp = L.spec(PROGRAM, TAIL), key = JSON.stringify(sp), t0 = performance.now();
     let A; try { const r = await fetch("rules-aot.json", { cache: "no-cache" }); if (!r.ok) return false; A = await r.json(); } catch (e) { return false; }
     if (!A || !A.saved || A.key !== textHash(key)) { if (A && A.key) console.info("Gnome world: rules-aot.json is for other rules text; building them"); return false; }
