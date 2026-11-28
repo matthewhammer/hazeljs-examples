@@ -88,6 +88,11 @@ try {
   const RV = await A.eval("(() => { const T = WorldTest, S = T.S, a = T.riversSame(120), r0 = S.rain, a0 = S.rainAt; S.rain = 0; S.rainAt = S.frame - 1; const b = T.riversSame(240); S.rain = r0; S.rainAt = a0; return { a, b }; })()");
   log(`🌧️ the rivers, pumps, rain and drying: ${JSON.stringify(RV)}`);
   for (const x of [RV.a, RV.b]) if (!x || x.waterDiffers || x.wakeDiffers || !x.rainSame || !x.chancesSame) fail.push("the rivers in Hazel (Rivers.hz) differ from the page's: " + JSON.stringify(x));
+  // ---- (^ticket(907)) the villagers walking, the squirrels, the insects and the hawks by Folk.hz against the page's: 900 steps,
+  // the gnome led past each squirrel and each insect's home in turn, the hawks sent to rest in the great trees
+  const FK = await A.eval("WorldTest.folkSame(900)");
+  log(`🐿️ the villagers, squirrels, insects and hawks: ${JSON.stringify(FK)}`);
+  if (!FK || !FK.villagers || FK.villagersDiffer || FK.squirrelsDiffer || FK.bugsDiffer || FK.hawksDiffer || !FK.hawkStepsSame || !FK.hawkSteps || !FK.hawkSteps.rest || !FK.chancesSame || !FK.fleeSame || !FK.fleeSteps) fail.push("the villagers, squirrels, insects or hawks in Hazel (Folk.hz) differ from the page's: " + JSON.stringify(FK));
   // ---- 2. read, then save
   const before = await A.eval(`(async () => { const T = WorldTest; T.stopBot(); T.S.asking = true; const d = T.digest(); window.__save = await T.saveText(T.snapshot()); return d; })()`);
   const text = await A.eval("window.__save");

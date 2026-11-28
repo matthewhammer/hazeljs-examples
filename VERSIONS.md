@@ -2,6 +2,11 @@
 
 Each version lists what the apps do as of that version. The newest version is first.
 
+## 0.0.155 (2026-11-28)
+
+- **Gnome world: the villagers walking, the squirrels, the insects and the hawks in Hazel, for measuring** (^ticket(907), the last of three). `world/rules/Folk.hz`: a villager standing, walking within its reach and busy in its room; a squirrel along its tree's limbs, sitting with an acorn, and fleeing the gnome by the way that leads furthest from it; the dragonflies, bees and butterflies about the water and the flowers; the hawks soaring, resting in the great trees and put up by the gnome. Under ⚙️ Advanced, "🐿️", or `?folk=hazel`; off by default. Hazel draws the page's own chances (its random numbers worked out in Hazel, the seed handed in and back), so every creature does just what the page's own would: held by the world save check on every push, 900 steps of all of them.
+  - The page's own creatures now take their distances as a plain square root, round as floor(x + 0.5), and work a hawk's angle from atan, as Folk.hz does; nothing to see.
+
 ## 0.0.154 (2026-11-28)
 
 - **Gnome world: the rivers, the pumps, the rain and the drying in Hazel, for measuring** (^ticket(907), the second of three). `world/rules/Rivers.hz`: each river held at its level, the villages' pumps drawing their rooms dry, a shower's start and its drops, the land's top drying. Under ⚙️ Advanced, "🌧️", or `?rivers=hazel`; off by default. Every tile's water, every block's waking, the rain's timing and the chances left the same as the page's own, held by the world save check on every push.

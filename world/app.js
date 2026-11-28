@@ -35,8 +35,8 @@
   if (window.visualViewport) { const vz = () => { const z = visualViewport.scale; WATCH.zoomMin = Math.min(WATCH.zoomMin, z); WATCH.zoomMax = Math.max(WATCH.zoomMax, z); if (Math.abs(z - 1) > 0.01) WATCH.zoomAt = performance.now(); };
     visualViewport.addEventListener("resize", vz); visualViewport.addEventListener("scroll", vz); }
   const LIB_JIT = "https://build.hazel.org/hazeljs/hazel-lib.js", LIB_NPM = "https://cdn.jsdelivr.net/npm/hazeljs@0.0.4/hazel-lib.js";
-  const PROGRAM = "world", MODULES = ["World", "Fly", "Tail", "Ride", "Boulder", "Pickup", "Wind", "Bunny", "Frog", "Bird", "Jelly", "Water", "Path", "Plan", "Rivers"];
-  const TAIL = "(plan = World.plan, ground = World.ground, village = World.village, furnish = World.furnish, limbs = World.limbs, styles = World.styles, beaver = World.beaver, water_row = World.water_row, step = World.step, roots = World.roots, threads = World.threads, greet = World.greet, dig_steps = World.dig_steps, fly = Fly.step, tail = Tail.step, ride_pre = Ride.pre, ride_post = Ride.post, boulder = Boulder.step, pickup = Pickup.step, wind = Wind.step, bunny = Bunny.step, frog = Frog.step, bird = Bird.step, swim = Bird.swim, jelly = Jelly.step, water_down = Water.down, water_across = Water.across, way = Path.way, plan_order = Plan.order, plan_trees = Plan.trees, plan_nearest = Plan.nearest, plan_chunk = Plan.chunk, rivers_hold = Rivers.hold, rivers_pump = Rivers.pump, rivers_starts = Rivers.starts, rivers_next = Rivers.next, rivers_rain = Rivers.rain, rivers_dry = Rivers.dry)";
+  const PROGRAM = "world", MODULES = ["World", "Fly", "Tail", "Ride", "Boulder", "Pickup", "Wind", "Bunny", "Frog", "Bird", "Jelly", "Water", "Path", "Plan", "Rivers", "Folk"];
+  const TAIL = "(plan = World.plan, ground = World.ground, village = World.village, furnish = World.furnish, limbs = World.limbs, styles = World.styles, beaver = World.beaver, water_row = World.water_row, step = World.step, roots = World.roots, threads = World.threads, greet = World.greet, dig_steps = World.dig_steps, fly = Fly.step, tail = Tail.step, ride_pre = Ride.pre, ride_post = Ride.post, boulder = Boulder.step, pickup = Pickup.step, wind = Wind.step, bunny = Bunny.step, frog = Frog.step, bird = Bird.step, swim = Bird.swim, jelly = Jelly.step, water_down = Water.down, water_across = Water.across, way = Path.way, plan_order = Plan.order, plan_trees = Plan.trees, plan_nearest = Plan.nearest, plan_chunk = Plan.chunk, rivers_hold = Rivers.hold, rivers_pump = Rivers.pump, rivers_starts = Rivers.starts, rivers_next = Rivers.next, rivers_rain = Rivers.rain, rivers_dry = Rivers.dry, folk_walk = Folk.walk, folk_squirrel = Folk.squirrel, folk_bug = Folk.bug, folk_hawk = Folk.hawk)";
   const KEY = "hazeljs-examples/world/";
   const Q = new URLSearchParams(location.search);
   const $ = id => document.getElementById(id);
@@ -649,6 +649,40 @@
     const diff = (A, B) => { let d = 0; for (let i = 0; i < A.length; i++) if (!Object.is(A[i], B[i])) d++; return d; };
     const out = { steps: n, rain: js.rain, waterDiffers: diff(js.w, hz.w), wakeDiffers: diff(js.k, hz.k), rainSame: JSON.stringify(js.rain) === JSON.stringify(hz.rain), chancesSame: js.seed === hz.seed, jsMs: +js.ms.toFixed(3), hazelMs: +hz.ms.toFixed(3) };
     wat.set(w0); wakeTill.set(k0); S.frame = f0; S.rain = r0; S.rainAt = a0; seedRand = s0; return out;
+  }
+  // (tests, ^ticket(907): from one state, n steps of the page's villagers, squirrels and insects, all of them, near the view or
+  // not, and n of Hazel's, with the gnome led past each squirrel and each insect's home in turn (so they flee); every one's
+  // state, and the chances left, the same; the state put back after each)
+  function folkSame(n = 240) {
+    const h = H(); if (!h || !h.folk_walk) return { built: false };
+    const snap = xs => xs.map(o => ({ ...o })), back = (xs, ss) => xs.forEach((o, i) => { for (const k of Object.keys(o)) if (!(k in ss[i])) delete o[k]; Object.assign(o, ss[i]); });
+    const V0 = snap(S.villagers), Q0 = snap(S.squirrels), B0 = snap(S.bugs), f0 = S.frame, s0 = seedRand, t0 = S.talk;
+    // (the hawks: each set near a great tree, its soaring nearly done, so it flies to the tree, rests, and is put up by the gnome)
+    const hawks = S.birds.filter(b => b.kind === "hawk"), K0 = hawks.map(b => ({ ...b, fly: b.fly && { ...b.fly } })), G = S.greats;
+    const K1 = K0.map((b, k) => ({ ...b, cx: G.length ? G[(k * 3) % G.length].x + 6 : b.cx, wait: 20 + 40 * k }));
+    const putK = ss => hawks.forEach((o, i) => { for (const k of Object.keys(o)) if (!(k in ss[i])) delete o[k]; Object.assign(o, ss[i], { fly: ss[i].fly && { ...ss[i].fly } }); });
+    const qAt = S.squirrels.map(q => { const P = q.H.graph.pts, a = P[q.at]; return [a[0] + 1.5, a[1] + 0.8]; }), bAt = S.bugs.map(b => [b.hx + 0.6, b.hy - 0.8]);
+    const put = (K = K1) => { back(S.villagers, V0); back(S.squirrels, Q0); back(S.bugs, B0); putK(K); S.frame = f0; seedRand = s0; S.talk = null; };
+    const run = (walk, sq, bug, hawk) => { put(); const t = { walk: 0, squirrels: 0, bugs: 0, hawks: 0 }; let fled = 0, near = 0; const modes = { soar: 0, fly: 0, rest: 0 };
+      for (let i = 0; i < n; i++) { S.frame++; let a = performance.now();
+        for (const v of S.villagers) walk(v); let b2 = performance.now(); t.walk += b2 - a;
+        const [qx, qy] = qAt[Math.floor(i / 12) % qAt.length]; sq(qx, qy); a = performance.now(); t.squirrels += a - b2; for (const q of S.squirrels) if (q.scared && q.to !== q.at) fled++;
+        const [bx, by] = bAt[Math.floor(i / 6) % bAt.length]; bug(bx, by); b2 = performance.now(); t.bugs += b2 - a; for (const b of S.bugs) if (!b.gone && hyp(b.x - bx, b.y - by) < 1.5) near++;
+        for (const b of hawks) hawk(b, qx, qy); t.hawks += performance.now() - b2; for (const b of hawks) modes[b.mode]++; }
+      const r = x => +(x / n).toFixed(3);
+      return { ms: { walk: r(t.walk), squirrels: r(t.squirrels), bugs: r(t.bugs), hawks: r(t.hawks) }, seed: seedRand, fled, near, modes,
+        k: hawks.map(b => [b.x, b.y, b.cx, b.a, b.face, b.wait, b.mode, b.fly ? [b.fly.x0, b.fly.y0, b.fly.x1, b.fly.y1, b.fly.t, b.fly.dur, b.fly.then] : null, b.rest ? G.indexOf(b.rest) : -1]),
+        v: S.villagers.map(v => [v.x, v.y, v.face, v.mode, v.timer, v.to ?? null, v.step | 0, v.act ?? null]),
+        q: S.squirrels.map(q => [q.at, q.to, q.prev, q.f, q.wait, !!q.sat, !!q.acorn, !!q.scared, q.scold | 0]),
+        b: S.bugs.map(b => [b.x, b.y, b.vx || 0, b.vy || 0, b.tx, b.ty, b.wait | 0, b.rest | 0, !!b.land, b.face | 0, b.gone | 0]) }; };
+    const js = run(v => villagerMove(v), (x, y) => squirrelsJS(x, y), (x, y) => bugsJS(x, y, true), (b, x, y) => hawkJS(b, x, y));
+    const hz = run(v => villagerMoveHazel(h, v), (x, y) => squirrelsHazel(h, x, y), (x, y) => bugsHazel(h, x, y, true), (b, x, y) => hawkHazel(h, b, x, y));
+    const differ = (A, B) => A.reduce((d, a, i) => d + (JSON.stringify(a) === JSON.stringify(B[i]) ? 0 : 1), 0);
+    const out = { steps: n, villagers: js.v.length, squirrels: js.q.length, bugs: js.b.length,
+      villagersDiffer: differ(js.v, hz.v), squirrelsDiffer: differ(js.q, hz.q), bugsDiffer: differ(js.b, hz.b), hawks: js.k.length, hawksDiffer: differ(js.k, hz.k), hawkSteps: js.modes, hawkStepsSame: JSON.stringify(js.modes) === JSON.stringify(hz.modes), chancesSame: js.seed === hz.seed,
+      fleeSteps: js.fled, fleeSame: js.fled === hz.fled, nearSteps: js.near, scolded: js.q.filter(q => q[8]).length, walking: js.v.filter(v => v[3] === "walk").length, busy: js.v.filter(v => v[3] === "busy").length,
+      resting: js.b.filter(b => b[7] > 0).length, jsMs: js.ms, hazelMs: hz.ms };
+    put(K0); S.talk = t0; return out;
   }
 
   // ---- the gnome's step, in Hazel (World.step): the tiles round it, packed three to a number, each what is there, water, and
@@ -2742,8 +2776,8 @@
   // (a villager whose room has flooded has gone up to a dry one: not seen there, nor heard)
   const villagerAway = v => { const c = Math.floor(v.x), r = Math.floor(v.y - 0.5); return inside(c, r) && wat[at(c, r)] >= 0.5; };
   function villagersStep(h) {
-    if (!S.villagers || !S.g) return; const g = S.g, gx = g.x / 1000, gy = g.y / 1000, mid = S.cam.x + VW / 2;
-    for (const v of S.villagers) { if (Math.abs(v.x - mid) < VW) villagerMove(v); if (v.mode !== "walk" && Math.abs(v.x - gx) < 4 && Math.abs(v.y - gy) < 2) v.face = gx > v.x ? 1 : -1; }
+    if (!S.villagers || !S.g) return; const g = S.g, gx = g.x / 1000, gy = g.y / 1000, mid = S.cam.x + VW / 2, fh = folkH();
+    for (const v of S.villagers) { if (Math.abs(v.x - mid) < VW) { if (fh) villagerMoveHazel(fh, v); else villagerMove(v); } if (v.mode !== "walk" && Math.abs(v.x - gx) < 4 && Math.abs(v.y - gy) < 2) v.face = gx > v.x ? 1 : -1; }
     if (S.talk && S.frame > S.talk.until && !S.talk.speaking) S.talk = null;
     if (S.frame % 6 || (S.talk && S.talk.speaking)) return;
     let best = null, bd = 1e9; for (const v of S.villagers) { if (villagerAway(v)) continue; const dx = Math.abs(v.x - gx), dy = Math.abs(v.y - gy); if (dx < 1.7 && dy < 1.3 && dx < bd) { bd = dx; best = v; } }
@@ -2837,6 +2871,21 @@
     if (--v.timer > 0) return;
     const [a, b] = v.reach; if (b - a < 0.6) { v.timer = 400; return; }
     v.to = a + (b - a) * rand(); if (Math.abs(v.to - v.x) < 0.5) v.to = v.x < (a + b) / 2 ? b : a; v.mode = "walk";
+  }
+  // (^ticket(907)) the villagers walking, the squirrels, the insects and the hawks: the page's own (the twins: villagerMove,
+  // squirrelsJS, bugsJS, hawkJS), and Hazel's (rules/Folk.hz), off by default (⚙️ Advanced, or ?folk=hazel). Hazel draws the page's own chances: the
+  // seed goes in and comes back, so each draws where and as the page would, and every creature does the same (WorldTest.folkSame)
+  const FOLK = { hazel: Q.get("folk") === "hazel" || (Q.get("folk") !== "js" && kept("folk", "js") === "hazel"), calls: 0 };
+  const folkH = () => { const h = H(); return FOLK.hazel && h && h.folk_walk ? h : null; };
+  const hyp = (dx, dy) => Math.sqrt(dx * dx + dy * dy);   // (as Folk.hz's dist: Math.hypot can differ in the last bit)
+  const MODE_OF = { stand: 0, walk: 1, busy: 2 }, MODE_NAME = ["stand", "walk", "busy"];
+  function villagerMoveHazel(h, v) {
+    const fresh = !v.reach; if (fresh) { v.reach = villagerReach(v); v.act = v.room ? ACT[v.room.kind] || "sweep" : null; }
+    const [a, b] = v.reach, land = v.where === 1 || v.where === 3, lands = []; let c0 = 0;
+    if (land && !fresh && v.mode === "walk") { c0 = Math.floor(Math.min(v.x, v.to)); const c1 = Math.floor(Math.max(v.x, v.to)); for (let c = c0; c <= c1; c++) lands.push(landY(c)); }
+    const o = h.folk_walk({ x: v.x, y: v.y, face: v.face | 0, mode: fresh ? 0 : MODE_OF[v.mode] | 0, timer: v.timer | 0, to: v.to ?? v.x, step: v.step | 0, busy: !!v.act, fresh },
+      a, b, !!(S.talk && S.talk.v === v), land, c0, lands, seedRand); FOLK.calls++;
+    seedRand = o.s; v.x = o.x; v.y = o.y; v.face = o.face; v.mode = MODE_NAME[o.mode]; v.timer = o.timer; if (o.mode === 1 || v.to !== undefined) v.to = o.to; if (o.step !== (v.step | 0)) v.step = o.step;
   }
   // a villager walking, from the side, the way it goes: its cap leaning back, its nose out in front, an eye, an ear, a gnome's beard
   // down from his chin, a wife's braid behind; the near arm and the far swinging, the legs striding
@@ -2979,21 +3028,32 @@
       S.squirrels.push({ H, id: id++, at, to: at, prev: -1, f: 0, wait: Math.floor(rr(id * 5 + 2) * 120), face: 1, kind: rr(id * 5 + 3) < 0.3 ? 1 : 0 }); }
   }
   function squirrelsStep() {
-    const g = S.g; if (!g || !S.squirrels) return; const gx = g.x / 1000, gy = g.y / 1000 - 0.6;
+    const g = S.g; if (!g || !S.squirrels) return; const gx = g.x / 1000, gy = g.y / 1000 - 0.6, fh = folkH();
+    if (fh) squirrelsHazel(fh, gx, gy); else squirrelsJS(gx, gy);
+  }
+  function squirrelsJS(gx, gy) {
     for (const q of S.squirrels) { if (q.H.tree && !q.H.tree.alive) continue;
       const P = q.H.graph.pts, NB = q.H.graph.nb, a = P[q.at], b = P[q.to], x = a[0] + (b[0] - a[0]) * q.f, y = a[1] + (b[1] - a[1]) * q.f;
-      q.scared = Math.hypot(x - gx, y - gy) < 4.5; if (q.scared && q.sat) { q.wait = 0; q.sat = false; }
+      q.scared = hyp(x - gx, y - gy) < 4.5; if (q.scared && q.sat) { q.wait = 0; q.sat = false; }
       if (q.wait > 0) { q.wait--; continue; }
-      if (q.to !== q.at) { const L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 0.01; q.f += (q.scared ? 0.16 : 0.065) / L; if (q.f < 1) continue; q.f = 0; q.prev = q.at; q.at = q.to; }
+      if (q.to !== q.at) { const L = hyp(b[0] - a[0], b[1] - a[1]) || 0.01; q.f += (q.scared ? 0.16 : 0.065) / L; if (q.f < 1) continue; q.f = 0; q.prev = q.at; q.at = q.to; }
       const here = P[q.at], opts = NB[q.at];
       if (q.scared) {   // (fleeing: the way, within thirty points along the limbs, to the point furthest from the gnome, not passing close by it)
-        const par = new Map([[q.at, -1]]), dep = new Map([[q.at, 0]]), queue = [q.at]; let best = q.at, bd = Math.hypot(here[0] - gx, here[1] - gy) + 0.3;
+        const par = new Map([[q.at, -1]]), dep = new Map([[q.at, 0]]), queue = [q.at]; let best = q.at, bd = hyp(here[0] - gx, here[1] - gy) + 0.3;
         for (let qi = 0; qi < queue.length; qi++) { const u = queue[qi], du = dep.get(u); if (du >= 30) continue;
-          for (const n of NB[u]) { if (par.has(n)) continue; const dn = Math.hypot(P[n][0] - gx, P[n][1] - gy); if (dn < 1.4) continue; par.set(n, u); dep.set(n, du + 1); queue.push(n); if (dn > bd) { bd = dn; best = n; } } }
+          for (const n of NB[u]) { if (par.has(n)) continue; const dn = hyp(P[n][0] - gx, P[n][1] - gy); if (dn < 1.4) continue; par.set(n, u); dep.set(n, du + 1); queue.push(n); if (dn > bd) { bd = dn; best = n; } } }
         let step = best; while (step !== q.at && par.get(step) !== q.at) step = par.get(step);
         q.to = step; if (step === q.at) { q.wait = 10; q.scold = S.frame; } }
       else if (rand() < 0.03) { q.wait = 50 + Math.floor(rand() * 170); q.sat = true; q.acorn = rand() < 0.45; q.to = q.at; }
       else { const fw = opts.filter(n => n !== q.prev), from = fw.length ? fw : opts; q.to = from.length ? from[Math.floor(rand() * from.length)] : q.at; q.sat = false; } }
+  }
+  // (the graph handed to Hazel 32 points to a chunk, made once a tree, so a point is a few dozen steps away in Folk.hz's lists)
+  const chunk32 = xs => { const out = []; for (let i = 0; i < xs.length; i += 32) out.push(xs.slice(i, i + 32)); return out; };
+  function squirrelsHazel(h, gx, gy) {
+    for (const q of S.squirrels) { if (q.H.tree && !q.H.tree.alive) continue;
+      const G = q.H.graph; if (!G.hz) G.hz = { pts: chunk32(G.pts.map(p => ({ x: p[0], y: p[1] }))), nb: chunk32(G.nb) };
+      const o = h.folk_squirrel({ at: q.at, to: q.to, prev: q.prev, f: q.f, wait: q.wait, sat: !!q.sat, acorn: !!q.acorn }, G.hz.pts, G.hz.nb, gx, gy, seedRand); FOLK.calls++;
+      seedRand = o.s; q.at = o.at; q.to = o.to; q.prev = o.prev; q.f = o.f; q.wait = o.wait; q.sat = o.sat; q.acorn = o.acorn; q.scared = o.scared; if (o.scold) q.scold = S.frame; }
   }
   function drawSquirrels(c0, c1) {
     if (!S.squirrels) return; const c = ctx, s = T;
@@ -3072,7 +3132,7 @@
     const t = pr.tree; if (!t.alive) return null; const hT = t.h * (t.kind === 1 ? 1.05 : 0.93) * t.grow, fy = pr.fy || 1;
     return [t.x + 0.5 + (pr.fx || 0) * hT + sway(t.seed, t.kind === 1 ? 0.6 : 1) * hT * 1.2 * fy * fy, surf0[t.x] - hT * fy];
   }
-  const flyTo = (b, x1, y1, then) => { b.fly = { x0: b.x, y0: b.y, x1, y1, t: 0, dur: Math.max(30, Math.hypot(x1 - b.x, y1 - b.y) * (b.kind === "hawk" ? 9 : 6)), then }; b.mode = "fly"; b.face = x1 >= b.x ? 1 : -1; };
+  const flyTo = (b, x1, y1, then) => { b.fly = { x0: b.x, y0: b.y, x1, y1, t: 0, dur: Math.max(30, hyp(x1 - b.x, y1 - b.y) * (b.kind === "hawk" ? 9 : 6)), then }; b.mode = "fly"; b.face = x1 >= b.x ? 1 : -1; };
   // (0.0.142; piece 6 of ^report(64)'s plan, its second part: a frog's mind is Hazel's, Frog.step; here its twin in JavaScript,
   // the same answers, for ⚡ and the check in Node. The page draws five random numbers for each frog it steps, whether or not the
   // frog uses them, and gives them in with its river: the water's level, its ends, the land under the frog, its bank, the
@@ -3199,36 +3259,69 @@
     // frogs (their minds Hazel's, Frog.step, 0.0.142)
     { const now = performance.now(); for (const f of S.frogs) if (viewNear(f.x)) frogStep(h, f, gx, gy, wet, now); }
     // insects
-    for (const b of S.bugs) { if (!viewNear(b.hx)) continue;
+    { const fh = folkH(); if (fh) bugsHazel(fh, gx, gy); else bugsJS(gx, gy); }
+    // birds
+    const fh = folkH();
+    for (const b of S.birds) {
+      if (b.kind === "hawk") { if (fh) hawkHazel(fh, b, gx, gy); else hawkJS(b, gx, gy); continue; }
+      // (0.0.143: the ducks' and swans' minds Hazel's, Bird.swim; the songbirds', Bird.step; the hawks' stay here, above)
+      if (b.kind === "duck" || b.kind === "swan") { if (viewNear(b.R.x + b.R.w / 2, 14)) swimStep(h, b, gx, gy, wet); continue; }
+      if (!viewNear(b.mode === "fly" ? b.fly.x1 : b.x, 14) && !viewNear(b.x, 14)) continue;
+      songStep(h, b, gx, gy); }
+  }
+  // (the insects near the view: the page's own, the twin, out of wildStep for ^ticket(907); and Hazel's, Folk.bug, each from
+  // its flowers within reach (made once), those standing, and the land's height there)
+  function bugsJS(gx, gy, all = false) {
+    for (const b of S.bugs) { if (!all && !viewNear(b.hx)) continue;
       if (b.gone) { if (S.frame - b.gone > 900) { b.gone = 0; b.x = b.hx; b.y = b.hy - 1.5; } continue; }
       if (b.kind === "dragon") { if (--b.wait <= 0) { b.tx = b.hx + (rand() - 0.5) * 2 * b.hw; b.ty = b.hy - 0.35 - rand() * 1.6; b.wait = 30 + Math.floor(rand() * 90); }
-        const k = Math.hypot(b.tx - b.x, b.ty - b.y) > 0.05 ? 0.12 : 0; b.x += (b.tx - b.x) * k; b.y += (b.ty - b.y) * k + Math.sin(S.frame / 7 + b.id) * 0.004; if (Math.abs(b.tx - b.x) > 0.05) b.face = b.tx > b.x ? 1 : -1; continue; }
+        const k = hyp(b.tx - b.x, b.ty - b.y) > 0.05 ? 0.12 : 0; b.x += (b.tx - b.x) * k; b.y += (b.ty - b.y) * k + Math.sin(S.frame / 7 + b.id) * 0.004; if (Math.abs(b.tx - b.x) > 0.05) b.face = b.tx > b.x ? 1 : -1; continue; }
       if (b.rest > 0) { b.rest--; continue; }
-      const fast = b.kind === "bee" ? 0.05 : 0.03, flee = Math.hypot(b.x - gx, b.y - gy) < 1.5;
+      const fast = b.kind === "bee" ? 0.05 : 0.03, flee = hyp(b.x - gx, b.y - gy) < 1.5;
       if (--b.wait <= 0) { b.wait = (b.kind === "bee" ? 20 : 50) + Math.floor(rand() * 80);
         if (!flee && rand() < (b.kind === "bee" ? 0.35 : 0.2)) { const fl = S.flowers.filter(f => Math.abs(f.x + 0.5 - b.hx) < b.hw && top[f.x] >= surf0[f.x]); if (fl.length) { const f = fl[Math.floor(rand() * fl.length)]; b.tx = f.x + 0.5 + (rand() - 0.5) * 0.4; b.ty = landY(f.x) - 0.5; b.land = true; } }
         else { b.tx = b.hx + (rand() - 0.5) * 2 * b.hw; b.ty = b.hy - 0.5 - rand() * 2.2; b.land = false; } }
       b.vx += Math.sign(b.tx - b.x) * fast * 0.12 + (rand() - 0.5) * 0.01; b.vy += Math.sign(b.ty - b.y) * fast * 0.1 + (rand() - 0.5) * 0.012; b.vx *= 0.9; b.vy *= 0.9;
       if (flee) { b.vx += Math.sign(b.x - gx) * 0.01; b.vy -= 0.006; }
       b.x += b.vx; b.y += b.vy; if (Math.abs(b.vx) > 0.004) b.face = b.vx > 0 ? 1 : -1;
-      if (b.land && Math.hypot(b.tx - b.x, b.ty - b.y) < 0.12) { b.x = b.tx; b.y = b.ty; b.vx = b.vy = 0; b.rest = 90 + Math.floor(rand() * 200); b.land = false; } }
-    // birds
-    for (const b of S.birds) {
-      if (b.kind === "hawk") { b.cx += (gx - b.cx) * 0.0015;
-        if (b.mode === "soar") { b.a += 0.006; const c = Math.max(0, Math.min(WW - 1, Math.round(b.cx))), base = Math.min(surf0[c], S.cam.y + VH * 0.5) - 9;
-          const nx = b.cx + Math.cos(b.a) * b.r * 1.6, ny = base + Math.sin(b.a) * b.r * 0.3; b.face = nx >= b.x ? 1 : -1; b.x = nx; b.y = ny;
-          if (--b.wait <= 0) { const G = S.greats.filter(G => Math.abs(G.x - b.x) < 30).sort((a, c2) => Math.abs(a.x - b.x) - Math.abs(c2.x - b.x))[0];
-            if (G) { b.rest = G; flyTo(b, G.x + 0.5, G.foot - G.h * 0.74 - 0.9, "rest"); wildCall("hawk", b.x, b.y); } else b.wait = 900; } }
-        else if (b.mode === "fly") stepFlight(b);
-        else if (b.mode === "rest") { if (--b.wait <= 0 || Math.hypot(b.x - gx, b.y - gy) < 3) { b.wait = 1500 + Math.floor(rand() * 2000); b.a = Math.atan2((b.y - (surf0[Math.round(b.cx)] - 9)) / 0.3, (b.x - b.cx) / 1.6) || 0; flyTo(b, b.cx + Math.cos(b.a) * b.r * 1.6, b.y - 3, "soar"); } }
-        continue; }
-      // (0.0.143: the ducks' and swans' minds Hazel's, Bird.swim; the songbirds', Bird.step; the hawks' stay here, above)
-      if (b.kind === "duck" || b.kind === "swan") { if (viewNear(b.R.x + b.R.w / 2, 14)) swimStep(h, b, gx, gy, wet); continue; }
-      if (!viewNear(b.mode === "fly" ? b.fly.x1 : b.x, 14) && !viewNear(b.x, 14)) continue;
-      songStep(h, b, gx, gy); }
+      if (b.land && hyp(b.tx - b.x, b.ty - b.y) < 0.12) { b.x = b.tx; b.y = b.ty; b.vx = b.vy = 0; b.rest = 90 + Math.floor(rand() * 200); b.land = false; } }
+  }
+  const BUG_KIND = { dragon: 0, bee: 1, fly: 2 };
+  function bugsHazel(h, gx, gy, all = false) {
+    for (const b of S.bugs) { if (!all && !viewNear(b.hx)) continue;
+      const kind = BUG_KIND[b.kind]; let fl = [];
+      if (kind) { if (!b.fls) b.fls = S.flowers.filter(f => Math.abs(f.x + 0.5 - b.hx) < b.hw); fl = b.fls.filter(f => top[f.x] >= surf0[f.x]).map(f => ({ x: f.x, ly: landY(f.x) })); }
+      const o = h.folk_bug({ x: b.x, y: b.y, vx: b.vx || 0, vy: b.vy || 0, tx: b.tx, ty: b.ty, wait: b.wait | 0, rest: b.rest | 0, land: !!b.land, face: b.face | 0, gone: b.gone | 0, kind, id: b.id | 0, hx: b.hx, hy: b.hy, hw: b.hw },
+        gx, gy, S.frame, fl, seedRand); FOLK.calls++;
+      seedRand = o.s; b.x = o.x; b.y = o.y; b.tx = o.tx; b.ty = o.ty; b.wait = o.wait; if (o.face !== (b.face | 0)) b.face = o.face; if (o.gone !== (b.gone | 0)) b.gone = o.gone;
+      if (kind) { b.vx = o.vx; b.vy = o.vy; b.rest = o.rest; if (o.land !== !!b.land) b.land = o.land; } }
+  }
+  // (^ticket(907)) a hawk: the page's own, the twin (its rounding, Math.round, as floor(x + 0.5), and its angle as Folk.hz works
+  // them out), and Hazel's, Folk.hawk
+  const rnd = x => Math.floor(x + 0.5);
+  const angle = (y, x) => { if (x === 0) return y > 0 ? Math.PI / 2 : y < 0 ? 0 - Math.PI / 2 : 0; const z = Math.atan(Math.abs(y / x)); return x > 0 ? (y < 0 ? 0 - z : z) : (y < 0 ? z - Math.PI : Math.PI - z); };
+  function hawkJS(b, gx, gy) {
+    b.cx += (gx - b.cx) * 0.0015;
+    if (b.mode === "soar") { b.a += 0.006; const c = Math.max(0, Math.min(WW - 1, rnd(b.cx))), base = Math.min(surf0[c], S.cam.y + VH * 0.5) - 9;
+      const nx = b.cx + Math.cos(b.a) * b.r * 1.6, ny = base + Math.sin(b.a) * b.r * 0.3; b.face = nx >= b.x ? 1 : -1; b.x = nx; b.y = ny;
+      if (--b.wait <= 0) { const G = S.greats.filter(G => Math.abs(G.x - b.x) < 30).sort((a, c2) => Math.abs(a.x - b.x) - Math.abs(c2.x - b.x))[0];
+        if (G) { b.rest = G; flyTo(b, G.x + 0.5, G.foot - G.h * 0.74 - 0.9, "rest"); wildCall("hawk", b.x, b.y); } else b.wait = 900; } }
+    else if (b.mode === "fly") stepFlight(b);
+    else if (b.mode === "rest") { if (--b.wait <= 0 || hyp(b.x - gx, b.y - gy) < 3) { b.wait = 1500 + Math.floor(rand() * 2000); b.a = angle((b.y - (surf0[Math.max(0, Math.min(WW - 1, rnd(b.cx)))] - 9)) / 0.3, (b.x - b.cx) / 1.6) || 0; flyTo(b, b.cx + Math.cos(b.a) * b.r * 1.6, b.y - 3, "soar"); } }
+  }
+  const HAWK_MODE = { soar: 0, fly: 1, rest: 2 }, HAWK_NAME = ["soar", "fly", "rest"]; let hawkGreats = { of: null, list: [] };
+  function hawkHazel(h, b, gx, gy) {
+    if (hawkGreats.of !== S.greats) hawkGreats = { of: S.greats, list: S.greats.map(G => ({ x: G.x, foot: G.foot, h: G.h })) };
+    const c0 = rnd(b.cx) - 4, grounds = []; for (let i = 0; i < 9; i++) grounds.push(surf0[Math.max(0, Math.min(WW - 1, c0 + i))]);
+    const F = b.fly || { x0: 0, y0: 0, x1: 0, y1: 0, t: 0, dur: 30, then: "soar" }, was = b.mode;
+    const o = h.folk_hawk({ x: b.x, y: b.y, cx: b.cx, a: b.a, r: b.r, face: b.face | 0, wait: b.wait | 0, mode: HAWK_MODE[b.mode], x0: F.x0, y0: F.y0, x1: F.x1, y1: F.y1, t: F.t, dur: F.dur, next: HAWK_MODE[F.then] },
+      gx, gy, c0, grounds, S.cam.y + VH * 0.5, hawkGreats.list, seedRand); FOLK.calls++;
+    seedRand = o.s; b.x = o.x; b.y = o.y; b.cx = o.cx; b.a = o.a; b.face = o.face; b.wait = o.wait; b.mode = HAWK_NAME[o.mode];
+    if (o.mode === 1 || was === "fly") b.fly = { x0: o.x0, y0: o.y0, x1: o.x1, y1: o.y1, t: o.t, dur: o.dur, then: HAWK_NAME[o.next] };
+    if (o.call) { b.rest = S.greats[o.rest]; wildCall("hawk", b.x, b.y); }
   }
   function stepFlight(b) {
-    const F = b.fly; F.t += 1 / F.dur; const t = Math.min(1, F.t), e = t * t * (3 - 2 * t), arc = Math.sin(Math.PI * t) * Math.min(2, Math.hypot(F.x1 - F.x0, F.y1 - F.y0) * 0.25);
+    const F = b.fly; F.t += 1 / F.dur; const t = Math.min(1, F.t), e = t * t * (3 - 2 * t), arc = Math.sin(Math.PI * t) * Math.min(2, hyp(F.x1 - F.x0, F.y1 - F.y0) * 0.25);
     b.x = F.x0 + (F.x1 - F.x0) * e; b.y = F.y0 + (F.y1 - F.y0) * e - arc;
     if (F.t >= 1) { b.mode = F.then; b.x = F.x1; b.y = F.y1; if (b.mode === "rest") b.wait = 600 + Math.floor(rand() * 900); }
   }
@@ -6091,10 +6184,11 @@
   const hzWater = hzBox("water-hazel", WATER.hazel, "💧 the water in Hazel (Water.hz): the same water, about 13 times the time", on => { WATER.hazel = on; keep("water", on ? "hazel" : "js"); });
   const hzPlan = hzBox("plan-hazel", PLAN.hazel, "🗺️ the speed run's planning in Hazel (Plan.hz): the order of the things, the trees' parts, the nearest gem, the dig's next chunk", on => { PLAN.hazel = on; keep("plan", on ? "hazel" : "js"); });
   const hzRivers = hzBox("rivers-hazel", RIVERS.hazel, "🌧️ the rivers held at their level, the pumps, the rain and the drying in Hazel (Rivers.hz)", on => { RIVERS.hazel = on; keep("rivers", on ? "hazel" : "js"); });
+  const hzFolk = hzBox("folk-hazel", FOLK.hazel, "🐿️ the villagers walking, the squirrels, the insects and the hawks in Hazel (Folk.hz)", on => { FOLK.hazel = on; keep("folk", on ? "hazel" : "js"); });
   const hzWay = hzBox("way-hazel", WAY.hazelOn, "🧭 the speed run's way in Hazel (Path.hz): the same ways, about 25 times the time", on => { WAY.hazelOn = on; keep("way", on ? "hazel" : "js"); });
   const hzHint = document.createElement("p"); hzHint.className = "muted speed-hint"; hzHint.textContent = "Each gives every tile the very same water, and the speed run the very same way, as the page's JavaScript does; they are here to profile and measure Hazel against it (^report(69)). Slow: the water in Hazel makes each step of the world about 13 times as long, and the way about 25 times. ?water=hazel and ?way=hazel turn them on for one visit.";
   if (window.OracleAdvanced) window.OracleAdvanced.panel({
-    extras: [rlCap, rlRow, rlHint, hzCap, hzWater, hzRivers, hzWay, hzPlan, hzHint, bugCap, bugRow, bugOut, bugHint, tpCap, tpRow, tpOut, tpHint],
+    extras: [rlCap, rlRow, rlHint, hzCap, hzWater, hzRivers, hzFolk, hzWay, hzPlan, hzHint, bugCap, bugRow, bugOut, bugHint, tpCap, tpRow, tpOut, tpHint],
     holder: $("advanced"), name: "Gnome world", built: () => S.built, libAt: () => 0, keysIn: null,
     mode: () => ({ asked: S.built && S.built.compiled ? "compiled" : "interpreted", error: null }),
     about: "600 of the gnome's steps through Hazel, running and jumping",
@@ -6118,7 +6212,7 @@
   if (Q.has("test")) Object.assign(window.WorldTest, { LEVELS, levelOf, travel, vortexStep, rainbowsStep, catHeadFound, digOK,
     freshLevel: id => { S.level = String(id); S.seed = levelOf(id).seed; S.away = {}; S.points = 0; build(H(), S.seed); digButton(); return S.level; } });   // (0.0.127: the caverns)
   if (Q.has("test")) Object.assign(window.WorldTest, { waterSame, waterPasses, waterPassesRef, WATER, PORES, FLOW, CLING, root });   // (^ticket(904))
-  if (Q.has("test")) Object.assign(window.WorldTest, { WAY, wayJS, wayCode, wayWindow, rockSet, botPlanOld, waySame, PLAN, planSame, RIVERS, riversSame });   // (^ticket(905))
+  if (Q.has("test")) Object.assign(window.WorldTest, { WAY, wayJS, wayCode, wayWindow, rockSet, botPlanOld, waySame, PLAN, planSame, RIVERS, riversSame, FOLK, folkSame });   // (^ticket(905))
   if (Q.has("test")) Object.assign(window.WorldTest, { botItemOrder, timeSpeedRun, TP, wakeTill, wakeAll, waterStep, setRules, H, rideJS, rideStep, boulderJS, bouldersStep, pickupJS, pickups, windJS, windStep, bunnyJS, bunnyStep, bunniesStep, frogJS, frogStep, wildStep, songJS, swimJS, songStep, swimStep, keepWorld });   // (0.0.130: the speed run's order of the things; ⏱)
   // (^ticket(873): the speed run's steps alone, timed, no drawing: up to n, while the run is on and not yet at its dig)
   if (Q.has("test")) Object.assign(window.WorldTest, { steps: (n, any) => { const h = H(); const t0 = performance.now(); let k = 0; for (; k < n && (any || (BOT.on && BOT.phase !== "dig")); k++) tick(h); return { k, ms: performance.now() - t0 }; } });   // (any: steps with or without the speed run)   // (0.0.115: the canvases kept, ^ticket(852))   // (0.0.112: the 🎮 controller, driven by hand where frames do not come)
