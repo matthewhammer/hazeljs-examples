@@ -15,13 +15,20 @@ import path from "node:path";
 import { chrome } from "./cdp.mjs";
 
 const BASE = process.argv[2] || "http://127.0.0.1:8000/", OUT = process.argv[3] || "world-frames";
-const RUN_MS = +(process.env.RUN_MS || 150000), DIG_MS = +(process.env.DIG_MS || 25000), SAMPLE_US = +(process.env.SAMPLE_US || 500);
+const RUN_MS = +(process.env.RUN_MS || 120000), DIG_MS = +(process.env.DIG_MS || 15000), SAMPLE_US = +(process.env.SAMPLE_US || 500);
 const ONLY = process.env.ONLY ? process.env.ONLY.split(",") : null;
+// (before and after on one runner, in turn: two runs of the job met different CPUs, AMD EPYC 9V45 and 7763, and a step's time
+// differed by 70% between them. "before" is 0.0.148 with the frame record (perf/902-frames 5e3734e), checked out by the workflow
+// under old/0.0.148/; "after", this checkout)
+const B148 = "old/0.0.148/";
 const SETUPS = [
-  { name: "hazel", rules: "hazel", w: 1280, h: 800, dpr: 1, cpu: 1 },
-  { name: "plain", rules: "plain", w: 1280, h: 800, dpr: 1, cpu: 1 },
-  { name: "hazel-2x-full", rules: "hazel", w: 1920, h: 1080, dpr: 2, cpu: 1 },
-  { name: "hazel-cpu4", rules: "hazel", w: 1280, h: 800, dpr: 1, cpu: 4 },
+  { name: "before", dir: B148, rules: "hazel", w: 1280, h: 800, dpr: 1, cpu: 1 },
+  { name: "after", rules: "hazel", w: 1280, h: 800, dpr: 1, cpu: 1 },
+  { name: "after-plain", rules: "plain", w: 1280, h: 800, dpr: 1, cpu: 1 },
+  { name: "before-2x-full", dir: B148, rules: "hazel", w: 1920, h: 1080, dpr: 2, cpu: 1 },
+  { name: "after-2x-full", rules: "hazel", w: 1920, h: 1080, dpr: 2, cpu: 1 },
+  { name: "before-cpu4", dir: B148, rules: "hazel", w: 1280, h: 800, dpr: 1, cpu: 4 },
+  { name: "after-cpu4", rules: "hazel", w: 1280, h: 800, dpr: 1, cpu: 4 },
   // (then: Gnome world 0.0.103 of 2026-11-24, ^report(64)'s "then", before its pieces were moved into Hazel: checked out by the
   // workflow under old/0.0.103/, its rules built at load by today's library; its frames timed by a requestAnimationFrame of our
   // own, as it has no record of its own)
@@ -62,7 +69,7 @@ const nameOf = n => { const cf = n.callFrame; return `${cf.functionName || "(ano
 async function runSetup(C, U) {
   const p = await C.open("about:blank", U.name);
   await p.send("Emulation.setDeviceMetricsOverride", { width: U.w, height: U.h, deviceScaleFactor: U.dpr, mobile: false });
-  await p.send("Page.navigate", { url: BASE + (U.old ? `old/${U.old}/` : "") + "world/?test=1" });
+  await p.send("Page.navigate", { url: BASE + (U.old ? `old/${U.old}/` : U.dir || "") + "world/?test=1" });
   if (U.old) return runOld(p, U);
   const t0 = Date.now(); for (;;) { let ok = false; try { ok = await p.eval(READY); } catch (e) { /* navigating */ } if (ok) break; if (Date.now() - t0 > 300000) throw new Error(`${U.name}: the rules not built after 300 s`); await sleep(500); }
   const info = await p.eval(`(() => { const T = WorldTest, S = T.S; T.restartNow(); T.setRules(${JSON.stringify(U.rules)}); S.asking = false; T.PERF.on = true;
