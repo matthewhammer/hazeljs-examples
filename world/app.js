@@ -4876,13 +4876,22 @@
   const mapCv = document.createElement("canvas"); mapCv.width = WW; mapCv.height = WH; const mapCtx = mapCv.getContext("2d"); const mapImg = mapCtx.createImageData(WW, WH);
   const map2Cv = document.createElement("canvas"); map2Cv.width = WW * 2; map2Cv.height = WH * 2; const map2Ctx = map2Cv.getContext("2d");
   const MAPCOL = [[0, 0, 0], [122, 74, 36], [160, 99, 74], [194, 163, 107], [200, 135, 90], [91, 95, 102], [207, 202, 184], [138, 133, 136], [156, 143, 128], [139, 90, 43]];
+  // (^ticket(902)) the map's colors, each packed once as the four bytes of a pixel (red first, as the browser's pixels lie in
+  // memory), so that drawing the map is a pass over the tiles in order writing one number each: it made a new array of three
+  // for every one of the world's 186,368 tiles, each time, 8 ms at a time on a GitHub runner and 33 ms with its CPU slowed four
+  // times. The wet ground's colors go through the canvas's own rounding (ties to even), so every pixel is as it was
+  const MC = (() => { const q = new Uint8ClampedArray(4), u = new Uint32Array(q.buffer), px = (r, g, b) => { q[0] = r; q[1] = g; q[2] = b; q[3] = 255; return u[0]; };
+    return { water: px(50, 110, 200), sky: px(150, 200, 235), room: px(230, 200, 140), stair: px(120, 110, 100), dug: px(60, 40, 28), ladder: px(196, 150, 95), plank: px(139, 94, 52),
+      solid: MAPCOL.map(c => px(c[0], c[1], c[2])), wet: MAPCOL.map(c => px(c[0] * 0.6, c[1] * 0.7, c[2] * 0.6 + 80)),
+      gem: [[0, 0, 0], [255, 90, 90], [90, 235, 120], [110, 160, 255], [200, 120, 255], [255, 200, 60]].map(c => px(c[0], c[1], c[2])) }; })();
+  const map32 = new Uint32Array(mapImg.data.buffer);
   function minimap() {
-    const d = mapImg.data;
-    for (let r = 0; r < WH; r++) for (let c = 0; c < WW; c++) { const i = at(c, r), o = i * 4, m = mat[i]; let col;
-      if (m === AIR) col = wat[i] > 0.5 ? [50, 110, 200] : r < surf0[c] ? [150, 200, 235] : bg[i] === B_PLASTER || bg[i] === B_WOOD ? [230, 200, 140] : bg[i] === B_STAIR ? [120, 110, 100] : [60, 40, 28];
-      else { col = MAPCOL[m]; if (PORES[m] > 0 && wat[i] > 0.6) col = [col[0] * 0.6, col[1] * 0.7, col[2] * 0.6 + 80]; if (gem[i]) col = [[0, 0, 0], [255, 90, 90], [90, 235, 120], [110, 160, 255], [200, 120, 255], [255, 200, 60]][gem[i]]; }
-      if (m === AIR && fix[i] && fix[i] !== F_DOOR) col = fix[i] === F_LADDER || fix[i] === F_STAIR ? [196, 150, 95] : [139, 94, 52];   // (ladders, the stair, platforms, bridges, planks)
-      d[o] = col[0]; d[o + 1] = col[1]; d[o + 2] = col[2]; d[o + 3] = 255; }
+    for (let r = 0, i = 0; r < WH; r++) { const sky0 = r; for (let c = 0; c < WW; c++, i++) { const m = mat[i]; let v;
+      if (m === AIR) { const f = fix[i];
+        if (f && f !== F_DOOR) v = f === F_LADDER || f === F_STAIR ? MC.ladder : MC.plank;   // (ladders, the stair, platforms, bridges, planks)
+        else if (wat[i] > 0.5) v = MC.water; else if (sky0 < surf0[c]) v = MC.sky; else { const b = bg[i]; v = b === B_PLASTER || b === B_WOOD ? MC.room : b === B_STAIR ? MC.stair : MC.dug; } }
+      else { const gm = gem[i]; v = gm ? MC.gem[gm] : PORES[m] > 0 && wat[i] > 0.6 ? MC.wet[m] : MC.solid[m]; }
+      map32[i] = v; } }
     mapCtx.putImageData(mapImg, 0, 0);
     // (Matthew: "foreground trees and tree houses do not appear in the overview map HUD"; "the overview map should not use ovals
     // for tree pads. Use triangles, if you must"; "arrays of triangles") Over the tiles, on a layer two pixels a tile: each
