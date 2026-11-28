@@ -25,7 +25,7 @@ jobs:
           { nproc; grep -m1 'model name' /proc/cpuinfo; node --version; google-chrome --version; } | tee world-frames/machine.txt
       - name: Gnome world as it was (0.0.103, 2026-11-24), beside today's
         run: |
-          mkdir -p old && git worktree add old/0.0.103 02b73ab && git worktree add old/0.0.148 5e3734e
+          mkdir -p old && git worktree add old/0.0.103 02b73ab && git worktree add old/0.0.148 5e3734e && git worktree add old/0.0.149 ea6b603
       - name: Serve the site
         run: |
           python3 -m http.server 8000 --bind 127.0.0.1 > server.log 2>&1 &

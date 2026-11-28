@@ -66,6 +66,18 @@ try {
   const CM = await A.eval("(() => { const K = WorldTest.CANVAS; return { ios: WorldTest.IOS, peakMB: Math.round(K.peak * 4 / 1e6), keptMB: Math.round(K.px * 4 / 1e6), made: K.made, freed: K.freed, fails: K.fails, purges: K.purges }; })()");
   log(`canvas memory, as on an iPad (${CM.ios ? "its budgets" : "NOT its budgets"}): peak ${CM.peakMB} MB, kept ${CM.keptMB} MB at the end; made ${CM.made}, let go ${CM.freed}; could not make ${CM.fails}; everything let go ${CM.purges} times`);
   if (!CM.ios || CM.peakMB > 256 || CM.fails || CM.purges) fail.push(`canvas memory as on an iPad: peak ${CM.peakMB} MB (at most 256), ${CM.fails} could not be made, everything let go ${CM.purges} times`);
+  // ---- (^ticket(904), ^ticket(905)) the Hazel twins, from the tour's world: the water's two passes by Water.hz against the page's
+  // JavaScript and against the passes of 0.0.149, 20 steps, every tile's water and every block's waking to the bit (the world put
+  // back after); and the run's way to 20 gems by Path.hz against wayJS, the same tiles
+  const TW = await A.eval(`(() => { const T = WorldTest, S = T.S, WW = T.WW, w = T.waterSame(20), g = S.g, gc = Math.floor(g.x / 1000), gr = Math.floor((g.y - 1) / 1000), gems = [];
+    for (let i = 0; i < T.gem.length; i++) if (T.gem[i]) gems.push([i % WW, Math.floor(i / WW)]);
+    gems.sort((a, b) => Math.abs(a[0] - gc) + Math.abs(a[1] - gr) - Math.abs(b[0] - gc) - Math.abs(b[1] - gr));
+    return { water: w, way: T.waySame(gems.slice(0, 20)) }; })()`);
+  log(`💧 the water, 20 steps: the passes of 0.0.149 ${TW.water.refMs} ms a step, the page's ${TW.water.jsMs} ms (tiles differing ${TW.water.jsWaterDiffers}, wakings ${TW.water.jsWakeDiffers}), Water.hz ${TW.water.hazelMs} ms (tiles differing ${TW.water.hazelWaterDiffers}, wakings ${TW.water.hazelWakeDiffers})`);
+  log(`🧭 the way to ${TW.way.n} gems: Path.hz the same as wayJS on ${TW.way.same} (found ${TW.way.found}); Path.hz ${TW.way.hazelMs} ms in all, wayJS ${TW.way.jsMs} ms (and the window's tiles ${TW.way.codesMs} ms), the search of 0.0.149 ${TW.way.oldMs} ms`);
+  if (TW.water.jsWaterDiffers || TW.water.jsWakeDiffers) fail.push(`the water's passes: the page's differ from 0.0.149's at ${TW.water.jsWaterDiffers} tiles, ${TW.water.jsWakeDiffers} wakings`);
+  if (TW.water.hazelMs == null || TW.water.hazelWaterDiffers || TW.water.hazelWakeDiffers) fail.push(`the water in Hazel: ${TW.water.hazelMs == null ? "not built" : `differs at ${TW.water.hazelWaterDiffers} tiles, ${TW.water.hazelWakeDiffers} wakings`}`);
+  if (TW.way.same !== TW.way.n) fail.push(`the way in Hazel: the same as wayJS on ${TW.way.same} of ${TW.way.n}${TW.way.firstDiff ? "; first: " + JSON.stringify(TW.way.firstDiff) : ""}`);
   // ---- 2. read, then save
   const before = await A.eval(`(async () => { const T = WorldTest; T.stopBot(); T.S.asking = true; const d = T.digest(); window.__save = await T.saveText(T.snapshot()); return d; })()`);
   const text = await A.eval("window.__save");

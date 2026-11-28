@@ -217,6 +217,8 @@ const PRECACHE = [
   "world/rules/Frog.hz",
   "world/rules/Bird.hz",
   "world/rules/Jelly.hz",
+  "world/rules/Water.hz",
+  "world/rules/Path.hz",
   "world/rules-aot.json",
   "world/rules/preamble.hz",
   "bugs/",

@@ -1,0 +1,48 @@
+# The water in the ground, in Hazel (^ticket(904); Matthew, 2026-11-27: "let's also have a hazel version of water, off by default, that we can turn on to profile and measure for reports"): the two passes of a step of the water, a block of tiles at a time, as the page's JavaScript does them (world/app.js, waterPasses), every tile's water the same to the bit. Off unless chosen (⚙️ Advanced, or ?water=hazel): the page calls down for each awake block of eight tiles in a row, from the bottom row up, then across for each, the way the pass goes, and writes the answers back into its tiles. The page keeps each tile's water as a 32-bit float, so each amount here is rounded as it would be stored there (f32). Calls nothing in World #
+# A share of water as the page stores it, a 32-bit float: rounded to 24 bits by Veltkamp's split, which gave the same as JavaScript's Math.fround on each of 25 million amounts of the kinds here #
+let f32 : Float -> Float = fun x -> (let t = x *. 536870913. in t -. (t -. x));
+let lesser : (Float, Float) -> Float = fun (a, b) -> if a <. b then a else b;
+# Down: the tiles of one row of a block, each over the tile under it: each one's water and the water under it, the pores of both (a share of the tile), the flow through both (a share of the pores a step), the share of its pores water clings to, and its roots (0 to 3). Water seeps down as fast as the slower ground lets it, faster where roots are, never the share that clings and never more than there is room for. The answer, for each tile: its water, the water under it, and whether so much moved (more than a ten-thousandth of a tile) that the water round it wakes #
+let down : [(wa = Float, wb = Float, pa = Float, pb = Float, fa = Float, fb = Float, cl = Float, root = Int)] -> [(wa = Float, wb = Float, moved = Bool)] = fun ts ->
+  map(ts, fun t ->
+    let still = (wa = t.wa, wb = t.wb, moved = false) in
+    if t.wa <=. 0.0005 || t.pa <=. 0. || t.pb <=. 0. then still
+    else (let free = (t.wa -. t.cl) *. t.pa in
+      if free <=. 0. then still
+      else (let room = (1. -. t.wb) *. t.pb in
+        if room <=. 0.0001 then still
+        else (let kk = lesser(t.fa, t.fb) *. (if t.root > 0 then 1. +. float_of_int(t.root) *. 1.5 else 1.) in
+          let k = (if kk <. 1. then kk else 1.) in
+          let fk = free *. k in
+          let qv = (if fk <. room then fk else room) in
+          (wa = f32(t.wa -. qv /. t.pa), wb = f32(t.wb +. qv /. t.pb), moved = qv >. 0.0001)))));
+# Across: the tiles of a row, in the order the pass goes, each with its water, whether it is open (air), its pores and flow, its roots, whether it gives (a tile of the block; the tile either side of the block only takes), and whether it is held (the tile under it has pores and is not full, so its water goes down, not across). Each giving tile, in turn, gives to the next tile the way the pass goes, then to the one before: half the difference, as fast as the slower ground lets it, to a tile drier by more than a hundredth, and from the ground into an open tile only when nearly full itself. The answer, for each tile in order: its water, and whether it gave so much that the water round it wakes #
+let give : ((p = Float, f = Float, root = Int, air = Bool), Float, (p = Float, air = Bool, f = Float), Float) -> (wa = Float, wn = Float, moved = Bool) = fun (a, wa, n, wn) ->
+  if n.p <=. 0. || wn >=. wa -. 0.01 || (n.air && !a.air && wa <. 0.9) then (wa = wa, wn = wn, moved = false)
+  else (let kk = lesser(a.f, n.f) *. 0.5 *. (if a.root > 0 then 2. else 1.) in
+    let k = (if kk <. 1. then kk else 1.) in
+    let qv = (wa -. wn) *. lesser(a.p, n.p) *. 0.5 *. k in
+    (wa = f32(wa -. qv /. a.p), wn = f32(wn +. qv /. n.p), moved = qv >. 0.0001));
+let across : [(w = Float, air = Bool, p = Float, f = Float, root = Int, gives = Bool, held = Bool)] -> [(w = Float, moved = Bool)] = fun cells ->
+  let walk : ([(w = Float, air = Bool, p = Float, f = Float, root = Int, gives = Bool, held = Bool, moved = Bool)], [(w = Float, air = Bool, p = Float, f = Float, root = Int, gives = Bool, held = Bool, moved = Bool)]) -> [(w = Float, air = Bool, p = Float, f = Float, root = Int, gives = Bool, held = Bool, moved = Bool)] = fun (done, rest) ->
+    case rest
+    | [] => done
+    | x :: more =>
+      if !x.gives || x.w <=. 0.002 || x.p <=. 0. || x.held then walk(x :: done, more)
+      else (
+        let a = (p = x.p, f = x.f, root = x.root, air = x.air) in
+        let fwd = (case more
+          | [] => (w = x.w, cells = more, moved = false)
+          | y :: ys => (let g = give(a, x.w, (p = y.p, air = y.air, f = y.f), y.w) in
+              (w = g.wa, cells = (w = g.wn, air = y.air, p = y.p, f = y.f, root = y.root, gives = y.gives, held = y.held, moved = y.moved) :: ys, moved = g.moved))
+          end) in
+        let back = (case done
+          | [] => (w = fwd.w, cells = done, moved = false)
+          | z :: zs => (let g = give(a, fwd.w, (p = z.p, air = z.air, f = z.f), z.w) in
+              (w = g.wa, cells = (w = g.wn, air = z.air, p = z.p, f = z.f, root = z.root, gives = z.gives, held = z.held, moved = z.moved) :: zs, moved = g.moved))
+          end) in
+        walk((w = back.w, air = x.air, p = x.p, f = x.f, root = x.root, gives = x.gives, held = x.held, moved = x.moved || fwd.moved || back.moved) :: back.cells, fwd.cells))
+    end in
+  let backward : ([(w = Float, air = Bool, p = Float, f = Float, root = Int, gives = Bool, held = Bool, moved = Bool)], [(w = Float, moved = Bool)]) -> [(w = Float, moved = Bool)] = fun (xs, acc) ->
+    case xs | [] => acc | x :: rest => backward(rest, (w = x.w, moved = x.moved) :: acc) end in
+  backward(walk([], map(cells, fun c -> (w = c.w, air = c.air, p = c.p, f = c.f, root = c.root, gives = c.gives, held = c.held, moved = false))), [])

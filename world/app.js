@@ -35,8 +35,8 @@
   if (window.visualViewport) { const vz = () => { const z = visualViewport.scale; WATCH.zoomMin = Math.min(WATCH.zoomMin, z); WATCH.zoomMax = Math.max(WATCH.zoomMax, z); if (Math.abs(z - 1) > 0.01) WATCH.zoomAt = performance.now(); };
     visualViewport.addEventListener("resize", vz); visualViewport.addEventListener("scroll", vz); }
   const LIB_JIT = "https://build.hazel.org/hazeljs/hazel-lib.js", LIB_NPM = "https://cdn.jsdelivr.net/npm/hazeljs@0.0.4/hazel-lib.js";
-  const PROGRAM = "world", MODULES = ["World", "Fly", "Tail", "Ride", "Boulder", "Pickup", "Wind", "Bunny", "Frog", "Bird", "Jelly"];
-  const TAIL = "(plan = World.plan, ground = World.ground, village = World.village, furnish = World.furnish, limbs = World.limbs, styles = World.styles, beaver = World.beaver, water_row = World.water_row, step = World.step, roots = World.roots, threads = World.threads, greet = World.greet, dig_steps = World.dig_steps, fly = Fly.step, tail = Tail.step, ride_pre = Ride.pre, ride_post = Ride.post, boulder = Boulder.step, pickup = Pickup.step, wind = Wind.step, bunny = Bunny.step, frog = Frog.step, bird = Bird.step, swim = Bird.swim, jelly = Jelly.step)";
+  const PROGRAM = "world", MODULES = ["World", "Fly", "Tail", "Ride", "Boulder", "Pickup", "Wind", "Bunny", "Frog", "Bird", "Jelly", "Water", "Path"];
+  const TAIL = "(plan = World.plan, ground = World.ground, village = World.village, furnish = World.furnish, limbs = World.limbs, styles = World.styles, beaver = World.beaver, water_row = World.water_row, step = World.step, roots = World.roots, threads = World.threads, greet = World.greet, dig_steps = World.dig_steps, fly = Fly.step, tail = Tail.step, ride_pre = Ride.pre, ride_post = Ride.post, boulder = Boulder.step, pickup = Pickup.step, wind = Wind.step, bunny = Bunny.step, frog = Frog.step, bird = Bird.step, swim = Bird.swim, jelly = Jelly.step, water_down = Water.down, water_across = Water.across, way = Path.way)";
   const KEY = "hazeljs-examples/world/";
   const Q = new URLSearchParams(location.search);
   const $ = id => document.getElementById(id);
@@ -126,7 +126,7 @@
   // once (the world's plan, its villages and trees); off unless chosen; kept on this device, and in a save made with it on
   let plainView = null, plainOf = null;
   const H = () => { if (!(S.built && S.built.ok)) return null; const v = S.built.value; if (S.rules !== "plain" || !window.WorldPlain) return v;
-    if (plainOf !== v) { plainOf = v; plainView = { ...v, step: window.WorldPlain.step, beaver: window.WorldPlain.beaver, water_row: window.WorldPlain.water_row, fly: undefined, tail: undefined, ride_pre: undefined, ride_post: undefined, boulder: undefined, pickup: undefined, wind: undefined, bunny: undefined, frog: undefined, bird: undefined, swim: undefined, jelly: undefined }; }
+    if (plainOf !== v) { plainOf = v; plainView = { ...v, step: window.WorldPlain.step, beaver: window.WorldPlain.beaver, water_row: window.WorldPlain.water_row, fly: undefined, tail: undefined, ride_pre: undefined, ride_post: undefined, boulder: undefined, pickup: undefined, wind: undefined, bunny: undefined, frog: undefined, bird: undefined, swim: undefined, jelly: undefined, water_down: undefined, water_across: undefined, way: undefined }; }
     return plainView; };
   function setRules(r) { S.rules = r === "plain" ? "plain" : "hazel"; keep("rules", S.rules); plainOf = null; const box = document.getElementById("rules-plain"); if (box) box.checked = S.rules === "plain"; if (typeof drawStatus === "function") drawStatus(); }
   let seedRand = 1;
@@ -489,10 +489,9 @@
   // full or holds water back: toward the drier side, the ground giving water to a tunnel only when nearly full itself. The
   // rivers held at their level; now and then a shower over the land; a little drying at the surface
   let sweep = 1, wetFrom = 0;
-  function waterStep() {
-    // (0.0.102: no water lies higher than a row over the land's highest tile, where the rain falls: the rows of sky above skipped)
-    if (S.frame % 60 === 0 || !wetFrom) { let m = WH; for (let c = 0; c < WW; c++) if (top[c] < m) m = top[c]; wetFrom = Math.max(0, m - 3); }
-    const fr = S.frame, wt = fr + WAKE_FOR;
+  // (^ticket(904)) the water's two passes as they were through 0.0.149, kept for the tests alone: the passes below must give
+  // every tile the very same water, to the bit (WorldTest.waterSame)
+  function waterPassesRef(fr, wt, sw) {
     for (let r = WH - 2; r >= wetFrom; r--) { const base = r * WW, rb = (r >> WSH) * WBC;
       for (let bc = 0; bc < WBC; bc++) { if (wakeTill[rb + bc] < fr) continue; const cEnd = Math.min(WW, (bc << WSH) + 8);
       for (let c = bc << WSH; c < cEnd; c++) { const a = base + c, wa = wat[a]; if (wa <= 0.0005) continue;
@@ -503,7 +502,7 @@
         const k = Math.min(1, Math.min(FLOW[ma], FLOW[mb]) * (root[a] ? 1 + root[a] * 1.5 : 1));
         const qv = Math.min(free * k, room);
         wat[a] -= qv / pa; wat[b] += qv / pb; if (qv > QEPS) { wakeNear(c, r, wt); if ((r & WM) === WM) wakeNear(c, r + 1, wt); } } } }
-    sweep = -sweep;
+    const sweep = sw;
     for (let r = wetFrom; r < WH - 1; r++) { const base = r * WW, rb = (r >> WSH) * WBC;
       for (let nb = 0; nb < WBC; nb++) { const bc = sweep > 0 ? nb : WBC - 1 - nb; if (wakeTill[rb + bc] < fr) continue; const cA = bc << WSH, cB = Math.min(WW, cA + 8);
       for (let n = 0; n < cB - cA; n++) { const c = sweep > 0 ? cA + n : cB - 1 - n, a = base + c, wa = wat[a]; if (wa <= 0.002) continue;
@@ -516,6 +515,78 @@
           const k = Math.min(1, Math.min(FLOW[ma], FLOW[mn]) * 0.5 * (root[a] ? 2 : 1));
           const qv = (wat[a] - sn) * Math.min(pa, pn) * 0.5 * k;
           wat[a] -= qv / pa; wat[n2] += qv / pn; if (qv > QEPS) wakeNear(c, r, wt); } } } }
+  }
+  // (^ticket(904); ^report(68): the water was 88% to 93% of the speed run's steps) The two passes, each a tile's arithmetic as
+  // before to the bit, with the world's arrays and the ground's numbers held in locals and Math.min written out as comparisons
+  // (no -0 or NaN reaches them: every amount compared is a share of water, 0 or more). sw: the way the pass across goes
+  function waterPasses(fr, wt, sw) {
+    const W = wat, M = mat, P = PORES, F = FLOW, CL = CLING, RT = root, WK = wakeTill, from = wetFrom, eps = WATER.eps;
+    for (let r = WH - 2; r >= from; r--) { const base = r * WW, rb = (r >> WSH) * WBC, edge = (r & WM) === WM;
+      for (let bc = 0; bc < WBC; bc++) { if (WK[rb + bc] < fr) continue; const c0 = bc << WSH, cEnd = c0 + 8 < WW ? c0 + 8 : WW;
+        for (let c = c0; c < cEnd; c++) { const a = base + c, wa = W[a]; if (wa <= 0.0005) continue;
+          const ma = M[a], pa = P[ma]; if (pa === 0) continue;
+          const b = a + WW, mb = M[b], pb = P[mb]; if (pb === 0) continue;
+          const free = (wa - CL[ma]) * pa; if (free <= 0) continue;
+          const room = (1 - W[b]) * pb; if (room <= 0.0001) continue;
+          const fa = F[ma], fb = F[mb], ra = RT[a], kk = (fa < fb ? fa : fb) * (ra ? 1 + ra * 1.5 : 1), k = kk < 1 ? kk : 1;
+          const fk = free * k, qv = fk < room ? fk : room;
+          W[a] -= qv / pa; W[b] += qv / pb; if (qv > eps) { wakeNear(c, r, wt); if (edge) wakeNear(c, r + 1, wt); } } } }
+    for (let r = from; r < WH - 1; r++) { const base = r * WW, rb = (r >> WSH) * WBC;
+      for (let nb = 0; nb < WBC; nb++) { const bc = sw > 0 ? nb : WBC - 1 - nb; if (WK[rb + bc] < fr) continue; const cA = bc << WSH, cB = cA + 8 < WW ? cA + 8 : WW;
+        for (let n = 0; n < cB - cA; n++) { const c = sw > 0 ? cA + n : cB - 1 - n, a = base + c; if (W[a] <= 0.002) continue;
+          const ma = M[a], pa = P[ma]; if (pa === 0) continue;
+          const b = a + WW; if (P[M[b]] > 0 && W[b] < 0.98) continue;
+          const fa = F[ma], two = RT[a] ? 2 : 1;
+          for (let side = 0; side < 2; side++) { const c2 = side ? c - sw : c + sw; if (c2 < 0 || c2 >= WW) continue;
+            const n2 = base + c2, mn = M[n2], pn = P[mn]; if (pn === 0) continue;
+            const sn = W[n2]; if (sn >= W[a] - 0.01) continue;
+            if (mn === AIR && ma !== AIR && W[a] < 0.9) continue;
+            const fn = F[mn], kk = (fa < fn ? fa : fn) * 0.5 * two, k = kk < 1 ? kk : 1;
+            const qv = (W[a] - sn) * (pa < pn ? pa : pn) * 0.5 * k;
+            W[a] -= qv / pa; W[n2] += qv / pn; if (qv > eps) wakeNear(c, r, wt); } } } }
+  }
+  // (^ticket(904)) The water in Hazel (rules/Water.hz), off by default: ⚙️ Advanced's "💧 the water in Hazel", or ?water=hazel,
+  // kept on this device. The two passes as waterPasses makes them, block by block in the same order, each awake block's row
+  // handed to Water.down (over the row under it) and Water.across (in the pass's way, with the tile either side, which takes
+  // and does not give), the answers written back and the water round each tile that moved woken: every tile's water the same
+  // to the bit (WorldTest.waterSame). For profiling and the reports: a call for each block of each row, every step
+  // (eps: the least a tile's move that keeps the water round it awake, a ten-thousandth of a tile; ?wateps= tries another, for
+  // measuring: ^ticket(904) found most of the water's work to be seepage of under a thousandth of a tile a step)
+  const WATER = { hazel: Q.get("water") === "hazel" || (Q.get("water") !== "js" && kept("water", "js") === "hazel"), calls: 0, eps: +(Q.get("wateps") || QEPS) };
+  function waterPassesHazel(h, fr, wt, sw) {
+    const W = wat, M = mat, P = PORES, F = FLOW, CL = CLING, RT = root, WK = wakeTill, from = wetFrom;
+    for (let r = WH - 2; r >= from; r--) { const base = r * WW, rb = (r >> WSH) * WBC, edge = (r & WM) === WM;
+      for (let bc = 0; bc < WBC; bc++) { if (WK[rb + bc] < fr) continue; const c0 = bc << WSH, cEnd = c0 + 8 < WW ? c0 + 8 : WW, ts = [];
+        for (let c = c0; c < cEnd; c++) { const a = base + c, b = a + WW, ma = M[a], mb = M[b];
+          ts.push({ wa: W[a], wb: W[b], pa: P[ma], pb: P[mb], fa: F[ma], fb: F[mb], cl: CL[ma], root: RT[a] }); }
+        const out = h.water_down(ts); WATER.calls++;
+        for (let n = 0; n < out.length; n++) { const c = c0 + n, a = base + c; W[a] = out[n].wa; W[a + WW] = out[n].wb;
+          if (out[n].moved) { wakeNear(c, r, wt); if (edge) wakeNear(c, r + 1, wt); } } } }
+    for (let r = from; r < WH - 1; r++) { const base = r * WW, rb = (r >> WSH) * WBC;
+      for (let nb = 0; nb < WBC; nb++) { const bc = sw > 0 ? nb : WBC - 1 - nb; if (WK[rb + bc] < fr) continue; const cA = bc << WSH, cB = cA + 8 < WW ? cA + 8 : WW;
+        const cols = []; for (let n = -1; n <= cB - cA; n++) { const c = sw > 0 ? cA + n : cB - 1 - n; if (c >= 0 && c < WW) cols.push(c); }
+        const cells = cols.map(c => { const a = base + c, b = a + WW, m = M[a]; return { w: W[a], air: m === AIR, p: P[m], f: F[m], root: RT[a], gives: c >= cA && c < cB, held: P[M[b]] > 0 && W[b] < 0.98 }; });
+        const out = h.water_across(cells); WATER.calls++;
+        for (let n = 0; n < out.length; n++) { const c = cols[n]; W[base + c] = out[n].w; if (out[n].moved) wakeNear(c, r, wt); } } }
+  }
+  // (tests: the three ways of the passes from one state, every tile's water and every block's waking compared to the bit; the
+  // state put back after each, and at the end)
+  function waterSame(n = 20) {
+    const w0 = wat.slice(), k0 = wakeTill.slice(), fr0 = S.frame, sw0 = sweep, h = H(), out = {};
+    const run = f => { wat.set(w0); wakeTill.set(k0); S.frame = fr0; let sw = sw0; const t0 = performance.now();
+      for (let i = 0; i < n; i++) { S.frame++; sw = -sw; f(S.frame, S.frame + WAKE_FOR, sw); } return { ms: (performance.now() - t0) / n, w: wat.slice(), k: wakeTill.slice() }; };
+    const ref = run(waterPassesRef), js = run(waterPasses), hz = h && h.water_down ? run((fr, wt, sw) => waterPassesHazel(h, fr, wt, sw)) : null;
+    const diff = (A, B) => { let d = 0; for (let i = 0; i < A.length; i++) if (!Object.is(A[i], B[i])) d++; return d; };
+    out.steps = n; out.refMs = +ref.ms.toFixed(3); out.jsMs = +js.ms.toFixed(3); out.jsWaterDiffers = diff(ref.w, js.w); out.jsWakeDiffers = diff(ref.k, js.k);
+    if (hz) { out.hazelMs = +hz.ms.toFixed(3); out.hazelWaterDiffers = diff(ref.w, hz.w); out.hazelWakeDiffers = diff(ref.k, hz.k); }
+    wat.set(w0); wakeTill.set(k0); S.frame = fr0; return out;
+  }
+  function waterStep() {
+    // (0.0.102: no water lies higher than a row over the land's highest tile, where the rain falls: the rows of sky above skipped)
+    if (S.frame % 60 === 0 || !wetFrom) { let m = WH; for (let c = 0; c < WW; c++) if (top[c] < m) m = top[c]; wetFrom = Math.max(0, m - 3); }
+    const fr = S.frame, wt = fr + WAKE_FOR;
+    sweep = -sweep;
+    if (WATER.hazel && H() && H().water_down) waterPassesHazel(H(), fr, wt, sweep); else waterPasses(fr, wt, sweep);
     for (const R of S.rivers) holdRiver(R);
     // (Matthew: "The gnome's basement levels are flooded!") the villages' pumps: every room's and the stair's water drawn down a
     // little each step, as the gnomes' hand pumps at the stair's foot lift it up and out to the meadow
@@ -725,7 +796,98 @@
     if (boulderAt(c, r)) return Infinity;
     if (wat[i] >= 0.5 && !S.g.gear) { const deep = r > 0 && wat[at(c, r - 1)] >= 0.5 && r > 1 && wat[at(c, r - 2)] >= 0.5; return deep ? 40 : 1.6; }
     return 1; }
+  // (^ticket(905); ^report(68), What next, step 5: "Find the run's way by A* rather than by searching the whole world from the
+  // gnome outward, so a long search does not make a long step"; Matthew: "in Hazel") The run's way, by A*, in Hazel (rules/Path.hz,
+  // Path.way), over a window of the world round the gnome and its target: 32 tiles more each way, then 128 (a way underground
+  // goes round by the tunnels: within 16 tiles, 4 of 30 nearby gems were reached; within 32, all), then the whole world by the
+  // search of 0.0.149 (botPlanOld: the whole world's tiles as a tree are no use to build for one search). Each tile one
+  // number: the cost of going into it, in thousandths of a step (0 no way in), and whether it is ground, the gnome can climb in it,
+  // or stand on what is under it. The costs are the search's of 0.0.149 to the thousandth; A* takes the least estimate, then the
+  // least place, so Hazel's way and wayJS's are the very same (WorldTest.waySame). wayJS finds it unless Hazel's is chosen (WAY):
+  // Hazel's search is about 25 times as long (no arrays in Hazel: its best costs a balanced tree, its frontier a heap of nodes)
+  function wayCode(c, r, rocks) {
+    if (!inside(c, r)) return 0;
+    const i = at(c, r), m = mat[i], g = S.g;
+    let cost;
+    if (m !== AIR) { const d = digSteps(m, r, g.tool); cost = d > 0 ? 1000 + Math.round(d * 1000 / 11) : 0; }
+    else if (rocks.has(i)) cost = 0;
+    else if (wat[i] >= 0.5 && !g.gear) cost = (r > 0 && wat[at(c, r - 1)] >= 0.5 && r > 1 && wat[at(c, r - 2)] >= 0.5) ? 40000 : 1600;
+    else cost = 1000;
+    const climb = m === AIR && (fix[i] === F_LADDER || fix[i] === F_STAIR || fix[i] === F_HATCH || bg[i] === B_DUG || wat[i] >= 0.5 || ((!!g.climbPack || kitHas(g, "climber")) && treeAt(c, r)));
+    let stand = true; if (r + 1 < WH) { const b = at(c, r + 1); stand = mat[b] !== AIR || fix[b] === F_PLAT || fix[b] === F_BRIDGE || fix[b] === F_HATCH || rocks.has(b); }
+    return cost * 8 + (m !== AIR ? 4 : 0) + (climb ? 2 : 0) + (stand ? 1 : 0);
+  }
+  // (the boulders' tiles, as boulderAt finds them, once for a search)
+  function rockSet() { const R = new Set(); for (const b of S.boulders) { if (inside(b.c, b.r)) R.add(at(b.c, b.r)); if (b.falling && b.oy > 0 && inside(b.c, b.r + 1)) R.add(at(b.c, b.r + 1)); } return R; }
+  // the twin of Path.way, the same steps with arrays: a binary heap ordered by estimate, then place
+  function wayJS(codes, w, h, s, t, avoid, limit) {
+    const n = w * h, best = new Float64Array(n).fill(-1), prev = new Int32Array(n).fill(-1), tc = t % w, tr = (t - tc) / w;
+    const HF = [], HI = [], HG = []; let hn = 0;
+    const less = (a, b) => HF[a] < HF[b] || (HF[a] === HF[b] && HI[a] < HI[b]);
+    const swap = (a, b) => { let x = HF[a]; HF[a] = HF[b]; HF[b] = x; x = HI[a]; HI[a] = HI[b]; HI[b] = x; x = HG[a]; HG[a] = HG[b]; HG[b] = x; };
+    const push = (f, i, g) => { HF[hn] = f; HI[hn] = i; HG[hn] = g; let j = hn++; while (j > 0) { const p = (j - 1) >> 1; if (!less(j, p)) break; swap(j, p); j = p; } };
+    const pop = () => { hn--; swap(0, hn); let j = 0; for (;;) { const a = 2 * j + 1, b = a + 1; let m = j; if (a < hn && less(a, m)) m = a; if (b < hn && less(b, m)) m = b; if (m === j) break; swap(j, m); j = m; } return hn; };
+    const guess = i => { const c = i % w; return 1000 * (Math.abs(c - tc) + Math.abs((i - c) / w - tr)); };
+    const code = (c, r) => (c < 0 || c >= w || r < 0 || r >= h) ? 0 : codes[r * w + c];
+    const go = (from, d, c2, r2, extra) => { const e = code(c2, r2) >> 3; if (e <= 0) return; const j = r2 * w + c2; if (avoid.has(j)) return;
+      const nd = d + e + extra, old = best[j]; if (old >= 0 && nd >= old) return; best[j] = nd; prev[j] = from; push(nd + guess(j), j, nd); };
+    best[s] = 0; push(guess(s), s, 0); let seen = 0;
+    while (hn > 0) { if (seen >= limit) break; const k = pop(), i = HI[k], d = HG[k];
+      if (d > best[i]) continue; if (i === t) break;
+      const c = i % w, r = (i - c) / w, here = code(c, r), solid = (here >> 2) & 1, climb = (here >> 1) & 1, stand = here & 1, held = climb || stand || solid;
+      if (held) { go(i, d, c - 1, r, 0); go(i, d, c + 1, r, 0); }
+      go(i, d, c, r + 1, 0);
+      const above = code(c, r - 1);
+      if (climb || (((above >> 2) & 1) && held)) go(i, d, c, r - 1, 300);
+      else if (stand) { go(i, d, c, r - 1, 1500); const up = r - 1 >= 0 && ((above >> 2) & 1) === 0;
+        if (up && c - 1 >= 0 && (code(c - 1, r - 1) & 1)) go(i, d, c - 1, r - 1, 1800);
+        if (up && c + 1 < w && (code(c + 1, r - 1) & 1)) go(i, d, c + 1, r - 1, 1800); }
+      seen++; }
+    if (best[t] < 0) return [];
+    const path = []; for (let i = t; i !== s && i >= 0; i = prev[i]) path.push(i); return path.reverse();
+  }
+  // (a window round the gnome's tile and the target's, m tiles more each way; m Infinity, the whole world)
+  function wayWindow(sc, sr, tc, tr, m) { const c0 = Math.max(0, Math.min(sc, tc) - m), c1 = Math.min(WW - 1, Math.max(sc, tc) + m), r0 = Math.max(0, Math.min(sr, tr) - m), r1 = Math.min(WH - 1, Math.max(sr, tr) + m);
+    return { c0, r0, w: c1 - c0 + 1, h: r1 - r0 + 1 }; }
+  // (hazelOn: Path.way, not wayJS, finds the run's way; off by default, ⚙️ Advanced or ?way=hazel: the same ways, about 25 times
+  // the time (^report(69)), so a search through Hazel is itself a long step. The counts and times, for the reports)
+  const WAY = { hazelOn: Q.get("way") === "hazel" || (Q.get("way") !== "js" && kept("way", "js") === "hazel"), hazel: 0, js: 0, ms: 0, hazelMs: 0, windows: [0, 0, 0] };
+  // (tests: for targets (c, r), the way from where the gnome is by Hazel, by wayJS and by the search of 0.0.149: the same tiles, and
+  // each one's time)
+  function waySame(targets, m = 32) {
+    const h = H(), g = S.g, sc = Math.floor(g.x / 1000), sr = Math.floor((g.y - 1) / 1000), rocks = rockSet(), out = { n: 0, same: 0, found: 0, firstDiff: null, hazelMs: 0, jsMs: 0, codesMs: 0, oldMs: 0, oldFound: 0, tiles: 0 };
+    for (const [tc, tr] of targets) { if (sc === tc && sr === tr) continue;
+      const Wn = wayWindow(sc, sr, tc, tr, m), n = Wn.w * Wn.h; let t0 = performance.now();
+      const codes = new Int32Array(n); for (let r = 0; r < Wn.h; r++) for (let c = 0; c < Wn.w; c++) codes[r * Wn.w + c] = wayCode(Wn.c0 + c, Wn.r0 + r, rocks);
+      out.codesMs += performance.now() - t0; out.tiles += n;
+      const s = (sr - Wn.r0) * Wn.w + (sc - Wn.c0), t = (tr - Wn.r0) * Wn.w + (tc - Wn.c0);
+      t0 = performance.now(); const pj = wayJS(codes, Wn.w, Wn.h, s, t, new Set(), n * 2); out.jsMs += performance.now() - t0;
+      t0 = performance.now(); const ph = h && h.way ? h.way(Array.from(codes), Wn.w, Wn.h, s, t, [], n * 2) : null; out.hazelMs += performance.now() - t0;
+      t0 = performance.now(); const po = botPlanOld(tc, tr, null); out.oldMs += performance.now() - t0; if (po) out.oldFound++;
+      out.n++; if (pj.length) out.found++;
+      if (ph && JSON.stringify(ph) === JSON.stringify(pj)) out.same++; else if (!out.firstDiff) out.firstDiff = { tc, tr, js: pj.slice(0, 8), hazel: ph && ph.slice(0, 8) }; }
+    for (const k of ["hazelMs", "jsMs", "codesMs", "oldMs"]) out[k] = +out[k].toFixed(1);
+    return out;
+  }
   function botPlan(tc, tr, avoid) {
+    const g = S.g, sc = Math.floor(g.x / 1000), sr = Math.floor((g.y - 1) / 1000);
+    if (sc === tc && sr === tr) return [];
+    const rocks = rockSet(), h = H(), byHazel = WAY.hazelOn && !!(h && h.way);
+    for (let k = 0; k < 2; k++) { const m = [32, 128][k], Wn = wayWindow(sc, sr, tc, tr, m), n = Wn.w * Wn.h;
+      const codes = new Int32Array(n); for (let r = 0; r < Wn.h; r++) for (let c = 0; c < Wn.w; c++) codes[r * Wn.w + c] = wayCode(Wn.c0 + c, Wn.r0 + r, rocks);
+      const s = (sr - Wn.r0) * Wn.w + (sc - Wn.c0), t = (tr - Wn.r0) * Wn.w + (tc - Wn.c0), av = [];
+      if (avoid) for (const j of avoid) { const c = j % WW, r = (j - c) / WW; if (c >= Wn.c0 && c < Wn.c0 + Wn.w && r >= Wn.r0 && r < Wn.r0 + Wn.h) av.push((r - Wn.r0) * Wn.w + (c - Wn.c0)); }
+      const t0 = performance.now(), hz = byHazel;
+      const p = hz ? h.way(Array.from(codes), Wn.w, Wn.h, s, t, av, n * 2) : wayJS(codes, Wn.w, Wn.h, s, t, new Set(av), n * 2);
+      const dt = performance.now() - t0; WAY.ms += dt; if (hz) { WAY.hazel++; WAY.hazelMs += dt; } else WAY.js++; WAY.windows[k]++;
+      if (p.length) return p.map(i => at(Wn.c0 + i % Wn.w, Wn.r0 + ((i / Wn.w) | 0)));
+    }
+    // (no way within 128 tiles: the search of 0.0.149 over the whole world, which looks at a tile only as it reaches it)
+    WAY.windows[2]++; const t0 = performance.now(), p = botPlanOld(tc, tr, avoid); WAY.ms += performance.now() - t0; WAY.js++; return p;
+  }
+  // (the way as it was found through 0.0.149: the cheapest way from the gnome outward over the whole world, for the tests and
+  // ^report(69) alone)
+  function botPlanOld(tc, tr, avoid) {
     const g = S.g, sc = Math.floor(g.x / 1000), sr = Math.floor((g.y - 1) / 1000), start = at(sc, sr), goal = at(tc, tr);
     dist.fill(Infinity); prev.fill(-1); dist[start] = 0; let n = 0;
     const push = (i, d) => { if (n >= heapI.length) return; let j = n++; while (j > 0) { const p = (j - 1) >> 1; if (heapD[p] <= d) break; heapI[j] = heapI[p]; heapD[j] = heapD[p]; j = p; } heapI[j] = i; heapD[j] = d; };
@@ -5831,8 +5993,15 @@
   rlRow.append(rlBox, document.createTextNode(" the game's rules in plain JavaScript, not Hazel's"));
   rlBox.addEventListener("change", () => setRules(rlBox.checked ? "plain" : "hazel"));
   const rlHint = document.createElement("p"); rlHint.className = "muted speed-hint"; rlHint.textContent = "For a slow computer. The rules the game calls as it plays (the gnome's step, the beavers', the rivers', the magic carpet's and the cat tail's flight) in JavaScript written by hand, the same rules: the world still planned by Hazel. Kept on this computer, and in every world you 💾 save while it is on; a world loaded from such a save turns it on. Off: Hazel's rules, compiled by hazel-jit.";
+  // (^ticket(904), ^ticket(905)) the water and the speed run's way in Hazel, for measuring: off by default, kept on this computer
+  const hzCap = document.createElement("h3"); hzCap.className = "advanced-cap"; hzCap.textContent = "🔬 For measuring: more of the game in Hazel";
+  const hzBox = (id, on, words, set) => { const row = document.createElement("label"); row.className = "speed-row rules-row"; const box = document.createElement("input"); box.type = "checkbox"; box.id = id; box.checked = on;
+    row.append(box, document.createTextNode(" " + words)); box.addEventListener("change", () => set(box.checked)); return row; };
+  const hzWater = hzBox("water-hazel", WATER.hazel, "💧 the water in Hazel (Water.hz): the same water, about 13 times the time", on => { WATER.hazel = on; keep("water", on ? "hazel" : "js"); });
+  const hzWay = hzBox("way-hazel", WAY.hazelOn, "🧭 the speed run's way in Hazel (Path.hz): the same ways, about 25 times the time", on => { WAY.hazelOn = on; keep("way", on ? "hazel" : "js"); });
+  const hzHint = document.createElement("p"); hzHint.className = "muted speed-hint"; hzHint.textContent = "Each gives every tile the very same water, and the speed run the very same way, as the page's JavaScript does; they are here to profile and measure Hazel against it (^report(69)). Slow: the water in Hazel makes each step of the world about 13 times as long, and the way about 25 times. ?water=hazel and ?way=hazel turn them on for one visit.";
   if (window.OracleAdvanced) window.OracleAdvanced.panel({
-    extras: [rlCap, rlRow, rlHint, bugCap, bugRow, bugOut, bugHint, tpCap, tpRow, tpOut, tpHint],
+    extras: [rlCap, rlRow, rlHint, hzCap, hzWater, hzWay, hzHint, bugCap, bugRow, bugOut, bugHint, tpCap, tpRow, tpOut, tpHint],
     holder: $("advanced"), name: "Gnome world", built: () => S.built, libAt: () => 0, keysIn: null,
     mode: () => ({ asked: S.built && S.built.compiled ? "compiled" : "interpreted", error: null }),
     about: "600 of the gnome's steps through Hazel, running and jumping",
@@ -5855,6 +6024,8 @@
   // (0.0.140: the levels: one built fresh, as the level check reads it; the vortex's journey)
   if (Q.has("test")) Object.assign(window.WorldTest, { LEVELS, levelOf, travel, vortexStep, rainbowsStep, catHeadFound, digOK,
     freshLevel: id => { S.level = String(id); S.seed = levelOf(id).seed; S.away = {}; S.points = 0; build(H(), S.seed); digButton(); return S.level; } });   // (0.0.127: the caverns)
+  if (Q.has("test")) Object.assign(window.WorldTest, { waterSame, waterPasses, waterPassesRef, WATER, PORES, FLOW, CLING, root });   // (^ticket(904))
+  if (Q.has("test")) Object.assign(window.WorldTest, { WAY, wayJS, wayCode, wayWindow, rockSet, botPlanOld, waySame });   // (^ticket(905))
   if (Q.has("test")) Object.assign(window.WorldTest, { botItemOrder, timeSpeedRun, TP, wakeTill, wakeAll, waterStep, setRules, H, rideJS, rideStep, boulderJS, bouldersStep, pickupJS, pickups, windJS, windStep, bunnyJS, bunnyStep, bunniesStep, frogJS, frogStep, wildStep, songJS, swimJS, songStep, swimStep, keepWorld });   // (0.0.130: the speed run's order of the things; ⏱)
   // (^ticket(873): the speed run's steps alone, timed, no drawing: up to n, while the run is on and not yet at its dig)
   if (Q.has("test")) Object.assign(window.WorldTest, { steps: (n, any) => { const h = H(); const t0 = performance.now(); let k = 0; for (; k < n && (any || (BOT.on && BOT.phase !== "dig")); k++) tick(h); return { k, ms: performance.now() - t0 }; } });   // (any: steps with or without the speed run)   // (0.0.115: the canvases kept, ^ticket(852))   // (0.0.112: the 🎮 controller, driven by hand where frames do not come)

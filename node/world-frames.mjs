@@ -20,8 +20,17 @@ const ONLY = process.env.ONLY ? process.env.ONLY.split(",") : null;
 // (before and after on one runner, in turn: two runs of the job met different CPUs, AMD EPYC 9V45 and 7763, and a step's time
 // differed by 70% between them. "before" is 0.0.148 with the frame record (perf/902-frames 5e3734e), checked out by the workflow
 // under old/0.0.148/; "after", this checkout)
-const B148 = "old/0.0.148/";
-const SETUPS = [
+const B148 = "old/0.0.148/", B149 = "old/0.0.149/";
+// (^ticket(904), ^ticket(905), ^report(69)) 0.0.149 against 0.0.150 (the water's passes in locals, the run's way by A*), and
+// 0.0.150 with the water in Hazel, the way in Hazel, and the water's waking threshold at a thousandth (each a query of the page)
+const SETUPS_904 = [
+  { name: "0.0.149", dir: B149, rules: "hazel", w: 1280, h: 800, dpr: 1, cpu: 1 },
+  { name: "0.0.150", rules: "hazel", w: 1280, h: 800, dpr: 1, cpu: 1 },
+  { name: "water-hazel", q: "&water=hazel", rules: "hazel", w: 1280, h: 800, dpr: 1, cpu: 1 },
+  { name: "way-hazel", q: "&way=hazel", rules: "hazel", w: 1280, h: 800, dpr: 1, cpu: 1 },
+  { name: "wateps-1e-3", q: "&wateps=0.001", rules: "hazel", w: 1280, h: 800, dpr: 1, cpu: 1 },
+];
+const SETUPS_902 = [
   { name: "before", dir: B148, rules: "hazel", w: 1280, h: 800, dpr: 1, cpu: 1 },
   { name: "after", rules: "hazel", w: 1280, h: 800, dpr: 1, cpu: 1 },
   { name: "after-plain", rules: "plain", w: 1280, h: 800, dpr: 1, cpu: 1 },
@@ -33,7 +42,8 @@ const SETUPS = [
   // workflow under old/0.0.103/, its rules built at load by today's library; its frames timed by a requestAnimationFrame of our
   // own, as it has no record of its own)
   { name: "then-0.0.103", old: "0.0.103", rules: "hazel", w: 1280, h: 800, dpr: 1, cpu: 1 },
-].filter(s => !ONLY || ONLY.includes(s.name));
+];
+const SETUPS = ((process.env.SETS || "904") === "902" ? SETUPS_902 : SETUPS_904).filter(s => !ONLY || ONLY.includes(s.name));
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 fs.mkdirSync(OUT, { recursive: true });
 const logLines = [], log = (...a) => { const s = a.join(" "); console.log(s); logLines.push(s); };
@@ -69,7 +79,7 @@ const nameOf = n => { const cf = n.callFrame; return `${cf.functionName || "(ano
 async function runSetup(C, U) {
   const p = await C.open("about:blank", U.name);
   await p.send("Emulation.setDeviceMetricsOverride", { width: U.w, height: U.h, deviceScaleFactor: U.dpr, mobile: false });
-  await p.send("Page.navigate", { url: BASE + (U.old ? `old/${U.old}/` : U.dir || "") + "world/?test=1" });
+  await p.send("Page.navigate", { url: BASE + (U.old ? `old/${U.old}/` : U.dir || "") + "world/?test=1" + (U.q || "") });
   if (U.old) return runOld(p, U);
   const t0 = Date.now(); for (;;) { let ok = false; try { ok = await p.eval(READY); } catch (e) { /* navigating */ } if (ok) break; if (Date.now() - t0 > 300000) throw new Error(`${U.name}: the rules not built after 300 s`); await sleep(500); }
   const info = await p.eval(`(() => { const T = WorldTest, S = T.S; T.restartNow(); T.setRules(${JSON.stringify(U.rules)}); S.asking = false; T.PERF.on = true;
