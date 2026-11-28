@@ -83,6 +83,11 @@ try {
   const PS = await A.eval("WorldTest.planSame()");
   log(`🗺️ the planning: the order of ${PS.order && PS.order.n} things ${PS.order && PS.order.same ? "the same" : "DIFFERS"}, the trees' ${PS.trees && PS.trees.n} parts ${PS.trees && PS.trees.same ? "the same" : "DIFFER"}, ${PS.nearest && PS.nearest.n} gems nearest first ${PS.nearest && PS.nearest.same ? "the same" : "DIFFER"}, the dig's chunk the same at ${PS.chunksSame} of ${PS.chunks}; ms ${JSON.stringify(PS.ms)}`);
   if (!PS.order || !PS.order.same || !PS.trees.same || !PS.nearest.same || PS.chunksSame !== PS.chunks) fail.push("the planning in Hazel (Plan.hz) differs from the page's: " + JSON.stringify({ order: PS.order, trees: PS.trees, nearest: PS.nearest, chunks: [PS.chunksSame, PS.chunks] }).slice(0, 600));
+  // ---- (^ticket(907)) the rivers, pumps, rain and drying by Rivers.hz against the page's: 120 steps as they are, then 240 with a
+  // shower begun, every tile's water, every block's waking, the rain and the chances the same
+  const RV = await A.eval("(() => { const T = WorldTest, S = T.S, a = T.riversSame(120), r0 = S.rain, a0 = S.rainAt; S.rain = 0; S.rainAt = S.frame - 1; const b = T.riversSame(240); S.rain = r0; S.rainAt = a0; return { a, b }; })()");
+  log(`🌧️ the rivers, pumps, rain and drying: ${JSON.stringify(RV)}`);
+  for (const x of [RV.a, RV.b]) if (!x || x.waterDiffers || x.wakeDiffers || !x.rainSame || !x.chancesSame) fail.push("the rivers in Hazel (Rivers.hz) differ from the page's: " + JSON.stringify(x));
   // ---- 2. read, then save
   const before = await A.eval(`(async () => { const T = WorldTest; T.stopBot(); T.S.asking = true; const d = T.digest(); window.__save = await T.saveText(T.snapshot()); return d; })()`);
   const text = await A.eval("window.__save");

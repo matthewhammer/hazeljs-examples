@@ -35,8 +35,8 @@
   if (window.visualViewport) { const vz = () => { const z = visualViewport.scale; WATCH.zoomMin = Math.min(WATCH.zoomMin, z); WATCH.zoomMax = Math.max(WATCH.zoomMax, z); if (Math.abs(z - 1) > 0.01) WATCH.zoomAt = performance.now(); };
     visualViewport.addEventListener("resize", vz); visualViewport.addEventListener("scroll", vz); }
   const LIB_JIT = "https://build.hazel.org/hazeljs/hazel-lib.js", LIB_NPM = "https://cdn.jsdelivr.net/npm/hazeljs@0.0.4/hazel-lib.js";
-  const PROGRAM = "world", MODULES = ["World", "Fly", "Tail", "Ride", "Boulder", "Pickup", "Wind", "Bunny", "Frog", "Bird", "Jelly", "Water", "Path", "Plan"];
-  const TAIL = "(plan = World.plan, ground = World.ground, village = World.village, furnish = World.furnish, limbs = World.limbs, styles = World.styles, beaver = World.beaver, water_row = World.water_row, step = World.step, roots = World.roots, threads = World.threads, greet = World.greet, dig_steps = World.dig_steps, fly = Fly.step, tail = Tail.step, ride_pre = Ride.pre, ride_post = Ride.post, boulder = Boulder.step, pickup = Pickup.step, wind = Wind.step, bunny = Bunny.step, frog = Frog.step, bird = Bird.step, swim = Bird.swim, jelly = Jelly.step, water_down = Water.down, water_across = Water.across, way = Path.way, plan_order = Plan.order, plan_trees = Plan.trees, plan_nearest = Plan.nearest, plan_chunk = Plan.chunk)";
+  const PROGRAM = "world", MODULES = ["World", "Fly", "Tail", "Ride", "Boulder", "Pickup", "Wind", "Bunny", "Frog", "Bird", "Jelly", "Water", "Path", "Plan", "Rivers"];
+  const TAIL = "(plan = World.plan, ground = World.ground, village = World.village, furnish = World.furnish, limbs = World.limbs, styles = World.styles, beaver = World.beaver, water_row = World.water_row, step = World.step, roots = World.roots, threads = World.threads, greet = World.greet, dig_steps = World.dig_steps, fly = Fly.step, tail = Tail.step, ride_pre = Ride.pre, ride_post = Ride.post, boulder = Boulder.step, pickup = Pickup.step, wind = Wind.step, bunny = Bunny.step, frog = Frog.step, bird = Bird.step, swim = Bird.swim, jelly = Jelly.step, water_down = Water.down, water_across = Water.across, way = Path.way, plan_order = Plan.order, plan_trees = Plan.trees, plan_nearest = Plan.nearest, plan_chunk = Plan.chunk, rivers_hold = Rivers.hold, rivers_pump = Rivers.pump, rivers_starts = Rivers.starts, rivers_next = Rivers.next, rivers_rain = Rivers.rain, rivers_dry = Rivers.dry)";
   const KEY = "hazeljs-examples/world/";
   const Q = new URLSearchParams(location.search);
   const $ = id => document.getElementById(id);
@@ -131,7 +131,7 @@
   // once (the world's plan, its villages and trees); off unless chosen; kept on this device, and in a save made with it on
   let plainView = null, plainOf = null;
   const H = () => { if (!(S.built && S.built.ok)) return null; const v = S.built.value; if (S.rules !== "plain" || !window.WorldPlain) return v;
-    if (plainOf !== v) { plainOf = v; plainView = { ...v, step: window.WorldPlain.step, beaver: window.WorldPlain.beaver, water_row: window.WorldPlain.water_row, fly: undefined, tail: undefined, ride_pre: undefined, ride_post: undefined, boulder: undefined, pickup: undefined, wind: undefined, bunny: undefined, frog: undefined, bird: undefined, swim: undefined, jelly: undefined, water_down: undefined, water_across: undefined, way: undefined, plan_order: undefined, plan_trees: undefined, plan_nearest: undefined, plan_chunk: undefined }; }
+    if (plainOf !== v) { plainOf = v; plainView = { ...v, step: window.WorldPlain.step, beaver: window.WorldPlain.beaver, water_row: window.WorldPlain.water_row, fly: undefined, tail: undefined, ride_pre: undefined, ride_post: undefined, boulder: undefined, pickup: undefined, wind: undefined, bunny: undefined, frog: undefined, bird: undefined, swim: undefined, jelly: undefined, water_down: undefined, water_across: undefined, way: undefined, plan_order: undefined, plan_trees: undefined, plan_nearest: undefined, plan_chunk: undefined, rivers_hold: undefined, rivers_pump: undefined, rivers_starts: undefined, rivers_next: undefined, rivers_rain: undefined, rivers_dry: undefined }; }
     return plainView; };
   function setRules(r) { S.rules = r === "plain" ? "plain" : "hazel"; keep("rules", S.rules); plainOf = null; const box = document.getElementById("rules-plain"); if (box) box.checked = S.rules === "plain"; if (typeof drawStatus === "function") drawStatus(); }
   let seedRand = 1;
@@ -599,6 +599,13 @@
     const fr = S.frame, wt = fr + WAKE_FOR;
     sweep = -sweep;
     if (WATER.hazel && H() && H().water_down) waterPassesHazel(H(), fr, wt, sweep); else waterPasses(fr, wt, sweep);
+    if (riversH()) waterTailHazel(riversH()); else waterTail();
+  }
+  // (^ticket(907)) the rivers held at their level, the pumps, the rain and the drying: the page's own (the twin), and Hazel's
+  // (rules/Rivers.hz), off by default (⚙️ Advanced, or ?rivers=hazel), every tile's water the same (WorldTest.riversSame)
+  const RIVERS = { hazel: Q.get("rivers") === "hazel" || (Q.get("rivers") !== "js" && kept("rivers", "js") === "hazel"), calls: 0 };
+  const riversH = () => { const h = H(); return RIVERS.hazel && h && h.rivers_hold ? h : null; };
+  function waterTail() {
     for (const R of S.rivers) holdRiver(R);
     // (Matthew: "The gnome's basement levels are flooded!") the villages' pumps: every room's and the stair's water drawn down a
     // little each step, as the gnomes' hand pumps at the stair's foot lift it up and out to the meadow
@@ -610,6 +617,38 @@
       if (PORES[mat[i]] > 0) { wat[i] = Math.min(1, wat[i] + 0.06); wakeNear(c, r); } else if (r > 0 && mat[at(c, r - 1)] === AIR) { wat[at(c, r - 1)] = Math.min(1, wat[at(c, r - 1)] + 0.03); wakeNear(c, r - 1); } } }
     if (now % 30 === 0) for (let c = 0; c < WW; c++) { const r = top[c]; if (r >= WH) continue; const i = at(c, r); if (PORES[mat[i]] > 0 && wat[i] > 0.25) wat[i] -= 0.004;
       if (r > 0) { const j = at(c, r - 1); if (wat[j] > 0 && wat[j] < 0.2 && !riverAt(c)) wat[j] = Math.max(0, wat[j] - 0.01); } }
+    }
+  function waterTailHazel(h) {
+    for (const R of S.rivers) { const cells = [];
+      for (let k = 0; k < R.w; k++) { const c = R.x + k; for (let r = Math.min(R.level, R.natural) - 4; r < R.bed[k]; r++) { if (r < 0) continue; const i = at(c, r); if (mat[i] === AIR && bg[i] === B_NONE) cells.push({ c, r, i }); } }
+      if (!cells.length) continue; const set = h.rivers_hold(cells.map(x => ({ r: x.r, w: wat[x.i] })), R.level); RIVERS.calls++;
+      for (let n = 0; n < cells.length; n++) if (set[n]) { const x = cells[n]; wat[x.i] = x.r >= R.level ? 1 : 0; wakeNear(x.c, x.r); } }
+    if (S.dry.length) { const ws = h.rivers_pump(S.dry.map(i => wat[i])); RIVERS.calls++;
+      S.dry.forEach((i, n) => { if (wat[i] > 0) { wat[i] = ws[n]; wakeNear(i % WW, (i / WW) | 0); } }); }
+    const now = S.frame;
+    if (h.rivers_starts(S.rain | 0, S.rainAt | 0, now)) { const n = h.rivers_next(now, rand()); S.rain = n.rain; S.rainAt = n.at; }
+    if (S.rain) { S.rain--; const drops = [];
+      for (let n = 0; n < 24; n++) { const c = Math.floor(rand() * WW), r = top[c], i = r < WH ? at(c, r) : -1, j = r > 0 && r < WH ? at(c, r - 1) : -1;
+        drops.push({ i: Math.max(i, 0), pores: i >= 0 ? PORES[mat[i]] : 0, w: i >= 0 ? wat[i] : 0, land: !(r >= WH || r > surf0[c] + 2), j: Math.max(j, 0), open: j >= 0 && mat[j] === AIR, wj: j >= 0 ? wat[j] : 0 }); }
+      const ups = h.rivers_rain(drops); RIVERS.calls++;
+      for (const u of ups) { wat[u.i] = u.w; const c = u.i % WW; wakeNear(c, (u.i - c) / WW); } }
+    if (now % 30 === 0) { const cols = [];
+      for (let c = 0; c < WW; c++) { const r = top[c], has = r < WH, i = has ? at(c, r) : 0, up = has && r > 0, j = up ? at(c, r - 1) : 0;
+        cols.push({ has, pores: has ? PORES[mat[i]] : 0, w: has ? wat[i] : 0, up, wj: up ? wat[j] : 0, river: up ? !!riverAt(c) : false }); }
+      const out = h.rivers_dry(cols); RIVERS.calls++;
+      for (let c = 0; c < WW; c++) { const r = top[c]; if (r >= WH) continue; wat[at(c, r)] = out[c].w; if (r > 0) wat[at(c, r - 1)] = out[c].wj; } }
+  }
+  // (tests: from one state, n steps of the page's and of Hazel's, each with the same chances: every tile's water, every block's
+  // waking, the rain and its time, and the chances left the same; the state put back after each)
+  function riversSame(n = 120) {
+    const h = H(); if (!h || !h.rivers_hold) return { built: false };
+    const w0 = wat.slice(), k0 = wakeTill.slice(), f0 = S.frame, r0 = S.rain | 0, a0 = S.rainAt | 0, s0 = seedRand;
+    const run = f => { wat.set(w0); wakeTill.set(k0); S.frame = f0; S.rain = r0; S.rainAt = a0; seedRand = s0; const t0 = performance.now();
+      for (let i = 0; i < n; i++) { S.frame++; f(); } return { ms: (performance.now() - t0) / n, w: wat.slice(), k: wakeTill.slice(), rain: [S.rain, S.rainAt], seed: seedRand }; };
+    const js = run(() => waterTail()), hz = run(() => waterTailHazel(h));
+    const diff = (A, B) => { let d = 0; for (let i = 0; i < A.length; i++) if (!Object.is(A[i], B[i])) d++; return d; };
+    const out = { steps: n, rain: js.rain, waterDiffers: diff(js.w, hz.w), wakeDiffers: diff(js.k, hz.k), rainSame: JSON.stringify(js.rain) === JSON.stringify(hz.rain), chancesSame: js.seed === hz.seed, jsMs: +js.ms.toFixed(3), hazelMs: +hz.ms.toFixed(3) };
+    wat.set(w0); wakeTill.set(k0); S.frame = f0; S.rain = r0; S.rainAt = a0; seedRand = s0; return out;
   }
 
   // ---- the gnome's step, in Hazel (World.step): the tiles round it, packed three to a number, each what is there, water, and
@@ -6051,10 +6090,11 @@
     row.append(box, document.createTextNode(" " + words)); box.addEventListener("change", () => set(box.checked)); return row; };
   const hzWater = hzBox("water-hazel", WATER.hazel, "💧 the water in Hazel (Water.hz): the same water, about 13 times the time", on => { WATER.hazel = on; keep("water", on ? "hazel" : "js"); });
   const hzPlan = hzBox("plan-hazel", PLAN.hazel, "🗺️ the speed run's planning in Hazel (Plan.hz): the order of the things, the trees' parts, the nearest gem, the dig's next chunk", on => { PLAN.hazel = on; keep("plan", on ? "hazel" : "js"); });
+  const hzRivers = hzBox("rivers-hazel", RIVERS.hazel, "🌧️ the rivers held at their level, the pumps, the rain and the drying in Hazel (Rivers.hz)", on => { RIVERS.hazel = on; keep("rivers", on ? "hazel" : "js"); });
   const hzWay = hzBox("way-hazel", WAY.hazelOn, "🧭 the speed run's way in Hazel (Path.hz): the same ways, about 25 times the time", on => { WAY.hazelOn = on; keep("way", on ? "hazel" : "js"); });
   const hzHint = document.createElement("p"); hzHint.className = "muted speed-hint"; hzHint.textContent = "Each gives every tile the very same water, and the speed run the very same way, as the page's JavaScript does; they are here to profile and measure Hazel against it (^report(69)). Slow: the water in Hazel makes each step of the world about 13 times as long, and the way about 25 times. ?water=hazel and ?way=hazel turn them on for one visit.";
   if (window.OracleAdvanced) window.OracleAdvanced.panel({
-    extras: [rlCap, rlRow, rlHint, hzCap, hzWater, hzWay, hzPlan, hzHint, bugCap, bugRow, bugOut, bugHint, tpCap, tpRow, tpOut, tpHint],
+    extras: [rlCap, rlRow, rlHint, hzCap, hzWater, hzRivers, hzWay, hzPlan, hzHint, bugCap, bugRow, bugOut, bugHint, tpCap, tpRow, tpOut, tpHint],
     holder: $("advanced"), name: "Gnome world", built: () => S.built, libAt: () => 0, keysIn: null,
     mode: () => ({ asked: S.built && S.built.compiled ? "compiled" : "interpreted", error: null }),
     about: "600 of the gnome's steps through Hazel, running and jumping",
@@ -6078,7 +6118,7 @@
   if (Q.has("test")) Object.assign(window.WorldTest, { LEVELS, levelOf, travel, vortexStep, rainbowsStep, catHeadFound, digOK,
     freshLevel: id => { S.level = String(id); S.seed = levelOf(id).seed; S.away = {}; S.points = 0; build(H(), S.seed); digButton(); return S.level; } });   // (0.0.127: the caverns)
   if (Q.has("test")) Object.assign(window.WorldTest, { waterSame, waterPasses, waterPassesRef, WATER, PORES, FLOW, CLING, root });   // (^ticket(904))
-  if (Q.has("test")) Object.assign(window.WorldTest, { WAY, wayJS, wayCode, wayWindow, rockSet, botPlanOld, waySame, PLAN, planSame });   // (^ticket(905))
+  if (Q.has("test")) Object.assign(window.WorldTest, { WAY, wayJS, wayCode, wayWindow, rockSet, botPlanOld, waySame, PLAN, planSame, RIVERS, riversSame });   // (^ticket(905))
   if (Q.has("test")) Object.assign(window.WorldTest, { botItemOrder, timeSpeedRun, TP, wakeTill, wakeAll, waterStep, setRules, H, rideJS, rideStep, boulderJS, bouldersStep, pickupJS, pickups, windJS, windStep, bunnyJS, bunnyStep, bunniesStep, frogJS, frogStep, wildStep, songJS, swimJS, songStep, swimStep, keepWorld });   // (0.0.130: the speed run's order of the things; ⏱)
   // (^ticket(873): the speed run's steps alone, timed, no drawing: up to n, while the run is on and not yet at its dig)
   if (Q.has("test")) Object.assign(window.WorldTest, { steps: (n, any) => { const h = H(); const t0 = performance.now(); let k = 0; for (; k < n && (any || (BOT.on && BOT.phase !== "dig")); k++) tick(h); return { k, ms: performance.now() - t0 }; } });   // (any: steps with or without the speed run)   // (0.0.115: the canvases kept, ^ticket(852))   // (0.0.112: the 🎮 controller, driven by hand where frames do not come)

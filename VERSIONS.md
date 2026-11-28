@@ -2,6 +2,10 @@
 
 Each version lists what the apps do as of that version. The newest version is first.
 
+## 0.0.154 (2026-11-28)
+
+- **Gnome world: the rivers, the pumps, the rain and the drying in Hazel, for measuring** (^ticket(907), the second of three). `world/rules/Rivers.hz`: each river held at its level, the villages' pumps drawing their rooms dry, a shower's start and its drops, the land's top drying. Under ⚙️ Advanced, "🌧️", or `?rivers=hazel`; off by default. Every tile's water, every block's waking, the rain's timing and the chances left the same as the page's own, held by the world save check on every push.
+
 ## 0.0.153 (2026-11-28)
 
 - **Gnome world: the speed run's planning in Hazel, for measuring** (^ticket(907), the first of three: Matthew, "opt-in for Hazel (default off)"). `world/rules/Plan.hz`: the order of the things to find (Held and Karp's way, every order of twelve things weighed), the great trees' parts, the gems and a chunk's tiles nearest first, and the dig's next chunk. Under ⚙️ Advanced, "🗺️ the speed run's planning in Hazel", or `?plan=hazel`; off by default. The same answers as the page's own, held to it by the world save check on every push; a whole run planned by Hazel the same as one planned by the page. The order of the things takes about 73 ms in Hazel against 4 in JavaScript, once a run.
